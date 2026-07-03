@@ -1,21 +1,49 @@
-# shadcn/ui monorepo template
+# shift-app
 
-This is a Vite monorepo template with shadcn/ui.
+旭祭実行委員会向けのシフト管理アプリです。
 
-## Adding components
+シフト提出・管理、勤怠管理、チャット、PWA によるオフライン対応を扱います。
 
-To add components to your app, run the following command at the root of your `web` app:
+## Repository
 
-```bash
-pnpm dlx shadcn@latest add button -c apps/web
+```txt
+/
+├── apps/
+│   ├── web/
+│   └── api/
+├── packages/
+│   ├── ui/
+│   ├── db/
+│   ├── auth/
+│   └── shared/
+├── docs/
+├── package.json
+├── pnpm-workspace.yaml
+├── turbo.json
+└── tsconfig.json
 ```
 
-This will place the ui components in the `packages/ui/src/components` directory.
+## Docs
 
-## Using components
+- [Requirements](docs/requirements.md)
+- [Architecture](docs/architecture.md)
+- [Setup](docs/setup.md)
+- [Database](docs/database.md)
+- [Development](docs/development.md)
 
-To use the components in your app, import them from the `ui` package.
+## Commands
 
-```tsx
-import { Button } from "@workspace/ui/components/button";
+ルートで実行します。
+
+```bash
+pnpm dev
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
+API だけ確認する場合は `apps/api` 配下で実行します。
+
+```bash
+pnpm dev
 ```

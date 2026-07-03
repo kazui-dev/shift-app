@@ -1,4 +1,6 @@
-## 必要なもの
+# Setup
+
+## Requirements
 
 - Node.js 20 以上
 - pnpm
@@ -13,7 +15,7 @@ node -v
 pnpm -v
 ```
 
-## リポジトリ作成
+## Create Repository
 
 リポジトリを作成する親ディレクトリで実行する。
 
@@ -23,30 +25,9 @@ pnpm dlx shadcn@latest init --preset bIkeymG --template vite --monorepo --pointe
 
 リポジトリ名を聞かれたら `shift-app` を入力する。
 
-## 基本構成
+## Frontend
 
-```txt
-/
-├── apps/
-│   ├── web/
-│   └── api/
-├── packages/
-│   ├── ui/
-│   ├── db/
-│   ├── auth/
-│   └── shared/
-├── docs/
-├── package.json
-├── pnpm-workspace.yaml
-├── turbo.json
-└── tsconfig.json
-```
-
-## フロントエンド
-
-`apps/web` は React + Vite のアプリ。
-
-フロントエンド依存を追加する。`apps/web` 配下で実行する。
+`apps/web` 配下で実行する。
 
 ```bash
 pnpm add @tanstack/react-router @tanstack/react-query zod
@@ -55,7 +36,7 @@ pnpm add -D @tanstack/router-plugin vite-plugin-pwa
 
 TanStack Router の設定は `apps/web/vite.config.ts` と `apps/web/src` 配下に追加する。
 
-## shadcn/ui
+## UI
 
 共有コンポーネントは `packages/ui` に置く。
 
@@ -74,8 +55,6 @@ pnpm dlx shadcn@latest add button -c packages/ui
 
 ## API
 
-Hono + Cloudflare Workers の API を追加する。
-
 `apps` 配下で実行する。
 
 ```bash
@@ -91,25 +70,6 @@ pnpm run cf-typegen
 ```
 
 `cf-typegen` は、生成された `apps/api/package.json` に入っている `wrangler types --env-interface CloudflareBindings` の script。
-`wrangler.jsonc` の bindings から `worker-configuration.d.ts` を生成し、Workers runtime 型と `CloudflareBindings` 型を使えるようにする。
-bindings を追加・変更したら、もう一度 `pnpm run cf-typegen` を実行する。
-
-Hono から本番環境の env / bindings を読む場合は、`CloudflareBindings` を Hono の generics に渡す。
-
-```ts
-import { Hono } from "hono"
-
-const app = new Hono<{ Bindings: CloudflareBindings }>()
-
-app.get("/health", (c) => {
-  return c.json({
-    ok: true,
-    database: c.env.DB.databaseName,
-  })
-})
-
-export default app
-```
 
 ## Cloudflare Workers
 
@@ -131,7 +91,7 @@ DB パッケージを作成する。ルートで実行する。
 mkdir -p packages/db/src
 ```
 
-`packages/db/package.json`
+`packages/db/package.json` を作成する。
 
 ```json
 {
@@ -146,27 +106,17 @@ mkdir -p packages/db/src
 }
 ```
 
-DB パッケージの依存を追加する。`packages/db` 配下で実行する。
+`packages/db` 配下で実行する。
 
 ```bash
 pnpm add drizzle-orm
 ```
 
-API 側に DB と migration 用の依存を追加する。`apps/api` 配下で実行する。
+`apps/api` 配下で実行する。
 
 ```bash
 pnpm add drizzle-orm "@workspace/db@workspace:*"
 pnpm add -D drizzle-kit
-```
-
-`packages/db` には次のファイルを置く。
-
-```txt
-packages/db/
-├── src/
-│   ├── index.ts
-│   └── schema.ts
-└── drizzle.config.ts
 ```
 
 D1 データベースを作成する。`apps/api` 配下で実行する。
@@ -184,7 +134,7 @@ pnpm drizzle-kit generate
 pnpm wrangler d1 migrations apply shift-app --local
 ```
 
-local で確認してから remote に適用する。
+remote に適用する場合は、local で確認してから実行する。
 
 ```bash
 pnpm wrangler d1 migrations apply shift-app --remote
@@ -201,7 +151,7 @@ apps/api/src/
     └── chat-room.ts
 ```
 
-`ChatRoom` class を export し、`wrangler.jsonc` の `durable_objects.bindings` と `migrations` に登録する。
+`ChatRoom` class を export し、`wrangler.jsonc` の `durable_objects.bindings` と Durable Objects migration に登録する。
 
 ## Better Auth
 
@@ -211,7 +161,7 @@ Auth パッケージを作成する。ルートで実行する。
 mkdir -p packages/auth/src
 ```
 
-`packages/auth/package.json`
+`packages/auth/package.json` を作成する。
 
 ```json
 {
@@ -225,32 +175,23 @@ mkdir -p packages/auth/src
 }
 ```
 
-Auth パッケージの依存を追加する。`packages/auth` 配下で実行する。
+`packages/auth` 配下で実行する。
 
 ```bash
 pnpm add better-auth
 ```
 
-API 側に Auth パッケージを追加する。`apps/api` 配下で実行する。
+`apps/api` 配下で実行する。
 
 ```bash
 pnpm add "@workspace/auth@workspace:*"
 ```
 
-`packages/auth` には次のファイルを置く。
-
-```txt
-packages/auth/
-└── src/
-    ├── auth.ts
-    └── index.ts
-```
-
 Hono 側では `/api/auth/*` を Better Auth の handler に流す。
 
-Discord OAuth / Notion OAuth を使う場合は、Cloudflare Workers の環境変数として client id、client secret、secret key を管理する。
+Discord OAuth / Notion OAuth を使う場合は、Cloudflare Workers の secrets として client id、client secret、secret key を管理する。
 
-## 共有パッケージ
+## Shared Package
 
 フロントエンドとバックエンドで共有する型や Zod schema を置く。
 
@@ -260,7 +201,7 @@ Discord OAuth / Notion OAuth を使う場合は、Cloudflare Workers の環境�
 mkdir -p packages/shared/src/schema packages/shared/src/types
 ```
 
-`packages/shared/package.json`
+`packages/shared/package.json` を作成する。
 
 ```json
 {
@@ -276,13 +217,13 @@ mkdir -p packages/shared/src/schema packages/shared/src/types
 }
 ```
 
-共有 schema 用の依存を追加する。`packages/shared` 配下で実行する。
+`packages/shared` 配下で実行する。
 
 ```bash
 pnpm add zod
 ```
 
-フロントエンドと API に共有パッケージを追加する。`apps/web` 配下で実行する。
+`apps/web` 配下で実行する。
 
 ```bash
 pnpm add "@workspace/shared@workspace:*"
@@ -294,34 +235,7 @@ pnpm add "@workspace/shared@workspace:*"
 pnpm add "@workspace/shared@workspace:*"
 ```
 
-`packages/shared` には次のファイルを置く。
-
-```txt
-packages/shared/
-└── src/
-    ├── index.ts
-    ├── schema/
-    └── types/
-```
-
-## PWA
-
-PWA は `apps/web` に導入する。
-
-`apps/web` 配下で実行する。
-
-```bash
-pnpm add -D vite-plugin-pwa
-```
-
-導入時に設定するもの。
-
-- Service Worker のキャッシュ戦略
-- TanStack Query の cache persist
-- オフライン時の mutation queue
-- push subscription の保存先
-
-## 最終確認
+## Verification
 
 ルートで実行する。
 
