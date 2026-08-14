@@ -4,6 +4,17 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-14",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "BETTER_AUTH_URL": "https://shift.kazui.dev",
+    "DISCORD_GUILD_ID": "1047724512873041941",
+  },
+  "secrets": {
+    "required": [
+      "BETTER_AUTH_SECRET",
+      "DISCORD_CLIENT_ID",
+      "DISCORD_CLIENT_SECRET",
+    ],
+  },
   "assets": {
     "directory": "../web/dist",
     "not_found_handling": "single-page-application",

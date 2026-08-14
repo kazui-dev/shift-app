@@ -5,12 +5,16 @@
     "dev": "wrangler dev",
     "deploy": "pnpm --filter web build && wrangler deploy --minify",
     "lint": "eslint src",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --check"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.6.29",
     "@workspace/db": "workspace:*",
+    "@workspace/shared": "workspace:*",
+    "better-auth": "1.6.29",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.2",
     "zod": "^4.4.3"

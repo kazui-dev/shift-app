@@ -15,8 +15,8 @@
 | API                            | `apps/api`        |
 | UI components                  | `packages/ui`     |
 | DB schema / Drizzle            | `packages/db`     |
-| Auth config（予定）            | `packages/auth`   |
-| Shared schemas / types（予定） | `packages/shared` |
+| Auth config / provider checks | `apps/api/src/auth` |
+| Shared schemas / types        | `packages/shared`   |
 
 ## UI Components
 
@@ -65,6 +65,7 @@ pnpm -C apps/api exec wrangler d1 migrations apply shift-app --local
 ```bash
 pnpm typecheck
 pnpm lint
+pnpm test
 pnpm build
 ```
 

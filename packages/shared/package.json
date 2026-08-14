@@ -1,17 +1,16 @@
 {
-  "name": "@workspace/db",
+  "name": "@workspace/shared",
   "version": "0.0.0",
   "type": "module",
   "private": true,
   "scripts": {
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
+    "./auth": "./src/auth.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "kysely": "0.29.5"
+    "zod": "^4.4.3"
   }
 }

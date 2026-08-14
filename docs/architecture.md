@@ -15,9 +15,9 @@
 | D1 binding / Drizzle schema   | 初期構成済み                            |
 | TanStack Router / Query       | routing と query cache 永続化を構成済み |
 | PWA / offline persistence     | app shell と静的 asset cache を構成済み |
-| Better Auth / `packages/auth` | 未実装                                  |
+| Better Auth / OAuth           | handler・所属確認・onboarding 実装済み |
 | Durable Objects / chat        | 未実装                                  |
-| `packages/shared`             | 未実装                                  |
+| `packages/shared`             | 認証 schema・共有型を実装済み           |
 
 ドキュメント内の「方針」「予定」は、現在の実装済み機能を意味しない。
 
@@ -28,7 +28,7 @@
 - ファイルベースルーティングに TanStack Router を使う。Vite plugin は `@vitejs/plugin-react` より前に登録する。
 - サーバー状態と optimistic update に TanStack Query を使う。
 - UI 部品は shadcn/ui CLI で管理し、共有可能な部品を `packages/ui` に置く。
-- API 入出力は Zod schema で検証し、共通 schema は将来の `packages/shared` に置く。
+- API 入出力は Zod schema で検証し、共通 schema は `packages/shared` に置く。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。offline mutation の復元口は用意済みだが、実際の送信待ちは未実装。機能追加時に mutation key ごとの既定 `mutationFn`、競合、重複送信、期限切れデータの扱いを API 側と合わせて決める。
@@ -39,12 +39,40 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 
 - HTTP API は Hono で実装する。
 - 永続データは D1、schema と query は Drizzle で管理する。
-- 認証は Better Auth を予定する。Discord / Notion OAuth によるログインに加え、許可対象の server / workspace かをサーバー側で検証する。
+- 認証と session 管理には Better Auth を使う。Discord OAuth identity と domain 上の `members` を分離し、許可対象 server をサーバー側で検証する。
 - ルーム単位の WebSocket 接続、順序制御、presence など、単一の調整主体が必要なチャット機能に Durable Objects を使う。通常の CRUD は D1 に置く。
 - 新規 Durable Object は SQLite storage を使い、class lifecycle は Wrangler の宣言型 `exports` で管理する。
 - `nodejs_compat` は依存 package が Node.js API を必要とすると確認できた場合だけ有効にする。
 
 D1 の read replication は初期要件ではない。必要になった場合は単に有効化するだけでなく、D1 binding の Sessions API と bookmark を使って read-after-write を維持する。
+
+## Authentication Architecture
+
+Better Auth の `user` は認証主体、`account` は Discord OAuth identity、`members` は利用可能なシフトアプリアカウントとして扱う。OAuth を完了しても `members` がない `user` は onboarding 中であり、通常 API へアクセスできない。
+
+```mermaid
+flowchart TD
+    A["Discord で続ける"] --> B["OAuth callback"]
+    B --> C{"許可 server か"}
+    C -->|No| D["login 拒否"]
+    C -->|Yes| E{"identity に member があるか"}
+    E -->|Yes| F["通常 session でログイン"]
+    E -->|No| G["制限付き session で onboarding"]
+    G --> H{"学籍番号は未登録か"}
+    H -->|Yes| I["member 作成・identity 連携"]
+    H -->|No| J["作成せず追加連携または管理者申請へ"]
+```
+
+所属確認:
+
+- Discord は組み込み provider の `getUserInfo` を拡張し、OAuth user token と `identify`、`guilds.members.read` scope を使って、server ID `1047724512873041941` に対する current user member endpoint を確認してから user info を返す。email scope は要求しない。
+- 比較対象 ID は `vars`、OAuth client secret と Better Auth secret は secret binding に置く。OAuth access/refresh token を保存する場合は暗号化する。
+
+Better Auth の通常の social sign-up は OAuth callback 中に `user` を作成する。これは domain 上のアカウント作成とはみなさず、`members` 作成前の認証主体として扱う。未完了 user は権限を持たず、期限切れの onboarding user は定期的に削除できる設計にする。
+
+email や学籍番号の一致による暗黙 linking は無効にする。学籍番号衝突時の管理者申請は別 workflow とし、自動で Better Auth の `account.user_id` を付け替えない。Better Auth の account schema は、将来 Notion などを明示的 linking で追加できる形を維持する。
+
+Notion OAuth は将来拡張とする。追加時は workspace ID `27865ff8-ac56-47e9-9aac-0ed6f3c4d0c5` を候補に、public connection の権限、通常 member が authorize できるか、Enterprise の connection 制限、recovery 方針を改めて確認する。現行 Worker は Notion の credential、binding、provider code を持たない。
 
 ## Cloudflare Deployment
 
@@ -58,8 +86,8 @@ Web と API を同一 origin にすることで CORS と認証 cookie の構成�
 | ------------------------- | ---------------------------------------------------------- |
 | `packages/ui`             | shadcn/ui の共有コンポーネントと global CSS                |
 | `packages/db`             | Drizzle schema。DB client は Worker の D1 binding から作る |
-| `packages/auth`（予定）   | Better Auth の設定と handler                               |
-| `packages/shared`（予定） | API schema、共有型、定数                                   |
+| `apps/api/src/auth`       | D1 binding を使う Better Auth 設定、provider 所属確認      |
+| `packages/shared`         | API schema、共有型、正規化処理                             |
 
 ## Cloudflare Bindings
 
@@ -112,6 +140,10 @@ export default app
 - [Cloudflare: Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
 - [Cloudflare: D1 global read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/)
 - [Cloudflare: TypeScript and `wrangler types`](https://developers.cloudflare.com/workers/languages/typescript/)
+- [Better Auth: Discord](https://better-auth.com/docs/authentication/discord)
+- [Better Auth: Account linking](https://better-auth.com/docs/concepts/users-accounts#account-linking)
+- [Discord: OAuth2 scopes](https://docs.discord.com/developers/topics/oauth2#shared-resources-oauth2-scopes)
+- [Discord: Get Current User Guild Member](https://docs.discord.com/developers/resources/user#get-current-user-guild-member)
 - [TanStack Router: Manual setup](https://tanstack.com/router/latest/docs/installation/manual)
 - [TanStack Query: Persisting a QueryClient](https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient)
 - [shadcn/ui: Monorepo](https://ui.shadcn.com/docs/monorepo)

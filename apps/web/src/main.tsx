@@ -1,5 +1,6 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { defaultShouldDehydrateQuery } from "@tanstack/react-query"
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 
@@ -26,6 +27,10 @@ createRoot(document.getElementById("root")!).render(
       persistOptions={{
         persister,
         buster: "shift-app-v1",
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) =>
+            query.meta?.persist !== false && defaultShouldDehydrateQuery(query),
+        },
       }}
       onSuccess={() => queryClient.resumePausedMutations()}
     >

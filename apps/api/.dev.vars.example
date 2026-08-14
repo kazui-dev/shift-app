@@ -1,0 +1,4 @@
+BETTER_AUTH_URL=http://localhost:5173
+BETTER_AUTH_SECRET=generate-a-random-value-with-at-least-32-characters
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=
