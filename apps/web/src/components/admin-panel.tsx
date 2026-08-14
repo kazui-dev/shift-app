@@ -139,6 +139,7 @@ function MemberCard({ member }: { member: AdminMember }) {
     setMessage(`${result.revokedSessions}件のセッションを失効しました。`)
 
     if (member.isCurrentUser) {
+      queryClient.removeQueries({ queryKey: ["admin"] })
       queryClient.removeQueries({ queryKey: ["auth-state"] })
       await queryClient.invalidateQueries({ queryKey: ["auth-state"] })
       return

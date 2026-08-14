@@ -212,6 +212,7 @@ function ActiveView({
   })
   async function signOut() {
     await authClient.signOut()
+    queryClient.removeQueries({ queryKey: ["admin"] })
     queryClient.removeQueries({ queryKey: ["auth-state"] })
     await queryClient.invalidateQueries({ queryKey: ["auth-state"] })
   }
