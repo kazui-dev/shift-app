@@ -3,14 +3,25 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy --minify",
-    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+    "deploy": "pnpm --filter web build && wrangler deploy --minify",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings",
+    "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --check"
   },
   "dependencies": {
-    "hono": "^4.12.27",
+    "@workspace/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.13.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "wrangler": "^4.4.0"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "typescript-eslint": "^8.67.0",
+    "wrangler": "^4.123.0"
   }
 }

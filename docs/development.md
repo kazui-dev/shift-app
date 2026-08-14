@@ -5,25 +5,26 @@
 - 実装場所は責務で分ける
 - 共有コードは責務に応じて `packages/*` に置く
 - UI コンポーネントは `packages/ui` に集約する
-- workspace をまたぐ操作は、基本的に対象ディレクトリへ移動して実行する
+- workspace 固有の操作は対象 directory で実行するか、ルートから `pnpm -C <directory>` を使う
 
 ## Where To Work
 
-| Area | Directory |
-| --- | --- |
-| Frontend | `apps/web` |
-| API | `apps/api` |
-| UI components | `packages/ui` |
-| DB schema / Drizzle | `packages/db` |
-| Auth config | `packages/auth` |
-| Shared schemas / types | `packages/shared` |
+| Area                           | Directory         |
+| ------------------------------ | ----------------- |
+| Frontend                       | `apps/web`        |
+| API                            | `apps/api`        |
+| UI components                  | `packages/ui`     |
+| DB schema / Drizzle            | `packages/db`     |
+| Auth config（予定）            | `packages/auth`   |
+| Shared schemas / types（予定） | `packages/shared` |
 
 ## UI Components
 
-shadcn/ui のコンポーネント追加はルートで実行する。
+shadcn/ui のコンポーネント追加は `apps/web` で実行する。CLI が両方の `components.json` を読み、共有 UI は `packages/ui`、app 固有の block は `apps/web` に配置する。
 
 ```bash
-pnpm dlx shadcn@latest add button -c packages/ui
+cd apps/web
+pnpm dlx shadcn@latest add button
 ```
 
 アプリからは `@workspace/ui` 経由で import する。
@@ -34,7 +35,7 @@ import { Button } from "@workspace/ui/components/button"
 
 ## API Bindings
 
-`apps/api/wrangler.jsonc` の bindings を変更したら、`apps/api` 配下で型を再生成する。
+`apps/api/wrangler.jsonc` の binding、`compatibility_date`、compatibility flag を変更したら型を再生成し、`worker-configuration.d.ts` も commit する。
 
 ```bash
 pnpm run cf-typegen
@@ -44,6 +45,17 @@ Hono では `CloudflareBindings` を使う。
 
 ```ts
 const app = new Hono<{ Bindings: CloudflareBindings }>()
+```
+
+secret の値は `wrangler.jsonc` に書かない。local は git 管理外の `.dev.vars`、remote は `wrangler secret put` を使う。
+
+## Database
+
+schema 変更後は migration を生成し、SQL の差分を review して local D1 に適用する。
+
+```bash
+pnpm -C apps/api exec drizzle-kit generate
+pnpm -C apps/api exec wrangler d1 migrations apply shift-app --local
 ```
 
 ## Verification
@@ -56,10 +68,11 @@ pnpm lint
 pnpm build
 ```
 
-個別アプリを確認する場合は、それぞれの app 配下で実行する。
+個別 app を確認する場合:
 
 ```bash
-pnpm dev
+pnpm -C apps/web dev
+pnpm -C apps/api dev
 ```
 
 ## Documentation

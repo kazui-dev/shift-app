@@ -1,239 +1,110 @@
 # Setup
 
+この文書は、作成済みリポジトリを開発できる状態にする手順を扱う。scaffold 時のコマンドは再実行しない。
+
 ## Requirements
 
-- Node.js 20 以上
-- pnpm
-- Cloudflare アカウント
+- Node.js 20.19 以上、または 22.12 以上（Vite 8 の要件）。LTS を推奨
+- pnpm 10.33.4（ルート `package.json` の `packageManager` を正とする）
+- remote resource を作成・変更する場合のみ Cloudflare account
 
-任意の作業ディレクトリで実行する。
+Corepack を使う場合:
 
 ```bash
 corepack enable
-corepack prepare pnpm@10.33.4 --activate
 node -v
 pnpm -v
 ```
 
-## Create Repository
+## Install
 
-リポジトリを作成する親ディレクトリで実行する。
-
-```bash
-pnpm dlx shadcn@latest init --preset bIkeymG --template vite --monorepo --pointer
-```
-
-リポジトリ名を聞かれたら `shift-app` を入力する。
-
-## Frontend
-
-`apps/web` 配下で実行する。
+リポジトリのルートで実行する。
 
 ```bash
-pnpm add @tanstack/react-router @tanstack/react-query zod
-pnpm add -D @tanstack/router-plugin vite-plugin-pwa
+pnpm install
+pnpm -C apps/api run cf-typegen
+pnpm -C apps/api exec wrangler d1 migrations apply shift-app --local
 ```
 
-TanStack Router の設定は `apps/web/vite.config.ts` と `apps/web/src` 配下に追加する。
+`cf-typegen` は `wrangler.jsonc` の binding、compatibility date、compatibility flag に対応する `worker-configuration.d.ts` を生成する。設定変更後も再実行する。
 
-## UI
+## Local Development
 
-共有コンポーネントは `packages/ui` に置く。
-
-アプリ側では `@workspace/ui` から import する。
-
-```tsx
-import { Button } from "@workspace/ui/components/button"
-import "@workspace/ui/globals.css"
-```
-
-コンポーネントを追加する場合は、ルートで実行する。
+全 workspace の開発 server:
 
 ```bash
-pnpm dlx shadcn@latest add button -c packages/ui
+pnpm dev
 ```
 
-## API
-
-`apps` 配下で実行する。
+個別に起動する場合:
 
 ```bash
-pnpm create hono@latest api --template cloudflare-workers --pm pnpm --install
-cd api
-pnpm add zod
+pnpm -C apps/web dev
+pnpm -C apps/api dev
 ```
 
-Workers の Binding 型を生成する。`apps/api` 配下で実行する。
+local D1 は Wrangler の local state を使う。remote D1 を通常の開発で共有すると、誤更新や開発者間の干渉が起きるため避ける。
+
+## Database Migrations
+
+Drizzle schema は `packages/db/src/schema.ts`、生成設定は `apps/api/drizzle.config.ts`、SQL migration は `apps/api/migrations` に置く。
+
+schema を変更したら次を実行する。
 
 ```bash
-pnpm run cf-typegen
+pnpm -C apps/api exec drizzle-kit generate
+pnpm -C apps/api exec wrangler d1 migrations apply shift-app --local
 ```
 
-`cf-typegen` は、生成された `apps/api/package.json` に入っている `wrangler types --env-interface CloudflareBindings` の script。
-
-## Cloudflare Workers
-
-生成された `apps/api/wrangler.jsonc` を編集する。
-
-- `name` を `shift-app-api` にする
-- Cloudflare resources を追加する
-  - D1 binding
-  - Durable Objects binding
-  - Durable Objects migration
-- Better Auth などで Node.js 互換 API が必要な場合は compatibility flags を追加する
-- bindings を変更したら `apps/api` 配下で `pnpm run cf-typegen` を実行する
-
-## D1 / Drizzle
-
-DB パッケージを作成する。ルートで実行する。
+生成された SQL を review し、local で検証してから remote に適用する。
 
 ```bash
-mkdir -p packages/db/src
+pnpm -C apps/api exec wrangler login
+pnpm -C apps/api exec wrangler d1 migrations apply shift-app --remote
 ```
 
-`packages/db/package.json` を作成する。
+database 名 `shift-app` を指定しているのは、binding 名が将来変わっても別 DB へ誤適用しにくくするため。新しい D1 database を作る場合だけ `wrangler d1 create` を使い、返された `database_id` を `apps/api/wrangler.jsonc` に設定する。
 
-```json
-{
-  "name": "@workspace/db",
-  "version": "0.0.0",
-  "type": "module",
-  "private": true,
-  "exports": {
-    ".": "./src/index.ts",
-    "./schema": "./src/schema.ts"
-  }
-}
-```
+## Secrets
 
-`packages/db` 配下で実行する。
+local secret は git 管理しない `apps/api/.dev.vars` に置く。remote secret は値をコマンドライン引数へ埋め込まず、対話入力する。
 
 ```bash
-pnpm add drizzle-orm
+pnpm -C apps/api exec wrangler secret put BETTER_AUTH_SECRET
+pnpm -C apps/api exec wrangler secret put DISCORD_CLIENT_SECRET
+pnpm -C apps/api exec wrangler secret put NOTION_CLIENT_SECRET
 ```
 
-`apps/api` 配下で実行する。
+client ID のような公開可能な設定は `vars`、client secret と署名鍵は secret として扱う。
+
+## Frontend Configuration
+
+### TanStack Router
+
+ファイルベース routing を構成済み。`apps/web/vite.config.ts` では `tanstackRouter()` を `react()` より前に登録し、route は `src/routes`、生成 tree は `src/routeTree.gen.ts` に置く。
+
+### shadcn/ui
+
+両 workspace の `components.json` は設定済み。共有 component や block の追加は `apps/web` から実行し、CLI に `packages/ui` と app 固有ファイルの配置を判断させる。
 
 ```bash
-pnpm add drizzle-orm "@workspace/db@workspace:*"
-pnpm add -D drizzle-kit
+cd apps/web
+pnpm dlx shadcn@latest add button
 ```
 
-D1 データベースを作成する。`apps/api` 配下で実行する。
+### PWA / TanStack Query
 
-```bash
-pnpm wrangler d1 create shift-app
-```
+Vite PWA plugin が Service Worker と manifest を生成する。TanStack Query cache は IndexedDB に保存する。Service Worker、query cache、mutation queue は別の責務として扱い、mutation queue は各機能の API を実装するときに追加する。
 
-出力された `database_id` を `apps/api/wrangler.jsonc` に設定する。
+## Planned Integrations
 
-migration を生成・適用する。`apps/api` 配下で実行する。
+### Durable Objects
 
-```bash
-pnpm drizzle-kit generate
-pnpm wrangler d1 migrations apply shift-app --local
-```
+実装時は `apps/api/src` から class を export し、`wrangler.jsonc` に `durable_objects.bindings` と SQLite storage の宣言型 `exports` を追加する。古い `new_classes` migration は新規 namespace に使わない。設定後に `cf-typegen` を再実行する。
 
-remote に適用する場合は、local で確認してから実行する。
+### Better Auth
 
-```bash
-pnpm wrangler d1 migrations apply shift-app --remote
-```
-
-## Durable Objects
-
-チャットやリアルタイム同期用に Durable Objects を API 側へ置く。
-
-```txt
-apps/api/src/
-├── index.ts
-└── durable-objects/
-    └── chat-room.ts
-```
-
-`ChatRoom` class を export し、`wrangler.jsonc` の `durable_objects.bindings` と Durable Objects migration に登録する。
-
-## Better Auth
-
-Auth パッケージを作成する。ルートで実行する。
-
-```bash
-mkdir -p packages/auth/src
-```
-
-`packages/auth/package.json` を作成する。
-
-```json
-{
-  "name": "@workspace/auth",
-  "version": "0.0.0",
-  "type": "module",
-  "private": true,
-  "exports": {
-    ".": "./src/index.ts"
-  }
-}
-```
-
-`packages/auth` 配下で実行する。
-
-```bash
-pnpm add better-auth
-```
-
-`apps/api` 配下で実行する。
-
-```bash
-pnpm add "@workspace/auth@workspace:*"
-```
-
-Hono 側では `/api/auth/*` を Better Auth の handler に流す。
-
-Discord OAuth / Notion OAuth を使う場合は、Cloudflare Workers の secrets として client id、client secret、secret key を管理する。
-
-## Shared Package
-
-フロントエンドとバックエンドで共有する型や Zod schema を置く。
-
-ルートで実行する。
-
-```bash
-mkdir -p packages/shared/src/schema packages/shared/src/types
-```
-
-`packages/shared/package.json` を作成する。
-
-```json
-{
-  "name": "@workspace/shared",
-  "version": "0.0.0",
-  "type": "module",
-  "private": true,
-  "exports": {
-    ".": "./src/index.ts",
-    "./schema/*": "./src/schema/*.ts",
-    "./types/*": "./src/types/*.ts"
-  }
-}
-```
-
-`packages/shared` 配下で実行する。
-
-```bash
-pnpm add zod
-```
-
-`apps/web` 配下で実行する。
-
-```bash
-pnpm add "@workspace/shared@workspace:*"
-```
-
-`apps/api` 配下で実行する。
-
-```bash
-pnpm add "@workspace/shared@workspace:*"
-```
+Discord と Notion は Better Auth の組み込み social provider を使える。OAuth 成功だけを所属確認とみなさず、許可する Discord server / Notion workspace の識別子をサーバー側で検証する。認証 schema と migration は Better Auth の採用バージョンを固定してから生成する。
 
 ## Verification
 
@@ -245,14 +116,15 @@ pnpm lint
 pnpm build
 ```
 
-アプリ全体の開発サーバーを起動する。ルートで実行する。
+Worker bundle と Static Assets の設定を Cloudflare へ送信せず検証する:
 
 ```bash
-pnpm dev
+pnpm -C apps/api exec wrangler deploy --dry-run
+pnpm -C apps/api exec wrangler check startup
 ```
 
-Cloudflare Workers だけを確認する場合は、`apps/api` 配下で実行する。
+本番 D1 migration を適用済みであることを確認してから、Web と API を同じ Worker へ deploy する:
 
 ```bash
-pnpm dev
+pnpm deploy
 ```

@@ -12,7 +12,7 @@
 - 管理者からの事務連絡
 - 遅刻・欠勤連絡
 - チャット
-- PWA によるキャッシュ、プッシュ通知、オフライン対応
+- PWA の installability、asset cache、プッシュ通知、オフライン対応
 - TanStack Query を使った optimistic update
 
 ## Users
@@ -59,16 +59,18 @@
 - メール配信コストが高い
 - 運用負荷が高い
 
-Discord OAuth または Notion OAuth を使い、特定のサーバーやワークスペースに参加しているかを検証する。
+Discord OAuth または Notion OAuth を使う。OAuth login の成功だけでは所属確認にならないため、callback 時に許可対象の Discord server または Notion workspace かをサーバー側で検証する。所属変更を想定し、再検証のタイミングと既存 session の失効方法も決める。
 
 ## Offline
 
 オフライン対応で扱うもの:
 
-- PWA Service Worker のキャッシュ
-- TanStack Query のキャッシュ
+- Service Worker による app shell と静的 asset の cache
+- TanStack Query cache の IndexedDB への永続化と期限管理
 - オフライン時のメッセージ送信待ち
 - オフライン時のステータス更新待ち
+
+送信待ちは optimistic update だけでは実現できない。再読み込み後に mutation を復元・再開できること、同一操作の重複送信を API 側で無害化できること、競合時に利用者へ結果を示せることを要件とする。
 
 ## Shift And Attendance
 
