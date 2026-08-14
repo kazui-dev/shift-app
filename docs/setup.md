@@ -164,3 +164,18 @@ pnpm run deploy
 ```
 
 `shift.kazui.dev` は Worker が origin になる Custom Domain とし、`wrangler.jsonc` の `routes[].custom_domain` を source of truth にする。Cloudflare が DNS record と証明書を管理し、`workers.dev` は無効化する。
+
+## Workers Builds
+
+GitHub 連携による自動 deploy は Cloudflare Dashboard の Worker `shift-app` → Settings → Builds で次のように設定する。
+
+| Setting        | Value             |
+| -------------- | ----------------- |
+| Root directory | `/`               |
+| Build command  | 空欄              |
+| Deploy command | `pnpm run deploy` |
+| Production     | `main`            |
+
+既定の `npx wrangler deploy` は monorepo root で自動検出を開始して失敗するため使わない。`pnpm run deploy` は workspace に固定した Wrangler で Web を build してから `apps/api/wrangler.jsonc` を使って deploy する。依存 package の install は Workers Builds に任せる。
+
+初期運用では non-production branch builds を無効にする。preview deploy を導入するときは、production と D1/secrets を共有しない preview 環境を先に設計する。
