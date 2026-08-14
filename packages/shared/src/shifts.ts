@@ -153,6 +153,11 @@ export const createAssignmentInputSchema = z
     }
   })
 
+export const createAssignmentReportInputSchema = z.object({
+  kind: z.enum(["late", "absence"]),
+  message: z.string().trim().min(1).max(1000),
+})
+
 export const operatingYearResponseSchema = z.object({
   year: operatingYearSchema,
   name: z.string(),
@@ -188,6 +193,22 @@ export const attendanceResponseSchema = z.object({
   id: z.string().uuid(),
   assignmentId: z.string().uuid(),
   checkedInAt: instantSchema,
+})
+
+export const assignmentReportResponseSchema = z.object({
+  id: z.string().uuid(),
+  assignmentId: z.string().uuid(),
+  memberId: z.string().uuid(),
+  memberDisplayName: z.string(),
+  kind: z.enum(["late", "absence"]),
+  message: z.string(),
+  status: z.enum(["open", "resolved"]),
+  activityId: z.string().uuid(),
+  activityName: z.string(),
+  startsAt: instantSchema,
+  endsAt: instantSchema,
+  createdAt: instantSchema,
+  resolvedAt: instantSchema.nullable(),
 })
 
 export const yearRoleResponseSchema = z.object({
@@ -299,6 +320,14 @@ export const roleMembershipResponseSchema = z.object({
 
 export const attendanceEnvelopeSchema = z.object({
   attendance: attendanceResponseSchema,
+})
+
+export const assignmentReportEnvelopeSchema = z.object({
+  report: assignmentReportResponseSchema,
+})
+
+export const assignmentReportsResponseSchema = z.object({
+  reports: z.array(assignmentReportResponseSchema),
 })
 
 export const availabilityEnvelopeSchema = z.object({

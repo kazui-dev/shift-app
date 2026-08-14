@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   activitiesResponseSchema,
   createAssignmentInputSchema,
+  createAssignmentReportInputSchema,
   createOperatingYearInputSchema,
   replaceAvailabilityInputSchema,
   yearsResponseSchema,
@@ -82,5 +83,20 @@ describe("shift API schemas", () => {
       ],
     })
     expect(result.success).toBe(false)
+  })
+
+  it("requires a reason for late or absence reports", () => {
+    expect(
+      createAssignmentReportInputSchema.safeParse({
+        kind: "late",
+        message: "   ",
+      }).success
+    ).toBe(false)
+    expect(
+      createAssignmentReportInputSchema.parse({
+        kind: "absence",
+        message: "体調不良のため欠勤します",
+      })
+    ).toMatchObject({ kind: "absence" })
   })
 })

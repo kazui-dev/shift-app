@@ -151,6 +151,10 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 assignmentごとに本人の出勤時刻を一件保持する。`assignment_id` をuniqueにして二重出勤を防ぎ、APIはactiveな割当の本人であり、現在時刻が割当時間内の場合だけ作成する。退勤と管理者による修正履歴は未実装で、要件確定後に同じrecordへ安易に上書きせず監査可能な形で追加する。
 
+### `assignment_reports`
+
+割当本人による遅刻・欠勤連絡をassignmentごとに一件保持する。同じassignmentから再送した場合は内容を更新して`open`へ戻す。年度の`shift.manage`保有者は一覧を確認し、`resolved`へ変更できる。通常のチャットと分離することで未対応連絡を見失わないようにする。
+
 ## Chat Management
 
 ### `chat_rooms`
@@ -222,6 +226,8 @@ erDiagram
     members ||--o{ shift_assignments : assigned_to
     shift_assignments ||--o| attendance_records : records
     members ||--o{ attendance_records : checks_in
+    shift_assignments ||--o| assignment_reports : receives
+    members ||--o{ assignment_reports : submits
     chat_rooms ||--o{ chat_room_permissions : controlled_by
     chat_rooms ||--o{ chat_messages : contains
     members ||--o{ chat_room_permissions : participates

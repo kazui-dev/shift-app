@@ -10,6 +10,7 @@ import {
 import { activitiesApp } from "./activities"
 import { assignmentsApp } from "./assignments"
 import { meApp } from "./me"
+import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
 import { yearsApp } from "./years"
 
@@ -39,6 +40,7 @@ apiApp.route("/years", yearsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
 apiApp.route("/assignments", assignmentsApp)
+apiApp.route("/reports", reportsApp)
 
 apiApp.notFound((c) => apiError(c, 404, "NOT_FOUND", "API route not found"))
 

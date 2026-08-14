@@ -318,3 +318,34 @@ export const attendanceRecords = sqliteTable(
     ),
   ]
 )
+
+export const assignmentReports = sqliteTable(
+  "assignment_reports",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => shiftAssignments.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["late", "absence"] }).notNull(),
+    message: text("message").notNull(),
+    status: text("status", { enum: ["open", "resolved"] })
+      .notNull()
+      .default("open"),
+    resolvedBy: text("resolved_by").references(() => members.id, {
+      onDelete: "set null",
+    }),
+    resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("assignment_reports_assignment_uidx").on(table.assignmentId),
+    index("assignment_reports_status_createdAt_idx").on(
+      table.status,
+      table.createdAt
+    ),
+  ]
+)

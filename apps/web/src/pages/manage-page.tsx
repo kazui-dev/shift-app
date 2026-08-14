@@ -11,9 +11,11 @@ import {
   createAssignment,
   getActivities,
   getActivity,
+  getAssignmentReports,
   getAvailabilitySubmissions,
   getYearMembers,
   getYears,
+  resolveAssignmentReport,
 } from "@/lib/shifts-api"
 
 function iso(local: string): string {
@@ -51,6 +53,11 @@ export function ManagePage() {
   const submissions = useQuery({
     queryKey: ["availability-submissions", year],
     queryFn: () => getAvailabilitySubmissions(year!),
+    enabled: year !== null,
+  })
+  const reports = useQuery({
+    queryKey: ["assignment-reports", year],
+    queryFn: () => getAssignmentReports(year!),
     enabled: year !== null,
   })
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
@@ -145,6 +152,22 @@ export function ManagePage() {
         queryClient.invalidateQueries({ queryKey: ["timeline"] }),
       ])
       setMessage("割当を取り消しました。")
+    } catch (error) {
+      setMessage(errorMessage(error))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function resolveReport(reportId: string) {
+    setPending("cancel")
+    setMessage(null)
+    try {
+      await resolveAssignmentReport(reportId)
+      await queryClient.invalidateQueries({
+        queryKey: ["assignment-reports", year],
+      })
+      setMessage("連絡を対応済みにしました。")
     } catch (error) {
       setMessage(errorMessage(error))
     } finally {
@@ -343,6 +366,46 @@ export function ManagePage() {
               {submission.member.displayName} ·{" "}
               {submission.status === "submitted" ? "提出済み" : "下書き"} ·{" "}
               {submission.windows.length}枠
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details className="rounded-lg border p-4" open>
+        <summary className="cursor-pointer font-medium">
+          遅刻・欠勤連絡（
+          {reports.data?.reports.filter((report) => report.status === "open")
+            .length ?? 0}
+          件未対応）
+        </summary>
+        <ul className="mt-3 space-y-2 text-sm">
+          {reports.data?.reports.map((report) => (
+            <li key={report.id} className="rounded-md border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">
+                    {report.kind === "late" ? "遅刻" : "欠勤"} ·{" "}
+                    {report.memberDisplayName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {report.activityName} · {dateTime(report.startsAt)}
+                  </p>
+                  <p className="mt-2">{report.message}</p>
+                </div>
+                {report.status === "open" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending !== null}
+                    onClick={() => void resolveReport(report.id)}
+                  >
+                    対応済み
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    対応済み
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

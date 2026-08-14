@@ -5,7 +5,7 @@ import { LoaderCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/lib/api"
-import { checkIn, getTimeline } from "@/lib/shifts-api"
+import { checkIn, getTimeline, submitAssignmentReport } from "@/lib/shifts-api"
 
 function today(): string {
   const now = new Date()
@@ -31,6 +31,9 @@ export function TimelinePage() {
   const [date, setDate] = useState(today)
   const [checkInPending, setCheckInPending] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [reportTarget, setReportTarget] = useState<string | null>(null)
+  const [reportKind, setReportKind] = useState<"late" | "absence">("late")
+  const [reportMessage, setReportMessage] = useState("")
   const range = dayRange(date)
   const timeline = useQuery({
     queryKey: ["timeline", date],
@@ -44,6 +47,24 @@ export function TimelinePage() {
       await checkIn(assignmentId)
       await queryClient.invalidateQueries({ queryKey: ["timeline", date] })
       setMessage("出勤を記録しました。")
+    } catch (error) {
+      setMessage(errorMessage(error))
+    } finally {
+      setCheckInPending(null)
+    }
+  }
+
+  async function submitReport(assignmentId: string) {
+    setCheckInPending(assignmentId)
+    setMessage(null)
+    try {
+      await submitAssignmentReport(assignmentId, {
+        kind: reportKind,
+        message: reportMessage,
+      })
+      setReportTarget(null)
+      setReportMessage("")
+      setMessage("連絡を送信しました。")
     } catch (error) {
       setMessage(errorMessage(error))
     } finally {
@@ -124,7 +145,48 @@ export function TimelinePage() {
                   出勤
                 </Button>
               )}
+              <Button
+                className="ml-2"
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setReportTarget((current) =>
+                    current === assignment.id ? null : assignment.id
+                  )
+                }
+              >
+                遅刻・欠勤連絡
+              </Button>
             </div>
+            {reportTarget === assignment.id && (
+              <div className="mt-3 space-y-2 rounded-md border p-3">
+                <select
+                  className="h-9 rounded-md border bg-background px-2"
+                  value={reportKind}
+                  onChange={(event) =>
+                    setReportKind(event.target.value as "late" | "absence")
+                  }
+                >
+                  <option value="late">遅刻</option>
+                  <option value="absence">欠勤</option>
+                </select>
+                <textarea
+                  className="min-h-20 w-full rounded-md border bg-background p-2"
+                  maxLength={1000}
+                  placeholder="到着見込み、理由など"
+                  required
+                  value={reportMessage}
+                  onChange={(event) => setReportMessage(event.target.value)}
+                />
+                <Button
+                  size="sm"
+                  disabled={!reportMessage.trim() || checkInPending !== null}
+                  onClick={() => void submitReport(assignment.id)}
+                >
+                  送信
+                </Button>
+              </div>
+            )}
           </li>
         ))}
       </ol>

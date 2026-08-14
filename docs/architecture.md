@@ -65,6 +65,9 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/activities/:activityId`               | activity と割当               |
 | `/api/assignments/:assignmentId`            | 個別割当の取消                |
 | `/api/assignments/:assignmentId/check-in`   | 本人の出勤記録                |
+| `/api/assignments/:assignmentId/report`     | 本人の遅刻・欠勤連絡          |
+| `/api/years/:year/reports`                  | 管理者向け連絡一覧            |
+| `/api/reports/:reportId/resolve`            | 連絡の対応完了                |
 
 変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
 

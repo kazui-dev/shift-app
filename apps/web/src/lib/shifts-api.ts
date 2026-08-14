@@ -4,6 +4,8 @@ import {
   activityDetailResponseSchema,
   activityEnvelopeSchema,
   assignmentMutationResponseSchema,
+  assignmentReportEnvelopeSchema,
+  assignmentReportsResponseSchema,
   availabilityEnvelopeSchema,
   availabilitySubmissionsResponseSchema,
   operatingYearEnvelopeSchema,
@@ -145,5 +147,25 @@ export const checkIn = (assignmentId: string) =>
   apiJson(
     `/api/assignments/${encodeURIComponent(assignmentId)}/check-in`,
     attendanceEnvelopeSchema,
+    { method: "POST" }
+  )
+
+export const submitAssignmentReport = (
+  assignmentId: string,
+  input: { kind: "late" | "absence"; message: string }
+) =>
+  apiJson(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/report`,
+    assignmentReportEnvelopeSchema,
+    { method: "POST", body: JSON.stringify(input) }
+  )
+
+export const getAssignmentReports = (year: number) =>
+  apiJson(`/api/years/${year}/reports`, assignmentReportsResponseSchema)
+
+export const resolveAssignmentReport = (reportId: string) =>
+  apiJson(
+    `/api/reports/${encodeURIComponent(reportId)}/resolve`,
+    assignmentReportEnvelopeSchema,
     { method: "POST" }
   )
