@@ -3,13 +3,11 @@ import { drizzle } from "drizzle-orm/d1"
 import { Hono } from "hono"
 import { bodyLimit } from "hono/body-limit"
 
-import {
-  identityLinkRequests,
-  members,
-} from "@workspace/db/schema"
+import { identityLinkRequests, members } from "@workspace/db/schema"
 import { onboardingInputSchema } from "@workspace/shared/auth"
 
 import { createAuth, getConfiguredProviders } from "./auth"
+import { adminApp } from "./admin"
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 
@@ -227,6 +225,8 @@ app.get("/api/health", async (c) => {
     timestamp: new Date().toISOString(),
   })
 })
+
+app.route("/api/admin", adminApp)
 
 app.notFound((c) => {
   return c.json({ error: "Not found" }, 404)

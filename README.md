@@ -2,7 +2,11 @@
 
 旭祭実行委員会向けのシフト管理アプリです。シフト提出・割り当て、勤怠、連絡・チャットを、モバイルファーストの PWA として提供します。
 
-現在は基盤構築中です。TanStack Router、TanStack Query の IndexedDB 永続化、PWA、Hono/Cloudflare Workers、D1/Drizzle、Workers Static Assets による同一 origin 配信に加え、Discord OAuth と onboarding の認証基盤まで実装済みです。Discord application の資格情報、本番 D1 migration、初回 `system_admin` 昇格、本番 deploy は未設定です。Notion OAuth は将来拡張、シフト管理とチャットは未実装です。
+現在は基盤構築中です。TanStack Router、TanStack Query の IndexedDB 永続化、PWA、Hono/Cloudflare Workers、D1/Drizzle、Workers Static Assets による同一 origin 配信に加え、Discord OAuth、所属確認、onboarding の認証基盤まで実装済みです。
+
+本番は `shift.kazui.dev` へ deploy 済みで、D1 migration、Discord application の資格情報、初回 `system_admin` の監査ログ付き昇格まで完了しています。未所属 Discord アカウントを拒否し、アプリ側にユーザーやセッションを作成しないことも本番で確認済みです。
+
+管理者向けの member・role・session・identity recovery 管理と、その API 認可も実装済みです。次の実装対象は、年度・activity・希望提出・シフト割り当て・本人用タイムラインからなるシフト管理の最小版です。Notion OAuth は将来拡張、チャットは未実装です。GitHub からの自動 deploy は、Cloudflare Builds の設定と実 deploy の確認が完了するまで運用経路として扱いません。
 
 ## Repository
 

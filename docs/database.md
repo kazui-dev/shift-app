@@ -42,22 +42,22 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 ### `affiliation_verifications`
 
-| Column                | Type    | Note                                         |
-| --------------------- | ------- | -------------------------------------------- |
-| `id`                  | text    | PK                                           |
-| `user_id`             | text    | FK, Better Auth `user.id`                    |
-| `provider_id`         | text    | 初期版は `discord`                           |
-| `provider_account_id` | text    | provider 内の stable identity                |
-| `organization_id`     | text    | Discord server ID                            |
-| `verified_at`         | integer | 最終所属確認時刻                             |
-| `created_at`          | integer | UNIX time milliseconds                       |
-| `updated_at`          | integer | UNIX time milliseconds                       |
+| Column                | Type    | Note                          |
+| --------------------- | ------- | ----------------------------- |
+| `id`                  | text    | PK                            |
+| `user_id`             | text    | FK, Better Auth `user.id`     |
+| `provider_id`         | text    | 初期版は `discord`            |
+| `provider_account_id` | text    | provider 内の stable identity |
+| `organization_id`     | text    | Discord server ID             |
+| `verified_at`         | integer | 最終所属確認時刻              |
+| `created_at`          | integer | UNIX time milliseconds        |
+| `updated_at`          | integer | UNIX time milliseconds        |
 
 `(provider_id, provider_account_id)` を unique とする。access/refresh token 自体はこの table に重複保存しない。
 
 ### `identity_link_requests`
 
-学籍番号が既存だった場合の管理者復旧に使う。申請だけで identity を移動せず、承認処理は監査ログと session 失効を伴う transaction とする。
+学籍番号が既存だった場合の管理者復旧に使う。申請だけで identity を移動せず、承認処理は監査ログ、旧Discord identityの解除、新しい検証済みidentityの移動、申請者と対象memberの全session失効を1つのD1 batchで行う。対象member本人による自己承認は禁止する。
 
 | Column              | Type    | Note                                           |
 | ------------------- | ------- | ---------------------------------------------- |
@@ -71,7 +71,7 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 ### `admin_audit_logs`
 
-`system_admin` の昇格、identity recovery、role 変更などの管理操作を記録する。初回管理者昇格も公開 bootstrap API を使わず、Cloudflare operator が既存 member を特定して D1 上で実行し、この table に同じ操作 ID の監査記録を残す。
+`system_admin` の昇格、identity recovery、role 変更、全session失効などの管理操作を理由付きで記録する。初回管理者昇格も公開 bootstrap API を使わず、Cloudflare operator が既存 member を特定して D1 上で実行し、この table に同じ操作 ID の監査記録を残す。通常の管理操作は更新と監査recordをD1 batchにまとめ、どちらか一方だけが成立しないようにする。
 
 ### `roles`
 

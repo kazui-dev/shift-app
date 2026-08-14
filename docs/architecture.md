@@ -9,15 +9,15 @@
 
 ## Status
 
-| Area                          | Status                                  |
-| ----------------------------- | --------------------------------------- |
-| React / Vite / shadcn/ui      | 導入済み                                |
-| D1 binding / Drizzle schema   | 初期構成済み                            |
-| TanStack Router / Query       | routing と query cache 永続化を構成済み |
-| PWA / offline persistence     | app shell と静的 asset cache を構成済み |
-| Better Auth / OAuth           | handler・所属確認・onboarding 実装済み |
-| Durable Objects / chat        | 未実装                                  |
-| `packages/shared`             | 認証 schema・共有型を実装済み           |
+| Area                        | Status                                  |
+| --------------------------- | --------------------------------------- |
+| React / Vite / shadcn/ui    | 導入済み                                |
+| D1 binding / Drizzle schema | 初期構成済み                            |
+| TanStack Router / Query     | routing と query cache 永続化を構成済み |
+| PWA / offline persistence   | app shell と静的 asset cache を構成済み |
+| Better Auth / OAuth         | handler・所属確認・onboarding 実装済み  |
+| Durable Objects / chat      | 未実装                                  |
+| `packages/shared`           | 認証 schema・共有型を実装済み           |
 
 ドキュメント内の「方針」「予定」は、現在の実装済み機能を意味しない。
 
@@ -72,6 +72,14 @@ Better Auth の通常の social sign-up は OAuth callback 中に `user` を作�
 
 email や学籍番号の一致による暗黙 linking は無効にする。学籍番号衝突時の管理者申請は別 workflow とし、自動で Better Auth の `account.user_id` を付け替えない。Better Auth の account schema は、将来 Notion などを明示的 linking で追加できる形を維持する。
 
+### Administrative Authorization
+
+`/api/admin/*` は各 request で Better Auth session と `members.access_level` をD1から再確認し、`system_admin` だけに許可する。frontend の表示状態やOAuth profileの値を認可根拠にしない。cookieを使う変更系requestは同一originを必須とし、body size、共有Zod schema、D1 constraintで入力と競合を検証する。
+
+role変更、全session失効、identity recoveryの承認・拒否は、操作理由を必須にして `admin_audit_logs` と対象更新を1つのD1 batchで実行する。自己role変更、最後の `system_admin` の降格、identity recoveryの自己承認は禁止する。
+
+identity recoveryを承認すると、対象memberの旧Discord identityを外し、申請者の検証済みDiscord identityを対象memberへ移す。申請者と対象memberの全sessionを同じbatchで失効し、次のOAuth loginで新しいidentityから認証させる。学籍番号の一致だけでは承認せず、管理者がアプリ外で本人確認した内容を理由欄へ記録する。自分自身のrecoveryしか承認できる管理者がいない場合は、Cloudflare operatorによるD1上の監査付き復旧を使う。
+
 Notion OAuth は将来拡張とする。追加時は workspace ID `27865ff8-ac56-47e9-9aac-0ed6f3c4d0c5` を候補に、public connection の権限、通常 member が authorize できるか、Enterprise の connection 制限、recovery 方針を改めて確認する。現行 Worker は Notion の credential、binding、provider code を持たない。
 
 ## Cloudflare Deployment
@@ -82,12 +90,13 @@ Web と API を同一 origin にすることで CORS と認証 cookie の構成�
 
 ## Packages
 
-| Package                   | Responsibility                                             |
-| ------------------------- | ---------------------------------------------------------- |
-| `packages/ui`             | shadcn/ui の共有コンポーネントと global CSS                |
-| `packages/db`             | Drizzle schema。DB client は Worker の D1 binding から作る |
-| `apps/api/src/auth`       | D1 binding を使う Better Auth 設定、provider 所属確認      |
-| `packages/shared`         | API schema、共有型、正規化処理                             |
+| Package                 | Responsibility                                             |
+| ----------------------- | ---------------------------------------------------------- |
+| `packages/ui`           | shadcn/ui の共有コンポーネントと global CSS                |
+| `packages/db`           | Drizzle schema。DB client は Worker の D1 binding から作る |
+| `apps/api/src/auth`     | D1 binding を使う Better Auth 設定、provider 所属確認      |
+| `apps/api/src/admin.ts` | 管理APIの認可、監査付きrole・session・identity操作         |
+| `packages/shared`       | API schema、共有型、正規化処理                             |
 
 ## Cloudflare Bindings
 

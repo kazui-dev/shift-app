@@ -10,6 +10,7 @@ import {
 } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
 
+import { AdminPanel } from "@/components/admin-panel"
 import { authClient } from "@/lib/auth-client"
 
 const healthSchema = z.object({
@@ -36,9 +37,17 @@ async function getHealth() {
   return healthSchema.parse(await response.json())
 }
 
-function PageShell({ children }: { children: React.ReactNode }) {
+function PageShell({
+  children,
+  wide = false,
+}: {
+  children: React.ReactNode
+  wide?: boolean
+}) {
   return (
-    <main className="mx-auto flex min-h-svh max-w-md items-center p-6">
+    <main
+      className={`mx-auto flex min-h-svh items-center p-6 ${wide ? "max-w-5xl" : "max-w-md"}`}
+    >
       <div className="flex w-full min-w-0 flex-col gap-5 text-sm leading-loose">
         {children}
       </div>
@@ -46,11 +55,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function LoginView({
-  providers,
-}: {
-  providers: { discord: boolean }
-}) {
+function LoginView({ providers }: { providers: { discord: boolean } }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,7 +117,9 @@ function OnboardingView() {
 
     const parsed = onboardingInputSchema.safeParse({ studentId, displayName })
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "入力内容を確認してください。")
+      setError(
+        parsed.error.issues[0]?.message ?? "入力内容を確認してください。"
+      )
       return
     }
 
@@ -193,7 +200,11 @@ function OnboardingView() {
   )
 }
 
-function ActiveView({ state }: { state: Extract<AuthState, { status: "active" }> }) {
+function ActiveView({
+  state,
+}: {
+  state: Extract<AuthState, { status: "active" }>
+}) {
   const queryClient = useQueryClient()
   const health = useQuery({
     queryKey: ["health"],
@@ -206,7 +217,7 @@ function ActiveView({ state }: { state: Extract<AuthState, { status: "active" }>
   }
 
   return (
-    <PageShell>
+    <PageShell wide={state.member.accessLevel === "system_admin"}>
       <div>
         <p className="text-muted-foreground">旭祭実行委員会</p>
         <h1 className="text-xl font-medium">{state.member.displayName}さん</h1>
@@ -226,10 +237,10 @@ function ActiveView({ state }: { state: Extract<AuthState, { status: "active" }>
             </Button>
           </div>
         )}
-        {health.data && (
-          <p className="text-muted-foreground">API / D1: 正常</p>
-        )}
+        {health.data && <p className="text-muted-foreground">API / D1: 正常</p>}
       </div>
+
+      {state.member.accessLevel === "system_admin" && <AdminPanel />}
 
       <Button variant="ghost" onClick={signOut}>
         <LogOut />
