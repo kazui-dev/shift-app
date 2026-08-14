@@ -31,7 +31,7 @@
 - API 入出力は Zod schema で検証し、共通 schema は `packages/shared` に置く。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
-Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。offline mutation の復元口は用意済みだが、実際の送信待ちは未実装。機能追加時に mutation key ごとの既定 `mutationFn`、競合、重複送信、期限切れデータの扱いを API 側と合わせて決める。
+Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。offline mutation の復元口は用意済みだが、実際の送信待ちは未実装。機能追加時に mutation key ごとの既定 `mutationFn`、競合、重複送信、期限切れデータの扱いを API 側と合わせて決める。
 
 ## Backend
 
