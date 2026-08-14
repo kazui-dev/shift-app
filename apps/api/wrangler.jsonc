@@ -4,6 +4,13 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-14",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "shift.kazui.dev",
+      "custom_domain": true,
+    },
+  ],
   "vars": {
     "BETTER_AUTH_URL": "https://shift.kazui.dev",
     "DISCORD_GUILD_ID": "1047724512873041941",

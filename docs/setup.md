@@ -160,5 +160,7 @@ pnpm -C apps/api exec wrangler check startup
 本番 D1 migration を適用済みであることを確認してから、Web と API を同じ Worker へ deploy する:
 
 ```bash
-pnpm deploy
+pnpm run deploy
 ```
+
+`shift.kazui.dev` は Worker が origin になる Custom Domain とし、`wrangler.jsonc` の `routes[].custom_domain` を source of truth にする。Cloudflare が DNS record と証明書を管理し、`workers.dev` は無効化する。
