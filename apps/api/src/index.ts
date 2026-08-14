@@ -8,6 +8,7 @@ import { onboardingInputSchema } from "@workspace/shared/auth"
 
 import { createAuth, getConfiguredProviders } from "./auth"
 import { adminApp } from "./admin"
+import { apiApp } from "./routes/api"
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 
@@ -227,6 +228,7 @@ app.get("/api/health", async (c) => {
 })
 
 app.route("/api/admin", adminApp)
+app.route("/api", apiApp)
 
 app.notFound((c) => {
   return c.json({ error: "Not found" }, 404)

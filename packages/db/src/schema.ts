@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm"
 import {
+  check,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -41,8 +43,7 @@ export const affiliationVerifications = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    providerId: text("provider_id", { enum: ["discord"] })
-      .notNull(),
+    providerId: text("provider_id", { enum: ["discord"] }).notNull(),
     providerAccountId: text("provider_account_id").notNull(),
     organizationId: text("organization_id").notNull(),
     verifiedAt: integer("verified_at", { mode: "timestamp_ms" }).notNull(),
@@ -107,5 +108,190 @@ export const adminAuditLogs = sqliteTable(
   (table) => [
     index("admin_audit_actor_idx").on(table.actorUserId),
     index("admin_audit_target_idx").on(table.targetMemberId),
+  ]
+)
+
+export const operatingYears = sqliteTable("operating_years", {
+  year: integer("year").primaryKey(),
+  name: text("name").notNull(),
+  startsOn: text("starts_on").notNull(),
+  endsOn: text("ends_on").notNull(),
+  status: text("status", { enum: ["draft", "active", "archived"] })
+    .notNull()
+    .default("draft"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const yearRoles = sqliteTable(
+  "year_roles",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("year_roles_year_name_nocase_uidx").on(
+      table.year,
+      sql`lower(${table.name})`
+    ),
+  ]
+)
+
+export const yearRolePermissions = sqliteTable(
+  "year_role_permissions",
+  {
+    roleId: text("role_id")
+      .notNull()
+      .references(() => yearRoles.id, { onDelete: "cascade" }),
+    permission: text("permission", { enum: ["shift.manage"] }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roleId, table.permission] }),
+    index("year_role_permissions_permission_idx").on(table.permission),
+  ]
+)
+
+export const memberYearRoles = sqliteTable(
+  "member_year_roles",
+  {
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    roleId: text("role_id")
+      .notNull()
+      .references(() => yearRoles.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.memberId, table.roleId] }),
+    index("member_year_roles_role_idx").on(table.roleId),
+  ]
+)
+
+export const activities = sqliteTable(
+  "activities",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    place: text("place").notNull(),
+    activityType: text("activity_type").notNull(),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    color: text("color").notNull(),
+    notes: text("notes"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => members.id, { onDelete: "restrict" }),
+    updatedBy: text("updated_by")
+      .notNull()
+      .references(() => members.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("activities_year_startsAt_idx").on(table.year, table.startsAt),
+    check(
+      "activities_time_order_check",
+      sql`${table.startsAt} < ${table.endsAt}`
+    ),
+  ]
+)
+
+export const availabilitySubmissions = sqliteTable(
+  "availability_submissions",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["draft", "submitted"] })
+      .notNull()
+      .default("draft"),
+    submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("availability_submissions_year_member_uidx").on(
+      table.year,
+      table.memberId
+    ),
+  ]
+)
+
+export const availabilityWindows = sqliteTable(
+  "availability_windows",
+  {
+    id: text("id").primaryKey(),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => availabilitySubmissions.id, { onDelete: "cascade" }),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("availability_windows_submission_startsAt_idx").on(
+      table.submissionId,
+      table.startsAt
+    ),
+    check(
+      "availability_windows_time_order_check",
+      sql`${table.startsAt} < ${table.endsAt}`
+    ),
+  ]
+)
+
+export const shiftAssignments = sqliteTable(
+  "shift_assignments",
+  {
+    id: text("id").primaryKey(),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    notes: text("notes"),
+    status: text("status", { enum: ["active", "cancelled"] })
+      .notNull()
+      .default("active"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => members.id, { onDelete: "restrict" }),
+    cancelledBy: text("cancelled_by").references(() => members.id, {
+      onDelete: "restrict",
+    }),
+    cancelledAt: integer("cancelled_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("shift_assignments_activity_member_time_uidx")
+      .on(table.activityId, table.memberId, table.startsAt, table.endsAt)
+      .where(sql`${table.status} = 'active'`),
+    index("shift_assignments_member_startsAt_idx").on(
+      table.memberId,
+      table.startsAt
+    ),
+    check(
+      "shift_assignments_time_order_check",
+      sql`${table.startsAt} < ${table.endsAt}`
+    ),
   ]
 )

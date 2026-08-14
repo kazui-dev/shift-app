@@ -9,15 +9,16 @@
 
 ## Status
 
-| Area                        | Status                                  |
-| --------------------------- | --------------------------------------- |
-| React / Vite / shadcn/ui    | 導入済み                                |
-| D1 binding / Drizzle schema | 初期構成済み                            |
-| TanStack Router / Query     | routing と query cache 永続化を構成済み |
-| PWA / offline persistence   | app shell と静的 asset cache を構成済み |
-| Better Auth / OAuth         | handler・所属確認・onboarding 実装済み  |
-| Durable Objects / chat      | 未実装                                  |
-| `packages/shared`           | 認証 schema・共有型を実装済み           |
+| Area                        | Status                                         |
+| --------------------------- | ---------------------------------------------- |
+| React / Vite / shadcn/ui    | 導入済み                                       |
+| D1 binding / Drizzle schema | 認証・年度・希望・シフト schema を実装済み     |
+| TanStack Router / Query     | routing と query cache 永続化を構成済み        |
+| PWA / offline persistence   | app shell と静的 asset cache を構成済み        |
+| Better Auth / OAuth         | handler・所属確認・onboarding 実装済み         |
+| Durable Objects / chat      | 未実装                                         |
+| Shift management API        | 年度・役割・希望・割当・タイムラインを実装済み |
+| `packages/shared`           | 認証・シフト API schema を実装済み             |
 
 ドキュメント内の「方針」「予定」は、現在の実装済み機能を意味しない。
 
@@ -45,6 +46,26 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 - `nodejs_compat` は依存 package が Node.js API を必要とすると確認できた場合だけ有効にする。
 
 D1 の read replication は初期要件ではない。必要になった場合は単に有効化するだけでなく、D1 binding の Sessions API と bookmark を使って read-after-write を維持する。
+
+### HTTP API Design
+
+API は `/api` の下にリソース単位で置く。現時点では単一の Web client と API Worker を同時に deploy するため、URL に `/v1` や `/v2` を付けない。互換性のない変更が必要になった場合も、まず additive な変更、移行期間、明示的な廃止を検討し、複数世代の外部 client を並行運用する必要が生じたときだけ versioning を導入する。
+
+主な route:
+
+| Route                                       | Responsibility                |
+| ------------------------------------------- | ----------------------------- |
+| `/api/me/timeline`                          | ログイン中 member の割当一覧  |
+| `/api/years`                                | 年度の一覧・作成              |
+| `/api/years/:year/roles`                    | 年度別 role と機能権限        |
+| `/api/years/:year/members`                  | 割当候補 member と年度別 role |
+| `/api/years/:year/availability`             | 本人の希望時間帯              |
+| `/api/years/:year/availability-submissions` | 管理者向け希望一覧            |
+| `/api/years/:year/activities`               | 年度内 activity               |
+| `/api/activities/:activityId`               | activity と割当               |
+| `/api/assignments/:assignmentId`            | 個別割当の取消                |
+
+変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
 
 ## Authentication Architecture
 

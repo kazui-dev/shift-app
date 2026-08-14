@@ -105,9 +105,9 @@ Vite PWA plugin が Service Worker と manifest を生成する。TanStack Query
 
 実装時は `apps/api/src` から class を export し、`wrangler.jsonc` に `durable_objects.bindings` と SQLite storage の宣言型 `exports` を追加する。古い `new_classes` migration は新規 namespace に使わない。設定後に `cf-typegen` を再実行する。
 
-### Better Auth（実装済み、資格情報未設定）
+### Better Auth（実装済み）
 
-Better Auth 1.6.29 に固定し、Discord の組み込み social provider を拡張して所属確認を行う。認証 schema、onboarding、所属確認のテストを実装済み。Discord application の作成と資格情報の注入後に実ブラウザで callback を確認する。
+Better Auth 1.6.29 に固定し、Discord の組み込み social provider を拡張して所属確認を行う。認証 schema、onboarding、所属確認のテストを実装済みで、local・本番ともに OAuth callback を確認済み。
 
 初期版の OAuth callback URL:
 
@@ -169,13 +169,13 @@ pnpm run deploy
 
 GitHub 連携による自動 deploy は Cloudflare Dashboard の Worker `shift-app` → Settings → Builds で次のように設定する。
 
-| Setting        | Value             |
-| -------------- | ----------------- |
-| Root directory | `/`               |
-| Build command  | 空欄              |
-| Deploy command | `pnpm run deploy` |
-| Production     | `main`            |
+| Setting        | Value                                             |
+| -------------- | ------------------------------------------------- |
+| Root directory | `/`                                               |
+| Build command  | `pnpm build`                                      |
+| Deploy command | `pnpm --filter api exec wrangler deploy --minify` |
+| Production     | `main`                                            |
 
-既定の `npx wrangler deploy` は monorepo root で自動検出を開始して失敗するため使わない。`pnpm run deploy` は workspace に固定した Wrangler で Web を build してから `apps/api/wrangler.jsonc` を使って deploy する。依存 package の install は Workers Builds に任せる。
+既定の `npx wrangler deploy` は monorepo root で自動検出を開始して失敗するため使わない。build と deploy を分け、deploy command は `api` workspace から固定済み Wrangler と `apps/api/wrangler.jsonc` を使う。依存 package の install は Workers Builds に任せる。
 
 初期運用では non-production branch builds を無効にする。preview deploy を導入するときは、production と D1/secrets を共有しない preview 環境を先に設計する。

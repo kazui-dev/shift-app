@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
-    "./auth": "./src/auth.ts"
+    "./auth": "./src/auth.ts",
+    "./shifts": "./src/shifts.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"

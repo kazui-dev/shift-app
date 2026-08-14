@@ -15,6 +15,13 @@
       "when": 1786733283857,
       "tag": "0001_green_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786740945500,
+      "tag": "0002_strange_nightshade",
+      "breakpoints": true
     }
   ]
 }

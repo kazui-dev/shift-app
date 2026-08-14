@@ -1,6 +1,6 @@
 # Database
 
-この文書は実装済みの認証 schema と、今後の業務 schema の目標を示す。Better Auth core、`members`、所属確認、連携申請、管理者監査ログは migration を作成済み。shift、chat、push 関連 table は未実装。
+この文書は実装済みの認証・シフト schema と、今後の chat・push schema の目標を示す。実装の正は `packages/db/src/schema.ts` と SQL migration とする。
 
 ## Policy
 
@@ -12,7 +12,7 @@
 - Better Auth `user` は認証主体、`members` は onboarding 済みのシフトアプリアカウントとして分離する
 - `members.student_id` と `members.user_id` はそれぞれ unique とし、アカウントと学籍番号を 1:1 にする
 - OAuth identity は Better Auth `account` として保持する。初期版は Discord 1 件、将来は 1 人の `user` に複数 provider を連携できる
-- application ID の生成方式は未決定
+- application ID は `crypto.randomUUID()` で生成する
 
 認証関連 table は `packages/db/src/auth-schema.ts` と `packages/db/src/schema.ts` を正とする。既存の placeholder `members` table を作り直す `0001` migration は、対象 DB の `members` が 0 件であることを確認してから適用する。
 
@@ -73,24 +73,32 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 `system_admin` の昇格、identity recovery、role 変更、全session失効などの管理操作を理由付きで記録する。初回管理者昇格も公開 bootstrap API を使わず、Cloudflare operator が既存 member を特定して D1 上で実行し、この table に同じ操作 ID の監査記録を残す。通常の管理操作は更新と監査recordをD1 batchにまとめ、どちらか一方だけが成立しないようにする。
 
-### `roles`
+### `operating_years`
 
-| Column       | Type    | Note                   |
-| ------------ | ------- | ---------------------- |
-| `id`         | text    | PK                     |
-| `year`       | integer | 年度                   |
-| `name`       | text    | ロール名               |
-| `color`      | text    | 表示色                 |
-| `created_at` | integer | UNIX time milliseconds |
-| `updated_at` | integer | UNIX time milliseconds |
+年度の名称、対象期間、編集状態（`draft`, `active`, `archived`）を保持する。年度依存 table の親となり、archived 年度への activity・希望・割当の変更は API で拒否する。
 
-### `member_roles`
+### `year_roles`
 
-| Column       | Type    | Note                   |
-| ------------ | ------- | ---------------------- |
-| `member_id`  | text    | PK, FK, `members.id`   |
-| `role_id`    | text    | PK, FK, `roles.id`     |
-| `created_at` | integer | UNIX time milliseconds |
+| Column       | Type    | Note                       |
+| ------------ | ------- | -------------------------- |
+| `id`         | text    | PK                         |
+| `year`       | integer | FK, `operating_years.year` |
+| `name`       | text    | ロール名                   |
+| `color`      | text    | 表示色                     |
+| `created_at` | integer | UNIX time milliseconds     |
+| `updated_at` | integer | UNIX time milliseconds     |
+
+### `year_role_permissions`
+
+年度別 role に機能権限を付与する。初期版の permission は `shift.manage`。application role の `leader` だけを根拠にシフト管理を許可せず、`system_admin` の全体権限またはこの permission を API で確認する。
+
+### `member_year_roles`
+
+| Column       | Type    | Note                    |
+| ------------ | ------- | ----------------------- |
+| `member_id`  | text    | PK, FK, `members.id`    |
+| `role_id`    | text    | PK, FK, `year_roles.id` |
+| `created_at` | integer | UNIX time milliseconds  |
 
 ## Shift Management
 
@@ -100,42 +108,46 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 | --------------- | ------- | ---------------------- |
 | `id`            | text    | PK                     |
 | `year`          | integer | 年度                   |
+| `name`          | text    | 活動名                 |
 | `place`         | text    | 場所                   |
 | `activity_type` | text    | 種別                   |
-| `start_at`      | integer | UNIX time milliseconds |
-| `end_at`        | integer | UNIX time milliseconds |
+| `starts_at`     | integer | UNIX time milliseconds |
+| `ends_at`       | integer | UNIX time milliseconds |
 | `color`         | text    | 表示色                 |
+| `notes`         | text    | nullable               |
+| `created_by`    | text    | FK, `members.id`       |
+| `updated_by`    | text    | FK, `members.id`       |
 | `created_at`    | integer | UNIX time milliseconds |
 | `updated_at`    | integer | UNIX time milliseconds |
 
-### `activity_leaders`
+### `availability_submissions`
 
-| Column        | Type | Note                       |
-| ------------- | ---- | -------------------------- |
-| `id`          | text | PK                         |
-| `activity_id` | text | FK, `activities.id`        |
-| `member_id`   | text | FK, `members.id`, nullable |
-| `role_id`     | text | FK, `roles.id`, nullable   |
+年度・member ごとの希望提出を一件保持し、`draft` または `submitted` とする。希望の具体的な時間帯は子 table に分離する。
 
-### `shifts`
+### `availability_windows`
 
-| Column        | Type    | Note                   |
-| ------------- | ------- | ---------------------- |
-| `id`          | text    | PK                     |
-| `activity_id` | text    | FK, `activities.id`    |
-| `member_id`   | text    | FK, `members.id`       |
-| `start_at`    | integer | UNIX time milliseconds |
-| `end_at`      | integer | UNIX time milliseconds |
-| `created_at`  | integer | UNIX time milliseconds |
-| `updated_at`  | integer | UNIX time milliseconds |
+希望時間帯を任意の開始・終了時刻で保持する。固定の時間粒度は DB に埋め込まない。同一提出内の重複は共有 schema と API で拒否し、各行は DB の check constraint でも `starts_at < ends_at` を保証する。
 
-### `attendances`
+### `shift_assignments`
 
-| Column       | Type    | Note                   |
-| ------------ | ------- | ---------------------- |
-| `id`         | text    | PK                     |
-| `shift_id`   | text    | FK, `shifts.id`        |
-| `created_at` | integer | UNIX time milliseconds |
+| Column         | Type    | Note                   |
+| -------------- | ------- | ---------------------- |
+| `id`           | text    | PK                     |
+| `activity_id`  | text    | FK, `activities.id`    |
+| `member_id`    | text    | FK, `members.id`       |
+| `starts_at`    | integer | UNIX time milliseconds |
+| `ends_at`      | integer | UNIX time milliseconds |
+| `notes`        | text    | nullable               |
+| `status`       | text    | `active`, `cancelled`  |
+| `created_by`   | text    | FK, `members.id`       |
+| `cancelled_by` | text    | FK, nullable           |
+| `cancelled_at` | integer | nullable               |
+| `created_at`   | integer | UNIX time milliseconds |
+| `updated_at`   | integer | UNIX time milliseconds |
+
+割当は activity 内の時間に限定し、member の active な割当同士の重複を API の条件付き insert で防ぐ。取消は監査情報を残すため物理削除せず `cancelled` に更新する。希望時間外の割当は業務上必要になり得るため拒否せず、API が警告を返す。
+
+勤怠 table は未実装。出勤・退勤・修正履歴の要件を確定してから追加する。
 
 ## Chat Management
 
@@ -196,17 +208,20 @@ erDiagram
     auth_users ||--o{ affiliation_verifications : verifies
     auth_users ||--o{ identity_link_requests : requests
     members ||--o{ identity_link_requests : target
-    members ||--o{ member_roles : has
-    roles ||--o{ member_roles : assigned_to
-    activities ||--o{ activity_leaders : has
-    activities ||--o{ shifts : has
-    members ||--o{ activity_leaders : leads
-    members ||--o{ shifts : assigned_to
-    shifts ||--o{ attendances : recorded_in
+    operating_years ||--o{ year_roles : defines
+    operating_years ||--o{ activities : contains
+    operating_years ||--o{ availability_submissions : collects
+    year_roles ||--o{ year_role_permissions : grants
+    year_roles ||--o{ member_year_roles : assigned_to
+    members ||--o{ member_year_roles : has
+    members ||--o{ availability_submissions : submits
+    availability_submissions ||--o{ availability_windows : contains
+    activities ||--o{ shift_assignments : has
+    members ||--o{ shift_assignments : assigned_to
     chat_rooms ||--o{ chat_room_permissions : controlled_by
     chat_rooms ||--o{ chat_messages : contains
     members ||--o{ chat_room_permissions : participates
-    roles ||--o{ chat_room_permissions : granted_by
+    year_roles ||--o{ chat_room_permissions : granted_by
     activities ||--o{ chat_room_permissions : linked_to
     members ||--o{ chat_messages : sends
 ```
