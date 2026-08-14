@@ -181,6 +181,63 @@ export const assignmentResponseSchema = z.object({
   startsAt: instantSchema,
   endsAt: instantSchema,
   notes: z.string().nullable(),
+  checkedInAt: instantSchema.nullable().optional(),
+})
+
+export const attendanceResponseSchema = z.object({
+  id: z.string().uuid(),
+  assignmentId: z.string().uuid(),
+  checkedInAt: instantSchema,
+})
+
+export const yearRoleResponseSchema = z.object({
+  id: z.string().uuid(),
+  year: operatingYearSchema,
+  name: z.string(),
+  color: z.string(),
+  permissions: z.array(shiftPermissionSchema),
+  memberCount: z.coerce.number().int().nonnegative(),
+})
+
+export const yearMemberResponseSchema = z.object({
+  id: z.string().uuid(),
+  displayName: z.string(),
+  studentId: z.string(),
+  roles: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      color: z.string(),
+    })
+  ),
+})
+
+export const availabilityResponseSchema = z.object({
+  year: operatingYearSchema,
+  status: z.enum(["draft", "submitted"]),
+  submittedAt: instantSchema.nullable(),
+  updatedAt: instantSchema.optional(),
+  windows: z.array(
+    timeWindowSchema.extend({
+      id: z.string().uuid().optional(),
+    })
+  ),
+})
+
+export const availabilitySubmissionResponseSchema = z.object({
+  id: z.string().uuid(),
+  member: z.object({
+    id: z.string().uuid(),
+    displayName: z.string(),
+    studentId: z.string(),
+  }),
+  status: z.enum(["draft", "submitted"]),
+  submittedAt: instantSchema.nullable(),
+  windows: z.array(
+    timeWindowSchema.extend({
+      id: z.string().uuid(),
+    })
+  ),
 })
 
 export const timelineItemResponseSchema = assignmentResponseSchema.extend({
@@ -188,6 +245,77 @@ export const timelineItemResponseSchema = assignmentResponseSchema.extend({
   place: z.string(),
   activityType: z.string(),
   color: z.string(),
+})
+
+export const yearsResponseSchema = z.object({
+  years: z.array(
+    operatingYearResponseSchema.extend({
+      canManage: z.boolean(),
+    })
+  ),
+})
+
+export const yearRolesResponseSchema = z.object({
+  roles: z.array(yearRoleResponseSchema),
+})
+
+export const yearMembersResponseSchema = z.object({
+  members: z.array(yearMemberResponseSchema),
+})
+
+export const activitiesResponseSchema = z.object({
+  activities: z.array(
+    activityResponseSchema.extend({
+      assignmentCount: z.coerce.number().int().nonnegative(),
+    })
+  ),
+})
+
+export const activityDetailResponseSchema = z.object({
+  activity: activityResponseSchema,
+  assignments: z.array(assignmentResponseSchema),
+})
+
+export const operatingYearEnvelopeSchema = z.object({
+  year: operatingYearResponseSchema,
+})
+
+export const yearRoleEnvelopeSchema = z.object({
+  role: yearRoleResponseSchema.omit({ memberCount: true }),
+})
+
+export const activityEnvelopeSchema = z.object({
+  activity: activityResponseSchema.extend({
+    assignmentCount: z.coerce.number().int().nonnegative().optional(),
+  }),
+})
+
+export const roleMembershipResponseSchema = z.object({
+  membership: z.object({
+    roleId: z.string().uuid(),
+    memberId: z.string().uuid(),
+  }),
+})
+
+export const attendanceEnvelopeSchema = z.object({
+  attendance: attendanceResponseSchema,
+})
+
+export const availabilityEnvelopeSchema = z.object({
+  availability: availabilityResponseSchema,
+})
+
+export const availabilitySubmissionsResponseSchema = z.object({
+  submissions: z.array(availabilitySubmissionResponseSchema),
+})
+
+export const assignmentMutationResponseSchema = z.object({
+  assignment: assignmentResponseSchema,
+  warnings: z.array(z.enum(["OUTSIDE_SUBMITTED_AVAILABILITY"])),
+})
+
+export const timelineResponseSchema = z.object({
+  assignments: z.array(timelineItemResponseSchema),
 })
 
 export const apiErrorSchema = z.object({

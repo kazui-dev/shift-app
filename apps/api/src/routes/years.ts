@@ -80,14 +80,32 @@ function activityJson(activity: ActivityRow) {
 export const yearsApp = new Hono<ApiEnv>()
 
 yearsApp.get("/", async (c) => {
+  const member = c.get("member")
   const result = await c.env.shift_app
     .prepare(
-      `SELECT year, name, starts_on AS startsOn, ends_on AS endsOn, status
-       FROM operating_years
+      `SELECT operating_year.year, operating_year.name,
+              operating_year.starts_on AS startsOn,
+              operating_year.ends_on AS endsOn, operating_year.status,
+              CASE WHEN ? = 'system_admin' OR EXISTS (
+                SELECT 1
+                FROM member_year_roles membership
+                JOIN year_roles role ON role.id = membership.role_id
+                JOIN year_role_permissions permission ON permission.role_id = role.id
+                WHERE membership.member_id = ?
+                  AND role.year = operating_year.year
+                  AND permission.permission = 'shift.manage'
+              ) THEN 1 ELSE 0 END AS canManage
+       FROM operating_years operating_year
        ORDER BY year DESC`
     )
-    .all<YearRow>()
-  return c.json({ years: result.results })
+    .bind(member.accessLevel, member.id)
+    .all<YearRow & { canManage: number }>()
+  return c.json({
+    years: result.results.map((year) => ({
+      ...year,
+      canManage: year.canManage === 1,
+    })),
+  })
 })
 
 yearsApp.post("/", async (c) => {

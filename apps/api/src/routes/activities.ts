@@ -38,6 +38,7 @@ type AssignmentRow = {
   startsAt: number
   endsAt: number
   notes: string | null
+  checkedInAt: number | null
 }
 
 async function findActivity(
@@ -84,6 +85,8 @@ function assignmentJson(assignment: AssignmentRow) {
     ...assignment,
     startsAt: toIso(assignment.startsAt),
     endsAt: toIso(assignment.endsAt),
+    checkedInAt:
+      assignment.checkedInAt === null ? null : toIso(assignment.checkedInAt),
   }
 }
 
@@ -107,9 +110,11 @@ activitiesApp.get("/:activityId", async (c) => {
          member.display_name AS memberDisplayName,
          assignment.starts_at AS startsAt,
          assignment.ends_at AS endsAt,
-         assignment.notes
+         assignment.notes,
+         attendance.checked_in_at AS checkedInAt
        FROM shift_assignments assignment
        JOIN members member ON member.id = assignment.member_id
+       LEFT JOIN attendance_records attendance ON attendance.assignment_id = assignment.id
        WHERE assignment.activity_id = ? AND assignment.status = 'active'
        ORDER BY assignment.starts_at, lower(member.display_name)`
     )
@@ -335,6 +340,7 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
         startsAt,
         endsAt,
         notes: parsed.data.notes,
+        checkedInAt: null,
       }),
       warnings:
         availability?.matched === 1 ? [] : ["OUTSIDE_SUBMITTED_AVAILABILITY"],

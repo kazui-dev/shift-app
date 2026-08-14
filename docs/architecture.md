@@ -9,16 +9,16 @@
 
 ## Status
 
-| Area                        | Status                                         |
-| --------------------------- | ---------------------------------------------- |
-| React / Vite / shadcn/ui    | 導入済み                                       |
-| D1 binding / Drizzle schema | 認証・年度・希望・シフト schema を実装済み     |
-| TanStack Router / Query     | routing と query cache 永続化を構成済み        |
-| PWA / offline persistence   | app shell と静的 asset cache を構成済み        |
-| Better Auth / OAuth         | handler・所属確認・onboarding 実装済み         |
-| Durable Objects / chat      | 未実装                                         |
-| Shift management API        | 年度・役割・希望・割当・タイムラインを実装済み |
-| `packages/shared`           | 認証・シフト API schema を実装済み             |
+| Area                        | Status                                               |
+| --------------------------- | ---------------------------------------------------- |
+| React / Vite / shadcn/ui    | 導入済み                                             |
+| D1 binding / Drizzle schema | 認証・年度・希望・シフト schema を実装済み           |
+| TanStack Router / Query     | routing と query cache 永続化を構成済み              |
+| PWA / offline persistence   | app shell と静的 asset cache を構成済み              |
+| Better Auth / OAuth         | handler・所属確認・onboarding 実装済み               |
+| Durable Objects / chat      | 未実装                                               |
+| Shift management API / UI   | 年度・役割・希望・割当・タイムライン・出勤を実装済み |
+| `packages/shared`           | 認証・シフト API schema を実装済み                   |
 
 ドキュメント内の「方針」「予定」は、現在の実装済み機能を意味しない。
 
@@ -64,8 +64,11 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/years/:year/activities`               | 年度内 activity               |
 | `/api/activities/:activityId`               | activity と割当               |
 | `/api/assignments/:assignmentId`            | 個別割当の取消                |
+| `/api/assignments/:assignmentId/check-in`   | 本人の出勤記録                |
 
 変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
+
+認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/manage`、`/system` に責務を分ける。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
 
 ## Authentication Architecture
 

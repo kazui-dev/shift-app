@@ -295,3 +295,26 @@ export const shiftAssignments = sqliteTable(
     ),
   ]
 )
+
+export const attendanceRecords = sqliteTable(
+  "attendance_records",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => shiftAssignments.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    checkedInAt: integer("checked_in_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("attendance_records_assignment_uidx").on(table.assignmentId),
+    index("attendance_records_member_checkedInAt_idx").on(
+      table.memberId,
+      table.checkedInAt
+    ),
+  ]
+)

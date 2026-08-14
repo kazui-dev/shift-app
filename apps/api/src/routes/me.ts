@@ -18,6 +18,7 @@ type TimelineRow = {
   place: string
   activityType: string
   color: string
+  checkedInAt: number | null
 }
 
 export const meApp = new Hono<ApiEnv>()
@@ -61,10 +62,12 @@ meApp.get("/timeline", async (c) => {
          activity.name AS activityName,
          activity.place,
          activity.activity_type AS activityType,
-         activity.color
+         activity.color,
+         attendance.checked_in_at AS checkedInAt
        FROM shift_assignments assignment
        JOIN activities activity ON activity.id = assignment.activity_id
        JOIN members member ON member.id = assignment.member_id
+       LEFT JOIN attendance_records attendance ON attendance.assignment_id = assignment.id
        WHERE assignment.member_id = ?
          AND assignment.status = 'active'
          AND assignment.starts_at < ?
@@ -80,6 +83,8 @@ meApp.get("/timeline", async (c) => {
       ...assignment,
       startsAt: toIso(assignment.startsAt),
       endsAt: toIso(assignment.endsAt),
+      checkedInAt:
+        assignment.checkedInAt === null ? null : toIso(assignment.checkedInAt),
     })),
   })
 })

@@ -26,7 +26,7 @@ createRoot(document.getElementById("root")!).render(
       client={queryClient}
       persistOptions={{
         persister,
-        buster: "shift-app-v1",
+        buster: "shift-app-cache-2026-08",
         dehydrateOptions: {
           shouldDehydrateQuery: (query) =>
             query.meta?.persist !== false && defaultShouldDehydrateQuery(query),
