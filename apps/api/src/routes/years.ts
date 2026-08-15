@@ -7,6 +7,7 @@ import {
   replaceAvailabilityInputSchema,
   updateOperatingYearInputSchema,
 } from "@workspace/shared/shifts"
+import { createAnnouncementInputSchema } from "@workspace/shared/communications"
 
 import {
   apiError,
@@ -727,4 +728,88 @@ yearsApp.get("/:year/reports", async (c) => {
       resolvedAt: report.resolvedAt === null ? null : toIso(report.resolvedAt),
     })),
   })
+})
+
+yearsApp.post("/:year/announcements", async (c) => {
+  const year = getYearParam(c.req.param("year"))
+  if (year === null) {
+    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+  }
+  const actor = c.get("member")
+  if (!(await canManageShifts(c.env, actor, year))) {
+    return apiError(
+      c,
+      403,
+      "FORBIDDEN",
+      "Shift management permission is required"
+    )
+  }
+  const input = createAnnouncementInputSchema.safeParse(
+    await readJson(c.req.raw)
+  )
+  if (!input.success) {
+    return apiError(
+      c,
+      422,
+      "INVALID_ANNOUNCEMENT",
+      input.error.issues[0]?.message ?? "Invalid announcement"
+    )
+  }
+  const id = crypto.randomUUID()
+  const now = Date.now()
+  const expiresAt = input.data.expiresAt
+    ? Date.parse(input.data.expiresAt)
+    : null
+  if (expiresAt !== null && expiresAt <= now) {
+    return apiError(
+      c,
+      422,
+      "INVALID_EXPIRATION",
+      "Expiration must be in the future"
+    )
+  }
+  const result = await c.env.shift_app
+    .prepare(
+      `INSERT INTO announcements
+        (id, year, title, body, priority, status, published_at, expires_at,
+         created_by, archived_by, archived_at, created_at, updated_at)
+       SELECT ?, year, ?, ?, ?, 'published', ?, ?, ?, NULL, NULL, ?, ?
+       FROM operating_years WHERE year = ? AND status <> 'archived'`
+    )
+    .bind(
+      id,
+      input.data.title,
+      input.data.body,
+      input.data.priority,
+      now,
+      expiresAt,
+      actor.id,
+      now,
+      now,
+      year
+    )
+    .run()
+  if (result.meta.changes !== 1) {
+    return apiError(
+      c,
+      409,
+      "YEAR_NOT_EDITABLE",
+      "Operating year is archived or missing"
+    )
+  }
+  return c.json(
+    {
+      announcement: {
+        id,
+        year,
+        title: input.data.title,
+        body: input.data.body,
+        priority: input.data.priority,
+        publishedAt: toIso(now),
+        expiresAt: expiresAt === null ? null : toIso(expiresAt),
+        authorDisplayName: actor.displayName,
+      },
+    },
+    201
+  )
 })

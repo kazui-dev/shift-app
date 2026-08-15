@@ -9,6 +9,7 @@
   },
   "exports": {
     "./auth": "./src/auth.ts",
+    "./communications": "./src/communications.ts",
     "./shifts": "./src/shifts.ts"
   },
   "dependencies": {

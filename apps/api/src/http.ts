@@ -10,6 +10,7 @@ import { createAuth } from "./auth"
 export type MemberContext = {
   id: string
   userId: string
+  displayName: string
   accessLevel: "system_admin" | "leader" | "member"
 }
 
@@ -41,6 +42,7 @@ export const requireMember: MiddlewareHandler<ApiEnv> = async (c, next) => {
     .select({
       id: members.id,
       userId: members.userId,
+      displayName: members.displayName,
       accessLevel: members.accessLevel,
     })
     .from(members)

@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouter } from "@tanstack/react-router"
 import {
+  Bell,
   CalendarDays,
   ClipboardList,
   LogOut,
@@ -16,6 +17,7 @@ import { authClient } from "@/lib/auth-client"
 const navigation = [
   { to: "/timeline", label: "タイムライン", icon: CalendarDays },
   { to: "/availability", label: "希望提出", icon: ClipboardList },
+  { to: "/notices", label: "連絡", icon: Bell },
   { to: "/manage", label: "シフト管理", icon: Users },
 ] as const
 
@@ -58,7 +60,7 @@ export function AppShell({
       <Outlet />
 
       <nav className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur">
-        <div className="mx-auto grid max-w-2xl grid-cols-3">
+        <div className="mx-auto grid max-w-2xl grid-cols-4">
           {navigation.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}

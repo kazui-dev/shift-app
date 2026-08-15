@@ -6,6 +6,11 @@ import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/lib/api"
 import {
+  archiveAnnouncement,
+  createAnnouncement,
+  getAnnouncements,
+} from "@/lib/communications-api"
+import {
   cancelAssignment,
   createActivity,
   createAssignment,
@@ -60,6 +65,11 @@ export function ManagePage() {
     queryFn: () => getAssignmentReports(year!),
     enabled: year !== null,
   })
+  const announcements = useQuery({
+    queryKey: ["announcements", year],
+    queryFn: () => getAnnouncements(year!),
+    enabled: year !== null,
+  })
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
   const activity = useQuery({
     queryKey: ["activity", selectedActivity],
@@ -75,6 +85,12 @@ export function ManagePage() {
   const [color, setColor] = useState("#2563EB")
   const [memberId, setMemberId] = useState("")
   const [notes, setNotes] = useState("")
+  const [announcementTitle, setAnnouncementTitle] = useState("")
+  const [announcementBody, setAnnouncementBody] = useState("")
+  const [announcementPriority, setAnnouncementPriority] = useState<
+    "normal" | "important"
+  >("normal")
+  const [announcementExpiresAt, setAnnouncementExpiresAt] = useState("")
   const [pending, setPending] = useState<
     "activity" | "assignment" | "cancel" | null
   >(null)
@@ -168,6 +184,49 @@ export function ManagePage() {
         queryKey: ["assignment-reports", year],
       })
       setMessage("連絡を対応済みにしました。")
+    } catch (error) {
+      setMessage(errorMessage(error))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function publishAnnouncement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (year === null) return
+    setPending("activity")
+    setMessage(null)
+    try {
+      await createAnnouncement(year, {
+        title: announcementTitle,
+        body: announcementBody,
+        priority: announcementPriority,
+        expiresAt: announcementExpiresAt ? iso(announcementExpiresAt) : null,
+      })
+      setAnnouncementTitle("")
+      setAnnouncementBody("")
+      setAnnouncementPriority("normal")
+      setAnnouncementExpiresAt("")
+      await queryClient.invalidateQueries({
+        queryKey: ["announcements", year],
+      })
+      setMessage("お知らせを公開しました。")
+    } catch (error) {
+      setMessage(errorMessage(error))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  async function removeAnnouncement(announcementId: string) {
+    setPending("cancel")
+    setMessage(null)
+    try {
+      await archiveAnnouncement(announcementId)
+      await queryClient.invalidateQueries({
+        queryKey: ["announcements", year],
+      })
+      setMessage("お知らせを終了しました。")
     } catch (error) {
       setMessage(errorMessage(error))
     } finally {
@@ -406,6 +465,76 @@ export function ManagePage() {
                   </span>
                 )}
               </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details className="rounded-lg border p-4">
+        <summary className="cursor-pointer font-medium">事務連絡</summary>
+        <form className="mt-3 grid gap-2" onSubmit={publishAnnouncement}>
+          <input
+            className="h-10 rounded-md border bg-background px-3"
+            maxLength={120}
+            placeholder="件名"
+            required
+            value={announcementTitle}
+            onChange={(event) => setAnnouncementTitle(event.target.value)}
+          />
+          <textarea
+            className="min-h-24 rounded-md border bg-background p-3"
+            maxLength={5000}
+            placeholder="連絡内容"
+            required
+            value={announcementBody}
+            onChange={(event) => setAnnouncementBody(event.target.value)}
+          />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select
+              className="h-10 rounded-md border bg-background px-2"
+              value={announcementPriority}
+              onChange={(event) =>
+                setAnnouncementPriority(
+                  event.target.value as "normal" | "important"
+                )
+              }
+            >
+              <option value="normal">通常</option>
+              <option value="important">重要</option>
+            </select>
+            <label className="text-xs">
+              掲載期限（任意）
+              <input
+                type="datetime-local"
+                className="mt-1 h-10 w-full rounded-md border bg-background px-2 text-sm"
+                value={announcementExpiresAt}
+                onChange={(event) =>
+                  setAnnouncementExpiresAt(event.target.value)
+                }
+              />
+            </label>
+          </div>
+          <Button disabled={pending !== null}>公開</Button>
+        </form>
+        <ul className="mt-4 space-y-2 text-sm">
+          {announcements.data?.announcements.map((announcement) => (
+            <li
+              key={announcement.id}
+              className="flex items-start justify-between gap-3 rounded-md border p-3"
+            >
+              <div>
+                <p className="font-medium">{announcement.title}</p>
+                <p className="line-clamp-2 text-muted-foreground">
+                  {announcement.body}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending !== null}
+                onClick={() => void removeAnnouncement(announcement.id)}
+              >
+                終了
+              </Button>
             </li>
           ))}
         </ul>

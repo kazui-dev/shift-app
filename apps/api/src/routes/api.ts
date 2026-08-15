@@ -8,6 +8,7 @@ import {
   requireSameOriginForMutation,
 } from "../http"
 import { activitiesApp } from "./activities"
+import { announcementsApp } from "./announcements"
 import { assignmentsApp } from "./assignments"
 import { meApp } from "./me"
 import { reportsApp } from "./reports"
@@ -39,6 +40,7 @@ apiApp.route("/me", meApp)
 apiApp.route("/years", yearsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
+apiApp.route("/announcements", announcementsApp)
 apiApp.route("/assignments", assignmentsApp)
 apiApp.route("/reports", reportsApp)
 

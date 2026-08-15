@@ -155,6 +155,10 @@ assignmentごとに本人の出勤時刻を一件保持する。`assignment_id` 
 
 割当本人による遅刻・欠勤連絡をassignmentごとに一件保持する。同じassignmentから再送した場合は内容を更新して`open`へ戻す。年度の`shift.manage`保有者は一覧を確認し、`resolved`へ変更できる。通常のチャットと分離することで未対応連絡を見失わないようにする。
 
+### `announcements`
+
+年度別の事務連絡を保持する。`normal` / `important` の重要度、公開日時、任意の掲載期限を持ち、削除操作は物理削除せず`archived`にする。作成・終了は年度の`shift.manage`を必要とする。
+
 ## Chat Management
 
 ### `chat_rooms`
@@ -228,6 +232,8 @@ erDiagram
     members ||--o{ attendance_records : checks_in
     shift_assignments ||--o| assignment_reports : receives
     members ||--o{ assignment_reports : submits
+    operating_years ||--o{ announcements : publishes
+    members ||--o{ announcements : authors
     chat_rooms ||--o{ chat_room_permissions : controlled_by
     chat_rooms ||--o{ chat_messages : contains
     members ||--o{ chat_room_permissions : participates
