@@ -1,6 +1,6 @@
 # Database
 
-この文書は実装済みの認証・シフト・chat schema と、今後の push schema の目標を示す。D1実装の正は `packages/db/src/schema.ts` と SQL migration、Durable Object実装の正は `apps/api/src/chat-room.ts` とする。
+この文書は実装済みの認証・シフト・chat・push schemaを示す。D1実装の正は`packages/db/src/schema.ts`とSQL migration、Durable Object実装の正は`apps/api/src/chat-room.ts`とする。
 
 ## Policy
 
@@ -203,15 +203,31 @@ D1との分散transactionは作らない。WorkerがD1でアクセスを検証�
 
 ### `push_subscriptions`
 
-| Column       | Type    | Note                      |
-| ------------ | ------- | ------------------------- |
-| `id`         | text    | PK                        |
-| `user_id`    | text    | FK, Better Auth `user.id` |
-| `endpoint`   | text    | Push service URL          |
-| `p256dh`     | text    | 公開鍵                    |
-| `auth`       | text    | 認証シークレット          |
-| `created_at` | integer | UNIX time milliseconds    |
-| `updated_at` | integer | UNIX time milliseconds    |
+| Column            | Type    | Note                     |
+| ----------------- | ------- | ------------------------ |
+| `id`              | text    | PK                       |
+| `member_id`       | text    | FK, `members.id`         |
+| `endpoint`        | text    | unique、Push service URL |
+| `expiration_time` | integer | nullable                 |
+| `p256dh`          | text    | 公開鍵                   |
+| `auth`            | text    | 認証シークレット         |
+| `created_at`      | integer | UNIX time milliseconds   |
+| `updated_at`      | integer | UNIX time milliseconds   |
+
+endpointはPush serviceのcapability URLとして扱い、ログへ出さない。同一endpointを別memberへ上書きすることはできない。Push serviceが404/410を返した購読は削除する。
+
+### `notification_deliveries`
+
+| Column            | Type    | Note                             |
+| ----------------- | ------- | -------------------------------- |
+| `assignment_id`   | text    | 複合PK、FK                       |
+| `subscription_id` | text    | 複合PK、FK                       |
+| `kind`            | text    | 複合PK、`assigned`, `ten_minute` |
+| `status`          | text    | `claimed`, `sent`                |
+| `claimed_at`      | integer | UNIX time milliseconds           |
+| `sent_at`         | integer | nullable                         |
+
+配送前に`INSERT OR IGNORE`でclaimし、同一通知の並行・重複送信を防ぐ。一時的な送信失敗ではclaimを削除して次回実行に再試行させる。process停止の境界では重複より未送信を選ぶat-most-once寄りの設計とする。
 
 ## ER Diagram
 
@@ -241,6 +257,9 @@ erDiagram
     operating_years ||--o{ chat_rooms : contains
     members ||--o{ chat_rooms : creates
     chat_rooms ||--o{ chat_room_targets : targets
+    members ||--o{ push_subscriptions : subscribes
+    push_subscriptions ||--o{ notification_deliveries : receives
+    shift_assignments ||--o{ notification_deliveries : notifies
 ```
 
 ## Open Questions

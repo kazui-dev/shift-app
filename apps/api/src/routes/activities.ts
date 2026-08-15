@@ -14,6 +14,7 @@ import {
   readJson,
   toIso,
 } from "../http"
+import { notifyAssignmentCreated } from "../push"
 
 const idSchema = z.string().uuid()
 
@@ -329,6 +330,16 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
     )
     .bind(activity.year, parsed.data.memberId, startsAt, endsAt)
     .first<{ matched: number }>()
+
+  c.executionCtx.waitUntil(
+    notifyAssignmentCreated(c.env, {
+      assignmentId,
+      memberId: parsed.data.memberId,
+      activityName: activity.name,
+      place: activity.place,
+      startsAt,
+    })
+  )
 
   return c.json(
     {

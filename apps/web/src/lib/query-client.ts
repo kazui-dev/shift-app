@@ -5,6 +5,8 @@ import type {
 } from "@tanstack/react-query-persist-client"
 import { del, get, set } from "idb-keyval"
 
+import { sendChatMessage } from "./chat-api"
+
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"
 
@@ -16,6 +18,11 @@ export const queryClient = new QueryClient({
       retry: 1,
     },
   },
+})
+
+queryClient.setMutationDefaults(["send-chat-message"], {
+  mutationFn: (variables: { roomId: string; id: string; content: string }) =>
+    sendChatMessage(variables.roomId, variables),
 })
 
 export const persister: Persister = {

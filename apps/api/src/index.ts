@@ -8,6 +8,7 @@ import { onboardingInputSchema } from "@workspace/shared/auth"
 
 import { createAuth, getConfiguredProviders } from "./auth"
 import { adminApp } from "./admin"
+import { sendDueAssignmentReminders } from "./push"
 import { apiApp } from "./routes/api"
 
 export { ChatRoom } from "./chat-room"
@@ -248,4 +249,9 @@ app.onError((error, c) => {
   return c.json({ error: "Internal server error" }, 500)
 })
 
-export default app
+export default {
+  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+  scheduled: (controller, env, ctx) => {
+    ctx.waitUntil(sendDueAssignmentReminders(env, controller.scheduledTime))
+  },
+} satisfies ExportedHandler<CloudflareBindings>

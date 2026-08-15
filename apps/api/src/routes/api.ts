@@ -12,6 +12,7 @@ import { announcementsApp } from "./announcements"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat"
 import { meApp } from "./me"
+import { pushApp } from "./push"
 import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
 import { yearsApp } from "./years"
@@ -38,6 +39,7 @@ apiApp.use("*", requireMember)
 apiApp.use("*", requireSameOriginForMutation)
 
 apiApp.route("/me", meApp)
+apiApp.route("/push", pushApp)
 apiApp.route("/years", yearsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)

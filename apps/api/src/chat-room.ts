@@ -21,9 +21,7 @@ type StoredMessage = {
 export class ChatRoom extends DurableObject<CloudflareBindings> {
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {
     super(ctx, env)
-    ctx.blockConcurrencyWhile(async () => {
-      this.migrate()
-    })
+    void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
   }
 
   private migrate() {
@@ -54,10 +52,10 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
-  async getMessages(
+  getMessages(
     beforeSequence: number | null,
     limit: number
-  ): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
+  ): { messages: ChatMessage[]; hasMore: boolean } {
     const boundedLimit = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
       .exec<StoredMessage>(
@@ -82,13 +80,13 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
-  async sendMessage(input: {
+  sendMessage(input: {
     id: string
     memberId: string
     memberDisplayName: string
     content: string
     createdAt: number
-  }): Promise<ChatMessage> {
+  }): ChatMessage {
     const existing = this.ctx.storage.sql
       .exec<StoredMessage>(
         `SELECT sequence, id, member_id AS memberId,
@@ -128,7 +126,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     return message
   }
 
-  async fetch(request: Request): Promise<Response> {
+  fetch(request: Request): Response {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Expected WebSocket", { status: 426 })
     }

@@ -111,11 +111,13 @@ export function ChatPage() {
   })
 
   const send = useMutation({
-    mutationFn: (message: string) =>
-      sendChatMessage(selectedRoomId!, {
-        id: crypto.randomUUID(),
-        content: message,
-      }),
+    mutationKey: ["send-chat-message"],
+    mutationFn: (variables: { roomId: string; id: string; content: string }) =>
+      sendChatMessage(variables.roomId, variables),
+    onMutate: () => {
+      setContent("")
+      setFeedback(navigator.onLine ? null : "オフライン送信待ちです。")
+    },
     onSuccess: async () => {
       setContent("")
       setFeedback(null)
@@ -137,7 +139,13 @@ export function ChatPage() {
   function handleSend(event: FormEvent) {
     event.preventDefault()
     const message = content.trim()
-    if (selectedRoomId && message) send.mutate(message)
+    if (selectedRoomId && message) {
+      send.mutate({
+        roomId: selectedRoomId,
+        id: crypto.randomUUID(),
+        content: message,
+      })
+    }
   }
 
   return (

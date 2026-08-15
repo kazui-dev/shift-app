@@ -85,3 +85,20 @@ export const chatEventSchema = z.discriminatedUnion("type", [
     message: chatMessageResponseSchema,
   }),
 ])
+
+export const pushSubscriptionInputSchema = z.object({
+  endpoint: z.string().url().max(4096),
+  expirationTime: z.number().int().positive().nullable(),
+  keys: z.object({
+    p256dh: z.string().min(1).max(512),
+    auth: z.string().min(1).max(512),
+  }),
+})
+
+export const deletePushSubscriptionInputSchema = z.object({
+  endpoint: z.string().url().max(4096),
+})
+
+export const pushConfigResponseSchema = z.object({
+  publicKey: z.string().min(1),
+})

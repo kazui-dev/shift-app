@@ -135,6 +135,17 @@ DISCORD_CLIENT_ID
 DISCORD_CLIENT_SECRET
 ```
 
+Web Pushを使う本番環境ではVAPID key pairを生成し、3値をWorker secretへ登録する。秘密鍵は`.env`や`wrangler.jsonc`へcommitしない。
+
+```bash
+pnpm -C apps/api exec web-push generate-vapid-keys
+pnpm -C apps/api exec wrangler secret put VAPID_PUBLIC_KEY
+pnpm -C apps/api exec wrangler secret put VAPID_PRIVATE_KEY
+pnpm -C apps/api exec wrangler secret put VAPID_SUBJECT
+```
+
+`VAPID_SUBJECT`は`https://shift.kazui.dev`を使う。localで通知まで試す場合は別の開発用key pairを`.dev.vars`へ設定する。通常の画面・API開発だけなら不要。
+
 OAuth profile、email、学籍番号の一致で account を暗黙連携しない。管理者承認による recovery だけを許可する。詳細な flow は `docs/requirements.md`、table 設計は `docs/database.md` を参照する。
 
 Notion OAuth は将来拡張であり、現時点では設定不要。候補 workspace ID と検討事項は `docs/requirements.md` に残す。

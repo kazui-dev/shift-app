@@ -6,7 +6,7 @@
 
 本番は `shift.kazui.dev` へ deploy 済みで、D1 migration、Discord application の資格情報、初回 `system_admin` の監査ログ付き昇格まで完了しています。未所属 Discord アカウントを拒否し、アプリ側にユーザーやセッションを作成しないことも本番で確認済みです。
 
-管理者向けの member・role・session・identity recovery 管理に加え、年度・年度別権限・希望提出・activity・シフト割当・本人用タイムライン・勤務時間内の出勤記録・遅刻欠勤連絡・年度別の事務連絡・リアルタイムチャットを実装済みです。これらは動作確認用の最小UIから操作できます。プッシュ通知とオフライン mutation queue は未実装です。Notion OAuth は将来拡張です。GitHub からの自動 deploy は Cloudflare Builds で動作確認済みです。
+管理者向けの member・role・session・identity recovery 管理に加え、年度・年度別権限・希望提出・activity・シフト割当・本人用タイムライン・勤務時間内の出勤記録・遅刻欠勤連絡・年度別の事務連絡・リアルタイムチャット・割当時と10分前のWeb Pushを実装済みです。これらは動作確認用の最小UIから操作できます。チャット送信はオフライン時に永続化して再開します。Notion OAuth は将来拡張です。GitHub からの自動 deploy は Cloudflare Builds で動作確認済みです。
 
 ## Repository
 

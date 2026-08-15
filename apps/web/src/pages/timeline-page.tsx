@@ -4,6 +4,7 @@ import { LoaderCircle } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
+import { PushControl } from "@/components/push-control"
 import { errorMessage } from "@/lib/api"
 import { checkIn, getTimeline, submitAssignmentReport } from "@/lib/shifts-api"
 
@@ -79,12 +80,15 @@ export function TimelinePage() {
           <p className="text-sm text-muted-foreground">自分の予定</p>
           <h1 className="text-xl font-medium">タイムライン</h1>
         </div>
-        <input
-          type="date"
-          className="h-10 rounded-md border bg-background px-3"
-          value={date}
-          onChange={(event) => setDate(event.target.value)}
-        />
+        <div className="space-y-2 text-right">
+          <input
+            type="date"
+            className="h-10 rounded-md border bg-background px-3"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
+          />
+          <PushControl />
+        </div>
       </div>
 
       {timeline.isPending && <LoaderCircle className="animate-spin" />}

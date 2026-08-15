@@ -433,3 +433,50 @@ export const chatRoomTargets = sqliteTable(
     ),
   ]
 )
+
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: text("id").primaryKey(),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    expirationTime: integer("expiration_time", { mode: "timestamp_ms" }),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("push_subscriptions_endpoint_uidx").on(table.endpoint),
+    index("push_subscriptions_member_idx").on(table.memberId),
+  ]
+)
+
+export const notificationDeliveries = sqliteTable(
+  "notification_deliveries",
+  {
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => shiftAssignments.id, { onDelete: "cascade" }),
+    subscriptionId: text("subscription_id")
+      .notNull()
+      .references(() => pushSubscriptions.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["assigned", "ten_minute"] }).notNull(),
+    status: text("status", { enum: ["claimed", "sent"] })
+      .notNull()
+      .default("claimed"),
+    claimedAt: integer("claimed_at", { mode: "timestamp_ms" }).notNull(),
+    sentAt: integer("sent_at", { mode: "timestamp_ms" }),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.assignmentId, table.subscriptionId, table.kind],
+    }),
+    index("notification_deliveries_status_claimedAt_idx").on(
+      table.status,
+      table.claimedAt
+    ),
+  ]
+)

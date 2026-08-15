@@ -20,6 +20,9 @@
       "BETTER_AUTH_SECRET",
       "DISCORD_CLIENT_ID",
       "DISCORD_CLIENT_SECRET",
+      "VAPID_PUBLIC_KEY",
+      "VAPID_PRIVATE_KEY",
+      "VAPID_SUBJECT",
     ],
   },
   "assets": {
@@ -40,6 +43,9 @@
   },
   "exports": {
     "ChatRoom": { "type": "durable-object", "storage": "sqlite" },
+  },
+  "triggers": {
+    "crons": ["* * * * *"],
   },
   "observability": {
     "enabled": true,

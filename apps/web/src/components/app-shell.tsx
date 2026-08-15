@@ -14,6 +14,8 @@ import type { AuthState } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
 
 import { authClient } from "@/lib/auth-client"
+import { persister } from "@/lib/query-client"
+import { removePushSubscription } from "@/lib/push-api"
 
 const navigation = [
   { to: "/timeline", label: "タイムライン", icon: CalendarDays },
@@ -32,8 +34,22 @@ export function AppShell({
   const router = useRouter()
 
   async function signOut() {
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.getSubscription()
+      if (subscription) {
+        try {
+          await removePushSubscription(subscription.endpoint)
+        } catch {
+          // The invalid endpoint is removed when the push service returns 410.
+        } finally {
+          await subscription.unsubscribe()
+        }
+      }
+    }
     await authClient.signOut()
     queryClient.clear()
+    await persister.removeClient()
     await router.navigate({ to: "/" })
   }
 

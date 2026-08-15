@@ -14,9 +14,10 @@
 | React / Vite / shadcn/ui    | 導入済み                                             |
 | D1 binding / Drizzle schema | 認証・年度・希望・シフト schema を実装済み           |
 | TanStack Router / Query     | routing と query cache 永続化を構成済み              |
-| PWA / offline persistence   | app shell と静的 asset cache を構成済み              |
+| PWA / offline persistence   | asset cache・query cache・chat送信待ちを実装済み     |
 | Better Auth / OAuth         | handler・所属確認・onboarding 実装済み               |
 | Durable Objects / chat      | ルーム別SQLite・WebSocketを実装済み                  |
+| Web Push / reminders        | 割当時・開始10分前通知を実装済み                     |
 | Shift management API / UI   | 年度・役割・希望・割当・タイムライン・出勤を実装済み |
 | `packages/shared`           | 認証・シフト・連絡 API schema を実装済み             |
 
@@ -32,7 +33,7 @@
 - API 入出力は Zod schema で検証し、共通 schema は `packages/shared` に置く。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
-Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。offline mutation の復元口は用意済みだが、実際の送信待ちは未実装。機能追加時に mutation key ごとの既定 `mutationFn`、競合、重複送信、期限切れデータの扱いを API 側と合わせて決める。
+Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでqueueへ入れない。
 
 ## Backend
 
@@ -73,12 +74,16 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成    |
 | `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信          |
 | `/api/chat/rooms/:roomId/ws`                | リアルタイム受信              |
+| `/api/push/config`                          | VAPID公開鍵                   |
+| `/api/push/subscriptions`                   | 端末のPush購読登録・解除      |
 
 変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
 
 認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/notices`、`/chat`、`/manage`、`/system` に責務を分ける。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
 
 チャットではD1にルームmetadataと対象member・role・activityを置き、各requestで現在の所属からアクセスを再計算する。メッセージ本文と単調増加するsequenceはルームごとのDurable Object SQLiteに置く。送信は認証・認可済みHTTP POST、リアルタイム受信は同一originを検証したHibernation WebSocketとし、client生成UUIDで再送を冪等化する。
+
+Push購読はmemberごと・端末ごとにD1へ保持する。新規割当後は`waitUntil`で即時通知し、開始前通知は毎分のCron Triggerが「9分超10分以内に開始する割当」を処理する。配送前にassignment・subscription・通知種別の一意なdeliveryをclaimするため、Cronの重複実行で二重送信しない。Push serviceが404/410を返した購読は削除する。VAPID秘密鍵はWorker secretだけに置く。
 
 ## Authentication Architecture
 

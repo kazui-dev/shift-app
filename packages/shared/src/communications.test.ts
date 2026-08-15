@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createAnnouncementInputSchema,
   createChatRoomInputSchema,
+  pushSubscriptionInputSchema,
   sendChatMessageInputSchema,
 } from "./communications"
 
@@ -47,5 +48,15 @@ describe("communication schemas", () => {
     expect(
       sendChatMessageInputSchema.safeParse({ content: "了解" }).success
     ).toBe(false)
+  })
+
+  it("validates a web push subscription", () => {
+    expect(
+      pushSubscriptionInputSchema.safeParse({
+        endpoint: "https://push.example.test/subscription/1",
+        expirationTime: null,
+        keys: { p256dh: "public-key", auth: "auth-secret" },
+      }).success
+    ).toBe(true)
   })
 })
