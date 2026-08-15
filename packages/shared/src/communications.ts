@@ -27,3 +27,61 @@ export const announcementEnvelopeSchema = z.object({
 export const announcementsResponseSchema = z.object({
   announcements: z.array(announcementResponseSchema),
 })
+
+export const chatTargetSchema = z.object({
+  targetType: z.enum(["member", "role", "activity"]),
+  targetId: z.string().uuid(),
+})
+
+export const createChatRoomInputSchema = z.object({
+  year: operatingYearSchema,
+  name: z.string().trim().min(1).max(120),
+  targets: z.array(chatTargetSchema).min(1).max(100),
+})
+
+export const sendChatMessageInputSchema = z.object({
+  id: z.string().uuid(),
+  content: z.string().trim().min(1).max(2000),
+})
+
+export const chatRoomResponseSchema = z.object({
+  id: z.string().uuid(),
+  year: operatingYearSchema,
+  name: z.string(),
+  createdBy: z.string().uuid(),
+  createdAt: instantSchema,
+  updatedAt: instantSchema,
+})
+
+export const chatRoomsResponseSchema = z.object({
+  rooms: z.array(chatRoomResponseSchema),
+})
+
+export const chatRoomEnvelopeSchema = z.object({
+  room: chatRoomResponseSchema,
+})
+
+export const chatMessageResponseSchema = z.object({
+  sequence: z.number().int().positive(),
+  id: z.string().uuid(),
+  memberId: z.string().uuid(),
+  memberDisplayName: z.string(),
+  content: z.string(),
+  createdAt: instantSchema,
+})
+
+export const chatMessagesResponseSchema = z.object({
+  messages: z.array(chatMessageResponseSchema),
+  hasMore: z.boolean(),
+})
+
+export const chatMessageEnvelopeSchema = z.object({
+  message: chatMessageResponseSchema,
+})
+
+export const chatEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("message"),
+    message: chatMessageResponseSchema,
+  }),
+])

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppAvailabilityRouteImport } from './routes/_app.availability'
+import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppManageRouteImport } from './routes/_app.manage'
 import { Route as AppNoticesRouteImport } from './routes/_app.notices'
 import { Route as AppSystemRouteImport } from './routes/_app.system'
@@ -29,6 +30,11 @@ const AppRoute = AppRouteImport.update({
 const AppAvailabilityRoute = AppAvailabilityRouteImport.update({
   id: '/availability',
   path: '/availability',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChatRoute = AppChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => AppRoute,
 } as any)
 const AppManageRoute = AppManageRouteImport.update({
@@ -55,6 +61,7 @@ const AppTimelineRoute = AppTimelineRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/availability': typeof AppAvailabilityRoute
+  '/chat': typeof AppChatRoute
   '/manage': typeof AppManageRoute
   '/notices': typeof AppNoticesRoute
   '/system': typeof AppSystemRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/availability': typeof AppAvailabilityRoute
+  '/chat': typeof AppChatRoute
   '/manage': typeof AppManageRoute
   '/notices': typeof AppNoticesRoute
   '/system': typeof AppSystemRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_app/availability': typeof AppAvailabilityRoute
+  '/_app/chat': typeof AppChatRoute
   '/_app/manage': typeof AppManageRoute
   '/_app/notices': typeof AppNoticesRoute
   '/_app/system': typeof AppSystemRoute
@@ -81,14 +90,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/availability' | '/manage' | '/notices' | '/system' | '/timeline'
+    | '/'
+    | '/availability'
+    | '/chat'
+    | '/manage'
+    | '/notices'
+    | '/system'
+    | '/timeline'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/availability' | '/manage' | '/notices' | '/system' | '/timeline'
+  to:
+    | '/'
+    | '/availability'
+    | '/chat'
+    | '/manage'
+    | '/notices'
+    | '/system'
+    | '/timeline'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/_app/availability'
+    | '/_app/chat'
     | '/_app/manage'
     | '/_app/notices'
     | '/_app/system'
@@ -121,6 +144,13 @@ declare module '@tanstack/react-router' {
       path: '/availability'
       fullPath: '/availability'
       preLoaderRoute: typeof AppAvailabilityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/chat': {
+      id: '/_app/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AppChatRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/manage': {
@@ -156,6 +186,7 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteChildren {
   AppAvailabilityRoute: typeof AppAvailabilityRoute
+  AppChatRoute: typeof AppChatRoute
   AppManageRoute: typeof AppManageRoute
   AppNoticesRoute: typeof AppNoticesRoute
   AppSystemRoute: typeof AppSystemRoute
@@ -164,6 +195,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAvailabilityRoute: AppAvailabilityRoute,
+  AppChatRoute: AppChatRoute,
   AppManageRoute: AppManageRoute,
   AppNoticesRoute: AppNoticesRoute,
   AppSystemRoute: AppSystemRoute,

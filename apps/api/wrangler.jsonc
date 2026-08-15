@@ -35,6 +35,12 @@
       "migrations_dir": "migrations",
     },
   ],
+  "durable_objects": {
+    "bindings": [{ "name": "CHAT_ROOMS", "class_name": "ChatRoom" }],
+  },
+  "exports": {
+    "ChatRoom": { "type": "durable-object", "storage": "sqlite" },
+  },
   "observability": {
     "enabled": true,
     "logs": {

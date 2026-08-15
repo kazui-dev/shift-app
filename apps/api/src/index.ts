@@ -10,6 +10,8 @@ import { createAuth, getConfiguredProviders } from "./auth"
 import { adminApp } from "./admin"
 import { apiApp } from "./routes/api"
 
+export { ChatRoom } from "./chat-room"
+
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 
 app.use("/api/auth/*", async (c, next) => {

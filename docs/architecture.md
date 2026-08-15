@@ -16,9 +16,9 @@
 | TanStack Router / Query     | routing と query cache 永続化を構成済み              |
 | PWA / offline persistence   | app shell と静的 asset cache を構成済み              |
 | Better Auth / OAuth         | handler・所属確認・onboarding 実装済み               |
-| Durable Objects / chat      | 未実装                                               |
+| Durable Objects / chat      | ルーム別SQLite・WebSocketを実装済み                  |
 | Shift management API / UI   | 年度・役割・希望・割当・タイムライン・出勤を実装済み |
-| `packages/shared`           | 認証・シフト API schema を実装済み                   |
+| `packages/shared`           | 認証・シフト・連絡 API schema を実装済み             |
 
 ドキュメント内の「方針」「予定」は、現在の実装済み機能を意味しない。
 
@@ -70,10 +70,15 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/reports/:reportId/resolve`            | 連絡の対応完了                |
 | `/api/announcements?year=:year`             | 公開中の年度別事務連絡        |
 | `/api/years/:year/announcements`            | 事務連絡の作成                |
+| `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成    |
+| `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信          |
+| `/api/chat/rooms/:roomId/ws`                | リアルタイム受信              |
 
 変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
 
-認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/notices`、`/manage`、`/system` に責務を分ける。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
+認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/notices`、`/chat`、`/manage`、`/system` に責務を分ける。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
+
+チャットではD1にルームmetadataと対象member・role・activityを置き、各requestで現在の所属からアクセスを再計算する。メッセージ本文と単調増加するsequenceはルームごとのDurable Object SQLiteに置く。送信は認証・認可済みHTTP POST、リアルタイム受信は同一originを検証したHibernation WebSocketとし、client生成UUIDで再送を冪等化する。
 
 ## Authentication Architecture
 

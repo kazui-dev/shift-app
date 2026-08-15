@@ -1,6 +1,6 @@
 # Database
 
-この文書は実装済みの認証・シフト schema と、今後の chat・push schema の目標を示す。実装の正は `packages/db/src/schema.ts` と SQL migration とする。
+この文書は実装済みの認証・シフト・chat schema と、今後の push schema の目標を示す。D1実装の正は `packages/db/src/schema.ts` と SQL migration、Durable Object実装の正は `apps/api/src/chat-room.ts` とする。
 
 ## Policy
 
@@ -163,37 +163,41 @@ assignmentごとに本人の出勤時刻を一件保持する。`assignment_id` 
 
 ### `chat_rooms`
 
-| Column        | Type    | Note                   |
-| ------------- | ------- | ---------------------- |
-| `id`          | text    | PK                     |
-| `year`        | integer | 年度                   |
-| `name`        | text    | ルーム名               |
-| `is_disabled` | integer | boolean                |
-| `created_at`  | integer | UNIX time milliseconds |
-| `updated_at`  | integer | UNIX time milliseconds |
+| Column       | Type    | Note                       |
+| ------------ | ------- | -------------------------- |
+| `id`         | text    | PK                         |
+| `year`       | integer | FK, `operating_years.year` |
+| `name`       | text    | ルーム名                   |
+| `status`     | text    | `active`, `archived`       |
+| `created_by` | text    | FK, 作成した`members.id`   |
+| `created_at` | integer | UNIX time milliseconds     |
+| `updated_at` | integer | UNIX time milliseconds     |
 
-### `chat_room_permissions`
+### `chat_room_targets`
 
-| Column             | Type    | Note                               |
-| ------------------ | ------- | ---------------------------------- |
-| `id`               | text    | PK                                 |
-| `room_id`          | text    | FK, `chat_rooms.id`                |
-| `member_id`        | text    | FK, `members.id`, nullable         |
-| `role_id`          | text    | FK, `roles.id`, nullable           |
-| `activity_id`      | text    | FK, `activities.id`, nullable      |
-| `permission_level` | text    | `read_only`, `read_write`, `admin` |
-| `created_at`       | integer | UNIX time milliseconds             |
-| `updated_at`       | integer | UNIX time milliseconds             |
+| Column        | Type    | Note                                 |
+| ------------- | ------- | ------------------------------------ |
+| `room_id`     | text    | 複合PK、FK, `chat_rooms.id`          |
+| `target_type` | text    | 複合PK、`member`, `role`, `activity` |
+| `target_id`   | text    | 複合PK、対象resourceのID             |
+| `created_at`  | integer | UNIX time milliseconds               |
 
-### `chat_messages`
+polymorphic targetの存在は作成APIで検証する。閲覧・送信時は現在のmember、年度role、active assignmentと照合するため、対象から外れた利用者の権限は即時に失効する。
 
-| Column       | Type    | Note                   |
-| ------------ | ------- | ---------------------- |
-| `id`         | text    | PK                     |
-| `room_id`    | text    | FK, `chat_rooms.id`    |
-| `sender_id`  | text    | FK, `members.id`       |
-| `content`    | text    | 本文                   |
-| `created_at` | integer | UNIX time milliseconds |
+### `ChatRoom` Durable Object SQLite
+
+ルームIDをDurable Object名として1ルームを1インスタンスへ割り当てる。各object内の`messages` tableは次を持つ。
+
+| Column                | Type    | Note                     |
+| --------------------- | ------- | ------------------------ |
+| `sequence`            | integer | PK、自動増分、表示順     |
+| `id`                  | text    | unique、client生成UUID   |
+| `member_id`           | text    | 送信時点の`members.id`   |
+| `member_display_name` | text    | 送信時点の表示名snapshot |
+| `content`             | text    | 本文                     |
+| `created_at`          | integer | UNIX time milliseconds   |
+
+D1との分散transactionは作らない。WorkerがD1でアクセスを検証してからDurable Object RPCを呼び、メッセージを先に永続化する。client生成IDにより、応答喪失後の同一送信を安全に再試行できる。
 
 ## Push Notifications
 
@@ -234,12 +238,9 @@ erDiagram
     members ||--o{ assignment_reports : submits
     operating_years ||--o{ announcements : publishes
     members ||--o{ announcements : authors
-    chat_rooms ||--o{ chat_room_permissions : controlled_by
-    chat_rooms ||--o{ chat_messages : contains
-    members ||--o{ chat_room_permissions : participates
-    year_roles ||--o{ chat_room_permissions : granted_by
-    activities ||--o{ chat_room_permissions : linked_to
-    members ||--o{ chat_messages : sends
+    operating_years ||--o{ chat_rooms : contains
+    members ||--o{ chat_rooms : creates
+    chat_rooms ||--o{ chat_room_targets : targets
 ```
 
 ## Open Questions
@@ -247,4 +248,3 @@ erDiagram
 - 場所の master table を作るか
 - 既読管理をどの粒度で持つか
 - application role と機能別 role の permission matrix
-- ロールが外れた後のチャット閲覧権限をどう扱うか

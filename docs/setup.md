@@ -103,7 +103,7 @@ Vite PWA plugin が Service Worker と manifest を生成する。TanStack Query
 
 ### Durable Objects
 
-実装時は `apps/api/src` から class を export し、`wrangler.jsonc` に `durable_objects.bindings` と SQLite storage の宣言型 `exports` を追加する。古い `new_classes` migration は新規 namespace に使わない。設定後に `cf-typegen` を再実行する。
+チャットの`ChatRoom` classは`apps/api/src`からexportし、`wrangler.jsonc`の`durable_objects.bindings`とSQLite storageの宣言型`exports`で管理する。古い`new_classes` migrationは併用しない。bindingを変更したら`cf-typegen`を再実行する。
 
 ### Better Auth（実装済み）
 

@@ -385,3 +385,51 @@ export const announcements = sqliteTable(
     ),
   ]
 )
+
+export const chatRooms = sqliteTable(
+  "chat_rooms",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status", { enum: ["active", "archived"] })
+      .notNull()
+      .default("active"),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => members.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("chat_rooms_year_status_updatedAt_idx").on(
+      table.year,
+      table.status,
+      table.updatedAt
+    ),
+  ]
+)
+
+export const chatRoomTargets = sqliteTable(
+  "chat_room_targets",
+  {
+    roomId: text("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    targetType: text("target_type", {
+      enum: ["member", "role", "activity"],
+    }).notNull(),
+    targetId: text("target_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.roomId, table.targetType, table.targetId] }),
+    index("chat_room_targets_lookup_idx").on(
+      table.targetType,
+      table.targetId,
+      table.roomId
+    ),
+  ]
+)
