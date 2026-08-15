@@ -53,9 +53,6 @@ export const getTimeline = (from: string, to: string) => {
 
 export const createYear = (input: {
   year: number
-  name: string
-  startsOn: string
-  endsOn: string
   status: "draft" | "active" | "archived"
 }) =>
   apiJson("/api/years", operatingYearEnvelopeSchema, {
@@ -65,12 +62,7 @@ export const createYear = (input: {
 
 export const updateYear = (
   year: number,
-  input: Partial<{
-    name: string
-    startsOn: string
-    endsOn: string
-    status: "draft" | "active" | "archived"
-  }>
+  input: { status: "draft" | "active" | "archived" }
 ) =>
   apiJson(`/api/years/${year}`, operatingYearEnvelopeSchema, {
     method: "PATCH",

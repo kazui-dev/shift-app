@@ -10,13 +10,10 @@ import {
 } from "./shifts"
 
 describe("shift API schemas", () => {
-  it("accepts an ordered operating year", () => {
+  it("accepts a year without imposing an operating period", () => {
     expect(
       createOperatingYearInputSchema.parse({
         year: 2026,
-        name: "2026年度",
-        startsOn: "2026-04-01",
-        endsOn: "2027-03-31",
       })
     ).toMatchObject({ year: 2026, status: "draft" })
   })
@@ -54,9 +51,6 @@ describe("shift API schemas", () => {
         years: [
           {
             year: 2026,
-            name: "2026年度",
-            startsOn: "2026-10-31",
-            endsOn: "2026-11-01",
             status: "active",
             canManage: true,
           },

@@ -42,7 +42,7 @@ export function NoticesPage() {
           >
             {availableYears.map((item) => (
               <option key={item.year} value={item.year}>
-                {item.name}
+                {item.year}
               </option>
             ))}
           </select>

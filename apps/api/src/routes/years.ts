@@ -21,9 +21,6 @@ import {
 
 type YearRow = {
   year: number
-  name: string
-  startsOn: string
-  endsOn: string
   status: "draft" | "active" | "archived"
 }
 
@@ -84,9 +81,7 @@ yearsApp.get("/", async (c) => {
   const member = c.get("member")
   const result = await c.env.shift_app
     .prepare(
-      `SELECT operating_year.year, operating_year.name,
-              operating_year.starts_on AS startsOn,
-              operating_year.ends_on AS endsOn, operating_year.status,
+      `SELECT operating_year.year, operating_year.status,
               CASE WHEN ? = 'system_admin' OR EXISTS (
                 SELECT 1
                 FROM member_year_roles membership
@@ -129,18 +124,10 @@ yearsApp.post("/", async (c) => {
   const result = await c.env.shift_app
     .prepare(
       `INSERT OR IGNORE INTO operating_years
-        (year, name, starts_on, ends_on, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+        (year, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?)`
     )
-    .bind(
-      parsed.data.year,
-      parsed.data.name,
-      parsed.data.startsOn,
-      parsed.data.endsOn,
-      parsed.data.status,
-      now,
-      now
-    )
+    .bind(parsed.data.year, parsed.data.status, now, now)
     .run()
 
   if (result.meta.changes !== 1) {
@@ -169,46 +156,18 @@ yearsApp.patch("/:year", async (c) => {
     )
   }
 
-  const current = await c.env.shift_app
-    .prepare(
-      `SELECT year, name, starts_on AS startsOn, ends_on AS endsOn, status
-       FROM operating_years WHERE year = ?`
-    )
-    .bind(year)
-    .first<YearRow>()
-  if (!current) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
-  }
-
-  const merged = createOperatingYearInputSchema.safeParse({
-    ...current,
-    ...input.data,
-  })
-  if (!merged.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_YEAR",
-      merged.error.issues[0]?.message ?? "Invalid year"
-    )
-  }
-
-  await c.env.shift_app
+  const result = await c.env.shift_app
     .prepare(
       `UPDATE operating_years
-       SET name = ?, starts_on = ?, ends_on = ?, status = ?, updated_at = ?
+       SET status = ?, updated_at = ?
        WHERE year = ?`
     )
-    .bind(
-      merged.data.name,
-      merged.data.startsOn,
-      merged.data.endsOn,
-      merged.data.status,
-      Date.now(),
-      year
-    )
+    .bind(input.data.status, Date.now(), year)
     .run()
-  return c.json({ year: merged.data })
+  if (result.meta.changes !== 1) {
+    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+  }
+  return c.json({ year: { year, status: input.data.status } })
 })
 
 yearsApp.get("/:year/roles", async (c) => {

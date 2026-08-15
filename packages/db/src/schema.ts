@@ -113,9 +113,6 @@ export const adminAuditLogs = sqliteTable(
 
 export const operatingYears = sqliteTable("operating_years", {
   year: integer("year").primaryKey(),
-  name: text("name").notNull(),
-  startsOn: text("starts_on").notNull(),
-  endsOn: text("ends_on").notNull(),
   status: text("status", { enum: ["draft", "active", "archived"] })
     .notNull()
     .default("draft"),

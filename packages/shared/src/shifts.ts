@@ -30,29 +30,14 @@ export const timeWindowSchema = z
     path: ["endsAt"],
   })
 
-export const createOperatingYearInputSchema = z
-  .object({
-    year: operatingYearSchema,
-    name: z.string().trim().min(1).max(80),
-    startsOn: dateOnlySchema,
-    endsOn: dateOnlySchema,
-    status: yearStatusSchema.default("draft"),
-  })
-  .refine((value) => value.startsOn <= value.endsOn, {
-    message: "終了日は開始日以降にしてください",
-    path: ["endsOn"],
-  })
+export const createOperatingYearInputSchema = z.object({
+  year: operatingYearSchema,
+  status: yearStatusSchema.default("draft"),
+})
 
-export const updateOperatingYearInputSchema = z
-  .object({
-    name: z.string().trim().min(1).max(80).optional(),
-    startsOn: dateOnlySchema.optional(),
-    endsOn: dateOnlySchema.optional(),
-    status: yearStatusSchema.optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, {
-    message: "更新項目を1つ以上指定してください",
-  })
+export const updateOperatingYearInputSchema = z.object({
+  status: yearStatusSchema,
+})
 
 export const createYearRoleInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -160,9 +145,6 @@ export const createAssignmentReportInputSchema = z.object({
 
 export const operatingYearResponseSchema = z.object({
   year: operatingYearSchema,
-  name: z.string(),
-  startsOn: dateOnlySchema,
-  endsOn: dateOnlySchema,
   status: yearStatusSchema,
 })
 

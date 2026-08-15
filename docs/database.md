@@ -75,7 +75,14 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 ### `operating_years`
 
-年度の名称、対象期間、編集状態（`draft`, `active`, `archived`）を保持する。年度依存 table の親となり、archived 年度への activity・希望・割当の変更は API で拒否する。
+`year`自体を識別子兼表示値として、編集状態（`draft`, `active`, `archived`）と作成・更新日時だけを保持する。年度に開始日・終了日は設けず、年度をまたぐ準備・運用を妨げない。年度依存tableの親となり、archived年度へのactivity・希望・割当の変更はAPIで拒否する。
+
+| Column       | Type    | Note                          |
+| ------------ | ------- | ----------------------------- |
+| `year`       | integer | PK、識別子兼表示値            |
+| `status`     | text    | `draft`, `active`, `archived` |
+| `created_at` | integer | UNIX time milliseconds        |
+| `updated_at` | integer | UNIX time milliseconds        |
 
 ### `year_roles`
 

@@ -37,9 +37,6 @@ export function SystemPage() {
     [year, years.data]
   )
   const [yearNumber, setYearNumber] = useState(new Date().getFullYear())
-  const [yearName, setYearName] = useState("")
-  const [startsOn, setStartsOn] = useState("")
-  const [endsOn, setEndsOn] = useState("")
   const [roleName, setRoleName] = useState("")
   const [roleColor, setRoleColor] = useState("#7C3AED")
   const [roleCanManage, setRoleCanManage] = useState(false)
@@ -63,15 +60,9 @@ export function SystemPage() {
     try {
       await createYear({
         year: yearNumber,
-        name: yearName,
-        startsOn,
-        endsOn,
         status: "draft",
       })
       setSelectedYear(yearNumber)
-      setYearName("")
-      setStartsOn("")
-      setEndsOn("")
       await refreshYearData()
       setMessage("年度を作成しました。")
     } catch (error) {
@@ -160,7 +151,7 @@ export function SystemPage() {
 
       <div className="space-y-4 rounded-xl border p-4">
         <h2 className="font-medium">年度と権限</h2>
-        <form className="grid gap-2 sm:grid-cols-2" onSubmit={addYear}>
+        <form className="flex gap-2" onSubmit={addYear}>
           <input
             type="number"
             min="2000"
@@ -169,30 +160,7 @@ export function SystemPage() {
             value={yearNumber}
             onChange={(event) => setYearNumber(Number(event.target.value))}
           />
-          <input
-            className="h-10 rounded-md border bg-background px-3"
-            placeholder="年度名"
-            required
-            value={yearName}
-            onChange={(event) => setYearName(event.target.value)}
-          />
-          <input
-            type="date"
-            className="h-10 rounded-md border bg-background px-3"
-            required
-            value={startsOn}
-            onChange={(event) => setStartsOn(event.target.value)}
-          />
-          <input
-            type="date"
-            className="h-10 rounded-md border bg-background px-3"
-            required
-            value={endsOn}
-            onChange={(event) => setEndsOn(event.target.value)}
-          />
-          <Button className="sm:col-span-2" disabled={pending}>
-            年度を作成
-          </Button>
+          <Button disabled={pending}>年度を作成</Button>
         </form>
 
         {years.isPending ? (
@@ -205,7 +173,7 @@ export function SystemPage() {
           >
             {years.data?.years.map((item) => (
               <option key={item.year} value={item.year}>
-                {item.name}（{item.status}）
+                {item.year}（{item.status}）
               </option>
             ))}
           </select>
