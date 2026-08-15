@@ -10,6 +10,7 @@ import {
   apiError,
   type ApiEnv,
   canManageShifts,
+  hasActiveYearMembership,
   readJson,
   toIso,
 } from "../http"
@@ -48,6 +49,12 @@ async function findAccessibleRoom(
               room.created_at AS createdAt, room.updated_at AS updatedAt
        FROM chat_rooms room
        WHERE room.id = ? AND room.status = 'active'
+         AND EXISTS (
+           SELECT 1 FROM year_memberships year_membership
+           WHERE year_membership.year = room.year
+             AND year_membership.member_id = ?
+             AND year_membership.status = 'active'
+         )
          AND (
            room.created_by = ?
            OR EXISTS (
@@ -69,7 +76,7 @@ async function findAccessibleRoom(
            )
          )`
     )
-    .bind(roomId, memberId, memberId, memberId, memberId)
+    .bind(roomId, memberId, memberId, memberId, memberId, memberId)
     .first<RoomRow>()
 }
 
@@ -79,16 +86,15 @@ async function targetExists(
   target: { targetType: "member" | "role" | "activity"; targetId: string }
 ): Promise<boolean> {
   const queries = {
-    member: "SELECT 1 AS found FROM members WHERE id = ?",
+    member: `SELECT 1 AS found FROM year_memberships
+             WHERE member_id = ? AND year = ? AND status = 'active'`,
     role: "SELECT 1 AS found FROM year_roles WHERE id = ? AND year = ?",
     activity: "SELECT 1 AS found FROM activities WHERE id = ? AND year = ?",
   } as const
   const statement = env.shift_app.prepare(queries[target.targetType])
-  const row = await (
-    target.targetType === "member"
-      ? statement.bind(target.targetId)
-      : statement.bind(target.targetId, year)
-  ).first<{ found: number }>()
+  const row = await statement
+    .bind(target.targetId, year)
+    .first<{ found: number }>()
   return row?.found === 1
 }
 
@@ -102,6 +108,12 @@ chatApp.get("/rooms", async (c) => {
               room.created_at AS createdAt, room.updated_at AS updatedAt
        FROM chat_rooms room
        WHERE room.status = 'active'
+         AND EXISTS (
+           SELECT 1 FROM year_memberships year_membership
+           WHERE year_membership.year = room.year
+             AND year_membership.member_id = ?
+             AND year_membership.status = 'active'
+         )
          AND (
            room.created_by = ?
            OR EXISTS (
@@ -125,7 +137,7 @@ chatApp.get("/rooms", async (c) => {
        ORDER BY room.updated_at DESC
        LIMIT 200`
     )
-    .bind(member.id, member.id, member.id, member.id)
+    .bind(member.id, member.id, member.id, member.id, member.id)
     .all<RoomRow>()
   return c.json({ rooms: rooms.results.map(roomJson) })
 })
@@ -141,6 +153,14 @@ chatApp.post("/rooms", async (c) => {
     )
   }
   const actor = c.get("member")
+  if (!(await hasActiveYearMembership(c.env, actor.id, input.data.year))) {
+    return apiError(
+      c,
+      403,
+      "YEAR_MEMBERSHIP_REQUIRED",
+      "Active year membership is required"
+    )
+  }
   const targets = [
     ...new Map(
       input.data.targets.map((target) => [

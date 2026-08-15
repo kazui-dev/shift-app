@@ -66,6 +66,10 @@ meApp.get("/timeline", async (c) => {
          attendance.checked_in_at AS checkedInAt
        FROM shift_assignments assignment
        JOIN activities activity ON activity.id = assignment.activity_id
+       JOIN year_memberships year_membership
+         ON year_membership.year = activity.year
+        AND year_membership.member_id = assignment.member_id
+        AND year_membership.status = 'active'
        JOIN members member ON member.id = assignment.member_id
        LEFT JOIN attendance_records attendance ON attendance.assignment_id = assignment.id
        WHERE assignment.member_id = ?

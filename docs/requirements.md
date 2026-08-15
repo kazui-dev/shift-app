@@ -119,6 +119,8 @@ application role は次の 3 種類とする。
 
 シフト、担当、チャットなど機能別の権限は application role だけに詰め込まず、年度別 role や対象 resource の permission で管理する。`system_admin` と `leader` は self-service で取得できない。API は frontend の表示状態を信用せず、session、onboarding 完了、application role、resource permission をサーバー側で検証する。
 
+年度への参加は `year_memberships` で管理し、年度 role とは分離する。通常 member が年度別のデータへアクセスするには `active` な年度参加が必要で、年度 role は active な参加者にだけ付与できる。参加を `inactive` にしても過去データと role 割当は保持するが、年度アクセスと実効権限は停止する。既存年度は導入時に既存 member を参加中として補完し、新年度作成時の既存 member の自動参加は行わない。新年度への参加者追加方針は保留とする。
+
 初回 `system_admin` は「最初に登録した利用者」へ自動付与しない。公開 bootstrap endpoint、学籍番号 allowlist、共有 bootstrap secret も設けない。OAuth と onboarding を完了した既存 member を Cloudflare operator が明示的に選び、D1 上の role 更新と `admin_audit_logs` への記録を一組で実行する。2 人目以降は認証済み `system_admin` の管理画面から昇格し、本人による自己昇格は禁止する。
 
 所属確認は新しい OAuth login 時に必ず行う。初期実装では最後の所属確認から最大 7 日で再 OAuth を要求し、Better Auth session の延長だけでこの期限を延ばさない。`system_admin` はアカウントの全 session を失効できるようにする。

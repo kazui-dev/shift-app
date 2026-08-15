@@ -38,10 +38,14 @@ rolesApp.get("/:roleId/members", async (c) => {
       `SELECT member.id, member.display_name AS displayName, member.student_id AS studentId
        FROM member_year_roles membership
        JOIN members member ON member.id = membership.member_id
+       JOIN year_memberships year_membership
+         ON year_membership.member_id = membership.member_id
+        AND year_membership.year = ?
+        AND year_membership.status = 'active'
        WHERE membership.role_id = ?
        ORDER BY lower(member.display_name)`
     )
-    .bind(role.id)
+    .bind(role.year, role.id)
     .all<{ id: string; displayName: string; studentId: string }>()
   return c.json({ role, members: members.results })
 })
@@ -59,20 +63,42 @@ rolesApp.put("/:roleId/members/:memberId", async (c) => {
     .prepare(
       `INSERT OR IGNORE INTO member_year_roles (member_id, role_id, created_at)
        SELECT member.id, role.id, ? FROM members member, year_roles role
+       JOIN year_memberships year_membership
+         ON year_membership.member_id = member.id
+        AND year_membership.year = role.year
+        AND year_membership.status = 'active'
        WHERE member.id = ? AND role.id = ?`
     )
     .bind(Date.now(), memberId.data, roleId.data)
     .run()
   if (result.meta.changes !== 1) {
-    const exists = await c.env.shift_app
+    const resource = await c.env.shift_app
       .prepare(
-        `SELECT 1 AS found FROM member_year_roles
-         WHERE member_id = ? AND role_id = ?`
+        `SELECT role.id AS roleId, member.id AS memberId,
+                year_membership.status AS membershipStatus
+         FROM year_roles role
+         JOIN members member ON member.id = ?
+         LEFT JOIN year_memberships year_membership
+           ON year_membership.member_id = member.id
+          AND year_membership.year = role.year
+         WHERE role.id = ?`
       )
       .bind(memberId.data, roleId.data)
-      .first<{ found: number }>()
-    if (!exists) {
+      .first<{
+        roleId: string
+        memberId: string
+        membershipStatus: "active" | "inactive" | null
+      }>()
+    if (!resource) {
       return apiError(c, 404, "RESOURCE_NOT_FOUND", "Role or member not found")
+    }
+    if (resource.membershipStatus !== "active") {
+      return apiError(
+        c,
+        409,
+        "YEAR_MEMBERSHIP_REQUIRED",
+        "Member must actively participate in the role's year"
+      )
     }
   }
   return c.json({

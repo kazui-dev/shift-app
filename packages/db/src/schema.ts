@@ -120,6 +120,31 @@ export const operatingYears = sqliteTable("operating_years", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 })
 
+export const yearMemberships = sqliteTable(
+  "year_memberships",
+  {
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => members.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["active", "inactive"] })
+      .notNull()
+      .default("active"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.year, table.memberId] }),
+    index("year_memberships_member_status_idx").on(
+      table.memberId,
+      table.status,
+      table.year
+    ),
+  ]
+)
+
 export const yearRoles = sqliteTable(
   "year_roles",
   {

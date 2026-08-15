@@ -54,30 +54,33 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 
 主な route:
 
-| Route                                       | Responsibility                |
-| ------------------------------------------- | ----------------------------- |
-| `/api/me/timeline`                          | ログイン中 member の割当一覧  |
-| `/api/years`                                | 年度の一覧・作成              |
-| `/api/years/:year/roles`                    | 年度別 role と機能権限        |
-| `/api/years/:year/members`                  | 割当候補 member と年度別 role |
-| `/api/years/:year/availability`             | 本人の希望時間帯              |
-| `/api/years/:year/availability-submissions` | 管理者向け希望一覧            |
-| `/api/years/:year/activities`               | 年度内 activity               |
-| `/api/activities/:activityId`               | activity と割当               |
-| `/api/assignments/:assignmentId`            | 個別割当の取消                |
-| `/api/assignments/:assignmentId/check-in`   | 本人の出勤記録                |
-| `/api/assignments/:assignmentId/report`     | 本人の遅刻・欠勤連絡          |
-| `/api/years/:year/reports`                  | 管理者向け連絡一覧            |
-| `/api/reports/:reportId/resolve`            | 連絡の対応完了                |
-| `/api/announcements?year=:year`             | 公開中の年度別事務連絡        |
-| `/api/years/:year/announcements`            | 事務連絡の作成                |
-| `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成    |
-| `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信          |
-| `/api/chat/rooms/:roomId/ws`                | リアルタイム受信              |
-| `/api/push/config`                          | VAPID公開鍵                   |
-| `/api/push/subscriptions`                   | 端末のPush購読登録・解除      |
+| Route                                       | Responsibility                   |
+| ------------------------------------------- | -------------------------------- |
+| `/api/me/timeline`                          | ログイン中 member の割当一覧     |
+| `/api/years`                                | 年度の一覧・作成                 |
+| `/api/years/:year/roles`                    | 年度別 role と機能権限           |
+| `/api/years/:year/members`                  | 割当候補 member と年度別 role    |
+| `/api/years/:year/memberships`              | 年度参加者の一覧・有効化・無効化 |
+| `/api/years/:year/availability`             | 本人の希望時間帯                 |
+| `/api/years/:year/availability-submissions` | 管理者向け希望一覧               |
+| `/api/years/:year/activities`               | 年度内 activity                  |
+| `/api/activities/:activityId`               | activity と割当                  |
+| `/api/assignments/:assignmentId`            | 個別割当の取消                   |
+| `/api/assignments/:assignmentId/check-in`   | 本人の出勤記録                   |
+| `/api/assignments/:assignmentId/report`     | 本人の遅刻・欠勤連絡             |
+| `/api/years/:year/reports`                  | 管理者向け連絡一覧               |
+| `/api/reports/:reportId/resolve`            | 連絡の対応完了                   |
+| `/api/announcements?year=:year`             | 公開中の年度別事務連絡           |
+| `/api/years/:year/announcements`            | 事務連絡の作成                   |
+| `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成       |
+| `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信             |
+| `/api/chat/rooms/:roomId/ws`                | リアルタイム受信                 |
+| `/api/push/config`                          | VAPID公開鍵                      |
+| `/api/push/subscriptions`                   | 端末のPush購読登録・解除         |
 
 変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
+
+年度参加と年度 role は別の責務とする。通常利用者の年度データ閲覧、本人の希望提出、チャット利用には active な `year_memberships` を必須とし、`member_year_roles` は参加中の利用者へ追加権限を与える。`system_admin` は年度管理を参加状態に依存せず実行できるが、個人として希望提出や private chat を利用する場合は明示的な年度参加を必要とする。
 
 認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/notices`、`/chat`、`/manage`、`/system` に責務を分ける。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
 

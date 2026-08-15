@@ -13,11 +13,16 @@ import {
   apiError,
   type ApiEnv,
   canManageShifts,
+  canAccessYear,
+  hasActiveYearMembership,
   parseYear,
   readJson,
   requireSystemAdmin,
   toIso,
 } from "../http"
+import { z } from "zod"
+
+const idSchema = z.string().uuid()
 
 type YearRow = {
   year: number
@@ -86,15 +91,25 @@ yearsApp.get("/", async (c) => {
                 SELECT 1
                 FROM member_year_roles membership
                 JOIN year_roles role ON role.id = membership.role_id
+                JOIN year_memberships year_membership
+                  ON year_membership.year = role.year
+                 AND year_membership.member_id = membership.member_id
+                 AND year_membership.status = 'active'
                 JOIN year_role_permissions permission ON permission.role_id = role.id
                 WHERE membership.member_id = ?
                   AND role.year = operating_year.year
                   AND permission.permission = 'shift.manage'
               ) THEN 1 ELSE 0 END AS canManage
        FROM operating_years operating_year
+       WHERE ? = 'system_admin' OR EXISTS (
+         SELECT 1 FROM year_memberships year_membership
+         WHERE year_membership.year = operating_year.year
+           AND year_membership.member_id = ?
+           AND year_membership.status = 'active'
+       )
        ORDER BY year DESC`
     )
-    .bind(member.accessLevel, member.id)
+    .bind(member.accessLevel, member.id, member.accessLevel, member.id)
     .all<YearRow & { canManage: number }>()
   return c.json({
     years: result.results.map((year) => ({
@@ -175,6 +190,9 @@ yearsApp.get("/:year/roles", async (c) => {
   if (year === null) {
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
   }
+  if (!(await canAccessYear(c.env, c.get("member"), year))) {
+    return apiError(c, 403, "FORBIDDEN", "Active year membership is required")
+  }
 
   const roles = await c.env.shift_app
     .prepare(
@@ -183,7 +201,12 @@ yearsApp.get("/:year/roles", async (c) => {
          role.name,
          role.color,
          GROUP_CONCAT(permission.permission) AS permissions,
-         (SELECT COUNT(*) FROM member_year_roles membership WHERE membership.role_id = role.id) AS memberCount
+         (SELECT COUNT(*) FROM member_year_roles membership
+          JOIN year_memberships year_membership
+            ON year_membership.member_id = membership.member_id
+           AND year_membership.year = role.year
+           AND year_membership.status = 'active'
+          WHERE membership.role_id = role.id) AS memberCount
        FROM year_roles role
        LEFT JOIN year_role_permissions permission ON permission.role_id = role.id
        WHERE role.year = ?
@@ -280,10 +303,11 @@ yearsApp.get("/:year/members", async (c) => {
          role.id AS roleId,
          role.name AS roleName,
          role.color AS roleColor
-       FROM members member
+       FROM year_memberships year_membership
+       JOIN members member ON member.id = year_membership.member_id
        LEFT JOIN member_year_roles membership ON membership.member_id = member.id
        LEFT JOIN year_roles role ON role.id = membership.role_id AND role.year = ?
-       WHERE EXISTS (SELECT 1 FROM operating_years WHERE year = ?)
+       WHERE year_membership.year = ? AND year_membership.status = 'active'
        ORDER BY lower(member.display_name), lower(role.name)`
     )
     .bind(year, year)
@@ -329,6 +353,9 @@ yearsApp.get("/:year/activities", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+  }
+  if (!(await canAccessYear(c.env, c.get("member"), year))) {
+    return apiError(c, 403, "FORBIDDEN", "Active year membership is required")
   }
   const result = await c.env.shift_app
     .prepare(
@@ -433,6 +460,14 @@ yearsApp.get("/:year/availability", async (c) => {
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
   }
   const member = c.get("member")
+  if (!(await hasActiveYearMembership(c.env, member.id, year))) {
+    return apiError(
+      c,
+      403,
+      "YEAR_MEMBERSHIP_REQUIRED",
+      "Active year membership is required"
+    )
+  }
   const submission = await c.env.shift_app
     .prepare(
       `SELECT id, status, submitted_at AS submittedAt, updated_at AS updatedAt
@@ -492,6 +527,14 @@ yearsApp.put("/:year/availability", async (c) => {
     )
   }
   const member = c.get("member")
+  if (!(await hasActiveYearMembership(c.env, member.id, year))) {
+    return apiError(
+      c,
+      403,
+      "YEAR_MEMBERSHIP_REQUIRED",
+      "Active year membership is required"
+    )
+  }
   const submissionId = crypto.randomUUID()
   const now = Date.now()
   const submittedAt = parsed.data.status === "submitted" ? now : null
@@ -500,8 +543,13 @@ yearsApp.put("/:year/availability", async (c) => {
       .prepare(
         `INSERT INTO availability_submissions
           (id, year, member_id, status, submitted_at, created_at, updated_at)
-         SELECT ?, year, ?, ?, ?, ?, ? FROM operating_years
-         WHERE year = ? AND status = 'active'
+         SELECT ?, operating_year.year, ?, ?, ?, ?, ?
+         FROM operating_years operating_year
+         JOIN year_memberships year_membership
+           ON year_membership.year = operating_year.year
+          AND year_membership.member_id = ?
+          AND year_membership.status = 'active'
+         WHERE operating_year.year = ? AND operating_year.status = 'active'
          ON CONFLICT(year, member_id) DO UPDATE SET
            status = excluded.status,
            submitted_at = excluded.submitted_at,
@@ -514,6 +562,7 @@ yearsApp.put("/:year/availability", async (c) => {
         submittedAt,
         now,
         now,
+        member.id,
         year
       ),
     c.env.shift_app
@@ -522,6 +571,10 @@ yearsApp.put("/:year/availability", async (c) => {
          WHERE submission_id = (
            SELECT submission.id FROM availability_submissions submission
            JOIN operating_years operating_year ON operating_year.year = submission.year
+           JOIN year_memberships year_membership
+             ON year_membership.year = submission.year
+            AND year_membership.member_id = submission.member_id
+            AND year_membership.status = 'active'
            WHERE submission.year = ? AND submission.member_id = ? AND operating_year.status = 'active'
          )`
       )
@@ -534,6 +587,10 @@ yearsApp.put("/:year/availability", async (c) => {
            SELECT ?, submission.id, ?, ?, ?
            FROM availability_submissions submission
            JOIN operating_years operating_year ON operating_year.year = submission.year
+           JOIN year_memberships year_membership
+             ON year_membership.year = submission.year
+            AND year_membership.member_id = submission.member_id
+            AND year_membership.status = 'active'
            WHERE submission.year = ? AND submission.member_id = ? AND operating_year.status = 'active'`
         )
         .bind(
@@ -563,6 +620,122 @@ yearsApp.put("/:year/availability", async (c) => {
       windows: parsed.data.windows,
     },
   })
+})
+
+yearsApp.get("/:year/memberships", async (c) => {
+  const denied = requireSystemAdmin(c)
+  if (denied) return denied
+  const year = getYearParam(c.req.param("year"))
+  if (year === null)
+    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+
+  const operatingYear = await c.env.shift_app
+    .prepare("SELECT status FROM operating_years WHERE year = ?")
+    .bind(year)
+    .first<{ status: YearRow["status"] }>()
+  if (!operatingYear)
+    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+
+  const result = await c.env.shift_app
+    .prepare(
+      `SELECT member.id, member.display_name AS displayName, member.student_id AS studentId,
+            membership.status, membership.updated_at AS updatedAt
+     FROM members member
+     LEFT JOIN year_memberships membership
+       ON membership.member_id = member.id AND membership.year = ?
+     ORDER BY CASE membership.status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,
+              lower(member.display_name)`
+    )
+    .bind(year)
+    .all<{
+      id: string
+      displayName: string
+      studentId: string
+      status: "active" | "inactive" | null
+      updatedAt: number | null
+    }>()
+
+  return c.json({
+    memberships: result.results.map((row) => ({
+      year,
+      member: {
+        id: row.id,
+        displayName: row.displayName,
+        studentId: row.studentId,
+      },
+      status: row.status,
+      updatedAt: row.updatedAt === null ? null : toIso(row.updatedAt),
+    })),
+  })
+})
+
+yearsApp.put("/:year/memberships/:memberId", async (c) => {
+  const denied = requireSystemAdmin(c)
+  if (denied) return denied
+  const year = getYearParam(c.req.param("year"))
+  const memberId = idSchema.safeParse(c.req.param("memberId"))
+  if (year === null || !memberId.success)
+    return apiError(c, 404, "RESOURCE_NOT_FOUND", "Year or member not found")
+  const now = Date.now()
+  const result = await c.env.shift_app
+    .prepare(
+      `INSERT INTO year_memberships (year, member_id, status, created_at, updated_at)
+     SELECT operating_year.year, member.id, 'active', ?, ?
+     FROM operating_years operating_year, members member
+     WHERE operating_year.year = ? AND member.id = ?
+     ON CONFLICT(year, member_id) DO UPDATE SET status = 'active', updated_at = excluded.updated_at`
+    )
+    .bind(now, now, year, memberId.data)
+    .run()
+  if (result.meta.changes !== 1)
+    return apiError(c, 404, "RESOURCE_NOT_FOUND", "Year or member not found")
+  const member = await c.env.shift_app
+    .prepare(
+      "SELECT display_name AS displayName, student_id AS studentId FROM members WHERE id = ?"
+    )
+    .bind(memberId.data)
+    .first<{ displayName: string; studentId: string }>()
+  return c.json({
+    membership: {
+      year,
+      member: {
+        id: memberId.data,
+        displayName: member?.displayName ?? "",
+        studentId: member?.studentId ?? "",
+      },
+      status: "active",
+      updatedAt: toIso(now),
+    },
+  })
+})
+
+yearsApp.delete("/:year/memberships/:memberId", async (c) => {
+  const denied = requireSystemAdmin(c)
+  if (denied) return denied
+  const year = getYearParam(c.req.param("year"))
+  const memberId = idSchema.safeParse(c.req.param("memberId"))
+  if (year === null || !memberId.success)
+    return apiError(
+      c,
+      404,
+      "YEAR_MEMBERSHIP_NOT_FOUND",
+      "Year membership not found"
+    )
+  const result = await c.env.shift_app
+    .prepare(
+      `UPDATE year_memberships SET status = 'inactive', updated_at = ?
+     WHERE year = ? AND member_id = ? AND status = 'active'`
+    )
+    .bind(Date.now(), year, memberId.data)
+    .run()
+  if (result.meta.changes !== 1)
+    return apiError(
+      c,
+      404,
+      "YEAR_MEMBERSHIP_NOT_FOUND",
+      "Active year membership not found"
+    )
+  return c.body(null, 204)
 })
 
 yearsApp.get("/:year/availability-submissions", async (c) => {

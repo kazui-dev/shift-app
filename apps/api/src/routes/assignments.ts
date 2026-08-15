@@ -76,6 +76,11 @@ assignmentsApp.post("/:assignmentId/report", async (c) => {
        SELECT ?, assignment.id, assignment.member_id, ?, ?, 'open',
               NULL, NULL, ?, ?
        FROM shift_assignments assignment
+       JOIN activities activity ON activity.id = assignment.activity_id
+       JOIN year_memberships year_membership
+         ON year_membership.year = activity.year
+        AND year_membership.member_id = assignment.member_id
+        AND year_membership.status = 'active'
        WHERE assignment.id = ? AND assignment.member_id = ?
          AND assignment.status = 'active'
        ON CONFLICT(assignment_id) DO UPDATE SET
@@ -134,6 +139,11 @@ assignmentsApp.post("/:assignmentId/check-in", async (c) => {
               assignment.ends_at AS endsAt, attendance.id AS attendanceId,
               attendance.checked_in_at AS checkedInAt
        FROM shift_assignments assignment
+       JOIN activities activity ON activity.id = assignment.activity_id
+       JOIN year_memberships year_membership
+         ON year_membership.year = activity.year
+        AND year_membership.member_id = assignment.member_id
+        AND year_membership.status = 'active'
        LEFT JOIN attendance_records attendance ON attendance.assignment_id = assignment.id
        WHERE assignment.id = ? AND assignment.member_id = ?
          AND assignment.status = 'active'`

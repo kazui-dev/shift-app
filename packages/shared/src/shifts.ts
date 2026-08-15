@@ -215,6 +215,17 @@ export const yearMemberResponseSchema = z.object({
   ),
 })
 
+export const yearMembershipResponseSchema = z.object({
+  year: operatingYearSchema,
+  member: z.object({
+    id: z.string().uuid(),
+    displayName: z.string(),
+    studentId: z.string(),
+  }),
+  status: z.enum(["active", "inactive"]).nullable(),
+  updatedAt: instantSchema.nullable(),
+})
+
 export const availabilityResponseSchema = z.object({
   year: operatingYearSchema,
   status: z.enum(["draft", "submitted"]),
@@ -264,6 +275,17 @@ export const yearRolesResponseSchema = z.object({
 
 export const yearMembersResponseSchema = z.object({
   members: z.array(yearMemberResponseSchema),
+})
+
+export const yearMembershipsResponseSchema = z.object({
+  memberships: z.array(yearMembershipResponseSchema),
+})
+
+export const yearMembershipEnvelopeSchema = z.object({
+  membership: yearMembershipResponseSchema.extend({
+    status: z.enum(["active", "inactive"]),
+    updatedAt: instantSchema,
+  }),
 })
 
 export const activitiesResponseSchema = z.object({

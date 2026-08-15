@@ -3,7 +3,13 @@ import { z } from "zod"
 
 import { operatingYearSchema } from "@workspace/shared/shifts"
 
-import { apiError, type ApiEnv, canManageShifts, toIso } from "../http"
+import {
+  apiError,
+  type ApiEnv,
+  canAccessYear,
+  canManageShifts,
+  toIso,
+} from "../http"
 
 const idSchema = z.string().uuid()
 
@@ -32,6 +38,9 @@ announcementsApp.get("/", async (c) => {
   const parsedYear = operatingYearSchema.safeParse(c.req.query("year"))
   if (!parsedYear.success) {
     return apiError(c, 422, "INVALID_YEAR", "A valid year is required")
+  }
+  if (!(await canAccessYear(c.env, c.get("member"), parsedYear.data))) {
+    return apiError(c, 403, "FORBIDDEN", "Active year membership is required")
   }
   const now = Date.now()
   const announcements = await c.env.shift_app

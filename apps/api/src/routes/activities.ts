@@ -11,6 +11,7 @@ import {
   apiError,
   type ApiEnv,
   canManageShifts,
+  canAccessYear,
   readJson,
   toIso,
 } from "../http"
@@ -101,6 +102,9 @@ activitiesApp.get("/:activityId", async (c) => {
   const activity = await findActivity(c.env, id.data)
   if (!activity) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
+  }
+  if (!(await canAccessYear(c.env, c.get("member"), activity.year))) {
+    return apiError(c, 403, "FORBIDDEN", "Active year membership is required")
   }
   const assignments = await c.env.shift_app
     .prepare(
@@ -280,6 +284,10 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
          created_by, cancelled_by, cancelled_at, created_at, updated_at)
        SELECT ?, ?, member.id, ?, ?, ?, 'active', ?, NULL, NULL, ?, ?
        FROM members member
+       JOIN year_memberships year_membership
+         ON year_membership.member_id = member.id
+        AND year_membership.year = ?
+        AND year_membership.status = 'active'
        WHERE member.id = ?
          AND NOT EXISTS (
            SELECT 1 FROM shift_assignments existing
@@ -298,6 +306,7 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
       actor.id,
       now,
       now,
+      activity.year,
       parsed.data.memberId,
       endsAt,
       startsAt

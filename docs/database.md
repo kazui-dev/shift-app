@@ -95,6 +95,22 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 | `created_at` | integer | UNIX time milliseconds     |
 | `updated_at` | integer | UNIX time milliseconds     |
 
+### `year_memberships`
+
+`members` と年度の参加関係を独立して管理する。年度 role は参加者へ追加権限を与えるものであり、role の有無だけでは年度参加を意味しない。
+
+| Column       | Type    | Note                               |
+| ------------ | ------- | ---------------------------------- |
+| `year`       | integer | 複合PK、FK, `operating_years.year` |
+| `member_id`  | text    | 複合PK、FK, `members.id`           |
+| `status`     | text    | `active`, `inactive`               |
+| `created_at` | integer | UNIX time milliseconds             |
+| `updated_at` | integer | UNIX time milliseconds             |
+
+`inactive` への変更では年度 role、割当、希望、履歴を削除しないが、年度への通常アクセス、実効権限、割当候補からは即時に除外する。再度 `active` にすると保持していた role が再び有効になる。
+
+導入 migration では既存動作を維持するため、既存の全年度と既存 member の組を `active` として補完する。新しく年度を作成した時点では参加者を自動追加しない。既存 member を新年度へ追加する方針は保留であり、現在は `system_admin` が明示的に追加する。
+
 ### `year_role_permissions`
 
 年度別 role に機能権限を付与する。初期版の permission は `shift.manage`。application role の `leader` だけを根拠にシフト管理を許可せず、`system_admin` の全体権限またはこの permission を API で確認する。

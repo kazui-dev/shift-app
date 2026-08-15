@@ -160,6 +160,10 @@ export async function sendDueAssignmentReminders(
               subscription.p256dh, subscription.auth
        FROM shift_assignments assignment
        JOIN activities activity ON activity.id = assignment.activity_id
+       JOIN year_memberships year_membership
+         ON year_membership.year = activity.year
+        AND year_membership.member_id = assignment.member_id
+        AND year_membership.status = 'active'
        JOIN push_subscriptions subscription
          ON subscription.member_id = assignment.member_id
        WHERE assignment.status = 'active'
