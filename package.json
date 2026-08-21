@@ -3,23 +3,26 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
-    "lint": "turbo lint",
-    "test": "turbo test",
-    "format": "turbo format",
-    "typecheck": "turbo typecheck",
-    "deploy": "pnpm --filter api run deploy"
+    "build": "vp run web#build",
+    "dev": "vp dev",
+    "lint": "vp lint .",
+    "test": "vp run -r --cache test",
+    "coverage": "vp run -r coverage",
+    "format": "vp fmt .",
+    "format:check": "vp fmt --check .",
+    "typecheck": "tsc --noEmit && vp run -r --cache typecheck",
+    "check": "vp check && tsc --noEmit && vp run -r --cache typecheck",
+    "knip": "vp exec knip"
   },
   "devDependencies": {
-    "prettier": "^3.9.6",
-    "prettier-plugin-tailwindcss": "^0.8.1",
-    "turbo": "^2.10.10",
-    "typescript": "~6.0.3",
-    "vitest": "^4.1.10"
+    "@vitest/coverage-v8": "catalog:",
+    "knip": "6.32.2",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "packageManager": "pnpm@10.33.4",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.18.0"
   }
 }

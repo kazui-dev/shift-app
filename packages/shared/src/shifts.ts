@@ -1,361 +1,429 @@
-import { z } from "zod"
+import * as v from "valibot"
 
-export const operatingYearSchema = z.coerce.number().int().min(2000).max(2100)
-export const yearStatusSchema = z.enum(["draft", "active", "archived"])
-export const shiftPermissionSchema = z.enum(["shift.manage"])
+export const operatingYearSchema = v.pipe(
+  v.unknown(),
+  v.toNumber(),
+  v.integer(),
+  v.minValue(2000),
+  v.maxValue(2100)
+)
+export const yearStatusSchema = v.picklist(["draft", "active", "archived"])
+export const shiftPermissionSchema = v.picklist(["shift.manage"])
 
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/
 
-export const dateOnlySchema = z.string().refine((value) => {
-  if (!dateOnlyPattern.test(value)) {
-    return false
-  }
-  const date = new Date(`${value}T00:00:00.000Z`)
-  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
-}, "日付をYYYY-MM-DD形式で入力してください")
+export const dateOnlySchema = v.pipe(
+  v.string(),
+  v.check((value) => {
+    if (!dateOnlyPattern.test(value)) {
+      return false
+    }
+    const date = new Date(`${value}T00:00:00.000Z`)
+    return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
+  }, "日付をYYYY-MM-DD形式で入力してください")
+)
 
-export const instantSchema = z.string().datetime({ offset: true })
+const instantPattern =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/
+
+export const instantSchema = v.pipe(
+  v.string(),
+  v.check(
+    (value) => instantPattern.test(value) && !Number.isNaN(Date.parse(value)),
+    "Invalid datetime"
+  )
+)
 
 function isOrdered(start: string, end: string): boolean {
   return Date.parse(start) < Date.parse(end)
 }
 
-export const timeWindowSchema = z
-  .object({
-    startsAt: instantSchema,
-    endsAt: instantSchema,
-  })
-  .refine((value) => isOrdered(value.startsAt, value.endsAt), {
-    message: "終了日時は開始日時より後にしてください",
-    path: ["endsAt"],
-  })
+const timeWindowEntries = {
+  startsAt: instantSchema,
+  endsAt: instantSchema,
+}
 
-export const createOperatingYearInputSchema = z.object({
+const orderedWindowCheck = v.forward(
+  v.check(
+    (value: { startsAt: string; endsAt: string }) =>
+      isOrdered(value.startsAt, value.endsAt),
+    "終了日時は開始日時より後にしてください"
+  ),
+  ["endsAt"]
+)
+
+export const timeWindowSchema = v.pipe(
+  v.object(timeWindowEntries),
+  orderedWindowCheck
+)
+
+export const createOperatingYearInputSchema = v.object({
   year: operatingYearSchema,
-  status: yearStatusSchema.default("draft"),
+  status: v.optional(yearStatusSchema, "draft"),
 })
 
-export const updateOperatingYearInputSchema = z.object({
+export const updateOperatingYearInputSchema = v.object({
   status: yearStatusSchema,
 })
 
-export const createYearRoleInputSchema = z.object({
-  name: z.string().trim().min(1).max(80),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .transform((value) => value.toUpperCase()),
-  permissions: z.array(shiftPermissionSchema).max(16).default([]),
+export const createYearRoleInputSchema = v.object({
+  name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(80)),
+  color: v.pipe(
+    v.string(),
+    v.regex(/^#[0-9A-Fa-f]{6}$/),
+    v.transform((value) => value.toUpperCase())
+  ),
+  permissions: v.optional(
+    v.pipe(v.array(shiftPermissionSchema), v.maxLength(16)),
+    []
+  ),
 })
 
 const activityFields = {
-  name: z.string().trim().min(1).max(120),
-  place: z.string().trim().min(1).max(120),
-  activityType: z.string().trim().min(1).max(80),
+  name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+  place: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+  activityType: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(80)),
   startsAt: instantSchema,
   endsAt: instantSchema,
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .transform((value) => value.toUpperCase()),
-  notes: z.string().trim().max(2000).nullable().default(null),
+  color: v.pipe(
+    v.string(),
+    v.regex(/^#[0-9A-Fa-f]{6}$/),
+    v.transform((value) => value.toUpperCase())
+  ),
+  notes: v.optional(
+    v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(2000))),
+    null
+  ),
 }
 
-export const createActivityInputSchema = z
-  .object(activityFields)
-  .refine((value) => isOrdered(value.startsAt, value.endsAt), {
-    message: "終了日時は開始日時より後にしてください",
-    path: ["endsAt"],
-  })
+export const createActivityInputSchema = v.pipe(
+  v.object(activityFields),
+  v.forward(
+    v.check(
+      (value) => isOrdered(value.startsAt, value.endsAt),
+      "終了日時は開始日時より後にしてください"
+    ),
+    ["endsAt"]
+  )
+)
 
-export const updateActivityInputSchema = z
-  .object({
-    name: activityFields.name.optional(),
-    place: activityFields.place.optional(),
-    activityType: activityFields.activityType.optional(),
-    startsAt: activityFields.startsAt.optional(),
-    endsAt: activityFields.endsAt.optional(),
-    color: activityFields.color.optional(),
-    notes: activityFields.notes.optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, {
-    message: "更新項目を1つ以上指定してください",
-  })
+export const updateActivityInputSchema = v.pipe(
+  v.object({
+    name: v.optional(activityFields.name),
+    place: v.optional(activityFields.place),
+    activityType: v.optional(activityFields.activityType),
+    startsAt: v.optional(activityFields.startsAt),
+    endsAt: v.optional(activityFields.endsAt),
+    color: v.optional(activityFields.color),
+    notes: v.optional(activityFields.notes),
+  }),
+  v.check(
+    (value) => Object.keys(value).length > 0,
+    "更新項目を1つ以上指定してください"
+  )
+)
 
-export const replaceAvailabilityInputSchema = z
-  .object({
-    status: z.enum(["draft", "submitted"]),
-    windows: z.array(timeWindowSchema).max(64),
-  })
-  .superRefine((value, context) => {
-    const windows = [...value.windows].sort(
-      (left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt)
-    )
-    for (let index = 1; index < windows.length; index += 1) {
-      const previous = windows[index - 1]
-      const current = windows[index]
-      if (
-        previous &&
-        current &&
-        Date.parse(previous.endsAt) > Date.parse(current.startsAt)
-      ) {
-        context.addIssue({
-          code: "custom",
-          message: "希望時間帯を重複させることはできません",
-          path: ["windows"],
-        })
-        return
+export const replaceAvailabilityInputSchema = v.pipe(
+  v.object({
+    status: v.picklist(["draft", "submitted"]),
+    windows: v.pipe(v.array(timeWindowSchema), v.maxLength(64)),
+  }),
+  v.forward(
+    v.check((value) => {
+      const windows = [...value.windows].sort(
+        (left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt)
+      )
+      for (let index = 1; index < windows.length; index += 1) {
+        const previous = windows[index - 1]
+        const current = windows[index]
+        if (
+          previous &&
+          current &&
+          Date.parse(previous.endsAt) > Date.parse(current.startsAt)
+        ) {
+          return false
+        }
       }
-    }
-  })
+      return true
+    }, "希望時間帯を重複させることはできません"),
+    ["windows"]
+  )
+)
 
-export const createAssignmentInputSchema = z
-  .object({
-    memberId: z.string().uuid(),
-    startsAt: instantSchema.optional(),
-    endsAt: instantSchema.optional(),
-    notes: z.string().trim().max(1000).nullable().default(null),
-  })
-  .superRefine((value, context) => {
-    if ((value.startsAt === undefined) !== (value.endsAt === undefined)) {
-      context.addIssue({
-        code: "custom",
-        message: "開始日時と終了日時は両方指定してください",
-        path: ["endsAt"],
-      })
-      return
-    }
-    if (
-      value.startsAt !== undefined &&
-      value.endsAt !== undefined &&
-      !isOrdered(value.startsAt, value.endsAt)
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "終了日時は開始日時より後にしてください",
-        path: ["endsAt"],
-      })
-    }
-  })
+export const createAssignmentInputSchema = v.pipe(
+  v.object({
+    memberId: v.pipe(v.string(), v.uuid()),
+    startsAt: v.optional(instantSchema),
+    endsAt: v.optional(instantSchema),
+    notes: v.optional(
+      v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(1000))),
+      null
+    ),
+  }),
+  v.forward(
+    v.check(
+      (value) =>
+        (value.startsAt === undefined) === (value.endsAt === undefined),
+      "開始日時と終了日時は両方指定してください"
+    ),
+    ["endsAt"]
+  ),
+  v.forward(
+    v.check(
+      (value) =>
+        value.startsAt === undefined ||
+        value.endsAt === undefined ||
+        isOrdered(value.startsAt, value.endsAt),
+      "終了日時は開始日時より後にしてください"
+    ),
+    ["endsAt"]
+  )
+)
 
-export const createAssignmentReportInputSchema = z.object({
-  kind: z.enum(["late", "absence"]),
-  message: z.string().trim().min(1).max(1000),
+export const createAssignmentReportInputSchema = v.object({
+  kind: v.picklist(["late", "absence"]),
+  message: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(1000)),
 })
 
-export const operatingYearResponseSchema = z.object({
+export const operatingYearResponseSchema = v.object({
   year: operatingYearSchema,
   status: yearStatusSchema,
 })
 
-export const activityResponseSchema = z.object({
-  id: z.string().uuid(),
+export const activityResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
-  name: z.string(),
-  place: z.string(),
-  activityType: z.string(),
+  name: v.string(),
+  place: v.string(),
+  activityType: v.string(),
   startsAt: instantSchema,
   endsAt: instantSchema,
-  color: z.string(),
-  notes: z.string().nullable(),
+  color: v.string(),
+  notes: v.nullable(v.string()),
 })
 
-export const assignmentResponseSchema = z.object({
-  id: z.string().uuid(),
-  activityId: z.string().uuid(),
-  memberId: z.string().uuid(),
-  memberDisplayName: z.string(),
+export const assignmentResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  activityId: v.pipe(v.string(), v.uuid()),
+  memberId: v.pipe(v.string(), v.uuid()),
+  memberDisplayName: v.string(),
   startsAt: instantSchema,
   endsAt: instantSchema,
-  notes: z.string().nullable(),
-  checkedInAt: instantSchema.nullable().optional(),
+  notes: v.nullable(v.string()),
+  checkedInAt: v.optional(v.nullable(instantSchema)),
 })
 
-export const attendanceResponseSchema = z.object({
-  id: z.string().uuid(),
-  assignmentId: z.string().uuid(),
+export const attendanceResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  assignmentId: v.pipe(v.string(), v.uuid()),
   checkedInAt: instantSchema,
 })
 
-export const assignmentReportResponseSchema = z.object({
-  id: z.string().uuid(),
-  assignmentId: z.string().uuid(),
-  memberId: z.string().uuid(),
-  memberDisplayName: z.string(),
-  kind: z.enum(["late", "absence"]),
-  message: z.string(),
-  status: z.enum(["open", "resolved"]),
-  activityId: z.string().uuid(),
-  activityName: z.string(),
+export const assignmentReportResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  assignmentId: v.pipe(v.string(), v.uuid()),
+  memberId: v.pipe(v.string(), v.uuid()),
+  memberDisplayName: v.string(),
+  kind: v.picklist(["late", "absence"]),
+  message: v.string(),
+  status: v.picklist(["open", "resolved"]),
+  activityId: v.pipe(v.string(), v.uuid()),
+  activityName: v.string(),
   startsAt: instantSchema,
   endsAt: instantSchema,
   createdAt: instantSchema,
-  resolvedAt: instantSchema.nullable(),
+  resolvedAt: v.nullable(instantSchema),
 })
 
-export const yearRoleResponseSchema = z.object({
-  id: z.string().uuid(),
+export const yearRoleResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
-  name: z.string(),
-  color: z.string(),
-  permissions: z.array(shiftPermissionSchema),
-  memberCount: z.coerce.number().int().nonnegative(),
+  name: v.string(),
+  color: v.string(),
+  permissions: v.array(shiftPermissionSchema),
+  memberCount: v.pipe(v.unknown(), v.toNumber(), v.integer(), v.minValue(0)),
 })
 
-export const yearMemberResponseSchema = z.object({
-  id: z.string().uuid(),
-  displayName: z.string(),
-  studentId: z.string(),
-  roles: z.array(
-    z.object({
-      id: z.string().uuid(),
-      name: z.string(),
-      color: z.string(),
+export const yearMemberResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  displayName: v.string(),
+  studentId: v.string(),
+  roles: v.array(
+    v.object({
+      id: v.pipe(v.string(), v.uuid()),
+      name: v.string(),
+      color: v.string(),
     })
   ),
 })
 
-export const yearMembershipResponseSchema = z.object({
+export const yearMembershipResponseSchema = v.object({
   year: operatingYearSchema,
-  member: z.object({
-    id: z.string().uuid(),
-    displayName: z.string(),
-    studentId: z.string(),
+  member: v.object({
+    id: v.pipe(v.string(), v.uuid()),
+    displayName: v.string(),
+    studentId: v.string(),
   }),
-  status: z.enum(["active", "inactive"]).nullable(),
-  updatedAt: instantSchema.nullable(),
+  status: v.nullable(v.picklist(["active", "inactive"])),
+  updatedAt: v.nullable(instantSchema),
 })
 
-export const availabilityResponseSchema = z.object({
+export const availabilityResponseSchema = v.object({
   year: operatingYearSchema,
-  status: z.enum(["draft", "submitted"]),
-  submittedAt: instantSchema.nullable(),
-  updatedAt: instantSchema.optional(),
-  windows: z.array(
-    timeWindowSchema.extend({
-      id: z.string().uuid().optional(),
-    })
+  status: v.picklist(["draft", "submitted"]),
+  submittedAt: v.nullable(instantSchema),
+  updatedAt: v.optional(instantSchema),
+  windows: v.array(
+    v.pipe(
+      v.object({
+        ...timeWindowEntries,
+        id: v.optional(v.pipe(v.string(), v.uuid())),
+      }),
+      orderedWindowCheck
+    )
   ),
 })
 
-export const availabilitySubmissionResponseSchema = z.object({
-  id: z.string().uuid(),
-  member: z.object({
-    id: z.string().uuid(),
-    displayName: z.string(),
-    studentId: z.string(),
+export const availabilitySubmissionResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  member: v.object({
+    id: v.pipe(v.string(), v.uuid()),
+    displayName: v.string(),
+    studentId: v.string(),
   }),
-  status: z.enum(["draft", "submitted"]),
-  submittedAt: instantSchema.nullable(),
-  windows: z.array(
-    timeWindowSchema.extend({
-      id: z.string().uuid(),
+  status: v.picklist(["draft", "submitted"]),
+  submittedAt: v.nullable(instantSchema),
+  windows: v.array(
+    v.pipe(
+      v.object({
+        ...timeWindowEntries,
+        id: v.pipe(v.string(), v.uuid()),
+      }),
+      v.forward(
+        v.check(
+          (value) => isOrdered(value.startsAt, value.endsAt),
+          "終了日時は開始日時より後にしてください"
+        ),
+        ["endsAt"]
+      )
+    )
+  ),
+})
+
+export const timelineItemResponseSchema = v.object({
+  ...assignmentResponseSchema.entries,
+  activityName: v.string(),
+  place: v.string(),
+  activityType: v.string(),
+  color: v.string(),
+})
+
+export const yearsResponseSchema = v.object({
+  years: v.array(
+    v.object({
+      ...operatingYearResponseSchema.entries,
+      canManage: v.boolean(),
     })
   ),
 })
 
-export const timelineItemResponseSchema = assignmentResponseSchema.extend({
-  activityName: z.string(),
-  place: z.string(),
-  activityType: z.string(),
-  color: z.string(),
+export const yearRolesResponseSchema = v.object({
+  roles: v.array(yearRoleResponseSchema),
 })
 
-export const yearsResponseSchema = z.object({
-  years: z.array(
-    operatingYearResponseSchema.extend({
-      canManage: z.boolean(),
-    })
-  ),
+export const rosterResponseSchema = v.object({
+  members: v.array(yearMemberResponseSchema),
 })
 
-export const yearRolesResponseSchema = z.object({
-  roles: z.array(yearRoleResponseSchema),
+export const yearMembershipsResponseSchema = v.object({
+  memberships: v.array(yearMembershipResponseSchema),
 })
 
-export const yearMembersResponseSchema = z.object({
-  members: z.array(yearMemberResponseSchema),
-})
-
-export const yearMembershipsResponseSchema = z.object({
-  memberships: z.array(yearMembershipResponseSchema),
-})
-
-export const yearMembershipEnvelopeSchema = z.object({
-  membership: yearMembershipResponseSchema.extend({
-    status: z.enum(["active", "inactive"]),
+export const yearMembershipEnvelopeSchema = v.object({
+  membership: v.object({
+    ...yearMembershipResponseSchema.entries,
+    status: v.picklist(["active", "inactive"]),
     updatedAt: instantSchema,
   }),
 })
 
-export const activitiesResponseSchema = z.object({
-  activities: z.array(
-    activityResponseSchema.extend({
-      assignmentCount: z.coerce.number().int().nonnegative(),
+export const activitiesResponseSchema = v.object({
+  activities: v.array(
+    v.object({
+      ...activityResponseSchema.entries,
+      assignmentCount: v.pipe(
+        v.unknown(),
+        v.toNumber(),
+        v.integer(),
+        v.minValue(0)
+      ),
     })
   ),
 })
 
-export const activityDetailResponseSchema = z.object({
+export const activityDetailResponseSchema = v.object({
   activity: activityResponseSchema,
-  assignments: z.array(assignmentResponseSchema),
+  assignments: v.array(assignmentResponseSchema),
 })
 
-export const operatingYearEnvelopeSchema = z.object({
+export const operatingYearEnvelopeSchema = v.object({
   year: operatingYearResponseSchema,
 })
 
-export const yearRoleEnvelopeSchema = z.object({
-  role: yearRoleResponseSchema.omit({ memberCount: true }),
+export const yearRoleEnvelopeSchema = v.object({
+  role: v.omit(yearRoleResponseSchema, ["memberCount"]),
 })
 
-export const activityEnvelopeSchema = z.object({
-  activity: activityResponseSchema.extend({
-    assignmentCount: z.coerce.number().int().nonnegative().optional(),
+export const activityEnvelopeSchema = v.object({
+  activity: v.object({
+    ...activityResponseSchema.entries,
+    assignmentCount: v.optional(
+      v.pipe(v.unknown(), v.toNumber(), v.integer(), v.minValue(0))
+    ),
   }),
 })
 
-export const roleMembershipResponseSchema = z.object({
-  membership: z.object({
-    roleId: z.string().uuid(),
-    memberId: z.string().uuid(),
+export const roleMembershipResponseSchema = v.object({
+  membership: v.object({
+    roleId: v.pipe(v.string(), v.uuid()),
+    memberId: v.pipe(v.string(), v.uuid()),
   }),
 })
 
-export const attendanceEnvelopeSchema = z.object({
+export const attendanceEnvelopeSchema = v.object({
   attendance: attendanceResponseSchema,
 })
 
-export const assignmentReportEnvelopeSchema = z.object({
+export const assignmentReportEnvelopeSchema = v.object({
   report: assignmentReportResponseSchema,
 })
 
-export const assignmentReportsResponseSchema = z.object({
-  reports: z.array(assignmentReportResponseSchema),
+export const assignmentReportsResponseSchema = v.object({
+  reports: v.array(assignmentReportResponseSchema),
 })
 
-export const availabilityEnvelopeSchema = z.object({
+export const availabilityEnvelopeSchema = v.object({
   availability: availabilityResponseSchema,
 })
 
-export const availabilitySubmissionsResponseSchema = z.object({
-  submissions: z.array(availabilitySubmissionResponseSchema),
+export const availabilitySubmissionsResponseSchema = v.object({
+  submissions: v.array(availabilitySubmissionResponseSchema),
 })
 
-export const assignmentMutationResponseSchema = z.object({
+export const assignmentMutationResponseSchema = v.object({
   assignment: assignmentResponseSchema,
-  warnings: z.array(z.enum(["OUTSIDE_SUBMITTED_AVAILABILITY"])),
+  warnings: v.array(v.picklist(["OUTSIDE_SUBMITTED_AVAILABILITY"])),
 })
 
-export const timelineResponseSchema = z.object({
-  assignments: z.array(timelineItemResponseSchema),
+export const timelineResponseSchema = v.object({
+  assignments: v.array(timelineItemResponseSchema),
 })
 
-export const apiErrorSchema = z.object({
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
+export const apiErrorSchema = v.object({
+  error: v.object({
+    code: v.string(),
+    message: v.string(),
   }),
 })
 
-export type ShiftPermission = z.infer<typeof shiftPermissionSchema>
+export type ShiftPermission = v.InferOutput<typeof shiftPermissionSchema>

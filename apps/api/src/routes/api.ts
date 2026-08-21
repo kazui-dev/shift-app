@@ -6,16 +6,17 @@ import {
   type ApiEnv,
   requireMember,
   requireSameOriginForMutation,
-} from "../http"
+} from "../lib/http"
 import { activitiesApp } from "./activities"
 import { announcementsApp } from "./announcements"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat"
-import { meApp } from "./me"
+import { chatTargetsApp } from "./chat-targets"
+import { meApp } from "./me/index"
 import { pushApp } from "./push"
 import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
-import { yearsApp } from "./years"
+import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()
 
@@ -45,6 +46,7 @@ apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
 apiApp.route("/announcements", announcementsApp)
 apiApp.route("/assignments", assignmentsApp)
+apiApp.route("/chat", chatTargetsApp)
 apiApp.route("/chat", chatApp)
 apiApp.route("/reports", reportsApp)
 

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreDependencies": ["vite"],
+  "workspaces": {
+    "apps/api": {
+      "ignoreDependencies": ["cloudflare"]
+    },
+    "apps/web": {
+      "ignore": ["public/push-sw.js"],
+      "ignoreDependencies": ["shadcn"]
+    }
+  }
+}

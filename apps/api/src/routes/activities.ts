@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { z } from "zod"
+import * as v from "valibot"
 
 import {
   createActivityInputSchema,
@@ -14,10 +14,10 @@ import {
   canAccessYear,
   readJson,
   toIso,
-} from "../http"
-import { notifyAssignmentCreated } from "../push"
+} from "../lib/http"
+import { notifyAssignmentCreated } from "../services/push"
 
-const idSchema = z.string().uuid()
+const idSchema = v.pipe(v.string(), v.uuid())
 
 type ActivityRow = {
   id: string
@@ -95,11 +95,11 @@ function assignmentJson(assignment: AssignmentRow) {
 export const activitiesApp = new Hono<ApiEnv>()
 
 activitiesApp.get("/:activityId", async (c) => {
-  const id = idSchema.safeParse(c.req.param("activityId"))
+  const id = v.safeParse(idSchema, c.req.param("activityId"))
   if (!id.success) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
   }
-  const activity = await findActivity(c.env, id.data)
+  const activity = await findActivity(c.env, id.output)
   if (!activity) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
   }
@@ -132,11 +132,11 @@ activitiesApp.get("/:activityId", async (c) => {
 })
 
 activitiesApp.patch("/:activityId", async (c) => {
-  const id = idSchema.safeParse(c.req.param("activityId"))
+  const id = v.safeParse(idSchema, c.req.param("activityId"))
   if (!id.success) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
   }
-  const current = await findActivity(c.env, id.data)
+  const current = await findActivity(c.env, id.output)
   if (!current) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
   }
@@ -152,34 +152,38 @@ activitiesApp.patch("/:activityId", async (c) => {
   if (current.yearStatus === "archived") {
     return apiError(c, 409, "YEAR_NOT_EDITABLE", "Operating year is archived")
   }
-  const input = updateActivityInputSchema.safeParse(await readJson(c.req.raw))
+  const input = v.safeParse(
+    updateActivityInputSchema,
+    await readJson(c.req.raw)
+  )
   if (!input.success) {
     return apiError(
       c,
       422,
       "INVALID_ACTIVITY",
-      input.error.issues[0]?.message ?? "Invalid activity"
+      input.issues[0]?.message ?? "Invalid activity"
     )
   }
-  const merged = createActivityInputSchema.safeParse({
-    name: input.data.name ?? current.name,
-    place: input.data.place ?? current.place,
-    activityType: input.data.activityType ?? current.activityType,
-    startsAt: input.data.startsAt ?? toIso(current.startsAt),
-    endsAt: input.data.endsAt ?? toIso(current.endsAt),
-    color: input.data.color ?? current.color,
-    notes: input.data.notes === undefined ? current.notes : input.data.notes,
+  const merged = v.safeParse(createActivityInputSchema, {
+    name: input.output.name ?? current.name,
+    place: input.output.place ?? current.place,
+    activityType: input.output.activityType ?? current.activityType,
+    startsAt: input.output.startsAt ?? toIso(current.startsAt),
+    endsAt: input.output.endsAt ?? toIso(current.endsAt),
+    color: input.output.color ?? current.color,
+    notes:
+      input.output.notes === undefined ? current.notes : input.output.notes,
   })
   if (!merged.success) {
     return apiError(
       c,
       422,
       "INVALID_ACTIVITY",
-      merged.error.issues[0]?.message ?? "Invalid activity"
+      merged.issues[0]?.message ?? "Invalid activity"
     )
   }
-  const startsAt = Date.parse(merged.data.startsAt)
-  const endsAt = Date.parse(merged.data.endsAt)
+  const startsAt = Date.parse(merged.output.startsAt)
+  const endsAt = Date.parse(merged.output.endsAt)
   const result = await c.env.shift_app
     .prepare(
       `UPDATE activities
@@ -194,13 +198,13 @@ activitiesApp.patch("/:activityId", async (c) => {
          )`
     )
     .bind(
-      merged.data.name,
-      merged.data.place,
-      merged.data.activityType,
+      merged.output.name,
+      merged.output.place,
+      merged.output.activityType,
       startsAt,
       endsAt,
-      merged.data.color,
-      merged.data.notes,
+      merged.output.color,
+      merged.output.notes,
       member.id,
       Date.now(),
       current.id,
@@ -221,7 +225,7 @@ activitiesApp.patch("/:activityId", async (c) => {
       id: current.id,
       year: current.year,
       yearStatus: current.yearStatus,
-      ...merged.data,
+      ...merged.output,
       startsAt,
       endsAt,
     }),
@@ -229,11 +233,11 @@ activitiesApp.patch("/:activityId", async (c) => {
 })
 
 activitiesApp.post("/:activityId/assignments", async (c) => {
-  const id = idSchema.safeParse(c.req.param("activityId"))
+  const id = v.safeParse(idSchema, c.req.param("activityId"))
   if (!id.success) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
   }
-  const activity = await findActivity(c.env, id.data)
+  const activity = await findActivity(c.env, id.output)
   if (!activity) {
     return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Activity not found")
   }
@@ -249,7 +253,8 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
   if (activity.yearStatus === "archived") {
     return apiError(c, 409, "YEAR_NOT_EDITABLE", "Operating year is archived")
   }
-  const parsed = createAssignmentInputSchema.safeParse(
+  const parsed = v.safeParse(
+    createAssignmentInputSchema,
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
@@ -257,14 +262,14 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
       c,
       422,
       "INVALID_ASSIGNMENT",
-      parsed.error.issues[0]?.message ?? "Invalid assignment"
+      parsed.issues[0]?.message ?? "Invalid assignment"
     )
   }
-  const startsAt = parsed.data.startsAt
-    ? Date.parse(parsed.data.startsAt)
+  const startsAt = parsed.output.startsAt
+    ? Date.parse(parsed.output.startsAt)
     : activity.startsAt
-  const endsAt = parsed.data.endsAt
-    ? Date.parse(parsed.data.endsAt)
+  const endsAt = parsed.output.endsAt
+    ? Date.parse(parsed.output.endsAt)
     : activity.endsAt
   if (startsAt < activity.startsAt || endsAt > activity.endsAt) {
     return apiError(
@@ -302,12 +307,12 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
       activity.id,
       startsAt,
       endsAt,
-      parsed.data.notes,
+      parsed.output.notes,
       actor.id,
       now,
       now,
       activity.year,
-      parsed.data.memberId,
+      parsed.output.memberId,
       endsAt,
       startsAt
     )
@@ -323,7 +328,7 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
 
   const member = await c.env.shift_app
     .prepare("SELECT display_name AS displayName FROM members WHERE id = ?")
-    .bind(parsed.data.memberId)
+    .bind(parsed.output.memberId)
     .first<{ displayName: string }>()
   const availability = await c.env.shift_app
     .prepare(
@@ -337,13 +342,13 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
          AND window.ends_at >= ?
        LIMIT 1`
     )
-    .bind(activity.year, parsed.data.memberId, startsAt, endsAt)
+    .bind(activity.year, parsed.output.memberId, startsAt, endsAt)
     .first<{ matched: number }>()
 
   c.executionCtx.waitUntil(
     notifyAssignmentCreated(c.env, {
       assignmentId,
-      memberId: parsed.data.memberId,
+      memberId: parsed.output.memberId,
       activityName: activity.name,
       place: activity.place,
       startsAt,
@@ -355,11 +360,11 @@ activitiesApp.post("/:activityId/assignments", async (c) => {
       assignment: assignmentJson({
         id: assignmentId,
         activityId: activity.id,
-        memberId: parsed.data.memberId,
+        memberId: parsed.output.memberId,
         memberDisplayName: member?.displayName ?? "",
         startsAt,
         endsAt,
-        notes: parsed.data.notes,
+        notes: parsed.output.notes,
         checkedInAt: null,
       }),
       warnings:

@@ -1,15 +1,12 @@
 import { useMemo, useState, type FormEvent } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { errorMessage } from "@/lib/api"
-import {
-  getAvailability,
-  getYears,
-  replaceAvailability,
-} from "@/lib/shifts-api"
+import { errorMessage } from "@/api/client"
+import { getAvailability, replaceAvailability } from "@/api/availability"
+import { getYears } from "@/api/years"
 
 type WindowInput = { id: string; startsAt: string; endsAt: string }
 
@@ -29,8 +26,7 @@ export function AvailabilityPage() {
   const year = selectedYear ?? activeYears[0]?.year ?? null
   const availability = useQuery({
     queryKey: ["availability", year],
-    queryFn: () => getAvailability(year!),
-    enabled: year !== null,
+    queryFn: year === null ? skipToken : () => getAvailability(year),
   })
   return (
     <section className="space-y-5">

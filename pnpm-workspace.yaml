@@ -5,3 +5,17 @@ packages:
 allowBuilds:
   esbuild: true
   msw: false
+  workerd: true
+catalog:
+  typescript: 7.0.2
+  vite: npm:@voidzero-dev/vite-plus-core@0.2.9
+  vite-plus: &vite-plus-version 0.2.9
+  "@vitest/coverage-v8": 4.1.10
+overrides:
+  vite: "catalog:"
+  vitest: 4.1.10
+peerDependencyRules:
+  allowedVersions:
+    # vite-plus-core is intentionally aliased as vite; its package version is
+    # the Vite+ release rather than the embedded Vite release.
+    vite: *vite-plus-version

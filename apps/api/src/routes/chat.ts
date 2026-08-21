@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { z } from "zod"
+import * as v from "valibot"
 
 import {
   createChatRoomInputSchema,
@@ -13,12 +13,23 @@ import {
   hasActiveYearMembership,
   readJson,
   toIso,
-} from "../http"
+} from "../lib/http"
 
-const idSchema = z.string().uuid()
-const messagesQuerySchema = z.object({
-  before: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+const idSchema = v.pipe(v.string(), v.uuid())
+const messagesQuerySchema = v.object({
+  before: v.optional(
+    v.pipe(v.unknown(), v.toNumber(), v.integer(), v.gtValue(0))
+  ),
+  limit: v.optional(
+    v.pipe(
+      v.unknown(),
+      v.toNumber(),
+      v.integer(),
+      v.minValue(1),
+      v.maxValue(100)
+    ),
+    50
+  ),
 })
 
 type RoomRow = {
@@ -143,17 +154,20 @@ chatApp.get("/rooms", async (c) => {
 })
 
 chatApp.post("/rooms", async (c) => {
-  const input = createChatRoomInputSchema.safeParse(await readJson(c.req.raw))
+  const input = v.safeParse(
+    createChatRoomInputSchema,
+    await readJson(c.req.raw)
+  )
   if (!input.success) {
     return apiError(
       c,
       422,
       "INVALID_CHAT_ROOM",
-      input.error.issues[0]?.message ?? "Invalid chat room"
+      input.issues[0]?.message ?? "Invalid chat room"
     )
   }
   const actor = c.get("member")
-  if (!(await hasActiveYearMembership(c.env, actor.id, input.data.year))) {
+  if (!(await hasActiveYearMembership(c.env, actor.id, input.output.year))) {
     return apiError(
       c,
       403,
@@ -163,7 +177,7 @@ chatApp.post("/rooms", async (c) => {
   }
   const targets = [
     ...new Map(
-      input.data.targets.map((target) => [
+      input.output.targets.map((target) => [
         `${target.targetType}:${target.targetId}`,
         target,
       ])
@@ -171,7 +185,7 @@ chatApp.post("/rooms", async (c) => {
   ]
   if (
     targets.some((target) => target.targetType !== "member") &&
-    !(await canManageShifts(c.env, actor, input.data.year))
+    !(await canManageShifts(c.env, actor, input.output.year))
   ) {
     return apiError(
       c,
@@ -181,7 +195,7 @@ chatApp.post("/rooms", async (c) => {
     )
   }
   const validTargets = await Promise.all(
-    targets.map((target) => targetExists(c.env, input.data.year, target))
+    targets.map((target) => targetExists(c.env, input.output.year, target))
   )
   if (validTargets.some((valid) => !valid)) {
     return apiError(c, 422, "INVALID_CHAT_TARGET", "A chat target is invalid")
@@ -197,7 +211,7 @@ chatApp.post("/rooms", async (c) => {
          SELECT ?, year, ?, 'active', ?, ?, ?
          FROM operating_years WHERE year = ? AND status <> 'archived'`
       )
-      .bind(roomId, input.data.name, actor.id, now, now, input.data.year),
+      .bind(roomId, input.output.name, actor.id, now, now, input.output.year),
     ...targets.map((target) =>
       c.env.shift_app
         .prepare(
@@ -221,8 +235,8 @@ chatApp.post("/rooms", async (c) => {
     {
       room: roomJson({
         id: roomId,
-        year: input.data.year,
-        name: input.data.name,
+        year: input.output.year,
+        name: input.output.name,
         createdBy: actor.id,
         createdAt: now,
         updatedAt: now,
@@ -233,48 +247,51 @@ chatApp.post("/rooms", async (c) => {
 })
 
 chatApp.get("/rooms/:roomId/messages", async (c) => {
-  const id = idSchema.safeParse(c.req.param("roomId"))
-  const query = messagesQuerySchema.safeParse(c.req.query())
+  const id = v.safeParse(idSchema, c.req.param("roomId"))
+  const query = v.safeParse(messagesQuerySchema, c.req.query())
   if (!id.success || !query.success) {
     return apiError(c, 422, "INVALID_CHAT_QUERY", "Invalid chat request")
   }
   const member = c.get("member")
-  const room = await findAccessibleRoom(c.env, id.data, member.id)
+  const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   return c.json(
-    await stub.getMessages(query.data.before ?? null, query.data.limit)
+    await stub.getMessages(query.output.before ?? null, query.output.limit)
   )
 })
 
 chatApp.post("/rooms/:roomId/messages", async (c) => {
-  const id = idSchema.safeParse(c.req.param("roomId"))
+  const id = v.safeParse(idSchema, c.req.param("roomId"))
   if (!id.success) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
-  const input = sendChatMessageInputSchema.safeParse(await readJson(c.req.raw))
+  const input = v.safeParse(
+    sendChatMessageInputSchema,
+    await readJson(c.req.raw)
+  )
   if (!input.success) {
     return apiError(
       c,
       422,
       "INVALID_CHAT_MESSAGE",
-      input.error.issues[0]?.message ?? "Invalid chat message"
+      input.issues[0]?.message ?? "Invalid chat message"
     )
   }
   const member = c.get("member")
-  const room = await findAccessibleRoom(c.env, id.data, member.id)
+  const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
   const now = Date.now()
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const message = await stub.sendMessage({
-    id: input.data.id,
+    id: input.output.id,
     memberId: member.id,
     memberDisplayName: member.displayName,
-    content: input.data.content,
+    content: input.output.content,
     createdAt: now,
   })
   await c.env.shift_app
@@ -288,12 +305,12 @@ chatApp.get("/rooms/:roomId/ws", async (c) => {
   if (c.req.header("Origin") !== c.env.BETTER_AUTH_URL) {
     return apiError(c, 403, "FORBIDDEN_ORIGIN", "Request origin is not allowed")
   }
-  const id = idSchema.safeParse(c.req.param("roomId"))
+  const id = v.safeParse(idSchema, c.req.param("roomId"))
   if (!id.success) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
   const member = c.get("member")
-  const room = await findAccessibleRoom(c.env, id.data, member.id)
+  const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }

@@ -3,13 +3,13 @@ import { Bell, BellOff, LoaderCircle } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { errorMessage } from "@/lib/api"
+import { errorMessage } from "@/api/client"
 import {
   base64UrlBytes,
   getPushConfig,
   removePushSubscription,
   savePushSubscription,
-} from "@/lib/push-api"
+} from "@/api/push"
 
 export function PushControl() {
   const supported =

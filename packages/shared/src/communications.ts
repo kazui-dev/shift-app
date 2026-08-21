@@ -1,104 +1,116 @@
-import { z } from "zod"
+import * as v from "valibot"
 
 import { instantSchema, operatingYearSchema } from "./shifts"
 
-export const createAnnouncementInputSchema = z.object({
-  title: z.string().trim().min(1).max(120),
-  body: z.string().trim().min(1).max(5000),
-  priority: z.enum(["normal", "important"]).default("normal"),
-  expiresAt: instantSchema.nullable().default(null),
+export const createAnnouncementInputSchema = v.object({
+  title: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+  body: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(5000)),
+  priority: v.optional(v.picklist(["normal", "important"]), "normal"),
+  expiresAt: v.optional(v.nullable(instantSchema), null),
 })
 
-export const announcementResponseSchema = z.object({
-  id: z.string().uuid(),
+export const announcementResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
-  title: z.string(),
-  body: z.string(),
-  priority: z.enum(["normal", "important"]),
+  title: v.string(),
+  body: v.string(),
+  priority: v.picklist(["normal", "important"]),
   publishedAt: instantSchema,
-  expiresAt: instantSchema.nullable(),
-  authorDisplayName: z.string(),
+  expiresAt: v.nullable(instantSchema),
+  authorDisplayName: v.string(),
 })
 
-export const announcementEnvelopeSchema = z.object({
+export const announcementEnvelopeSchema = v.object({
   announcement: announcementResponseSchema,
 })
 
-export const announcementsResponseSchema = z.object({
-  announcements: z.array(announcementResponseSchema),
+export const announcementsResponseSchema = v.object({
+  announcements: v.array(announcementResponseSchema),
 })
 
-export const chatTargetSchema = z.object({
-  targetType: z.enum(["member", "role", "activity"]),
-  targetId: z.string().uuid(),
+export const chatTargetSchema = v.object({
+  targetType: v.picklist(["member", "role", "activity"]),
+  targetId: v.pipe(v.string(), v.uuid()),
 })
 
-export const createChatRoomInputSchema = z.object({
+export const chatTargetOptionSchema = v.strictObject({
+  targetType: v.literal("member"),
+  targetId: v.pipe(v.string(), v.uuid()),
+  displayName: v.string(),
+})
+
+export const chatTargetsResponseSchema = v.object({
+  targets: v.array(chatTargetOptionSchema),
+})
+
+export const createChatRoomInputSchema = v.object({
   year: operatingYearSchema,
-  name: z.string().trim().min(1).max(120),
-  targets: z.array(chatTargetSchema).min(1).max(100),
+  name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+  targets: v.pipe(v.array(chatTargetSchema), v.minLength(1), v.maxLength(100)),
 })
 
-export const sendChatMessageInputSchema = z.object({
-  id: z.string().uuid(),
-  content: z.string().trim().min(1).max(2000),
+export const sendChatMessageInputSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  content: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(2000)),
 })
 
-export const chatRoomResponseSchema = z.object({
-  id: z.string().uuid(),
+export const chatRoomResponseSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
-  name: z.string(),
-  createdBy: z.string().uuid(),
+  name: v.string(),
+  createdBy: v.pipe(v.string(), v.uuid()),
   createdAt: instantSchema,
   updatedAt: instantSchema,
 })
 
-export const chatRoomsResponseSchema = z.object({
-  rooms: z.array(chatRoomResponseSchema),
+export const chatRoomsResponseSchema = v.object({
+  rooms: v.array(chatRoomResponseSchema),
 })
 
-export const chatRoomEnvelopeSchema = z.object({
+export const chatRoomEnvelopeSchema = v.object({
   room: chatRoomResponseSchema,
 })
 
-export const chatMessageResponseSchema = z.object({
-  sequence: z.number().int().positive(),
-  id: z.string().uuid(),
-  memberId: z.string().uuid(),
-  memberDisplayName: z.string(),
-  content: z.string(),
+export const chatMessageResponseSchema = v.object({
+  sequence: v.pipe(v.number(), v.integer(), v.gtValue(0)),
+  id: v.pipe(v.string(), v.uuid()),
+  memberId: v.pipe(v.string(), v.uuid()),
+  memberDisplayName: v.string(),
+  content: v.string(),
   createdAt: instantSchema,
 })
 
-export const chatMessagesResponseSchema = z.object({
-  messages: z.array(chatMessageResponseSchema),
-  hasMore: z.boolean(),
+export const chatMessagesResponseSchema = v.object({
+  messages: v.array(chatMessageResponseSchema),
+  hasMore: v.boolean(),
 })
 
-export const chatMessageEnvelopeSchema = z.object({
+export const chatMessageEnvelopeSchema = v.object({
   message: chatMessageResponseSchema,
 })
 
-export const chatEventSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("message"),
+export const chatEventSchema = v.variant("type", [
+  v.object({
+    type: v.literal("message"),
     message: chatMessageResponseSchema,
   }),
 ])
 
-export const pushSubscriptionInputSchema = z.object({
-  endpoint: z.string().url().max(4096),
-  expirationTime: z.number().int().positive().nullable(),
-  keys: z.object({
-    p256dh: z.string().min(1).max(512),
-    auth: z.string().min(1).max(512),
+export const pushSubscriptionInputSchema = v.object({
+  endpoint: v.pipe(v.string(), v.url(), v.maxLength(4096)),
+  expirationTime: v.nullable(v.pipe(v.number(), v.integer(), v.gtValue(0))),
+  keys: v.object({
+    p256dh: v.pipe(v.string(), v.minLength(1), v.maxLength(512)),
+    auth: v.pipe(v.string(), v.minLength(1), v.maxLength(512)),
   }),
 })
 
-export const deletePushSubscriptionInputSchema = z.object({
-  endpoint: z.string().url().max(4096),
+export const deletePushSubscriptionInputSchema = v.object({
+  endpoint: v.pipe(v.string(), v.url(), v.maxLength(4096)),
 })
 
-export const pushConfigResponseSchema = z.object({
-  publicKey: z.string().min(1),
+export const pushConfigResponseSchema = v.object({
+  publicKey: v.pipe(v.string(), v.minLength(1)),
 })
+
+export type ChatTargetOption = v.InferOutput<typeof chatTargetOptionSchema>

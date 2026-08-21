@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest"
+import * as v from "valibot"
+import { describe, expect, it } from "vite-plus/test"
 
 import {
   identityLinkDecisionInputSchema,
@@ -9,7 +10,7 @@ import {
 describe("onboardingInputSchema", () => {
   it("normalizes student IDs with NFKC and uppercase", () => {
     expect(
-      onboardingInputSchema.parse({
+      v.parse(onboardingInputSchema, {
         studentId: " ２６ａｊ１１２ ",
         displayName: "  旭祭 太郎  ",
       })
@@ -20,7 +21,7 @@ describe("onboardingInputSchema", () => {
     "rejects an invalid student ID: %s",
     (studentId) => {
       expect(() =>
-        onboardingInputSchema.parse({ studentId, displayName: "旭祭 太郎" })
+        v.parse(onboardingInputSchema, { studentId, displayName: "旭祭 太郎" })
       ).toThrow()
     }
   )
@@ -29,14 +30,14 @@ describe("onboardingInputSchema", () => {
 describe("admin mutation schemas", () => {
   it("normalizes and requires an audit reason for role changes", () => {
     expect(
-      updateAccessLevelInputSchema.parse({
+      v.parse(updateAccessLevelInputSchema, {
         accessLevel: "leader",
         reason: "　委員会幹部への就任　",
       })
     ).toEqual({ accessLevel: "leader", reason: "委員会幹部への就任" })
 
     expect(() =>
-      updateAccessLevelInputSchema.parse({
+      v.parse(updateAccessLevelInputSchema, {
         accessLevel: "leader",
         reason: "   ",
       })
@@ -45,14 +46,14 @@ describe("admin mutation schemas", () => {
 
   it("only accepts explicit identity-link decisions", () => {
     expect(
-      identityLinkDecisionInputSchema.parse({
+      v.parse(identityLinkDecisionInputSchema, {
         decision: "approved",
         reason: "学生証を対面確認済み",
       })
     ).toEqual({ decision: "approved", reason: "学生証を対面確認済み" })
 
     expect(() =>
-      identityLinkDecisionInputSchema.parse({
+      v.parse(identityLinkDecisionInputSchema, {
         decision: "pending",
         reason: "未判断",
       })

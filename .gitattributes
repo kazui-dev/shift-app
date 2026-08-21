@@ -1,0 +1,4 @@
+# Preserve Wrangler's generated output byte-for-byte for its CI freshness check.
+# Ignore only the generator's trailing-space quirk.
+apps/api/worker-configuration.d.ts linguist-generated=true whitespace=-trailing-space
+apps/web/src/routeTree.gen.ts linguist-generated=true

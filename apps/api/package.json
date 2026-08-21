@@ -3,9 +3,8 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "pnpm --filter web build && wrangler deploy --minify",
-    "lint": "eslint src",
-    "test": "vitest run",
+    "test": "vp test run",
+    "coverage": "vp test run --coverage",
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --check"
@@ -17,17 +16,16 @@
     "better-auth": "1.6.29",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.2",
-    "web-push": "3.6.7",
-    "zod": "^4.4.3"
+    "valibot": "1.4.2",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/node": "^24",
     "@types/web-push": "3.6.4",
     "drizzle-kit": "^0.31.10",
-    "eslint": "^10.8.1",
-    "globals": "^17.11.0",
-    "typescript-eslint": "^8.67.0",
-    "wrangler": "^4.123.0"
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "wrangler": "^4.125.0",
+    "vite-plus": "catalog:"
   }
 }

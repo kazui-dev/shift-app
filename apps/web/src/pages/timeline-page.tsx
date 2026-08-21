@@ -5,8 +5,9 @@ import { LoaderCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 
 import { PushControl } from "@/components/push-control"
-import { errorMessage } from "@/lib/api"
-import { checkIn, getTimeline, submitAssignmentReport } from "@/lib/shifts-api"
+import { errorMessage } from "@/api/client"
+import { checkIn, submitAssignmentReport } from "@/api/assignments"
+import { getTimeline } from "@/api/timeline"
 
 function today(): string {
   const now = new Date()
@@ -167,9 +168,12 @@ export function TimelinePage() {
                 <select
                   className="h-9 rounded-md border bg-background px-2"
                   value={reportKind}
-                  onChange={(event) =>
-                    setReportKind(event.target.value as "late" | "absence")
-                  }
+                  onChange={(event) => {
+                    const kind = event.target.value
+                    if (kind === "late" || kind === "absence") {
+                      setReportKind(kind)
+                    }
+                  }}
                 >
                   <option value="late">遅刻</option>
                   <option value="absence">欠勤</option>
