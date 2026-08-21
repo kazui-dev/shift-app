@@ -28,20 +28,21 @@ Worker binding に依存する Better Auth 設定は `apps/api/src/auth` に置�
 必要な Node.js バージョンと初期化手順は [docs/setup.md](docs/setup.md) を参照してください。
 
 ```bash
-pnpm install
-pnpm -C apps/api run cf-typegen
-pnpm -C apps/api exec wrangler d1 migrations apply shift-app --local
+vp install
+vp -C apps/api run cf-typegen
+vp -C apps/api exec wrangler d1 migrations apply shift-app --local
 # apps/api/.dev.vars.example を apps/api/.dev.vars にコピーして値を設定
-pnpm dev
+vp dev
 ```
 
 ## Verification
 
 ```bash
-pnpm typecheck
-pnpm lint
-pnpm test
-pnpm build
+vp check
+vp exec knip
+vp run -r --cache test
+vp run -r coverage
+vp run web#build
 ```
 
 ## Docs

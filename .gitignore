@@ -18,8 +18,8 @@ dist-ssr
 !.dev.vars.example
 !**/.dev.vars.example
 
-# turbo
-.turbo
+.wrangler
+coverage
 
 # Editor directories and files
 .vscode/*

@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { skipToken, useQuery } from "@tanstack/react-query"
 import { LoaderCircle } from "lucide-react"
 
-import { errorMessage } from "@/lib/api"
-import { getAnnouncements } from "@/lib/communications-api"
-import { getYears } from "@/lib/shifts-api"
+import { errorMessage } from "@/api/client"
+import { getAnnouncements } from "@/api/communications"
+import { getYears } from "@/api/years"
 
 function dateTime(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -23,8 +23,7 @@ export function NoticesPage() {
   const year = selectedYear ?? availableYears[0]?.year ?? null
   const announcements = useQuery({
     queryKey: ["announcements", year],
-    queryFn: () => getAnnouncements(year!),
-    enabled: year !== null,
+    queryFn: year === null ? skipToken : () => getAnnouncements(year),
   })
 
   return (

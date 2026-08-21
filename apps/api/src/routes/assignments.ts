@@ -1,18 +1,18 @@
 import { Hono } from "hono"
-import { z } from "zod"
+import * as v from "valibot"
 
 import { createAssignmentReportInputSchema } from "@workspace/shared/shifts"
 
-import { isCheckInTime } from "../attendance"
+import { isCheckInTime } from "../domain/attendance"
 import {
   apiError,
   type ApiEnv,
   canManageShifts,
   readJson,
   toIso,
-} from "../http"
+} from "../lib/http"
 
-const idSchema = z.string().uuid()
+const idSchema = v.pipe(v.string(), v.uuid())
 
 type AssignmentRow = {
   id: string
@@ -49,12 +49,13 @@ function reportJson(report: ReportRow) {
 
 export const assignmentsApp = new Hono<ApiEnv>()
 
-assignmentsApp.post("/:assignmentId/report", async (c) => {
-  const id = idSchema.safeParse(c.req.param("assignmentId"))
+assignmentsApp.put("/:assignmentId/report", async (c) => {
+  const id = v.safeParse(idSchema, c.req.param("assignmentId"))
   if (!id.success) {
     return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "Assignment not found")
   }
-  const input = createAssignmentReportInputSchema.safeParse(
+  const input = v.safeParse(
+    createAssignmentReportInputSchema,
     await readJson(c.req.raw)
   )
   if (!input.success) {
@@ -62,7 +63,7 @@ assignmentsApp.post("/:assignmentId/report", async (c) => {
       c,
       422,
       "INVALID_REPORT",
-      input.error.issues[0]?.message ?? "Invalid report"
+      input.issues[0]?.message ?? "Invalid report"
     )
   }
   const member = c.get("member")
@@ -93,11 +94,11 @@ assignmentsApp.post("/:assignmentId/report", async (c) => {
     )
     .bind(
       reportId,
-      input.data.kind,
-      input.data.message,
+      input.output.kind,
+      input.output.message,
       now,
       now,
-      id.data,
+      id.output,
       member.id
     )
     .run()
@@ -119,7 +120,7 @@ assignmentsApp.post("/:assignmentId/report", async (c) => {
        JOIN members member ON member.id = report.member_id
        WHERE report.assignment_id = ?`
     )
-    .bind(id.data)
+    .bind(id.output)
     .first<ReportRow>()
   if (!report) {
     return apiError(c, 500, "REPORT_READ_FAILED", "Report could not be read")
@@ -127,8 +128,8 @@ assignmentsApp.post("/:assignmentId/report", async (c) => {
   return c.json({ report: reportJson(report) }, 201)
 })
 
-assignmentsApp.post("/:assignmentId/check-in", async (c) => {
-  const id = idSchema.safeParse(c.req.param("assignmentId"))
+assignmentsApp.put("/:assignmentId/attendance", async (c) => {
+  const id = v.safeParse(idSchema, c.req.param("assignmentId"))
   if (!id.success) {
     return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "Assignment not found")
   }
@@ -148,7 +149,7 @@ assignmentsApp.post("/:assignmentId/check-in", async (c) => {
        WHERE assignment.id = ? AND assignment.member_id = ?
          AND assignment.status = 'active'`
     )
-    .bind(id.data, member.id)
+    .bind(id.output, member.id)
     .first<{
       id: string
       startsAt: number
@@ -225,7 +226,7 @@ assignmentsApp.post("/:assignmentId/check-in", async (c) => {
 })
 
 assignmentsApp.delete("/:assignmentId", async (c) => {
-  const id = idSchema.safeParse(c.req.param("assignmentId"))
+  const id = v.safeParse(idSchema, c.req.param("assignmentId"))
   if (!id.success) {
     return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "Assignment not found")
   }
@@ -239,7 +240,7 @@ assignmentsApp.delete("/:assignmentId", async (c) => {
        JOIN operating_years operating_year ON operating_year.year = activity.year
        WHERE assignment.id = ?`
     )
-    .bind(id.data)
+    .bind(id.output)
     .first<AssignmentRow>()
   if (!assignment) {
     return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "Assignment not found")

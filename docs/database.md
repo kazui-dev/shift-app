@@ -1,6 +1,6 @@
 # Database
 
-この文書は実装済みの認証・シフト・chat・push schemaを示す。D1実装の正は`packages/db/src/schema.ts`とSQL migration、Durable Object実装の正は`apps/api/src/chat-room.ts`とする。
+この文書は実装済みの認証・シフト・chat・push schemaを示す。D1実装の正は`packages/db/src/schema.ts`とSQL migration、Durable Object実装の正は`apps/api/src/durable-objects/chat-room.ts`とする。
 
 ## Policy
 

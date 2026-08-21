@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  skipToken,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { LoaderCircle } from "lucide-react"
+import * as v from "valibot"
 
 import { chatEventSchema } from "@workspace/shared/communications"
 import { Button } from "@workspace/ui/components/button"
 
-import { errorMessage } from "@/lib/api"
+import { errorMessage } from "@/api/client"
 import {
   createChatRoom,
   getChatMessages,
   getChatRooms,
   sendChatMessage,
-} from "@/lib/chat-api"
-import { getYearMembers, getYears } from "@/lib/shifts-api"
+} from "@/api/chat"
+import { getRoster, getYears } from "@/api/years"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -38,16 +44,17 @@ export function ChatPage() {
       : (rooms.data?.rooms[0]?.id ?? null)
   const messages = useQuery({
     queryKey: ["chat-messages", selectedRoomId],
-    queryFn: () => getChatMessages(selectedRoomId!),
-    enabled: selectedRoomId !== null,
+    queryFn:
+      selectedRoomId === null
+        ? skipToken
+        : () => getChatMessages(selectedRoomId),
   })
 
   const [year, setYear] = useState<number | null>(null)
   const selectedYear = year ?? activeYears[0]?.year ?? null
   const members = useQuery({
-    queryKey: ["year-members", selectedYear],
-    queryFn: () => getYearMembers(selectedYear!),
-    enabled: selectedYear !== null,
+    queryKey: ["roster", selectedYear],
+    queryFn: selectedYear === null ? skipToken : () => getRoster(selectedYear),
   })
   const [name, setName] = useState("")
   const [memberId, setMemberId] = useState("")
@@ -55,7 +62,7 @@ export function ChatPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!selectedRoomId) return
+    if (!selectedRoomId) return undefined
     let socket: WebSocket | null = null
     let retry: number | null = null
     let disposed = false
@@ -68,7 +75,8 @@ export function ChatPage() {
       socket = new WebSocket(url)
       socket.addEventListener("message", (event) => {
         try {
-          const parsed = chatEventSchema.safeParse(
+          const parsed = v.safeParse(
+            chatEventSchema,
             JSON.parse(String(event.data))
           )
           if (parsed.success) {
@@ -94,11 +102,11 @@ export function ChatPage() {
   }, [queryClient, selectedRoomId])
 
   const createRoom = useMutation({
-    mutationFn: () =>
+    mutationFn: (input: { year: number; name: string; memberId: string }) =>
       createChatRoom({
-        year: selectedYear!,
-        name,
-        targets: [{ targetType: "member", targetId: memberId }],
+        year: input.year,
+        name: input.name,
+        targets: [{ targetType: "member", targetId: input.memberId }],
       }),
     onSuccess: async ({ room }) => {
       setName("")
@@ -133,7 +141,9 @@ export function ChatPage() {
 
   function handleCreate(event: FormEvent) {
     event.preventDefault()
-    if (selectedYear && name && memberId) createRoom.mutate()
+    if (selectedYear !== null && name && memberId) {
+      createRoom.mutate({ year: selectedYear, name, memberId })
+    }
   }
 
   function handleSend(event: FormEvent) {

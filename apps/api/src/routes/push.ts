@@ -1,18 +1,22 @@
 import { Hono } from "hono"
+import * as v from "valibot"
 
 import {
   deletePushSubscriptionInputSchema,
   pushSubscriptionInputSchema,
 } from "@workspace/shared/communications"
 
-import { apiError, type ApiEnv, readJson } from "../http"
+import { apiError, type ApiEnv, readJson } from "../lib/http"
 
 export const pushApp = new Hono<ApiEnv>()
 
 pushApp.get("/config", (c) => c.json({ publicKey: c.env.VAPID_PUBLIC_KEY }))
 
 pushApp.post("/subscriptions", async (c) => {
-  const input = pushSubscriptionInputSchema.safeParse(await readJson(c.req.raw))
+  const input = v.safeParse(
+    pushSubscriptionInputSchema,
+    await readJson(c.req.raw)
+  )
   if (!input.success) {
     return apiError(c, 422, "INVALID_PUSH_SUBSCRIPTION", "Invalid subscription")
   }
@@ -33,10 +37,10 @@ pushApp.post("/subscriptions", async (c) => {
     .bind(
       crypto.randomUUID(),
       member.id,
-      input.data.endpoint,
-      input.data.expirationTime,
-      input.data.keys.p256dh,
-      input.data.keys.auth,
+      input.output.endpoint,
+      input.output.expirationTime,
+      input.output.keys.p256dh,
+      input.output.keys.auth,
       now,
       now
     )
@@ -53,7 +57,8 @@ pushApp.post("/subscriptions", async (c) => {
 })
 
 pushApp.delete("/subscriptions", async (c) => {
-  const input = deletePushSubscriptionInputSchema.safeParse(
+  const input = v.safeParse(
+    deletePushSubscriptionInputSchema,
     await readJson(c.req.raw)
   )
   if (!input.success) {
@@ -63,7 +68,7 @@ pushApp.delete("/subscriptions", async (c) => {
     .prepare(
       "DELETE FROM push_subscriptions WHERE endpoint = ? AND member_id = ?"
     )
-    .bind(input.data.endpoint, c.get("member").id)
+    .bind(input.output.endpoint, c.get("member").id)
     .run()
   return c.body(null, 204)
 })

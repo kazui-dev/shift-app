@@ -1,7 +1,7 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter"
 import { and, eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/d1"
-import { betterAuth } from "better-auth"
+import { betterAuth } from "better-auth/minimal"
 
 import * as schema from "@workspace/db"
 import { affiliationVerifications } from "@workspace/db/schema"
@@ -46,10 +46,7 @@ export function createAuth(env: CloudflareBindings) {
       .where(
         and(
           eq(affiliationVerifications.providerId, account.providerId),
-          eq(
-            affiliationVerifications.providerAccountId,
-            account.accountId
-          )
+          eq(affiliationVerifications.providerAccountId, account.accountId)
         )
       )
       .limit(1)
@@ -96,18 +93,18 @@ export function createAuth(env: CloudflareBindings) {
         disableImplicitLinking: true,
       },
     },
-    socialProviders: {
-      discord: configured.discord
-        ? {
+    socialProviders: configured.discord
+      ? {
+          discord: {
             clientId: env.DISCORD_CLIENT_ID,
             clientSecret: env.DISCORD_CLIENT_SECRET,
             disableDefaultScope: true,
             scope: ["identify", "guilds.members.read"],
             getUserInfo: (tokens) =>
               getDiscordUserInfo(tokens, env.DISCORD_GUILD_ID),
-          }
-        : undefined,
-    },
+          },
+        }
+      : {},
     databaseHooks: {
       account: {
         create: {
@@ -121,6 +118,3 @@ export function createAuth(env: CloudflareBindings) {
     telemetry: { enabled: false },
   })
 }
-
-export type Auth = ReturnType<typeof createAuth>
-export type AuthSession = Awaited<ReturnType<Auth["api"]["getSession"]>>

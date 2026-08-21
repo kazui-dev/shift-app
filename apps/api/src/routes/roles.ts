@@ -1,25 +1,25 @@
 import { Hono } from "hono"
-import { z } from "zod"
+import * as v from "valibot"
 
 import {
   apiError,
   type ApiEnv,
   canManageShifts,
   requireSystemAdmin,
-} from "../http"
+} from "../lib/http"
 
-const idSchema = z.string().uuid()
+const idSchema = v.pipe(v.string(), v.uuid())
 
 export const rolesApp = new Hono<ApiEnv>()
 
 rolesApp.get("/:roleId/members", async (c) => {
-  const roleId = idSchema.safeParse(c.req.param("roleId"))
+  const roleId = v.safeParse(idSchema, c.req.param("roleId"))
   if (!roleId.success) {
     return apiError(c, 404, "ROLE_NOT_FOUND", "Year role not found")
   }
   const role = await c.env.shift_app
     .prepare("SELECT id, year, name, color FROM year_roles WHERE id = ?")
-    .bind(roleId.data)
+    .bind(roleId.output)
     .first<{ id: string; year: number; name: string; color: string }>()
   if (!role) {
     return apiError(c, 404, "ROLE_NOT_FOUND", "Year role not found")
@@ -53,8 +53,8 @@ rolesApp.get("/:roleId/members", async (c) => {
 rolesApp.put("/:roleId/members/:memberId", async (c) => {
   const denied = requireSystemAdmin(c)
   if (denied) return denied
-  const roleId = idSchema.safeParse(c.req.param("roleId"))
-  const memberId = idSchema.safeParse(c.req.param("memberId"))
+  const roleId = v.safeParse(idSchema, c.req.param("roleId"))
+  const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (!roleId.success || !memberId.success) {
     return apiError(c, 404, "RESOURCE_NOT_FOUND", "Role or member not found")
   }
@@ -69,7 +69,7 @@ rolesApp.put("/:roleId/members/:memberId", async (c) => {
         AND year_membership.status = 'active'
        WHERE member.id = ? AND role.id = ?`
     )
-    .bind(Date.now(), memberId.data, roleId.data)
+    .bind(Date.now(), memberId.output, roleId.output)
     .run()
   if (result.meta.changes !== 1) {
     const resource = await c.env.shift_app
@@ -83,7 +83,7 @@ rolesApp.put("/:roleId/members/:memberId", async (c) => {
           AND year_membership.year = role.year
          WHERE role.id = ?`
       )
-      .bind(memberId.data, roleId.data)
+      .bind(memberId.output, roleId.output)
       .first<{
         roleId: string
         memberId: string
@@ -102,15 +102,15 @@ rolesApp.put("/:roleId/members/:memberId", async (c) => {
     }
   }
   return c.json({
-    membership: { roleId: roleId.data, memberId: memberId.data },
+    membership: { roleId: roleId.output, memberId: memberId.output },
   })
 })
 
 rolesApp.delete("/:roleId/members/:memberId", async (c) => {
   const denied = requireSystemAdmin(c)
   if (denied) return denied
-  const roleId = idSchema.safeParse(c.req.param("roleId"))
-  const memberId = idSchema.safeParse(c.req.param("memberId"))
+  const roleId = v.safeParse(idSchema, c.req.param("roleId"))
+  const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (!roleId.success || !memberId.success) {
     return apiError(c, 404, "MEMBERSHIP_NOT_FOUND", "Role membership not found")
   }
@@ -118,7 +118,7 @@ rolesApp.delete("/:roleId/members/:memberId", async (c) => {
     .prepare(
       "DELETE FROM member_year_roles WHERE role_id = ? AND member_id = ?"
     )
-    .bind(roleId.data, memberId.data)
+    .bind(roleId.output, memberId.output)
     .run()
   if (result.meta.changes !== 1) {
     return apiError(c, 404, "MEMBERSHIP_NOT_FOUND", "Role membership not found")

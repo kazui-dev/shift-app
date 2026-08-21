@@ -11,7 +11,8 @@
 
 | Area                        | Status                                               |
 | --------------------------- | ---------------------------------------------------- |
-| React / Vite / shadcn/ui    | 導入済み                                             |
+| React / Vite 8 / Oxc        | Oxc変換・lint・format・型認識lintを導入済み          |
+| Valibot / shadcn/ui         | API境界schema・共有UIを導入済み                      |
 | D1 binding / Drizzle schema | 認証・年度・希望・シフト schema を実装済み           |
 | TanStack Router / Query     | routing と query cache 永続化を構成済み              |
 | PWA / offline persistence   | asset cache・query cache・chat送信待ちを実装済み     |
@@ -30,7 +31,8 @@
 - ファイルベースルーティングに TanStack Router を使う。Vite plugin は `@vitejs/plugin-react` より前に登録する。
 - サーバー状態と optimistic update に TanStack Query を使う。
 - UI 部品は shadcn/ui CLI で管理し、共有可能な部品を `packages/ui` に置く。
-- API 入出力は Zod schema で検証し、共通 schema は `packages/shared` に置く。
+- API 入出力は Valibot schema で検証し、共通 schema は `packages/shared` に置く。
+- HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでqueueへ入れない。
@@ -44,7 +46,15 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 - 認証と session 管理には Better Auth を使う。Discord OAuth identity と domain 上の `members` を分離し、許可対象 server をサーバー側で検証する。
 - ルーム単位の WebSocket 接続、順序制御、presence など、単一の調整主体が必要なチャット機能に Durable Objects を使う。通常の CRUD は D1 に置く。
 - 新規 Durable Object は SQLite storage を使い、class lifecycle は Wrangler の宣言型 `exports` で管理する。
-- `nodejs_compat` は依存 package が Node.js API を必要とすると確認できた場合だけ有効にする。
+- `compatibility_date` 2026-08-04以降ではNode.js互換性が既定で有効になるため、
+  冗長な`nodejs_compat` flagは追加しない。無効化は依存packageへの影響を確認して
+  `no_nodejs_compat`系flagを明示する場合だけ行う。
+
+## Toolchain
+
+Vite+を開発toolchainの単一entry pointとし、内包するVite 8・Rolldown・Vitest・Oxlint・Oxfmt・Vite Taskを使う。TypeScriptはnative compilerの7系へ統一する。workspace横断のtest・coverage・TypeScript project checkは`vp run`が依存順序とlocal cacheを管理する。package managerとlockfileの実体はpnpmのまま固定し、installやdependency操作はVite+の統一interfaceから呼び出す。
+
+Cloudflare Vite PluginはVite+のVite Environment上でclientとWorkerを同時にbuildし、local development・preview・deploy成果物をworkerdへ接続する。Cloudflare resource操作と型生成はWranglerを`vp exec`経由で使う。
 
 D1 の read replication は初期要件ではない。必要になった場合は単に有効化するだけでなく、D1 binding の Sessions API と bookmark を使って read-after-write を維持する。
 
@@ -57,21 +67,20 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | Route                                       | Responsibility                   |
 | ------------------------------------------- | -------------------------------- |
 | `/api/me/timeline`                          | ログイン中 member の割当一覧     |
+| `/api/me/availability/:year`                | 本人の希望時間帯                 |
 | `/api/years`                                | 年度の一覧・作成                 |
 | `/api/years/:year/roles`                    | 年度別 role と機能権限           |
-| `/api/years/:year/members`                  | 割当候補 member と年度別 role    |
+| `/api/years/:year/roster`                   | 割当候補 member と年度別 role    |
 | `/api/years/:year/memberships`              | 年度参加者の一覧・有効化・無効化 |
-| `/api/years/:year/availability`             | 本人の希望時間帯                 |
 | `/api/years/:year/availability-submissions` | 管理者向け希望一覧               |
 | `/api/years/:year/activities`               | 年度内 activity                  |
 | `/api/activities/:activityId`               | activity と割当                  |
 | `/api/assignments/:assignmentId`            | 個別割当の取消                   |
-| `/api/assignments/:assignmentId/check-in`   | 本人の出勤記録                   |
+| `/api/assignments/:assignmentId/attendance` | 本人の出勤記録                   |
 | `/api/assignments/:assignmentId/report`     | 本人の遅刻・欠勤連絡             |
 | `/api/years/:year/reports`                  | 管理者向け連絡一覧               |
-| `/api/reports/:reportId/resolve`            | 連絡の対応完了                   |
-| `/api/announcements?year=:year`             | 公開中の年度別事務連絡           |
-| `/api/years/:year/announcements`            | 事務連絡の作成                   |
+| `/api/reports/:reportId`                    | 連絡状態の更新                   |
+| `/api/years/:year/announcements`            | 年度別事務連絡の一覧・作成       |
 | `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成       |
 | `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信             |
 | `/api/chat/rooms/:roomId/ws`                | リアルタイム受信                 |
@@ -79,6 +88,8 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/push/subscriptions`                   | 端末のPush購読登録・解除         |
 
 変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
+
+route名は複数形のresource名を使い、年度がcanonical parentであるcollectionだけを`/years/:year`へ置く。本人固有の希望は`/me/availability/:year`、年度内の割当候補projectionは`roster`とする。assignmentごとに一つだけ存在するattendanceとreportは冪等な`PUT`、reportの状態更新は`PATCH`を使う。
 
 年度参加と年度 role は別の責務とする。通常利用者の年度データ閲覧、本人の希望提出、チャット利用には active な `year_memberships` を必須とし、`member_year_roles` は参加中の利用者へ追加権限を与える。`system_admin` は年度管理を参加状態に依存せず実行できるが、個人として希望提出や private chat を利用する場合は明示的な年度参加を必要とする。
 
@@ -116,7 +127,7 @@ email や学籍番号の一致による暗黙 linking は無効にする。学�
 
 ### Administrative Authorization
 
-`/api/admin/*` は各 request で Better Auth session と `members.access_level` をD1から再確認し、`system_admin` だけに許可する。frontend の表示状態やOAuth profileの値を認可根拠にしない。cookieを使う変更系requestは同一originを必須とし、body size、共有Zod schema、D1 constraintで入力と競合を検証する。
+`/api/admin/*` は各 request で Better Auth session と `members.access_level` をD1から再確認し、`system_admin` だけに許可する。frontend の表示状態やOAuth profileの値を認可根拠にしない。cookieを使う変更系requestは同一originを必須とし、body size、共有Valibot schema、D1 constraintで入力と競合を検証する。
 
 role変更、全session失効、identity recoveryの承認・拒否は、操作理由を必須にして `admin_audit_logs` と対象更新を1つのD1 batchで実行する。自己role変更、最後の `system_admin` の降格、identity recoveryの自己承認は禁止する。
 
@@ -126,19 +137,29 @@ Notion OAuth は将来拡張とする。追加時は workspace ID `27865ff8-ac56
 
 ## Cloudflare Deployment
 
-Vite の生成物を API Worker の Workers Static Assets として同時に deploy する。`not_found_handling: "single-page-application"` で client routing を処理し、`assets.run_worker_first: ["/api/*"]` で API request だけ Hono を先に実行する。
+Cloudflare Vite PluginがViteのclient生成物とAPI Workerをまとめ、Workers Static Assetsとして同時にdeployする。`not_found_handling: "single-page-application"` でclient routingを処理し、`assets.run_worker_first: ["/api/*"]` でAPI requestだけHonoを先に実行する。
 
-Web と API を同一 origin にすることで CORS と認証 cookie の構成を単純にする。local は Vite が `/api` を Wrangler の port 8787 へ proxy する。Cloudflare Pages と Cloudflare Vite plugin は現在の構成では使わない。
+WebとAPIを同一originにすることでCORSと認証cookieの構成を単純にする。localもCloudflare Vite Pluginが単一のVite dev serverとしてclientとWorkerを起動し、個別Wrangler processへのproxyは使わない。
 
 ## Packages
 
-| Package                 | Responsibility                                             |
-| ----------------------- | ---------------------------------------------------------- |
-| `packages/ui`           | shadcn/ui の共有コンポーネントと global CSS                |
-| `packages/db`           | Drizzle schema。DB client は Worker の D1 binding から作る |
-| `apps/api/src/auth`     | D1 binding を使う Better Auth 設定、provider 所属確認      |
-| `apps/api/src/admin.ts` | 管理APIの認可、監査付きrole・session・identity操作         |
-| `packages/shared`       | API schema、共有型、正規化処理                             |
+| Package                        | Responsibility                                             |
+| ------------------------------ | ---------------------------------------------------------- |
+| `packages/ui`                  | shadcn/ui の共有コンポーネントと global CSS                |
+| `packages/db`                  | Drizzle schema。DB client は Worker の D1 binding から作る |
+| `apps/api/src/app.ts`          | Hono applicationとHTTP routeの合成                         |
+| `apps/api/src/index.ts`        | Workerのfetch・scheduled・Durable Object export            |
+| `apps/api/src/auth`            | D1 bindingを使うBetter Auth設定、provider所属確認          |
+| `apps/api/src/routes`          | HTTP resourceごとのroute                                   |
+| `apps/api/src/routes/admin`    | 管理APIの共通認証、read query、監査付きcommand             |
+| `apps/api/src/routes/years`    | 年度をcanonical parentとするresource collection            |
+| `apps/api/src/routes/me`       | ログイン中member固有のresource                             |
+| `apps/api/src/domain`          | WorkerやHonoに依存しない純粋なdomain logic                 |
+| `apps/api/src/services`        | Pushなど外部I/Oを伴うapplication service                   |
+| `apps/api/src/durable-objects` | Durable Object class                                       |
+| `apps/api/test/unit`           | 純粋logicと外部境界adapterのunit test                      |
+| `apps/web/src/api`             | Valibot検証付きWeb API client                              |
+| `packages/shared`              | API schema、共有型、正規化処理                             |
 
 ## Cloudflare Bindings
 
@@ -147,7 +168,7 @@ resource binding と非機密の `vars` は `apps/api/wrangler.jsonc` に定義�
 `wrangler.jsonc` の binding、`compatibility_date`、compatibility flag を変えたら、生成型を更新して commit する。
 
 ```bash
-pnpm -C apps/api run cf-typegen
+vp -C apps/api run cf-typegen
 ```
 
 Hono では生成された `CloudflareBindings` を `c.env` の型に使う。
@@ -181,7 +202,7 @@ export default app
 }
 ```
 
-従来の `migrations` 配列と `exports` は併用しない。`exports` の deleted / renamed state はデータ破壊や namespace 変更を伴うため、deploy 前に必ず差分を確認する。
+Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`exports`のdeleted / renamed stateはデータ破壊やnamespace変更を伴うため、deploy前に必ず差分を確認する。
 
 ## References
 

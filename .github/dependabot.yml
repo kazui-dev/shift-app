@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      vite-plus-toolchain:
+        patterns:
+          - vite
+          - vite-plus
+          - "@voidzero-dev/vite-plus-core"
+          - vitest
+          - "@vitest/*"
+          - "@cloudflare/vite-plugin"
+          - "@vitejs/*"
+          - "@tailwindcss/vite"
+          - "@tanstack/router-plugin"
+          - vite-plugin-pwa
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      vite-plus-actions:
+        patterns:
+          - "voidzero-dev/setup-vp"

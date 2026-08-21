@@ -1,9 +1,15 @@
 import { Hono } from "hono"
-import { z } from "zod"
+import * as v from "valibot"
 
-import { apiError, type ApiEnv, canManageShifts, toIso } from "../http"
+import {
+  apiError,
+  type ApiEnv,
+  canManageShifts,
+  readJson,
+  toIso,
+} from "../lib/http"
 
-const idSchema = z.string().uuid()
+const idSchema = v.pipe(v.string(), v.uuid())
 
 type ReportRow = {
   id: string
@@ -64,14 +70,21 @@ async function findReport(
 
 export const reportsApp = new Hono<ApiEnv>()
 
-reportsApp.post("/:reportId/resolve", async (c) => {
-  const id = idSchema.safeParse(c.req.param("reportId"))
+reportsApp.patch("/:reportId", async (c) => {
+  const id = v.safeParse(idSchema, c.req.param("reportId"))
   if (!id.success) {
     return apiError(c, 404, "REPORT_NOT_FOUND", "Report not found")
   }
-  const report = await findReport(c.env, id.data)
+  const report = await findReport(c.env, id.output)
   if (!report) {
     return apiError(c, 404, "REPORT_NOT_FOUND", "Report not found")
+  }
+  const input = v.safeParse(
+    v.object({ status: v.literal("resolved") }),
+    await readJson(c.req.raw)
+  )
+  if (!input.success) {
+    return apiError(c, 422, "INVALID_REPORT_UPDATE", "Invalid report update")
   }
   const actor = c.get("member")
   if (!(await canManageShifts(c.env, actor, report.year))) {

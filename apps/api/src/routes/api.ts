@@ -6,16 +6,16 @@ import {
   type ApiEnv,
   requireMember,
   requireSameOriginForMutation,
-} from "../http"
+} from "../lib/http"
 import { activitiesApp } from "./activities"
 import { announcementsApp } from "./announcements"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat"
-import { meApp } from "./me"
+import { meApp } from "./me/index"
 import { pushApp } from "./push"
 import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
-import { yearsApp } from "./years"
+import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()
 

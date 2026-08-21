@@ -15,7 +15,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import { authClient } from "@/lib/auth-client"
 import { persister } from "@/lib/query-client"
-import { removePushSubscription } from "@/lib/push-api"
+import { removePushSubscription } from "@/api/push"
 
 const navigation = [
   { to: "/timeline", label: "タイムライン", icon: CalendarDays },

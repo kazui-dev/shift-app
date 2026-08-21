@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: voidzero-dev/setup-vp@v1.16.1
+        with:
+          version-file: pnpm-workspace.yaml
+          node-version-file: .node-version
+          cache: true
+          run-install: false
+      - run: vp install --frozen-lockfile
+      - run: vp -C apps/api run cf-typegen:check
+      - run: vp check
+      - run: vp exec knip
+      - run: vp run -r coverage
+      - run: vp run -r --cache typecheck
+      - run: vp run deployCheck
+      - name: Preview smoke test
+        shell: bash
+        run: |
+          smoke_dir="$(mktemp -d)"
+          preview_log="$smoke_dir/preview.log"
+          root_headers="$smoke_dir/root.headers"
+          api_headers="$smoke_dir/api.headers"
+
+          vp -C apps/web preview --host 127.0.0.1 --port 4173 --strictPort >"$preview_log" 2>&1 &
+          preview_pid=$!
+          cleanup() {
+            status=$?
+            kill "$preview_pid" 2>/dev/null || true
+            wait "$preview_pid" 2>/dev/null || true
+            if [ "$status" -ne 0 ]; then
+              sed -n '1,240p' "$preview_log"
+            fi
+          }
+          trap cleanup EXIT
+
+          root_status="$(curl --silent --show-error --retry 30 --retry-delay 1 --retry-connrefused --dump-header "$root_headers" --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4173/)"
+          test "$root_status" = "200"
+          grep --ignore-case --quiet '^content-type: *text/html' "$root_headers"
+
+          api_status="$(curl --silent --show-error --dump-header "$api_headers" --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4173/api/me/timeline)"
+          test "$api_status" = "401"
+          grep --ignore-case --quiet '^content-type: *application/json' "$api_headers"

@@ -5,7 +5,7 @@ import type {
 } from "@tanstack/react-query-persist-client"
 import { del, get, set } from "idb-keyval"
 
-import { sendChatMessage } from "./chat-api"
+import { sendChatMessage } from "@/api/chat"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"

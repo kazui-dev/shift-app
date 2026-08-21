@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest"
+import * as v from "valibot"
+import { describe, expect, it } from "vite-plus/test"
 
 import {
   createAnnouncementInputSchema,
@@ -10,7 +11,7 @@ import {
 describe("communication schemas", () => {
   it("normalizes announcement input", () => {
     expect(
-      createAnnouncementInputSchema.parse({
+      v.parse(createAnnouncementInputSchema, {
         title: "  集合場所の変更  ",
         body: "正門ではなく本部へ集合してください。",
         priority: "important",
@@ -25,13 +26,14 @@ describe("communication schemas", () => {
 
   it("rejects an empty announcement", () => {
     expect(
-      createAnnouncementInputSchema.safeParse({ title: "", body: "" }).success
+      v.safeParse(createAnnouncementInputSchema, { title: "", body: "" })
+        .success
     ).toBe(false)
   })
 
   it("accepts a member-targeted chat room", () => {
     expect(
-      createChatRoomInputSchema.parse({
+      v.parse(createChatRoomInputSchema, {
         year: 2026,
         name: "  本部連絡  ",
         targets: [
@@ -46,13 +48,13 @@ describe("communication schemas", () => {
 
   it("requires an idempotency id for chat messages", () => {
     expect(
-      sendChatMessageInputSchema.safeParse({ content: "了解" }).success
+      v.safeParse(sendChatMessageInputSchema, { content: "了解" }).success
     ).toBe(false)
   })
 
   it("validates a web push subscription", () => {
     expect(
-      pushSubscriptionInputSchema.safeParse({
+      v.safeParse(pushSubscriptionInputSchema, {
         endpoint: "https://push.example.test/subscription/1",
         expirationTime: null,
         keys: { p256dh: "public-key", auth: "auth-secret" },

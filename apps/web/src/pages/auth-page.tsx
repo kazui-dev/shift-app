@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, LogOut } from "lucide-react"
+import * as v from "valibot"
 
 import { onboardingInputSchema } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
 
+import { createAccount } from "@/api/account"
+import { ApiError } from "@/api/client"
 import { authClient } from "@/lib/auth-client"
-import { authStateQueryOptions } from "@/lib/auth-state"
+import { accountStateQueryOptions } from "@/lib/account-state"
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
@@ -66,37 +69,34 @@ function OnboardingView() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const parsed = onboardingInputSchema.safeParse({ studentId, displayName })
+    const parsed = v.safeParse(onboardingInputSchema, {
+      studentId,
+      displayName,
+    })
     if (!parsed.success) {
-      setError(
-        parsed.error.issues[0]?.message ?? "入力内容を確認してください。"
-      )
+      setError(parsed.issues[0]?.message ?? "入力内容を確認してください。")
       return
     }
 
     setPending(true)
     setError(null)
-    const response = await fetch("/api/onboarding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed.data),
-    })
-    if (response.ok) {
-      await queryClient.invalidateQueries({ queryKey: ["auth-state"] })
+    try {
+      await createAccount(parsed.output)
+      await queryClient.invalidateQueries({ queryKey: ["account"] })
       window.location.assign("/timeline")
-      return
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError && caught.status === 409
+          ? "この学籍番号は登録済みです。連携申請を作成したため、管理者へ連絡してください。"
+          : "アカウントを作成できませんでした。"
+      )
+      setPending(false)
     }
-    setError(
-      response.status === 409
-        ? "この学籍番号は登録済みです。連携申請を作成したため、管理者へ連絡してください。"
-        : "アカウントを作成できませんでした。"
-    )
-    setPending(false)
   }
 
   async function signOut() {
     await authClient.signOut()
-    await queryClient.invalidateQueries({ queryKey: ["auth-state"] })
+    await queryClient.invalidateQueries({ queryKey: ["account"] })
   }
 
   return (
@@ -141,7 +141,7 @@ function OnboardingView() {
 }
 
 export function AuthPage() {
-  const authState = useQuery(authStateQueryOptions)
+  const authState = useQuery(accountStateQueryOptions)
   if (authState.isPending) {
     return (
       <AuthShell>
