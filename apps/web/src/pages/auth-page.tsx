@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type FormEvent } from "react"
+import { useEffect, useState, type ComponentProps, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, LogOut, RotateCcw, X } from "lucide-react"
 import * as v from "valibot"
@@ -61,17 +61,37 @@ function LoginView({ enabled }: { enabled: boolean }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    const resetPendingAfterRestore = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setPending(false)
+      }
+    }
+
+    window.addEventListener("pageshow", resetPendingAfterRestore)
+
+    return () => {
+      window.removeEventListener("pageshow", resetPendingAfterRestore)
+    }
+  }, [])
+
   async function signIn() {
     setPending(true)
     setError(null)
-    const result = await authClient.signIn.social({
-      provider: "discord",
-      callbackURL: "/timeline",
-      newUserCallbackURL: "/",
-      errorCallbackURL: "/",
-    })
-    if (result.error) {
+
+    try {
+      const result = await authClient.signIn.social({
+        provider: "discord",
+        callbackURL: "/timeline",
+        newUserCallbackURL: "/",
+        errorCallbackURL: "/",
+      })
+      if (result.error) {
+        setError("ログインを開始できませんでした。")
+      }
+    } catch {
       setError("ログインを開始できませんでした。")
+    } finally {
       setPending(false)
     }
   }
