@@ -29,13 +29,15 @@
 `apps/web` は React + Vite の SPA とする。
 
 - ファイルベースルーティングに TanStack Router を使う。Vite plugin は `@vitejs/plugin-react` より前に登録する。
-- サーバー状態、mutation、offline persistence に TanStack Query を使う。
+- サーバー状態、mutation、offline persistence に TanStack Query を使う。optimistic update は今後導入する。
 - UI 部品は shadcn/ui CLI で管理し、共有可能な部品を `packages/ui` に置く。
 - API 入出力は Valibot schema で検証し、共通 schema は `packages/shared` に置く。
 - HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
-Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでqueueへ入れない。
+Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。
+
+optimistic updateは現時点では未実装とし、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
 ## Backend
 
