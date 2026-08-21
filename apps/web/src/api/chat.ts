@@ -3,12 +3,16 @@ import {
   chatMessagesResponseSchema,
   chatRoomEnvelopeSchema,
   chatRoomsResponseSchema,
+  chatTargetsResponseSchema,
 } from "@workspace/shared/communications"
 
 import { apiJson } from "./client"
 
 export const getChatRooms = () =>
   apiJson("/api/chat/rooms", chatRoomsResponseSchema)
+
+export const getChatTargets = (year: number) =>
+  apiJson(`/api/chat/targets?year=${year}`, chatTargetsResponseSchema)
 
 export const createChatRoom = (input: {
   year: number

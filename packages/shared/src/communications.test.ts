@@ -2,6 +2,7 @@ import * as v from "valibot"
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  chatTargetsResponseSchema,
   createAnnouncementInputSchema,
   createChatRoomInputSchema,
   pushSubscriptionInputSchema,
@@ -44,6 +45,23 @@ describe("communication schemas", () => {
         ],
       }).name
     ).toBe("本部連絡")
+  })
+
+  it("keeps chat target discovery limited to display identity", () => {
+    const target = {
+      targetType: "member",
+      targetId: "6632fe2d-1064-442c-8884-3b674f564e60",
+      displayName: "旭祭 太郎",
+    } as const
+
+    expect(v.parse(chatTargetsResponseSchema, { targets: [target] })).toEqual({
+      targets: [target],
+    })
+    expect(
+      v.safeParse(chatTargetsResponseSchema, {
+        targets: [{ ...target, studentId: "26AJ112" }],
+      }).success
+    ).toBe(false)
   })
 
   it("requires an idempotency id for chat messages", () => {

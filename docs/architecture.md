@@ -88,6 +88,7 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/reports/:reportId`                    | 連絡状態の更新                   |
 | `/api/years/:year/announcements`            | 年度別事務連絡の一覧・作成       |
 | `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成       |
+| `/api/chat/targets`                         | 年度内のチャット対象候補         |
 | `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信             |
 | `/api/chat/rooms/:roomId/ws`                | リアルタイム受信                 |
 | `/api/push/config`                          | VAPID公開鍵                      |
@@ -103,7 +104,7 @@ route名は複数形のresource名を使い、年度がcanonical parentである
 
 認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/notices`、`/chat`、`/manage`、`/system` に責務を分ける。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
 
-チャットではD1にルームmetadataと対象member・role・activityを置き、各requestで現在の所属からアクセスを再計算する。メッセージ本文と単調増加するsequenceはルームごとのDurable Object SQLiteに置く。送信は認証・認可済みHTTP POST、リアルタイム受信は同一originを検証したHibernation WebSocketとし、client生成UUIDで再送を冪等化する。
+チャット対象候補はactiveな年度参加者にだけ公開し、memberのUUIDと表示名に限定する。学籍番号や年度roleを含む管理用`roster`は`shift.manage`を必須とし、チャット対象の検索には流用しない。チャットではD1にルームmetadataと対象member・role・activityを置き、各requestで現在の所属からアクセスを再計算する。メッセージ本文と単調増加するsequenceはルームごとのDurable Object SQLiteに置く。送信は認証・認可済みHTTP POST、リアルタイム受信は同一originを検証したHibernation WebSocketとし、client生成UUIDで再送を冪等化する。
 
 Push購読はmemberごと・端末ごとにD1へ保持する。新規割当後は`waitUntil`で即時通知し、開始前通知は毎分のCron Triggerが「9分超10分以内に開始する割当」を処理する。配送前にassignment・subscription・通知種別の一意なdeliveryをclaimするため、Cronの重複実行で二重送信しない。Push serviceが404/410を返した購読は削除する。VAPID秘密鍵はWorker secretだけに置く。
 

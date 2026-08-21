@@ -11,6 +11,7 @@ import { activitiesApp } from "./activities"
 import { announcementsApp } from "./announcements"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat"
+import { chatTargetsApp } from "./chat-targets"
 import { meApp } from "./me/index"
 import { pushApp } from "./push"
 import { reportsApp } from "./reports"
@@ -45,6 +46,7 @@ apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
 apiApp.route("/announcements", announcementsApp)
 apiApp.route("/assignments", assignmentsApp)
+apiApp.route("/chat", chatTargetsApp)
 apiApp.route("/chat", chatApp)
 apiApp.route("/reports", reportsApp)
 

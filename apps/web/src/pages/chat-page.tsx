@@ -16,9 +16,10 @@ import {
   createChatRoom,
   getChatMessages,
   getChatRooms,
+  getChatTargets,
   sendChatMessage,
 } from "@/api/chat"
-import { getRoster, getYears } from "@/api/years"
+import { getYears } from "@/api/years"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -52,9 +53,10 @@ export function ChatPage() {
 
   const [year, setYear] = useState<number | null>(null)
   const selectedYear = year ?? activeYears[0]?.year ?? null
-  const members = useQuery({
-    queryKey: ["roster", selectedYear],
-    queryFn: selectedYear === null ? skipToken : () => getRoster(selectedYear),
+  const targets = useQuery({
+    queryKey: ["chat-targets", selectedYear],
+    queryFn:
+      selectedYear === null ? skipToken : () => getChatTargets(selectedYear),
   })
   const [name, setName] = useState("")
   const [memberId, setMemberId] = useState("")
@@ -197,9 +199,9 @@ export function ChatPage() {
             onChange={(event) => setMemberId(event.target.value)}
           >
             <option value="">相手を選択</option>
-            {members.data?.members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.displayName}（{member.studentId}）
+            {targets.data?.targets.map((target) => (
+              <option key={target.targetId} value={target.targetId}>
+                {target.displayName}
               </option>
             ))}
           </select>

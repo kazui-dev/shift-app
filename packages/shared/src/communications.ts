@@ -33,6 +33,16 @@ export const chatTargetSchema = v.object({
   targetId: v.pipe(v.string(), v.uuid()),
 })
 
+export const chatTargetOptionSchema = v.strictObject({
+  targetType: v.literal("member"),
+  targetId: v.pipe(v.string(), v.uuid()),
+  displayName: v.string(),
+})
+
+export const chatTargetsResponseSchema = v.object({
+  targets: v.array(chatTargetOptionSchema),
+})
+
 export const createChatRoomInputSchema = v.object({
   year: operatingYearSchema,
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
@@ -102,3 +112,5 @@ export const deletePushSubscriptionInputSchema = v.object({
 export const pushConfigResponseSchema = v.object({
   publicKey: v.pipe(v.string(), v.minLength(1)),
 })
+
+export type ChatTargetOption = v.InferOutput<typeof chatTargetOptionSchema>
