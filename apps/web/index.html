@@ -2,12 +2,46 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <meta name="color-scheme" content="light dark" />
+    <meta id="theme-color" name="theme-color" content="#ffffff" />
+    <script>
+      ;(() => {
+        const root = document.documentElement
+        let theme = "system"
+
+        try {
+          const storedTheme = localStorage.getItem("theme")
+          if (
+            storedTheme === "light" ||
+            storedTheme === "dark" ||
+            storedTheme === "system"
+          ) {
+            theme = storedTheme
+          }
+        } catch {}
+
+        const resolvedTheme =
+          theme === "system"
+            ? matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : theme
+
+        root.classList.add(resolvedTheme)
+        root.style.colorScheme = resolvedTheme
+        document
+          .getElementById("theme-color")
+          ?.setAttribute(
+            "content",
+            resolvedTheme === "dark" ? "#0a0a0a" : "#ffffff"
+          )
+      })()
+    </script>
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="シフトの確認・提出・連絡ができるアプリ" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

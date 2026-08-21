@@ -16,6 +16,10 @@ type ThemeProviderState = {
 }
 
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)"
+const THEME_COLORS: Record<ResolvedTheme, string> = {
+  dark: "#0a0a0a",
+  light: "#ffffff",
+}
 const ThemeProviderContext = React.createContext<
   ThemeProviderState | undefined
 >(undefined)
@@ -105,6 +109,10 @@ export function ThemeProvider({
 
       root.classList.remove("light", "dark")
       root.classList.add(resolvedTheme)
+      root.style.colorScheme = resolvedTheme
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", THEME_COLORS[resolvedTheme])
 
       if (restoreTransitions) {
         restoreTransitions()
