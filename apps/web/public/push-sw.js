@@ -4,8 +4,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || "旭祭シフト", {
       body: data.body || "",
-      icon: "/app-icon.svg",
-      badge: "/app-icon.svg",
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
       tag: data.tag,
       data: data.data,
     })

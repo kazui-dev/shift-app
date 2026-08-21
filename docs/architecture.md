@@ -110,7 +110,7 @@ Push購読はmemberごと・端末ごとにD1へ保持する。新規割当後�
 
 ## Authentication Architecture
 
-Better Auth の `user` は認証主体、`account` は Discord OAuth identity、`members` は利用可能なシフトアプリアカウントとして扱う。OAuth を完了しても `members` がない `user` は onboarding 中であり、通常 API へアクセスできない。
+Better Auth の `user` は認証主体、`account` は Discord OAuth identity、`members` は利用可能な旭祭シフトのアカウントとして扱う。OAuth を完了しても `members` がない `user` は onboarding 中であり、通常 API へアクセスできない。
 
 ```mermaid
 flowchart TD

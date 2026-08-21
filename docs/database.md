@@ -9,7 +9,7 @@
 - 時刻は Unix epoch milliseconds で保存する
 - 年度をまたいで使うため、年度に依存するデータには `year` を持たせる
 - Better Auth が必要とする `user`、`session`、`account` などの core schema は Better Auth に合わせる
-- Better Auth `user` は認証主体、`members` は onboarding 済みのシフトアプリアカウントとして分離する
+- Better Auth `user` は認証主体、`members` は onboarding 済みの旭祭シフトのアカウントとして分離する
 - `members.student_id` と `members.user_id` はそれぞれ unique とし、アカウントと学籍番号を 1:1 にする
 - OAuth identity は Better Auth `account` として保持する。初期版は Discord 1 件、将来は 1 人の `user` に複数 provider を連携できる
 - application ID は `crypto.randomUUID()` で生成する

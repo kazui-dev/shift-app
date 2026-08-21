@@ -64,7 +64,7 @@
 - メール配信コストが高い
 - 運用負荷が高い
 
-OAuth provider は外部 identity の本人確認と所属確認に使う。学籍番号、表示名、application role など、シフトアプリのアカウント情報は D1 で管理し、OAuth profile をそのままアプリのアカウントにはしない。
+OAuth provider は外部 identity の本人確認と所属確認に使う。学籍番号、表示名、application role など、旭祭シフトのアカウント情報は D1 で管理し、OAuth profile をそのままアプリのアカウントにはしない。
 
 許可する所属先:
 
@@ -81,7 +81,7 @@ Notion OAuth は初期リリースに含めない。将来追加する場合は�
 OAuth 後の処理:
 
 1. callback をサーバー側で処理し、Discord identity と対象 server への所属を検証する。
-2. provider identity が有効なシフトアプリアカウントに連携済みなら、追加入力なしでログインを完了する。
+2. provider identity が有効な旭祭シフトのアカウントに連携済みなら、追加入力なしでログインを完了する。
 3. 連携済みアカウントがなければ、学籍番号と表示名を入力する onboarding を表示する。
 4. 学籍番号が未登録なら、アカウントを作成し、OAuth identity を連携する。初期 application role は `member` とする。
 5. 学籍番号が登録済みなら、新しいアカウントを作成せず、既存データや表示名も上書きしない。既存の Discord account でログインするか、管理者へ連携申請するよう案内する。
@@ -98,7 +98,7 @@ OAuth callback と onboarding の間は制限付き session とし、onboarding�
 
 ### Account Linking And Recovery
 
-初期リリースは 1 つのシフトアプリアカウントに Discord identity を 1 つ連携する。アカウントと学籍番号は 1:1 とする。将来 Notion などを追加するときはアカウントと OAuth identity を 1:N に拡張できる Better Auth の schema を維持する。
+初期リリースは 1 つの旭祭シフトのアカウントに Discord identity を 1 つ連携する。アカウントと学籍番号は 1:1 とする。将来 Notion などを追加するときはアカウントと OAuth identity を 1:N に拡張できる Better Auth の schema を維持する。
 
 - provider 追加 UI は初期リリースでは実装しない。
 - すでに別アカウントへ連携された OAuth identity は移動しない。
