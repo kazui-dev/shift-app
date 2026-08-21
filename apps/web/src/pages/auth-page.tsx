@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentProps, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { LoaderCircle, LogOut, RotateCcw, X } from "lucide-react"
+import { LoaderCircle, RotateCcw, X } from "lucide-react"
 import * as v from "valibot"
 
 import { onboardingInputSchema } from "@workspace/shared/auth"
@@ -169,40 +169,33 @@ function OnboardingView() {
     } catch (caught) {
       setError(
         caught instanceof ApiError && caught.status === 409
-          ? "この学籍番号は登録済みです。連携申請を作成したため、管理者へ連絡してください。"
-          : "アカウントを作成できませんでした。"
+          ? "この学籍番号はすでに使われています。本人確認を依頼しました。管理者へ連絡してください。"
+          : "登録できませんでした。もう一度お試しください。"
       )
       setPending(false)
     }
   }
 
-  async function signOut() {
-    await authClient.signOut()
-    await queryClient.invalidateQueries({ queryKey: ["account"] })
-  }
-
   return (
     <AuthShell>
-      <div>
-        <p className="text-muted-foreground">初回登録</p>
-        <h1 className="text-xl font-medium">アカウントを作成</h1>
-      </div>
+      <h1 className="text-center text-xl font-medium">新規登録</h1>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <label className="flex flex-col gap-1.5">
           <span className="font-medium">学籍番号</span>
           <input
             className="h-10 rounded-md border bg-background px-3 font-mono"
-            placeholder="26AJ112"
+            placeholder="26AJ000"
             required
             value={studentId}
             onChange={(event) => setStudentId(event.target.value)}
           />
         </label>
         <label className="flex flex-col gap-1.5">
-          <span className="font-medium">名前</span>
+          <span className="font-medium">氏名</span>
           <input
             className="h-10 rounded-md border bg-background px-3"
             maxLength={80}
+            placeholder="電大太郎"
             required
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
@@ -210,13 +203,9 @@ function OnboardingView() {
         </label>
         <Button size="lg" type="submit" disabled={pending}>
           {pending && <LoaderCircle className="animate-spin" />}
-          アカウントを作成
+          登録する
         </Button>
       </form>
-      <Button variant="ghost" onClick={signOut}>
-        <LogOut />
-        ログイン画面に戻る
-      </Button>
       {error && (
         <FloatingAlert message={error} onDismiss={() => setError(null)} />
       )}
