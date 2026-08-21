@@ -11,7 +11,7 @@
 
 | Area                        | Status                                               |
 | --------------------------- | ---------------------------------------------------- |
-| React / Vite 8 / Oxc        | Oxc変換・lint・format・型認識lintを導入済み          |
+| React / Vite 8 / Oxc        | Rolldown build・Oxlint・Oxfmt・型認識lintを導入済み  |
 | Valibot / shadcn/ui         | API境界schema・共有UIを導入済み                      |
 | D1 binding / Drizzle schema | 認証・年度・希望・シフト schema を実装済み           |
 | TanStack Router / Query     | routing と query cache 永続化を構成済み              |
@@ -29,7 +29,7 @@
 `apps/web` は React + Vite の SPA とする。
 
 - ファイルベースルーティングに TanStack Router を使う。Vite plugin は `@vitejs/plugin-react` より前に登録する。
-- サーバー状態と optimistic update に TanStack Query を使う。
+- サーバー状態、mutation、offline persistence に TanStack Query を使う。
 - UI 部品は shadcn/ui CLI で管理し、共有可能な部品を `packages/ui` に置く。
 - API 入出力は Valibot schema で検証し、共通 schema は `packages/shared` に置く。
 - HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
@@ -48,7 +48,7 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 - 新規 Durable Object は SQLite storage を使い、class lifecycle は Wrangler の宣言型 `exports` で管理する。
 - `compatibility_date` 2026-08-04以降ではNode.js互換性が既定で有効になるため、
   冗長な`nodejs_compat` flagは追加しない。無効化は依存packageへの影響を確認して
-  `no_nodejs_compat`系flagを明示する場合だけ行う。
+  `no_nodejs_compat`と`no_nodejs_compat_v2`を両方明示する場合だけ行う。
 
 ## Toolchain
 
@@ -66,6 +66,10 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 
 | Route                                       | Responsibility                   |
 | ------------------------------------------- | -------------------------------- |
+| `/api/health`                               | Worker・D1のreadiness            |
+| `/api/auth/*`                               | Better Auth handler              |
+| `/api/account`                              | 認証状態取得・onboarding         |
+| `/api/admin/*`                              | system admin専用の管理・監査     |
 | `/api/me/timeline`                          | ログイン中 member の割当一覧     |
 | `/api/me/availability/:year`                | 本人の希望時間帯                 |
 | `/api/years`                                | 年度の一覧・作成                 |
@@ -87,7 +91,9 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/push/config`                          | VAPID公開鍵                      |
 | `/api/push/subscriptions`                   | 端末のPush購読登録・解除         |
 
-変更系 request は同一 origin、onboarding 済み member、対象年度の権限を確認する。エラー response は `{ "error": { "code", "message" } }` に統一し、UI 文言ではなく安定した `code` で分岐する。
+アプリ固有の変更系requestは同一originを必須にする。`/api/account`は認証済みだがonboarding前のuserを受け付け、`/api/admin/*`は毎回`system_admin`を再確認する。それ以外のshift APIはonboarding済みmemberを必須にし、対象年度の参加状態または権限を確認する。`/api/auth/*`はBetter Authのhandlerとresponse契約に委譲する。
+
+アプリ固有APIのエラーresponseは`{ "error": { "code", "message" } }`に統一し、UI文言ではなく安定した`code`で分岐する。Better Authが所有する`/api/auth/*`はこのenvelopeの対象外とする。
 
 route名は複数形のresource名を使い、年度がcanonical parentであるcollectionだけを`/years/:year`へ置く。本人固有の希望は`/me/availability/:year`、年度内の割当候補projectionは`roster`とする。assignmentごとに一つだけ存在するattendanceとreportは冪等な`PUT`、reportの状態更新は`PATCH`を使う。
 
@@ -158,6 +164,7 @@ WebとAPIを同一originにすることでCORSと認証cookieの構成を単純�
 | `apps/api/src/services`        | Pushなど外部I/Oを伴うapplication service                   |
 | `apps/api/src/durable-objects` | Durable Object class                                       |
 | `apps/api/test/unit`           | 純粋logicと外部境界adapterのunit test                      |
+| `apps/api/test/http`           | Hono request boundaryの挙動test                            |
 | `apps/web/src/api`             | Valibot検証付きWeb API client                              |
 | `packages/shared`              | API schema、共有型、正規化処理                             |
 
@@ -206,8 +213,9 @@ Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`ex
 
 ## References
 
-2026-08-15 に確認した一次情報。仕様変更が多い項目は実装前にも再確認する。
+2026-08-22 に実装と照合した一次情報。仕様変更が多い項目は実装前にも再確認する。
 
+- [Cloudflare: Node.js compatibility](https://developers.cloudflare.com/workers/runtime-apis/nodejs/)
 - [Cloudflare: Durable Object class exports](https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/)
 - [Cloudflare: Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
 - [Cloudflare: D1 global read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/)
@@ -219,4 +227,5 @@ Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`ex
 - [TanStack Router: Manual setup](https://tanstack.com/router/latest/docs/installation/manual)
 - [TanStack Query: Persisting a QueryClient](https://tanstack.com/query/latest/docs/framework/react/plugins/persistQueryClient)
 - [shadcn/ui: Monorepo](https://ui.shadcn.com/docs/monorepo)
+- [Vite+: Getting started](https://viteplus.dev/guide/)
 - [Vite 8: Getting started](https://v8.vite.dev/guide/)
