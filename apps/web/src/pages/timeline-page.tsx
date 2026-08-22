@@ -53,7 +53,6 @@ type RailTransition = {
   id: number
   direction: -1 | 1
   fromDate: string
-  kind: "month" | "week"
 }
 type DateChangeOptions = {
   preservePreferredDay?: boolean
@@ -158,8 +157,10 @@ function WeekRail({
 }) {
   const railRef = useRef<HTMLDivElement>(null)
   const outgoingRef = useRef<HTMLDivElement>(null)
+  const previousDateRef = useRef(date)
   const scrollTimerRef = useRef<number | null>(null)
   const scrollAnimationFrameRef = useRef<number | null>(null)
+  const gestureActiveRef = useRef(false)
   const [railPagePosition, setRailPagePosition] = useState(1)
   const [resettingRail, setResettingRail] = useState(false)
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
@@ -167,13 +168,25 @@ function WeekRail({
   const crossesWeek =
     (selectedWeekday === 0 && timelineSwipeProgress < 0) ||
     (selectedWeekday === 6 && timelineSwipeProgress > 0)
-  const indicatorProgress = crossesWeek ? 0 : timelineSwipeProgress
+  const boundaryDirection: -1 | 1 = timelineSwipeProgress < 0 ? -1 : 1
+  const boundaryProgress = crossesWeek ? Math.abs(timelineSwipeProgress) : 0
+  const boundaryDate = crossesWeek ? moveDate(date, boundaryDirection) : null
   const timelineIsSwiping = Math.abs(timelineSwipeProgress) > 0.01
   const railIsSwiping = Math.abs(railPagePosition - 1) > 0.01
 
   useLayoutEffect(() => {
     const rail = railRef.current
     if (!rail) return undefined
+    const previousWeek = week(previousDateRef.current)[0]
+    const currentWeek = week(date)[0]
+    if (
+      previousWeek &&
+      currentWeek &&
+      dateValue(previousWeek) !== dateValue(currentWeek)
+    ) {
+      setResettingRail(true)
+    }
+    previousDateRef.current = date
     if (scrollAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(scrollAnimationFrameRef.current)
       scrollAnimationFrameRef.current = null
@@ -196,12 +209,10 @@ function WeekRail({
       return undefined
     }
     outgoing.style.visibility = "visible"
-    const distance = transition.kind === "month" ? 12 : 8
-    const duration = transition.kind === "month" ? 220 : 180
-    const offset = transition.direction * distance
+    const offset = transition.direction * 10
     const options = {
-      duration,
-      easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      duration: 300,
+      easing: "cubic-bezier(0.4, 0, 0.2, 1)",
     }
     const incomingAnimation = rail.animate(
       [
@@ -241,6 +252,28 @@ function WeekRail({
     []
   )
 
+  function settleScroll() {
+    if (scrollTimerRef.current !== null) {
+      window.clearTimeout(scrollTimerRef.current)
+      scrollTimerRef.current = null
+    }
+    if (gestureActiveRef.current) {
+      scrollTimerRef.current = window.setTimeout(settleScroll, 72)
+      return
+    }
+    const currentRail = railRef.current
+    if (!currentRail || currentRail.clientWidth === 0) return
+    const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
+    if (page === 0) {
+      setResettingRail(true)
+      onDateChange(moveDate(date, -7))
+    }
+    if (page === 2) {
+      setResettingRail(true)
+      onDateChange(moveDate(date, 7))
+    }
+  }
+
   function handleScroll() {
     const rail = railRef.current
     if (rail && rail.clientWidth > 0) {
@@ -258,19 +291,7 @@ function WeekRail({
     if (scrollTimerRef.current !== null) {
       window.clearTimeout(scrollTimerRef.current)
     }
-    scrollTimerRef.current = window.setTimeout(() => {
-      const currentRail = railRef.current
-      if (!currentRail || currentRail.clientWidth === 0) return
-      const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
-      if (page === 0) {
-        setResettingRail(true)
-        onDateChange(moveDate(date, -7))
-      }
-      if (page === 2) {
-        setResettingRail(true)
-        onDateChange(moveDate(date, 7))
-      }
-    }, 100)
+    scrollTimerRef.current = window.setTimeout(settleScroll, 72)
   }
 
   return (
@@ -278,8 +299,18 @@ function WeekRail({
       <div
         ref={railRef}
         aria-label="週を切り替え"
-        className="flex snap-x snap-mandatory overflow-x-auto border-b pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x snap-mandatory overflow-x-auto border-b pb-3 [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={handleScroll}
+        onScrollEnd={settleScroll}
+        onTouchCancel={() => {
+          gestureActiveRef.current = false
+        }}
+        onTouchEnd={() => {
+          gestureActiveRef.current = false
+        }}
+        onTouchStart={() => {
+          gestureActiveRef.current = true
+        }}
       >
         {pageDates.map((pageDate, pageIndex) => {
           const pageDays = week(pageDate)
@@ -292,13 +323,18 @@ function WeekRail({
             <div
               key={dateValue(firstDay)}
               className="relative grid w-full shrink-0 snap-center grid-cols-7"
+              style={
+                crossesWeek && pageIndex === 1
+                  ? { opacity: 1 - boundaryProgress }
+                  : undefined
+              }
             >
               <span
                 aria-hidden
                 className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
                 style={{
                   opacity: indicatorOpacity,
-                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? indicatorProgress : 0)) * 100}%)`,
+                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? timelineSwipeProgress : 0)) * 100}%)`,
                   ...(timelineIsSwiping ||
                   railIsSwiping ||
                   resettingRail ||
@@ -333,6 +369,39 @@ function WeekRail({
           )
         })}
       </div>
+
+      {boundaryDate && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-7 border-b pb-3"
+          style={{ opacity: boundaryProgress }}
+        >
+          <span
+            className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
+            style={{
+              transform: `translateX(${(localDate(boundaryDate).getDay() - boundaryDirection * (1 - boundaryProgress)) * 100}%)`,
+            }}
+          >
+            <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+          </span>
+          {week(boundaryDate).map((day) => {
+            const selected = dateValue(day) === boundaryDate
+            return (
+              <div
+                key={dateValue(day)}
+                className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+              >
+                <span>{weekdays[day.getDay()]}</span>
+                <span
+                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+                >
+                  {day.getDate()}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {transition && (
         <div
@@ -474,6 +543,7 @@ export function TimelinePage() {
   const timelinePagerRef = useRef<HTMLDivElement>(null)
   const timelineScrollTimerRef = useRef<number | null>(null)
   const timelineAnimationFrameRef = useRef<number | null>(null)
+  const timelineGestureActiveRef = useRef(false)
   const railTransitionIdRef = useRef(0)
   const preferredDayRef = useRef(localDate(date).getDate())
   const initializedTimelineRef = useRef(false)
@@ -529,66 +599,53 @@ export function TimelinePage() {
     []
   )
 
-  function handleTimelineScroll() {
-    const pager = timelinePagerRef.current
-    if (pager && pager.clientWidth > 0) {
-      const progress = Math.max(
-        -1,
-        Math.min(1, pager.scrollLeft / pager.clientWidth - 1)
-      )
-      if (timelineAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(timelineAnimationFrameRef.current)
-      }
-      timelineAnimationFrameRef.current = window.requestAnimationFrame(() => {
-        setTimelineSwipeProgress(progress)
-        timelineAnimationFrameRef.current = null
-      })
+  function settleTimelineScroll() {
+    if (timelineScrollTimerRef.current !== null) {
+      window.clearTimeout(timelineScrollTimerRef.current)
+      timelineScrollTimerRef.current = null
     }
+    if (timelineGestureActiveRef.current) {
+      timelineScrollTimerRef.current = window.setTimeout(
+        settleTimelineScroll,
+        72
+      )
+      return
+    }
+    const pager = timelinePagerRef.current
+    if (!pager || pager.clientWidth === 0) return
+    const page = Math.round(pager.scrollLeft / pager.clientWidth)
+    if (timelineAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(timelineAnimationFrameRef.current)
+      timelineAnimationFrameRef.current = null
+    }
+    setTimelineSwipeProgress(0)
+    if (page === 0) changeDate(previousDate)
+    if (page === 2) changeDate(nextDate)
+  }
+
+  function handleTimelineScroll() {
+    if (timelineAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(timelineAnimationFrameRef.current)
+    }
+    timelineAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      const pager = timelinePagerRef.current
+      if (pager && pager.clientWidth > 0) {
+        setTimelineSwipeProgress(
+          Math.max(-1, Math.min(1, pager.scrollLeft / pager.clientWidth - 1))
+        )
+      }
+      timelineAnimationFrameRef.current = null
+    })
     if (timelineScrollTimerRef.current !== null) {
       window.clearTimeout(timelineScrollTimerRef.current)
     }
-    timelineScrollTimerRef.current = window.setTimeout(() => {
-      const currentPager = timelinePagerRef.current
-      if (!currentPager || currentPager.clientWidth === 0) return
-      const page = Math.round(
-        currentPager.scrollLeft / currentPager.clientWidth
-      )
-      if (timelineAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(timelineAnimationFrameRef.current)
-        timelineAnimationFrameRef.current = null
-      }
-      setTimelineSwipeProgress(0)
-      if (page === 0) {
-        changeDate(
-          previousDate,
-          localDate(date).getDay() === 0
-            ? {
-                transition: {
-                  direction: -1,
-                  fromDate: date,
-                  kind: "week",
-                },
-              }
-            : {}
-        )
-      }
-      if (page === 2) {
-        changeDate(
-          nextDate,
-          localDate(date).getDay() === 6
-            ? {
-                transition: { direction: 1, fromDate: date, kind: "week" },
-              }
-            : {}
-        )
-      }
-    }, 100)
+    timelineScrollTimerRef.current = window.setTimeout(settleTimelineScroll, 72)
   }
 
   function changeMonth(direction: -1 | 1) {
     changeDate(moveMonth(date, direction, preferredDayRef.current), {
       preservePreferredDay: true,
-      transition: { direction, fromDate: date, kind: "month" },
+      transition: { direction, fromDate: date },
     })
   }
 
@@ -680,6 +737,16 @@ export function TimelinePage() {
             className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: 24 * hourHeight + timelineInset * 2 }}
             onScroll={handleTimelineScroll}
+            onScrollEnd={settleTimelineScroll}
+            onTouchCancel={() => {
+              timelineGestureActiveRef.current = false
+            }}
+            onTouchEnd={() => {
+              timelineGestureActiveRef.current = false
+            }}
+            onTouchStart={() => {
+              timelineGestureActiveRef.current = true
+            }}
           >
             {[
               { date: previousDate, query: previousTimeline },
