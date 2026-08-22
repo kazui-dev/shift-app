@@ -1,4 +1,4 @@
-import { Link, Outlet } from "@tanstack/react-router"
+import { Link, Outlet, useRouterState } from "@tanstack/react-router"
 import {
   CalendarDays,
   MessageCircle,
@@ -21,6 +21,9 @@ export function AppShell({
 }: {
   state: Extract<AuthState, { status: "active" }>
 }) {
+  const isTimeline = useRouterState({
+    select: (routerState) => routerState.location.pathname === "/timeline",
+  })
   const items =
     state.member.accessLevel === "system_admin"
       ? [
@@ -34,8 +37,16 @@ export function AppShell({
       : navigation
 
   return (
-    <div className="mx-auto min-h-svh max-w-6xl px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-10">
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:mb-8 md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none">
+    <div
+      className={
+        isTimeline
+          ? "mx-auto flex h-dvh max-w-6xl flex-col overflow-hidden overscroll-none px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-4"
+          : "mx-auto min-h-svh max-w-6xl px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-10"
+      }
+    >
+      <nav
+        className={`fixed inset-x-0 bottom-0 z-40 shrink-0 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none ${isTimeline ? "md:mb-4" : "md:mb-8"}`}
+      >
         <div
           className="mx-auto grid max-w-2xl px-1 md:max-w-none md:px-0"
           style={{

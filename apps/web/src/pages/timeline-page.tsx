@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
+  X,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -49,13 +50,13 @@ type TimelineAssignment = Awaited<
   ReturnType<typeof getTimeline>
 >["assignments"][number]
 const noAssignments: TimelineAssignment[] = []
-type MonthTransition = {
+type RailTransition = {
   id: number
   fromDate: string
 }
 type DateChangeOptions = {
   preservePreferredDay?: boolean
-  monthTransition?: Omit<MonthTransition, "id">
+  railTransition?: Omit<RailTransition, "id">
 }
 
 function localDate(value: string): Date {
@@ -97,6 +98,16 @@ function week(value: string): Date[] {
     day.setDate(day.getDate() + index)
     return day
   })
+}
+
+function weekStart(value: string): string {
+  return dateValue(week(value)[0] ?? localDate(value))
+}
+
+function dayTextColor(day: Date): string {
+  if (day.getDay() === 0) return "text-red-600 dark:text-red-400"
+  if (day.getDay() === 6) return "text-blue-600 dark:text-blue-400"
+  return "text-foreground"
 }
 
 function minuteFromDay(value: string, date: string): number {
@@ -146,18 +157,18 @@ function useCurrentTime(): Date {
 function WeekRail({
   date,
   onDateChange,
-  onMonthTransitionEnd,
+  onRailTransitionEnd,
   timelineSwipeProgress,
-  monthTransition,
+  railTransition,
 }: {
   date: string
   onDateChange: (date: string) => void
-  onMonthTransitionEnd: (id: number) => void
+  onRailTransitionEnd: (id: number) => void
   timelineSwipeProgress: number
-  monthTransition: MonthTransition | null
+  railTransition: RailTransition | null
 }) {
   const railRef = useRef<HTMLDivElement>(null)
-  const previousMonthRef = useRef<HTMLDivElement>(null)
+  const previousRailRef = useRef<HTMLDivElement>(null)
   const previousDateRef = useRef(date)
   const scrollTimerRef = useRef<number | null>(null)
   const scrollAnimationFrameRef = useRef<number | null>(null)
@@ -201,19 +212,19 @@ function WeekRail({
   }, [date])
 
   useLayoutEffect(() => {
-    if (!monthTransition) return undefined
+    if (!railTransition) return undefined
     const rail = railRef.current
-    const previousMonth = previousMonthRef.current
-    if (!rail || !previousMonth) return undefined
+    const previousRail = previousRailRef.current
+    if (!rail || !previousRail) return undefined
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      previousMonth.style.visibility = "hidden"
+      previousRail.style.visibility = "hidden"
       const finishTimer = window.setTimeout(
-        () => onMonthTransitionEnd(monthTransition.id),
+        () => onRailTransitionEnd(railTransition.id),
         0
       )
       return () => window.clearTimeout(finishTimer)
     }
-    previousMonth.style.visibility = "visible"
+    previousRail.style.visibility = "visible"
     const options = {
       duration: 300,
       easing: "cubic-bezier(0.4, 0, 0.2, 1)",
@@ -222,21 +233,21 @@ function WeekRail({
       [{ opacity: 0 }, { opacity: 1 }],
       options
     )
-    const previousMonthAnimation = previousMonth.animate(
+    const previousRailAnimation = previousRail.animate(
       [{ opacity: 1 }, { opacity: 0 }],
       { ...options, fill: "forwards" }
     )
-    void previousMonthAnimation.finished
+    void previousRailAnimation.finished
       .then(() => {
-        previousMonth.style.visibility = "hidden"
-        onMonthTransitionEnd(monthTransition.id)
+        previousRail.style.visibility = "hidden"
+        onRailTransitionEnd(railTransition.id)
       })
       .catch(() => undefined)
     return () => {
       incomingAnimation.cancel()
-      previousMonthAnimation.cancel()
+      previousRailAnimation.cancel()
     }
-  }, [monthTransition, onMonthTransitionEnd])
+  }, [railTransition, onRailTransitionEnd])
 
   useEffect(
     () => () => {
@@ -297,7 +308,7 @@ function WeekRail({
       <div
         ref={railRef}
         aria-label="週を切り替え"
-        className="flex snap-x snap-mandatory overflow-x-auto border-b pb-3 [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x snap-mandatory overflow-x-auto border-b [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={handleScroll}
         onScrollEnd={settleScroll}
         onTouchCancel={() => {
@@ -320,7 +331,7 @@ function WeekRail({
           return (
             <div
               key={dateValue(firstDay)}
-              className="relative grid w-full shrink-0 snap-center grid-cols-7"
+              className="relative grid w-full shrink-0 snap-center grid-cols-7 pb-3"
               style={
                 crossesWeek && pageIndex === 1
                   ? { opacity: 1 - boundaryProgress }
@@ -329,14 +340,14 @@ function WeekRail({
             >
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+                className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
                 style={{
                   opacity: indicatorOpacity,
                   transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? timelineSwipeProgress : 0)) * 100}%)`,
                   ...(timelineIsSwiping ||
                   railIsSwiping ||
                   resettingRail ||
-                  monthTransition
+                  railTransition
                     ? { transition: "none" }
                     : {}),
                 }}
@@ -350,13 +361,15 @@ function WeekRail({
                   <button
                     key={value}
                     type="button"
-                    className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+                    className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
                     aria-current={selected ? "date" : undefined}
                     onClick={() => onDateChange(value)}
                   >
-                    <span>{weekdays[day.getDay()]}</span>
+                    <span className={`leading-4 ${dayTextColor(day)}`}>
+                      {weekdays[day.getDay()]}
+                    </span>
                     <span
-                      className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+                      className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums ${dayTextColor(day)} ${selected ? "font-semibold" : ""}`}
                     >
                       {day.getDate()}
                     </span>
@@ -375,7 +388,7 @@ function WeekRail({
           style={{ opacity: boundaryProgress }}
         >
           <span
-            className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
+            className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
             style={{
               transform: `translateX(${(localDate(boundaryDate).getDay() - boundaryDirection * (1 - boundaryProgress)) * 100}%)`,
             }}
@@ -387,11 +400,13 @@ function WeekRail({
             return (
               <div
                 key={dateValue(day)}
-                className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+                className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
               >
-                <span>{weekdays[day.getDay()]}</span>
+                <span className={`leading-4 ${dayTextColor(day)}`}>
+                  {weekdays[day.getDay()]}
+                </span>
                 <span
-                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+                  className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums ${dayTextColor(day)} ${selected ? "font-semibold" : ""}`}
                 >
                   {day.getDate()}
                 </span>
@@ -401,30 +416,32 @@ function WeekRail({
         </div>
       )}
 
-      {monthTransition && (
+      {railTransition && (
         <div
-          ref={previousMonthRef}
+          ref={previousRailRef}
           aria-hidden
           className="pointer-events-none absolute inset-0 z-10 grid grid-cols-7 border-b pb-3"
         >
           <span
-            className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
+            className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
             style={{
-              transform: `translateX(${localDate(monthTransition.fromDate).getDay() * 100}%)`,
+              transform: `translateX(${localDate(railTransition.fromDate).getDay() * 100}%)`,
             }}
           >
             <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
           </span>
-          {week(monthTransition.fromDate).map((day) => {
-            const selected = dateValue(day) === monthTransition.fromDate
+          {week(railTransition.fromDate).map((day) => {
+            const selected = dateValue(day) === railTransition.fromDate
             return (
               <div
                 key={dateValue(day)}
-                className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+                className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
               >
-                <span>{weekdays[day.getDay()]}</span>
+                <span className={`leading-4 ${dayTextColor(day)}`}>
+                  {weekdays[day.getDay()]}
+                </span>
                 <span
-                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+                  className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums ${dayTextColor(day)} ${selected ? "font-semibold" : ""}`}
                 >
                   {day.getDate()}
                 </span>
@@ -464,7 +481,7 @@ function TimelineDay({
           style={{ top: timelineInset + index * hourHeight }}
         >
           <span className="absolute -top-2.5 left-0 w-12 bg-background pr-2 text-right text-[0.6875rem] text-muted-foreground tabular-nums">
-            {hour}:00
+            {hour % 24}:00
           </span>
         </div>
       ))}
@@ -534,14 +551,15 @@ export function TimelinePage() {
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
   const [timelineSwipeProgress, setTimelineSwipeProgress] = useState(0)
-  const [monthTransition, setMonthTransition] =
-    useState<MonthTransition | null>(null)
+  const [railTransition, setRailTransition] = useState<RailTransition | null>(
+    null
+  )
   const timelineRef = useRef<HTMLDivElement>(null)
   const timelinePagerRef = useRef<HTMLDivElement>(null)
   const timelineScrollTimerRef = useRef<number | null>(null)
   const timelineAnimationFrameRef = useRef<number | null>(null)
   const timelineGestureActiveRef = useRef(false)
-  const monthTransitionIdRef = useRef(0)
+  const railTransitionIdRef = useRef(0)
   const preferredDayRef = useRef(localDate(date).getDate())
   const initializedTimelineRef = useRef(false)
   const now = useCurrentTime()
@@ -560,14 +578,14 @@ export function TimelinePage() {
       if (!options.preservePreferredDay) {
         preferredDayRef.current = localDate(nextDateValue).getDate()
       }
-      if (options.monthTransition) {
-        monthTransitionIdRef.current += 1
-        setMonthTransition({
-          ...options.monthTransition,
-          id: monthTransitionIdRef.current,
+      if (options.railTransition) {
+        railTransitionIdRef.current += 1
+        setRailTransition({
+          ...options.railTransition,
+          id: railTransitionIdRef.current,
         })
       } else {
-        setMonthTransition(null)
+        setRailTransition(null)
       }
       setSelectedAssignmentId(null)
       setReportTarget(null)
@@ -577,8 +595,8 @@ export function TimelinePage() {
     []
   )
 
-  const finishMonthTransition = useCallback((id: number) => {
-    setMonthTransition((current) => (current?.id === id ? null : current))
+  const finishRailTransition = useCallback((id: number) => {
+    setRailTransition((current) => (current?.id === id ? null : current))
   }, [])
 
   useLayoutEffect(() => {
@@ -649,7 +667,16 @@ export function TimelinePage() {
   function changeMonth(direction: -1 | 1) {
     changeDate(moveMonth(date, direction, preferredDayRef.current), {
       preservePreferredDay: true,
-      monthTransition: { fromDate: date },
+      railTransition: { fromDate: date },
+    })
+  }
+
+  function chooseDate(nextDateValue: string) {
+    if (!nextDateValue || nextDateValue === date) return
+    changeDate(nextDateValue, {
+      ...(weekStart(nextDateValue) === weekStart(date)
+        ? {}
+        : { railTransition: { fromDate: date } }),
     })
   }
 
@@ -686,8 +713,8 @@ export function TimelinePage() {
   }
 
   return (
-    <section className="space-y-4">
-      <header className="flex items-center justify-between gap-3">
+    <section className="flex min-h-0 flex-1 flex-col gap-3">
+      <header className="flex shrink-0 items-center justify-between gap-3">
         <div className="flex items-center gap-1">
           <Button
             size="icon-sm"
@@ -697,9 +724,16 @@ export function TimelinePage() {
           >
             <ChevronLeft />
           </Button>
-          <span className="min-w-16 text-center font-semibold">
-            {localDate(date).getMonth() + 1}月
-          </span>
+          <label className="relative grid min-h-8 min-w-16 place-items-center rounded-md px-2 text-center font-semibold focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+            <span aria-hidden>{localDate(date).getMonth() + 1}月</span>
+            <input
+              aria-label="日付を選択"
+              className="absolute inset-0 size-full cursor-pointer opacity-0"
+              type="date"
+              value={date}
+              onChange={(event) => chooseDate(event.target.value)}
+            />
+          </label>
           <Button
             size="icon-sm"
             variant="ghost"
@@ -724,14 +758,16 @@ export function TimelinePage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
-        onMonthTransitionEnd={finishMonthTransition}
+        onRailTransitionEnd={finishRailTransition}
         timelineSwipeProgress={timelineSwipeProgress}
-        monthTransition={monthTransition}
+        railTransition={railTransition}
       />
 
-      <p className="py-1 text-center text-sm font-semibold">{longDate(date)}</p>
+      <p className="shrink-0 py-0.5 text-center text-sm font-semibold">
+        {longDate(date)}
+      </p>
 
-      <div className="relative h-[calc(100svh-17rem)] min-h-[28rem]">
+      <div className="relative min-h-0 flex-1">
         <div
           ref={timelineRef}
           className="size-full overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -782,92 +818,106 @@ export function TimelinePage() {
             予定を再読み込み
           </Button>
         )}
-      </div>
-
-      {selectedAssignment && (
-        <section className="space-y-3 border-t pt-4">
-          <div>
-            <p className="font-semibold">{selectedAssignment.activityName}</p>
-            <p className="text-sm text-muted-foreground">
-              {time(selectedAssignment.startsAt)}–
-              {time(selectedAssignment.endsAt)} · {selectedAssignment.place}
-            </p>
-            {selectedAssignment.notes && (
-              <p className="mt-2 text-sm">{selectedAssignment.notes}</p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedAssignment.checkedInAt ? (
-              <p className="self-center text-xs text-muted-foreground">
-                {time(selectedAssignment.checkedInAt)}に出勤記録済み
-              </p>
-            ) : (
-              <Button
-                size="sm"
-                disabled={
-                  checkInPending !== null ||
-                  timeline.dataUpdatedAt <
-                    new Date(selectedAssignment.startsAt).getTime() ||
-                  timeline.dataUpdatedAt >
-                    new Date(selectedAssignment.endsAt).getTime()
-                }
-                onClick={() => void recordCheckIn(selectedAssignment.id)}
-              >
-                {checkInPending === selectedAssignment.id && (
-                  <LoaderCircle className="animate-spin" />
-                )}
-                出勤
-              </Button>
-            )}
+        {selectedAssignment && (
+          <section className="absolute inset-x-0 bottom-0 z-20 max-h-[min(70%,32rem)] space-y-3 overflow-y-auto overscroll-contain border-t bg-background p-4 shadow-[0_-12px_32px_-24px_rgb(0_0_0/0.45)]">
             <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setReportTarget((current) =>
-                  current === selectedAssignment.id
-                    ? null
-                    : selectedAssignment.id
-                )
-              }
+              className="absolute top-2 right-2"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="予定の詳細を閉じる"
+              onClick={() => {
+                setSelectedAssignmentId(null)
+                setReportTarget(null)
+                setReportMessage("")
+              }}
             >
-              遅刻・欠勤連絡
+              <X />
             </Button>
-          </div>
-          {reportTarget === selectedAssignment.id && (
-            <div className="space-y-3 border-t pt-4">
-              <select
-                aria-label="連絡種別"
-                className={fieldClassName}
-                value={reportKind}
-                onChange={(event) => {
-                  const kind = event.target.value
-                  if (kind === "late" || kind === "absence") {
-                    setReportKind(kind)
+            <div>
+              <p className="pr-10 font-semibold">
+                {selectedAssignment.activityName}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {time(selectedAssignment.startsAt)}–
+                {time(selectedAssignment.endsAt)} · {selectedAssignment.place}
+              </p>
+              {selectedAssignment.notes && (
+                <p className="mt-2 text-sm">{selectedAssignment.notes}</p>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {selectedAssignment.checkedInAt ? (
+                <p className="self-center text-xs text-muted-foreground">
+                  {time(selectedAssignment.checkedInAt)}に出勤記録済み
+                </p>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={
+                    checkInPending !== null ||
+                    timeline.dataUpdatedAt <
+                      new Date(selectedAssignment.startsAt).getTime() ||
+                    timeline.dataUpdatedAt >
+                      new Date(selectedAssignment.endsAt).getTime()
                   }
-                }}
-              >
-                <option value="late">遅刻</option>
-                <option value="absence">欠勤</option>
-              </select>
-              <textarea
-                className={textareaClassName}
-                maxLength={1000}
-                placeholder="到着見込み、理由など"
-                required
-                value={reportMessage}
-                onChange={(event) => setReportMessage(event.target.value)}
-              />
+                  onClick={() => void recordCheckIn(selectedAssignment.id)}
+                >
+                  {checkInPending === selectedAssignment.id && (
+                    <LoaderCircle className="animate-spin" />
+                  )}
+                  出勤
+                </Button>
+              )}
               <Button
                 size="sm"
-                disabled={!reportMessage.trim() || checkInPending !== null}
-                onClick={() => void submitReport(selectedAssignment.id)}
+                variant="outline"
+                onClick={() =>
+                  setReportTarget((current) =>
+                    current === selectedAssignment.id
+                      ? null
+                      : selectedAssignment.id
+                  )
+                }
               >
-                送信
+                遅刻・欠勤連絡
               </Button>
             </div>
-          )}
-        </section>
-      )}
+            {reportTarget === selectedAssignment.id && (
+              <div className="space-y-3 border-t pt-4">
+                <select
+                  aria-label="連絡種別"
+                  className={fieldClassName}
+                  value={reportKind}
+                  onChange={(event) => {
+                    const kind = event.target.value
+                    if (kind === "late" || kind === "absence") {
+                      setReportKind(kind)
+                    }
+                  }}
+                >
+                  <option value="late">遅刻</option>
+                  <option value="absence">欠勤</option>
+                </select>
+                <textarea
+                  className={textareaClassName}
+                  maxLength={1000}
+                  placeholder="到着見込み、理由など"
+                  required
+                  value={reportMessage}
+                  onChange={(event) => setReportMessage(event.target.value)}
+                />
+                <Button
+                  size="sm"
+                  disabled={!reportMessage.trim() || checkInPending !== null}
+                  onClick={() => void submitReport(selectedAssignment.id)}
+                >
+                  送信
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
       {message && (
         <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}
