@@ -49,14 +49,13 @@ type TimelineAssignment = Awaited<
   ReturnType<typeof getTimeline>
 >["assignments"][number]
 const noAssignments: TimelineAssignment[] = []
-type RailTransition = {
+type MonthTransition = {
   id: number
-  direction: -1 | 1
   fromDate: string
 }
 type DateChangeOptions = {
   preservePreferredDay?: boolean
-  transition?: Omit<RailTransition, "id">
+  monthTransition?: Omit<MonthTransition, "id">
 }
 
 function localDate(value: string): Date {
@@ -147,16 +146,18 @@ function useCurrentTime(): Date {
 function WeekRail({
   date,
   onDateChange,
+  onMonthTransitionEnd,
   timelineSwipeProgress,
-  transition,
+  monthTransition,
 }: {
   date: string
   onDateChange: (date: string) => void
+  onMonthTransitionEnd: (id: number) => void
   timelineSwipeProgress: number
-  transition: RailTransition | null
+  monthTransition: MonthTransition | null
 }) {
   const railRef = useRef<HTMLDivElement>(null)
-  const outgoingRef = useRef<HTMLDivElement>(null)
+  const previousMonthRef = useRef<HTMLDivElement>(null)
   const previousDateRef = useRef(date)
   const scrollTimerRef = useRef<number | null>(null)
   const scrollAnimationFrameRef = useRef<number | null>(null)
@@ -200,45 +201,42 @@ function WeekRail({
   }, [date])
 
   useLayoutEffect(() => {
-    if (!transition) return undefined
+    if (!monthTransition) return undefined
     const rail = railRef.current
-    const outgoing = outgoingRef.current
-    if (!rail || !outgoing) return undefined
+    const previousMonth = previousMonthRef.current
+    if (!rail || !previousMonth) return undefined
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      outgoing.style.visibility = "hidden"
-      return undefined
+      previousMonth.style.visibility = "hidden"
+      const finishTimer = window.setTimeout(
+        () => onMonthTransitionEnd(monthTransition.id),
+        0
+      )
+      return () => window.clearTimeout(finishTimer)
     }
-    outgoing.style.visibility = "visible"
-    const offset = transition.direction * 10
+    previousMonth.style.visibility = "visible"
     const options = {
       duration: 300,
       easing: "cubic-bezier(0.4, 0, 0.2, 1)",
     }
     const incomingAnimation = rail.animate(
-      [
-        { opacity: 0, transform: `translateX(${offset}px)` },
-        { opacity: 1, transform: "translateX(0)" },
-      ],
+      [{ opacity: 0 }, { opacity: 1 }],
       options
     )
-    const outgoingAnimation = outgoing.animate(
-      [
-        { opacity: 1, transform: "translateX(0)" },
-        { opacity: 0, transform: `translateX(${-offset}px)` },
-      ],
+    const previousMonthAnimation = previousMonth.animate(
+      [{ opacity: 1 }, { opacity: 0 }],
       { ...options, fill: "forwards" }
     )
-    void outgoingAnimation.finished
+    void previousMonthAnimation.finished
       .then(() => {
-        outgoing.style.visibility = "hidden"
-        outgoingAnimation.cancel()
+        previousMonth.style.visibility = "hidden"
+        onMonthTransitionEnd(monthTransition.id)
       })
       .catch(() => undefined)
     return () => {
       incomingAnimation.cancel()
-      outgoingAnimation.cancel()
+      previousMonthAnimation.cancel()
     }
-  }, [transition])
+  }, [monthTransition, onMonthTransitionEnd])
 
   useEffect(
     () => () => {
@@ -338,7 +336,7 @@ function WeekRail({
                   ...(timelineIsSwiping ||
                   railIsSwiping ||
                   resettingRail ||
-                  transition
+                  monthTransition
                     ? { transition: "none" }
                     : {}),
                 }}
@@ -403,22 +401,22 @@ function WeekRail({
         </div>
       )}
 
-      {transition && (
+      {monthTransition && (
         <div
-          ref={outgoingRef}
+          ref={previousMonthRef}
           aria-hidden
           className="pointer-events-none absolute inset-0 z-10 grid grid-cols-7 border-b pb-3"
         >
           <span
             className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
             style={{
-              transform: `translateX(${localDate(transition.fromDate).getDay() * 100}%)`,
+              transform: `translateX(${localDate(monthTransition.fromDate).getDay() * 100}%)`,
             }}
           >
             <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
           </span>
-          {week(transition.fromDate).map((day) => {
-            const selected = dateValue(day) === transition.fromDate
+          {week(monthTransition.fromDate).map((day) => {
+            const selected = dateValue(day) === monthTransition.fromDate
             return (
               <div
                 key={dateValue(day)}
@@ -536,15 +534,14 @@ export function TimelinePage() {
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
   const [timelineSwipeProgress, setTimelineSwipeProgress] = useState(0)
-  const [railTransition, setRailTransition] = useState<RailTransition | null>(
-    null
-  )
+  const [monthTransition, setMonthTransition] =
+    useState<MonthTransition | null>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
   const timelinePagerRef = useRef<HTMLDivElement>(null)
   const timelineScrollTimerRef = useRef<number | null>(null)
   const timelineAnimationFrameRef = useRef<number | null>(null)
   const timelineGestureActiveRef = useRef(false)
-  const railTransitionIdRef = useRef(0)
+  const monthTransitionIdRef = useRef(0)
   const preferredDayRef = useRef(localDate(date).getDate())
   const initializedTimelineRef = useRef(false)
   const now = useCurrentTime()
@@ -563,12 +560,15 @@ export function TimelinePage() {
       if (!options.preservePreferredDay) {
         preferredDayRef.current = localDate(nextDateValue).getDate()
       }
-      railTransitionIdRef.current += 1
-      setRailTransition(
-        options.transition
-          ? { ...options.transition, id: railTransitionIdRef.current }
-          : null
-      )
+      if (options.monthTransition) {
+        monthTransitionIdRef.current += 1
+        setMonthTransition({
+          ...options.monthTransition,
+          id: monthTransitionIdRef.current,
+        })
+      } else {
+        setMonthTransition(null)
+      }
       setSelectedAssignmentId(null)
       setReportTarget(null)
       setReportMessage("")
@@ -576,6 +576,10 @@ export function TimelinePage() {
     },
     []
   )
+
+  const finishMonthTransition = useCallback((id: number) => {
+    setMonthTransition((current) => (current?.id === id ? null : current))
+  }, [])
 
   useLayoutEffect(() => {
     const timelineElement = timelineRef.current
@@ -645,7 +649,7 @@ export function TimelinePage() {
   function changeMonth(direction: -1 | 1) {
     changeDate(moveMonth(date, direction, preferredDayRef.current), {
       preservePreferredDay: true,
-      transition: { direction, fromDate: date },
+      monthTransition: { fromDate: date },
     })
   }
 
@@ -720,8 +724,9 @@ export function TimelinePage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
+        onMonthTransitionEnd={finishMonthTransition}
         timelineSwipeProgress={timelineSwipeProgress}
-        transition={railTransition}
+        monthTransition={monthTransition}
       />
 
       <p className="py-1 text-center text-sm font-semibold">{longDate(date)}</p>
