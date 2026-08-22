@@ -9,6 +9,8 @@ import {
 
 import type { AuthState } from "@workspace/shared/auth"
 
+import { CalendarViewStateProvider } from "./calendar-view-state"
+
 const navigation = [
   { to: "/timeline", label: "カレンダー", icon: CalendarDays },
   { to: "/chat", label: "連絡", icon: MessageCircle },
@@ -69,7 +71,9 @@ export function AppShell({
         </div>
       </nav>
 
-      <Outlet />
+      <CalendarViewStateProvider>
+        <Outlet />
+      </CalendarViewStateProvider>
     </div>
   )
 }

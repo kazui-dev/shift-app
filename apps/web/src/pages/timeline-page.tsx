@@ -17,16 +17,12 @@ import {
 
 import { Button } from "@workspace/ui/components/button"
 
+import { useCalendarViewState } from "@/components/calendar-view-context"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
 import { getTimeline } from "@/api/timeline"
-
-function today(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
-}
 
 function dayRange(date: string): { from: string; to: string } {
   const from = new Date(`${date}T00:00:00`)
@@ -104,7 +100,7 @@ function weekStart(value: string): string {
   return dateValue(week(value)[0] ?? localDate(value))
 }
 
-function dayTextColor(day: Date): string {
+function weekdayTextColor(day: Date): string {
   if (day.getDay() === 0) return "text-red-600 dark:text-red-400"
   if (day.getDay() === 6) return "text-blue-600 dark:text-blue-400"
   return "text-foreground"
@@ -116,12 +112,13 @@ function minuteFromDay(value: string, date: string): number {
 }
 
 function longDate(value: string): string {
-  return new Intl.DateTimeFormat("ja-JP", {
+  const date = localDate(value)
+  const formattedDate = new Intl.DateTimeFormat("ja-JP", {
     year: "numeric",
     month: "long",
     day: "numeric",
-    weekday: "long",
-  }).format(localDate(value))
+  }).format(date)
+  return `${formattedDate}（${weekdays[date.getDay()]}）`
 }
 
 function timelineQuery(date: string) {
@@ -365,11 +362,11 @@ function WeekRail({
                     aria-current={selected ? "date" : undefined}
                     onClick={() => onDateChange(value)}
                   >
-                    <span className={`leading-4 ${dayTextColor(day)}`}>
+                    <span className={`leading-4 ${weekdayTextColor(day)}`}>
                       {weekdays[day.getDay()]}
                     </span>
                     <span
-                      className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums ${dayTextColor(day)} ${selected ? "font-semibold" : ""}`}
+                      className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                     >
                       {day.getDate()}
                     </span>
@@ -402,11 +399,11 @@ function WeekRail({
                 key={dateValue(day)}
                 className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
               >
-                <span className={`leading-4 ${dayTextColor(day)}`}>
+                <span className={`leading-4 ${weekdayTextColor(day)}`}>
                   {weekdays[day.getDay()]}
                 </span>
                 <span
-                  className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums ${dayTextColor(day)} ${selected ? "font-semibold" : ""}`}
+                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                 >
                   {day.getDate()}
                 </span>
@@ -437,11 +434,11 @@ function WeekRail({
                 key={dateValue(day)}
                 className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
               >
-                <span className={`leading-4 ${dayTextColor(day)}`}>
+                <span className={`leading-4 ${weekdayTextColor(day)}`}>
                   {weekdays[day.getDay()]}
                 </span>
                 <span
-                  className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums ${dayTextColor(day)} ${selected ? "font-semibold" : ""}`}
+                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                 >
                   {day.getDate()}
                 </span>
@@ -541,7 +538,8 @@ function TimelineDay({
 
 export function TimelinePage() {
   const queryClient = useQueryClient()
-  const [date, setDate] = useState(today)
+  const { date, setDate, preferredDayRef, scrollTopRef } =
+    useCalendarViewState()
   const [checkInPending, setCheckInPending] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [reportTarget, setReportTarget] = useState<string | null>(null)
@@ -560,7 +558,6 @@ export function TimelinePage() {
   const timelineAnimationFrameRef = useRef<number | null>(null)
   const timelineGestureActiveRef = useRef(false)
   const railTransitionIdRef = useRef(0)
-  const preferredDayRef = useRef(localDate(date).getDate())
   const initializedTimelineRef = useRef(false)
   const now = useCurrentTime()
   const previousDate = moveDate(date, -1)
@@ -592,7 +589,7 @@ export function TimelinePage() {
       setReportMessage("")
       setDate(nextDateValue)
     },
-    []
+    [preferredDayRef, setDate]
   )
 
   const finishRailTransition = useCallback((id: number) => {
@@ -604,10 +601,13 @@ export function TimelinePage() {
     const pager = timelinePagerRef.current
     if (pager) pager.scrollLeft = pager.clientWidth
     if (timelineElement && !initializedTimelineRef.current) {
-      timelineElement.scrollTop = initialTimelineScrollTop(new Date())
+      const scrollTop =
+        scrollTopRef.current ?? initialTimelineScrollTop(new Date())
+      timelineElement.scrollTop = scrollTop
+      scrollTopRef.current = scrollTop
       initializedTimelineRef.current = true
     }
-  }, [date])
+  }, [date, scrollTopRef])
 
   useEffect(
     () => () => {
@@ -724,11 +724,11 @@ export function TimelinePage() {
           >
             <ChevronLeft />
           </Button>
-          <label className="relative grid min-h-8 min-w-16 place-items-center rounded-md px-2 text-center font-semibold focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+          <label className="relative grid min-h-8 min-w-16 place-items-center px-2 text-center font-semibold">
             <span aria-hidden>{localDate(date).getMonth() + 1}月</span>
             <input
               aria-label="日付を選択"
-              className="absolute inset-0 size-full cursor-pointer opacity-0"
+              className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none"
               type="date"
               value={date}
               onChange={(event) => chooseDate(event.target.value)}
@@ -771,6 +771,9 @@ export function TimelinePage() {
         <div
           ref={timelineRef}
           className="size-full overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onScroll={(event) => {
+            scrollTopRef.current = event.currentTarget.scrollTop
+          }}
         >
           <div
             ref={timelinePagerRef}
