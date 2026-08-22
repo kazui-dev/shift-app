@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -12,7 +18,6 @@ import { Button } from "@workspace/ui/components/button"
 
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
-import { LoadingState } from "@/components/page-layout"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
 import { getTimeline } from "@/api/timeline"
@@ -38,7 +43,12 @@ function time(value: string): string {
 
 const hourHeight = 64
 const timelineInset = 12
+const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+type TimelineAssignment = Awaited<
+  ReturnType<typeof getTimeline>
+>["assignments"][number]
+const noAssignments: TimelineAssignment[] = []
 
 function localDate(value: string): Date {
   return new Date(`${value}T12:00:00`)
@@ -90,6 +100,49 @@ function longDate(value: string): string {
     day: "numeric",
     weekday: "long",
   }).format(localDate(value))
+}
+
+function timelineQuery(date: string) {
+  const range = dayRange(date)
+  return {
+    queryKey: ["timeline", date] as const,
+    queryFn: () => getTimeline(range.from, range.to),
+  }
+}
+
+function timelineScrollTop(
+  assignments: TimelineAssignment[],
+  date: string,
+  now: Date
+): number {
+  const minute = assignments.length
+    ? Math.min(
+        ...assignments.map((assignment) =>
+          minuteFromDay(assignment.startsAt, date)
+        )
+      )
+    : date === dateValue(now)
+      ? now.getHours() * 60 + now.getMinutes()
+      : 8 * 60
+
+  return Math.max(0, (minute / 60 - 2.5) * hourHeight + timelineInset)
+}
+
+function useCurrentTime(): Date {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    let timer = 0
+    const update = () => {
+      setNow(new Date())
+      const millisecondsUntilNextMinute = 60_000 - (Date.now() % 60_000) + 20
+      timer = window.setTimeout(update, millisecondsUntilNextMinute)
+    }
+    timer = window.setTimeout(update, 60_000 - (Date.now() % 60_000) + 20)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  return now
 }
 
 function WeekRail({
@@ -168,6 +221,91 @@ function WeekRail({
   )
 }
 
+function TimelineDay({
+  date,
+  assignments,
+  now,
+  onSelectAssignment,
+}: {
+  date: string
+  assignments: TimelineAssignment[]
+  now: Date
+  onSelectAssignment: (assignmentId: string) => void
+}) {
+  const nowMinute = now.getHours() * 60 + now.getMinutes()
+  const showNow = date === dateValue(now)
+
+  return (
+    <div
+      className="relative w-full shrink-0 snap-center"
+      aria-label={longDate(date)}
+      style={{ height: 24 * hourHeight + timelineInset * 2 }}
+    >
+      {hours.map((hour, index) => (
+        <div
+          key={hour}
+          className="absolute inset-x-0 border-t border-border/70"
+          style={{ top: timelineInset + index * hourHeight }}
+        >
+          <span className="absolute -top-2.5 left-0 w-12 bg-background pr-2 text-right text-[0.6875rem] text-muted-foreground tabular-nums">
+            {hour}:00
+          </span>
+        </div>
+      ))}
+
+      {assignments.map((assignment) => {
+        const startMinute = Math.max(
+          0,
+          minuteFromDay(assignment.startsAt, date)
+        )
+        const endMinute = Math.min(
+          24 * 60,
+          minuteFromDay(assignment.endsAt, date)
+        )
+        const top = timelineInset + (startMinute / 60) * hourHeight
+        const height = Math.max(
+          30,
+          ((endMinute - startMinute) / 60) * hourHeight
+        )
+        return (
+          <button
+            key={assignment.id}
+            type="button"
+            className="absolute right-0 left-14 animate-in overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left duration-300 fade-in hover:opacity-90"
+            style={{
+              top,
+              height,
+              borderLeftColor: assignment.color,
+              backgroundColor: `color-mix(in oklab, ${assignment.color} 22%, var(--background))`,
+            }}
+            onClick={() => onSelectAssignment(assignment.id)}
+          >
+            <span className="block truncate text-sm font-semibold">
+              {assignment.activityName}
+            </span>
+            {height >= 44 && (
+              <span className="block text-xs tabular-nums opacity-75">
+                {time(assignment.startsAt)}–{time(assignment.endsAt)}
+              </span>
+            )}
+          </button>
+        )
+      })}
+
+      {showNow && (
+        <div
+          className="pointer-events-none absolute right-0 left-11 z-10 border-t border-blue-500"
+          style={{ top: timelineInset + (nowMinute / 60) * hourHeight }}
+        >
+          <span className="absolute top-0 left-0 -translate-x-full -translate-y-1/2 rounded-full bg-blue-500 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums">
+            {now.getHours()}:{String(now.getMinutes()).padStart(2, "0")}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TimelinePage() {
   const queryClient = useQueryClient()
   const [date, setDate] = useState(today)
@@ -180,41 +318,72 @@ export function TimelinePage() {
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
   const timelineRef = useRef<HTMLDivElement>(null)
-  const range = dayRange(date)
-  const timeline = useQuery({
-    queryKey: ["timeline", date],
-    queryFn: () => getTimeline(range.from, range.to),
-  })
-  const assignments = useMemo(
-    () => timeline.data?.assignments ?? [],
-    [timeline.data?.assignments]
-  )
+  const timelineScrollTimerRef = useRef<number | null>(null)
+  const initializedTimelineRef = useRef(false)
+  const now = useCurrentTime()
+  const previousDate = moveDate(date, -1)
+  const nextDate = moveDate(date, 1)
+  const previousTimeline = useQuery(timelineQuery(previousDate))
+  const timeline = useQuery(timelineQuery(date))
+  const nextTimeline = useQuery(timelineQuery(nextDate))
+  const assignments = timeline.data?.assignments ?? noAssignments
   const selectedAssignment = assignments.find(
     (assignment) => assignment.id === selectedAssignmentId
   )
-  const hours = Array.from({ length: 25 }, (_, hour) => hour)
-  const now = new Date()
-  const nowMinute = now.getHours() * 60 + now.getMinutes()
-  const showNow = date === today()
+
+  const changeDate = useCallback((nextDateValue: string) => {
+    setSelectedAssignmentId(null)
+    setReportTarget(null)
+    setReportMessage("")
+    setDate(nextDateValue)
+  }, [])
+
+  useLayoutEffect(() => {
+    const timelineElement = timelineRef.current
+    if (!timelineElement) return
+    timelineElement.scrollLeft = timelineElement.clientWidth
+    if (!initializedTimelineRef.current) {
+      timelineElement.scrollTop = timelineScrollTop([], date, new Date())
+      initializedTimelineRef.current = true
+    }
+  }, [date])
+
+  useEffect(
+    () => () => {
+      if (timelineScrollTimerRef.current !== null) {
+        window.clearTimeout(timelineScrollTimerRef.current)
+      }
+    },
+    []
+  )
 
   useEffect(() => {
     if (timeline.isPending || timeline.isError) return
-    const firstAssignmentMinute = assignments.length
-      ? Math.min(
-          ...assignments.map((assignment) =>
-            minuteFromDay(assignment.startsAt, date)
-          )
-        )
-      : date === today()
-        ? nowMinute
-        : 8 * 60
-    timelineRef.current?.scrollTo({
-      top: Math.max(
-        0,
-        (firstAssignmentMinute / 60 - 2.5) * hourHeight + timelineInset
-      ),
+    const timelineElement = timelineRef.current
+    if (!timelineElement) return
+    const top = timelineScrollTop(assignments, date, new Date())
+    if (Math.abs(timelineElement.scrollTop - top) < hourHeight / 2) return
+    timelineElement.scrollTo({
+      left: timelineElement.clientWidth,
+      top,
+      behavior: "smooth",
     })
-  }, [assignments, date, nowMinute, timeline.isError, timeline.isPending])
+  }, [assignments, date, timeline.isError, timeline.isPending])
+
+  function handleTimelineScroll() {
+    if (timelineScrollTimerRef.current !== null) {
+      window.clearTimeout(timelineScrollTimerRef.current)
+    }
+    timelineScrollTimerRef.current = window.setTimeout(() => {
+      const timelineElement = timelineRef.current
+      if (!timelineElement || timelineElement.clientWidth === 0) return
+      const page = Math.round(
+        timelineElement.scrollLeft / timelineElement.clientWidth
+      )
+      if (page === 0) changeDate(previousDate)
+      if (page === 2) changeDate(nextDate)
+    }, 100)
+  }
 
   async function recordCheckIn(assignmentId: string) {
     setCheckInPending(assignmentId)
@@ -256,7 +425,7 @@ export function TimelinePage() {
             size="icon-sm"
             variant="ghost"
             aria-label="前の月"
-            onClick={() => setDate((current) => moveMonth(current, -1))}
+            onClick={() => changeDate(moveMonth(date, -1))}
           >
             <ChevronLeft />
           </Button>
@@ -267,7 +436,7 @@ export function TimelinePage() {
             size="icon-sm"
             variant="ghost"
             aria-label="次の月"
-            onClick={() => setDate((current) => moveMonth(current, 1))}
+            onClick={() => changeDate(moveMonth(date, 1))}
           >
             <ChevronRight />
           </Button>
@@ -284,98 +453,46 @@ export function TimelinePage() {
         </div>
       </header>
 
-      <WeekRail date={date} onDateChange={setDate} />
+      <WeekRail date={date} onDateChange={changeDate} />
 
       <p className="py-1 text-center text-sm font-semibold">{longDate(date)}</p>
 
-      {timeline.isPending && <LoadingState />}
-      {timeline.isError && (
-        <div className="space-y-2 text-destructive">
-          <p>{errorMessage(timeline.error)}</p>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => timeline.refetch()}
-          >
-            再試行
-          </Button>
-        </div>
-      )}
-      {!timeline.isPending && !timeline.isError && (
+      <div className="relative h-[calc(100svh-17rem)] min-h-[28rem]">
         <div
           ref={timelineRef}
-          className="relative h-[calc(100svh-17rem)] min-h-[28rem] overflow-y-auto overscroll-contain"
+          aria-label="日付を切り替え"
+          className="flex size-full snap-x snap-mandatory overflow-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          onScroll={handleTimelineScroll}
         >
-          <div
-            className="relative"
-            style={{
-              height: 24 * hourHeight + timelineInset * 2,
-            }}
-          >
-            {hours.map((hour, index) => (
-              <div
-                key={hour}
-                className="absolute inset-x-0 border-t border-border/70"
-                style={{ top: timelineInset + index * hourHeight }}
-              >
-                <span className="absolute -top-2.5 left-0 w-12 bg-background pr-2 text-right text-[0.6875rem] text-muted-foreground tabular-nums">
-                  {hour}:00
-                </span>
-              </div>
-            ))}
-            {assignments.map((assignment) => {
-              const startMinute = Math.max(
-                0,
-                minuteFromDay(assignment.startsAt, date)
-              )
-              const endMinute = Math.min(
-                24 * 60,
-                minuteFromDay(assignment.endsAt, date)
-              )
-              const top = timelineInset + (startMinute / 60) * hourHeight
-              const height = Math.max(
-                30,
-                ((endMinute - startMinute) / 60) * hourHeight
-              )
-              return (
-                <button
-                  key={assignment.id}
-                  type="button"
-                  className="absolute right-0 left-14 overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left transition-opacity hover:opacity-90"
-                  style={{
-                    top,
-                    height,
-                    borderLeftColor: assignment.color,
-                    backgroundColor: `color-mix(in oklab, ${assignment.color} 22%, var(--background))`,
-                  }}
-                  onClick={() => setSelectedAssignmentId(assignment.id)}
-                >
-                  <span className="block truncate text-sm font-semibold">
-                    {assignment.activityName}
-                  </span>
-                  {height >= 44 && (
-                    <span className="block text-xs tabular-nums opacity-75">
-                      {time(assignment.startsAt)}–{time(assignment.endsAt)}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-            {showNow && (
-              <div
-                className="absolute right-0 left-11 z-10 border-t border-blue-500"
-                style={{
-                  top: timelineInset + (nowMinute / 60) * hourHeight,
-                }}
-              >
-                <span className="absolute top-0 left-0 -translate-x-full -translate-y-1/2 rounded-full bg-blue-500 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums">
-                  {now.getHours()}:{String(now.getMinutes()).padStart(2, "0")}
-                </span>
-              </div>
-            )}
-          </div>
+          {[
+            { date: previousDate, query: previousTimeline },
+            { date, query: timeline },
+            { date: nextDate, query: nextTimeline },
+          ].map((page) => (
+            <TimelineDay
+              key={page.date}
+              date={page.date}
+              assignments={page.query.data?.assignments ?? noAssignments}
+              now={now}
+              onSelectAssignment={(assignmentId) => {
+                if (page.date !== date) changeDate(page.date)
+                setSelectedAssignmentId(assignmentId)
+              }}
+            />
+          ))}
         </div>
-      )}
+        {timeline.isError && (
+          <Button
+            className="absolute top-2 right-2"
+            size="sm"
+            variant="outline"
+            title={errorMessage(timeline.error)}
+            onClick={() => timeline.refetch()}
+          >
+            予定を再読み込み
+          </Button>
+        )}
+      </div>
 
       {selectedAssignment && (
         <section className="space-y-3 border-t pt-4">
