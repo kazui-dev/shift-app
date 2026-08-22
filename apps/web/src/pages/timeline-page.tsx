@@ -40,6 +40,7 @@ function time(value: string): string {
 
 const hourHeight = 64
 const timelineInset = 12
+const fallbackScrollEndDelay = 160
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 type TimelineAssignment = Awaited<
@@ -170,6 +171,7 @@ function WeekRail({
   const scrollTimerRef = useRef<number | null>(null)
   const scrollAnimationFrameRef = useRef<number | null>(null)
   const gestureActiveRef = useRef(false)
+  const gestureCommittedRef = useRef(false)
   const [railPagePosition, setRailPagePosition] = useState(1)
   const [resettingRail, setResettingRail] = useState(false)
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
@@ -264,17 +266,24 @@ function WeekRail({
       scrollTimerRef.current = null
     }
     if (gestureActiveRef.current) {
-      scrollTimerRef.current = window.setTimeout(settleScroll, 72)
+      scrollTimerRef.current = window.setTimeout(
+        settleScroll,
+        fallbackScrollEndDelay
+      )
       return
     }
     const currentRail = railRef.current
     if (!currentRail || currentRail.clientWidth === 0) return
     const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
     if (page === 0) {
+      if (gestureCommittedRef.current) return
+      gestureCommittedRef.current = true
       setResettingRail(true)
       onDateChange(moveDate(date, -7))
     }
     if (page === 2) {
+      if (gestureCommittedRef.current) return
+      gestureCommittedRef.current = true
       setResettingRail(true)
       onDateChange(moveDate(date, 7))
     }
@@ -294,10 +303,15 @@ function WeekRail({
         scrollAnimationFrameRef.current = null
       })
     }
-    if (scrollTimerRef.current !== null) {
-      window.clearTimeout(scrollTimerRef.current)
+    if (rail && !("onscrollend" in rail)) {
+      if (scrollTimerRef.current !== null) {
+        window.clearTimeout(scrollTimerRef.current)
+      }
+      scrollTimerRef.current = window.setTimeout(
+        settleScroll,
+        fallbackScrollEndDelay
+      )
     }
-    scrollTimerRef.current = window.setTimeout(settleScroll, 72)
   }
 
   return (
@@ -321,6 +335,9 @@ function WeekRail({
         className="flex snap-x snap-mandatory overflow-x-auto border-b [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={handleScroll}
         onScrollEnd={settleScroll}
+        onPointerDown={() => {
+          gestureCommittedRef.current = false
+        }}
         onTouchCancel={() => {
           gestureActiveRef.current = false
         }}
@@ -329,6 +346,7 @@ function WeekRail({
         }}
         onTouchStart={() => {
           gestureActiveRef.current = true
+          gestureCommittedRef.current = false
         }}
       >
         {pageDates.map((pageDate, pageIndex) => {
@@ -565,6 +583,7 @@ export function TimelinePage() {
   const timelineScrollTimerRef = useRef<number | null>(null)
   const timelineAnimationFrameRef = useRef<number | null>(null)
   const timelineGestureActiveRef = useRef(false)
+  const timelineGestureCommittedRef = useRef(false)
   const railTransitionIdRef = useRef(0)
   const initializedTimelineRef = useRef(false)
   const now = useCurrentTime()
@@ -637,7 +656,7 @@ export function TimelinePage() {
     if (timelineGestureActiveRef.current) {
       timelineScrollTimerRef.current = window.setTimeout(
         settleTimelineScroll,
-        72
+        fallbackScrollEndDelay
       )
       return
     }
@@ -649,8 +668,16 @@ export function TimelinePage() {
       timelineAnimationFrameRef.current = null
     }
     setTimelineSwipeProgress(0)
-    if (page === 0) changeDate(previousDate)
-    if (page === 2) changeDate(nextDate)
+    if (page === 0) {
+      if (timelineGestureCommittedRef.current) return
+      timelineGestureCommittedRef.current = true
+      changeDate(previousDate)
+    }
+    if (page === 2) {
+      if (timelineGestureCommittedRef.current) return
+      timelineGestureCommittedRef.current = true
+      changeDate(nextDate)
+    }
   }
 
   function handleTimelineScroll() {
@@ -666,10 +693,16 @@ export function TimelinePage() {
       }
       timelineAnimationFrameRef.current = null
     })
-    if (timelineScrollTimerRef.current !== null) {
-      window.clearTimeout(timelineScrollTimerRef.current)
+    const pager = timelinePagerRef.current
+    if (pager && !("onscrollend" in pager)) {
+      if (timelineScrollTimerRef.current !== null) {
+        window.clearTimeout(timelineScrollTimerRef.current)
+      }
+      timelineScrollTimerRef.current = window.setTimeout(
+        settleTimelineScroll,
+        fallbackScrollEndDelay
+      )
     }
-    timelineScrollTimerRef.current = window.setTimeout(settleTimelineScroll, 72)
   }
 
   function changeMonth(direction: -1 | 1) {
@@ -790,6 +823,9 @@ export function TimelinePage() {
             style={{ height: 24 * hourHeight + timelineInset * 2 }}
             onScroll={handleTimelineScroll}
             onScrollEnd={settleTimelineScroll}
+            onPointerDown={() => {
+              timelineGestureCommittedRef.current = false
+            }}
             onTouchCancel={() => {
               timelineGestureActiveRef.current = false
             }}
@@ -798,6 +834,7 @@ export function TimelinePage() {
             }}
             onTouchStart={() => {
               timelineGestureActiveRef.current = true
+              timelineGestureCommittedRef.current = false
             }}
           >
             {[

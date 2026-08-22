@@ -24,7 +24,8 @@ export function AppShell({
   state: Extract<AuthState, { status: "active" }>
 }) {
   const isTimeline = useRouterState({
-    select: (routerState) => routerState.location.pathname === "/timeline",
+    select: (routerState) =>
+      routerState.matches.some((match) => match.routeId === "/_app/timeline"),
   })
   const items =
     state.member.accessLevel === "system_admin"
@@ -59,6 +60,7 @@ export function AppShell({
             <Link
               key={to}
               to={to}
+              preload="render"
               className="flex min-h-16 items-center justify-center text-muted-foreground transition-colors md:min-h-12"
               activeProps={{
                 className: "text-foreground [&_svg]:stroke-[2.5]",
