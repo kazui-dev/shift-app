@@ -14,7 +14,7 @@ const plugins = lazyPlugins(() => [
   react(),
   tailwindcss(),
   VitePWA({
-    registerType: "autoUpdate",
+    registerType: "prompt",
     manifest: {
       id: "/",
       name: "旭祭シフト",

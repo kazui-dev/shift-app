@@ -130,6 +130,9 @@ importers:
       valibot:
         specifier: 1.4.2
         version: 1.4.2(typescript@7.0.2)
+      workbox-window:
+        specifier: ^7.4.1
+        version: 7.4.1
     devDependencies:
       '@cloudflare/vite-plugin':
         specifier: 1.53.1
