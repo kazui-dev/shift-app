@@ -100,9 +100,9 @@ function weekStart(value: string): string {
   return dateValue(week(value)[0] ?? localDate(value))
 }
 
-function weekdayTextColor(day: Date): string {
-  if (day.getDay() === 0) return "text-red-600 dark:text-red-400"
-  if (day.getDay() === 6) return "text-blue-600 dark:text-blue-400"
+function weekdayTextColor(weekday: number): string {
+  if (weekday === 0) return "text-red-600 dark:text-red-400"
+  if (weekday === 6) return "text-blue-600 dark:text-blue-400"
   return "text-foreground"
 }
 
@@ -303,6 +303,19 @@ function WeekRail({
   return (
     <div className="relative overflow-hidden">
       <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-1 z-20 grid grid-cols-7 text-xs"
+      >
+        {weekdays.map((weekday, index) => (
+          <span
+            key={weekday}
+            className={`text-center leading-4 ${weekdayTextColor(index)}`}
+          >
+            {weekday}
+          </span>
+        ))}
+      </div>
+      <div
         ref={railRef}
         aria-label="週を切り替え"
         className="flex snap-x snap-mandatory overflow-x-auto border-b [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -359,12 +372,11 @@ function WeekRail({
                     key={value}
                     type="button"
                     className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
+                    aria-label={longDate(value)}
                     aria-current={selected ? "date" : undefined}
                     onClick={() => onDateChange(value)}
                   >
-                    <span className={`leading-4 ${weekdayTextColor(day)}`}>
-                      {weekdays[day.getDay()]}
-                    </span>
+                    <span aria-hidden className="h-4" />
                     <span
                       className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                     >
@@ -399,9 +411,7 @@ function WeekRail({
                 key={dateValue(day)}
                 className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
               >
-                <span className={`leading-4 ${weekdayTextColor(day)}`}>
-                  {weekdays[day.getDay()]}
-                </span>
+                <span className="h-4" />
                 <span
                   className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                 >
@@ -434,9 +444,7 @@ function WeekRail({
                 key={dateValue(day)}
                 className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
               >
-                <span className={`leading-4 ${weekdayTextColor(day)}`}>
-                  {weekdays[day.getDay()]}
-                </span>
+                <span className="h-4" />
                 <span
                   className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                 >
