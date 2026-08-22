@@ -49,7 +49,16 @@ type TimelineAssignment = Awaited<
   ReturnType<typeof getTimeline>
 >["assignments"][number]
 const noAssignments: TimelineAssignment[] = []
-type MonthTransition = { id: number; direction: -1 | 1 }
+type RailTransition = {
+  id: number
+  direction: -1 | 1
+  fromDate: string
+  kind: "month" | "week"
+}
+type DateChangeOptions = {
+  preservePreferredDay?: boolean
+  transition?: Omit<RailTransition, "id">
+}
 
 function localDate(value: string): Date {
   return new Date(`${value}T12:00:00`)
@@ -65,9 +74,12 @@ function moveDate(value: string, days: number): string {
   return dateValue(next)
 }
 
-function moveMonth(value: string, months: number): string {
+function moveMonth(
+  value: string,
+  months: number,
+  preferredDay: number
+): string {
   const current = localDate(value)
-  const day = current.getDate()
   current.setDate(1)
   current.setMonth(current.getMonth() + months)
   const lastDay = new Date(
@@ -75,7 +87,7 @@ function moveMonth(value: string, months: number): string {
     current.getMonth() + 1,
     0
   ).getDate()
-  current.setDate(Math.min(day, lastDay))
+  current.setDate(Math.min(preferredDay, lastDay))
   return dateValue(current)
 }
 
@@ -137,131 +149,223 @@ function WeekRail({
   date,
   onDateChange,
   timelineSwipeProgress,
-  monthTransition,
+  transition,
 }: {
   date: string
   onDateChange: (date: string) => void
   timelineSwipeProgress: number
-  monthTransition: MonthTransition | null
+  transition: RailTransition | null
 }) {
   const railRef = useRef<HTMLDivElement>(null)
-  const indicatorRef = useRef<HTMLSpanElement>(null)
+  const outgoingRef = useRef<HTMLDivElement>(null)
   const scrollTimerRef = useRef<number | null>(null)
+  const scrollAnimationFrameRef = useRef<number | null>(null)
+  const [railPagePosition, setRailPagePosition] = useState(1)
+  const [resettingRail, setResettingRail] = useState(false)
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
   const selectedWeekday = localDate(date).getDay()
-  const crossesWeekStart = selectedWeekday === 0 && timelineSwipeProgress < 0
-  const crossesWeekEnd = selectedWeekday === 6 && timelineSwipeProgress > 0
-  const crossesWeek = crossesWeekStart || crossesWeekEnd
+  const crossesWeek =
+    (selectedWeekday === 0 && timelineSwipeProgress < 0) ||
+    (selectedWeekday === 6 && timelineSwipeProgress > 0)
   const indicatorProgress = crossesWeek ? 0 : timelineSwipeProgress
   const timelineIsSwiping = Math.abs(timelineSwipeProgress) > 0.01
+  const railIsSwiping = Math.abs(railPagePosition - 1) > 0.01
 
   useLayoutEffect(() => {
     const rail = railRef.current
-    if (!rail) return
-    rail.scrollLeft =
-      rail.clientWidth * (crossesWeek ? 1 + timelineSwipeProgress : 1)
-  }, [crossesWeek, date, timelineSwipeProgress])
+    if (!rail) return undefined
+    if (scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current)
+      scrollAnimationFrameRef.current = null
+    }
+    rail.scrollLeft = rail.clientWidth
+    setRailPagePosition(1)
+    const resetTimer = window.setTimeout(() => {
+      setResettingRail(false)
+    }, 50)
+    return () => window.clearTimeout(resetTimer)
+  }, [date])
 
   useLayoutEffect(() => {
-    if (!monthTransition) return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    const direction = monthTransition.direction
+    if (!transition) return undefined
+    const rail = railRef.current
+    const outgoing = outgoingRef.current
+    if (!rail || !outgoing) return undefined
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      outgoing.style.visibility = "hidden"
+      return undefined
+    }
+    outgoing.style.visibility = "visible"
+    const distance = transition.kind === "month" ? 12 : 8
+    const duration = transition.kind === "month" ? 220 : 180
+    const offset = transition.direction * distance
     const options = {
-      duration: 160,
+      duration,
       easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
     }
-    railRef.current?.animate(
+    const incomingAnimation = rail.animate(
       [
-        { opacity: 0.35, transform: `translateX(${direction * 16}px)` },
+        { opacity: 0, transform: `translateX(${offset}px)` },
         { opacity: 1, transform: "translateX(0)" },
       ],
       options
     )
-    indicatorRef.current?.animate(
+    const outgoingAnimation = outgoing.animate(
       [
-        { opacity: 0, transform: "scale(0.9)" },
-        { opacity: 1, transform: "scale(1)" },
+        { opacity: 1, transform: "translateX(0)" },
+        { opacity: 0, transform: `translateX(${-offset}px)` },
       ],
-      { ...options, duration: 120 }
+      { ...options, fill: "forwards" }
     )
-  }, [monthTransition])
+    void outgoingAnimation.finished
+      .then(() => {
+        outgoing.style.visibility = "hidden"
+        outgoingAnimation.cancel()
+      })
+      .catch(() => undefined)
+    return () => {
+      incomingAnimation.cancel()
+      outgoingAnimation.cancel()
+    }
+  }, [transition])
 
   useEffect(
     () => () => {
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current)
       }
+      if (scrollAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollAnimationFrameRef.current)
+      }
     },
     []
   )
 
   function handleScroll() {
+    const rail = railRef.current
+    if (rail && rail.clientWidth > 0) {
+      if (scrollAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollAnimationFrameRef.current)
+      }
+      scrollAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        const currentRail = railRef.current
+        if (currentRail && currentRail.clientWidth > 0) {
+          setRailPagePosition(currentRail.scrollLeft / currentRail.clientWidth)
+        }
+        scrollAnimationFrameRef.current = null
+      })
+    }
     if (scrollTimerRef.current !== null) {
       window.clearTimeout(scrollTimerRef.current)
     }
     scrollTimerRef.current = window.setTimeout(() => {
-      if (timelineIsSwiping) return
-      const rail = railRef.current
-      if (!rail || rail.clientWidth === 0) return
-      const page = Math.round(rail.scrollLeft / rail.clientWidth)
-      if (page === 0) onDateChange(moveDate(date, -7))
-      if (page === 2) onDateChange(moveDate(date, 7))
+      const currentRail = railRef.current
+      if (!currentRail || currentRail.clientWidth === 0) return
+      const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
+      if (page === 0) {
+        setResettingRail(true)
+        onDateChange(moveDate(date, -7))
+      }
+      if (page === 2) {
+        setResettingRail(true)
+        onDateChange(moveDate(date, 7))
+      }
     }, 100)
   }
 
   return (
-    <div
-      ref={railRef}
-      aria-label="週を切り替え"
-      className="flex snap-x snap-mandatory overflow-x-auto border-b pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      onScroll={handleScroll}
-    >
-      {pageDates.map((pageDate) => {
-        const pageDays = week(pageDate)
-        const firstDay = pageDays[0] ?? localDate(pageDate)
-        return (
-          <div
-            key={dateValue(firstDay)}
-            className="relative grid w-full shrink-0 snap-center grid-cols-7"
-          >
-            {pageDate === date && (
+    <div className="relative overflow-hidden">
+      <div
+        ref={railRef}
+        aria-label="週を切り替え"
+        className="flex snap-x snap-mandatory overflow-x-auto border-b pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onScroll={handleScroll}
+      >
+        {pageDates.map((pageDate, pageIndex) => {
+          const pageDays = week(pageDate)
+          const firstDay = pageDays[0] ?? localDate(pageDate)
+          const indicatorOpacity = Math.max(
+            0,
+            1 - Math.abs(railPagePosition - pageIndex)
+          )
+          return (
+            <div
+              key={dateValue(firstDay)}
+              className="relative grid w-full shrink-0 snap-center grid-cols-7"
+            >
               <span
                 aria-hidden
-                className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-transform [transition-duration:140ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+                className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
                 style={{
-                  transform: `translateX(${(selectedWeekday + indicatorProgress) * 100}%)`,
-                  ...(timelineIsSwiping ? { transition: "none" } : {}),
+                  opacity: indicatorOpacity,
+                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? indicatorProgress : 0)) * 100}%)`,
+                  ...(timelineIsSwiping ||
+                  railIsSwiping ||
+                  resettingRail ||
+                  transition
+                    ? { transition: "none" }
+                    : {}),
                 }}
               >
-                <span
-                  ref={indicatorRef}
-                  className="size-8 rounded-full bg-foreground"
-                />
+                <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
               </span>
-            )}
-            {pageDays.map((day) => {
-              const value = dateValue(day)
-              const selected = value === date
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
-                  aria-current={selected ? "date" : undefined}
-                  onClick={() => onDateChange(value)}
-                >
-                  <span>{weekdays[day.getDay()]}</span>
-                  <span
-                    className={`relative z-[1] grid size-8 place-items-center text-sm tabular-nums transition-colors duration-100 ${selected ? "font-semibold text-background" : "text-foreground"}`}
+              {pageDays.map((day) => {
+                const value = dateValue(day)
+                const selected = value === date
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+                    aria-current={selected ? "date" : undefined}
+                    onClick={() => onDateChange(value)}
                   >
-                    {day.getDate()}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        )
-      })}
+                    <span>{weekdays[day.getDay()]}</span>
+                    <span
+                      className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+                    >
+                      {day.getDate()}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+
+      {transition && (
+        <div
+          ref={outgoingRef}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 grid grid-cols-7 border-b pb-3"
+        >
+          <span
+            className="pointer-events-none absolute top-5 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
+            style={{
+              transform: `translateX(${localDate(transition.fromDate).getDay() * 100}%)`,
+            }}
+          >
+            <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+          </span>
+          {week(transition.fromDate).map((day) => {
+            const selected = dateValue(day) === transition.fromDate
+            return (
+              <div
+                key={dateValue(day)}
+                className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+              >
+                <span>{weekdays[day.getDay()]}</span>
+                <span
+                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+                >
+                  {day.getDate()}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -363,13 +467,15 @@ export function TimelinePage() {
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
   const [timelineSwipeProgress, setTimelineSwipeProgress] = useState(0)
-  const [monthTransition, setMonthTransition] =
-    useState<MonthTransition | null>(null)
+  const [railTransition, setRailTransition] = useState<RailTransition | null>(
+    null
+  )
   const timelineRef = useRef<HTMLDivElement>(null)
   const timelinePagerRef = useRef<HTMLDivElement>(null)
   const timelineScrollTimerRef = useRef<number | null>(null)
   const timelineAnimationFrameRef = useRef<number | null>(null)
-  const monthTransitionIdRef = useRef(0)
+  const railTransitionIdRef = useRef(0)
+  const preferredDayRef = useRef(localDate(date).getDate())
   const initializedTimelineRef = useRef(false)
   const now = useCurrentTime()
   const previousDate = moveDate(date, -1)
@@ -382,12 +488,24 @@ export function TimelinePage() {
     (assignment) => assignment.id === selectedAssignmentId
   )
 
-  const changeDate = useCallback((nextDateValue: string) => {
-    setSelectedAssignmentId(null)
-    setReportTarget(null)
-    setReportMessage("")
-    setDate(nextDateValue)
-  }, [])
+  const changeDate = useCallback(
+    (nextDateValue: string, options: DateChangeOptions = {}) => {
+      if (!options.preservePreferredDay) {
+        preferredDayRef.current = localDate(nextDateValue).getDate()
+      }
+      railTransitionIdRef.current += 1
+      setRailTransition(
+        options.transition
+          ? { ...options.transition, id: railTransitionIdRef.current }
+          : null
+      )
+      setSelectedAssignmentId(null)
+      setReportTarget(null)
+      setReportMessage("")
+      setDate(nextDateValue)
+    },
+    []
+  )
 
   useLayoutEffect(() => {
     const timelineElement = timelineRef.current
@@ -440,15 +558,38 @@ export function TimelinePage() {
         timelineAnimationFrameRef.current = null
       }
       setTimelineSwipeProgress(0)
-      if (page === 0) changeDate(previousDate)
-      if (page === 2) changeDate(nextDate)
+      if (page === 0) {
+        changeDate(
+          previousDate,
+          localDate(date).getDay() === 0
+            ? {
+                transition: {
+                  direction: -1,
+                  fromDate: date,
+                  kind: "week",
+                },
+              }
+            : {}
+        )
+      }
+      if (page === 2) {
+        changeDate(
+          nextDate,
+          localDate(date).getDay() === 6
+            ? {
+                transition: { direction: 1, fromDate: date, kind: "week" },
+              }
+            : {}
+        )
+      }
     }, 100)
   }
 
   function changeMonth(direction: -1 | 1) {
-    monthTransitionIdRef.current += 1
-    setMonthTransition({ id: monthTransitionIdRef.current, direction })
-    changeDate(moveMonth(date, direction))
+    changeDate(moveMonth(date, direction, preferredDayRef.current), {
+      preservePreferredDay: true,
+      transition: { direction, fromDate: date, kind: "month" },
+    })
   }
 
   async function recordCheckIn(assignmentId: string) {
@@ -523,7 +664,7 @@ export function TimelinePage() {
         date={date}
         onDateChange={changeDate}
         timelineSwipeProgress={timelineSwipeProgress}
-        monthTransition={monthTransition}
+        transition={railTransition}
       />
 
       <p className="py-1 text-center text-sm font-semibold">{longDate(date)}</p>
