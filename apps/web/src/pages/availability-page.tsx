@@ -33,7 +33,7 @@ export function AvailabilityPage() {
   })
   return (
     <section className="space-y-6">
-      <PageHeader title="希望提出">
+      <PageHeader title="シフト希望">
         {activeYears.length > 1 && (
           <select
             aria-label="年度"

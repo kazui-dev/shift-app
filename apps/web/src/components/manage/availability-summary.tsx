@@ -11,7 +11,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
   return (
     <details className="rounded-xl border bg-card p-4 shadow-xs">
       <summary className="cursor-pointer font-medium">
-        希望提出状況
+        シフト希望状況
         <span className="ml-2 text-xs font-normal text-muted-foreground">
           {submissions.data?.submissions.length ?? 0}件
         </span>
