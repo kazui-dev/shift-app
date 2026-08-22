@@ -110,21 +110,8 @@ function timelineQuery(date: string) {
   }
 }
 
-function timelineScrollTop(
-  assignments: TimelineAssignment[],
-  date: string,
-  now: Date
-): number {
-  const minute = assignments.length
-    ? Math.min(
-        ...assignments.map((assignment) =>
-          minuteFromDay(assignment.startsAt, date)
-        )
-      )
-    : date === dateValue(now)
-      ? now.getHours() * 60 + now.getMinutes()
-      : 8 * 60
-
+function initialTimelineScrollTop(now: Date): number {
+  const minute = now.getHours() * 60 + now.getMinutes()
   return Math.max(0, (minute / 60 - 2.5) * hourHeight + timelineInset)
 }
 
@@ -318,6 +305,7 @@ export function TimelinePage() {
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
   const timelineRef = useRef<HTMLDivElement>(null)
+  const timelinePagerRef = useRef<HTMLDivElement>(null)
   const timelineScrollTimerRef = useRef<number | null>(null)
   const initializedTimelineRef = useRef(false)
   const now = useCurrentTime()
@@ -340,10 +328,10 @@ export function TimelinePage() {
 
   useLayoutEffect(() => {
     const timelineElement = timelineRef.current
-    if (!timelineElement) return
-    timelineElement.scrollLeft = timelineElement.clientWidth
-    if (!initializedTimelineRef.current) {
-      timelineElement.scrollTop = timelineScrollTop([], date, new Date())
+    const pager = timelinePagerRef.current
+    if (pager) pager.scrollLeft = pager.clientWidth
+    if (timelineElement && !initializedTimelineRef.current) {
+      timelineElement.scrollTop = initialTimelineScrollTop(new Date())
       initializedTimelineRef.current = true
     }
   }, [date])
@@ -357,29 +345,14 @@ export function TimelinePage() {
     []
   )
 
-  useEffect(() => {
-    if (timeline.isPending || timeline.isError) return
-    const timelineElement = timelineRef.current
-    if (!timelineElement) return
-    const top = timelineScrollTop(assignments, date, new Date())
-    if (Math.abs(timelineElement.scrollTop - top) < hourHeight / 2) return
-    timelineElement.scrollTo({
-      left: timelineElement.clientWidth,
-      top,
-      behavior: "smooth",
-    })
-  }, [assignments, date, timeline.isError, timeline.isPending])
-
   function handleTimelineScroll() {
     if (timelineScrollTimerRef.current !== null) {
       window.clearTimeout(timelineScrollTimerRef.current)
     }
     timelineScrollTimerRef.current = window.setTimeout(() => {
-      const timelineElement = timelineRef.current
-      if (!timelineElement || timelineElement.clientWidth === 0) return
-      const page = Math.round(
-        timelineElement.scrollLeft / timelineElement.clientWidth
-      )
+      const pager = timelinePagerRef.current
+      if (!pager || pager.clientWidth === 0) return
+      const page = Math.round(pager.scrollLeft / pager.clientWidth)
       if (page === 0) changeDate(previousDate)
       if (page === 2) changeDate(nextDate)
     }, 100)
@@ -460,26 +433,32 @@ export function TimelinePage() {
       <div className="relative h-[calc(100svh-17rem)] min-h-[28rem]">
         <div
           ref={timelineRef}
-          aria-label="日付を切り替え"
-          className="flex size-full snap-x snap-mandatory overflow-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          onScroll={handleTimelineScroll}
+          className="size-full overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {[
-            { date: previousDate, query: previousTimeline },
-            { date, query: timeline },
-            { date: nextDate, query: nextTimeline },
-          ].map((page) => (
-            <TimelineDay
-              key={page.date}
-              date={page.date}
-              assignments={page.query.data?.assignments ?? noAssignments}
-              now={now}
-              onSelectAssignment={(assignmentId) => {
-                if (page.date !== date) changeDate(page.date)
-                setSelectedAssignmentId(assignmentId)
-              }}
-            />
-          ))}
+          <div
+            ref={timelinePagerRef}
+            aria-label="日付を切り替え"
+            className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ height: 24 * hourHeight + timelineInset * 2 }}
+            onScroll={handleTimelineScroll}
+          >
+            {[
+              { date: previousDate, query: previousTimeline },
+              { date, query: timeline },
+              { date: nextDate, query: nextTimeline },
+            ].map((page) => (
+              <TimelineDay
+                key={page.date}
+                date={page.date}
+                assignments={page.query.data?.assignments ?? noAssignments}
+                now={now}
+                onSelectAssignment={(assignmentId) => {
+                  if (page.date !== date) changeDate(page.date)
+                  setSelectedAssignmentId(assignmentId)
+                }}
+              />
+            ))}
+          </div>
         </div>
         {timeline.isError && (
           <Button
