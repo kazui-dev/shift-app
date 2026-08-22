@@ -1,5 +1,11 @@
 import { Link, Outlet } from "@tanstack/react-router"
-import { CalendarDays, MessageCircle, Settings, Users } from "lucide-react"
+import {
+  CalendarDays,
+  MessageCircle,
+  Settings,
+  ShieldCheck,
+  Users,
+} from "lucide-react"
 
 import type { AuthState } from "@workspace/shared/auth"
 
@@ -7,6 +13,7 @@ const navigation = [
   { to: "/timeline", label: "カレンダー", icon: CalendarDays },
   { to: "/chat", label: "連絡", icon: MessageCircle },
   { to: "/manage", label: "シフト管理", icon: Users },
+  { to: "/settings", label: "設定", icon: Settings },
 ] as const
 
 export function AppShell({
@@ -20,8 +27,8 @@ export function AppShell({
           ...navigation,
           {
             to: "/system",
-            label: "設定",
-            icon: Settings,
+            label: "管理",
+            icon: ShieldCheck,
           } as const,
         ]
       : navigation

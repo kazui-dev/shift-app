@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page-layout"
 export function SystemPage() {
   return (
     <section className="space-y-10">
-      <PageHeader title="システム設定" />
+      <PageHeader title="管理" />
 
       <YearSettingsPanel />
       <AdminPanel />

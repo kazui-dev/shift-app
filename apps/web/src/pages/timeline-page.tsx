@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -10,10 +10,9 @@ import {
 
 import { Button } from "@workspace/ui/components/button"
 
-import { PushControl } from "@/components/push-control"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
-import { EmptyState, LoadingState } from "@/components/page-layout"
+import { LoadingState } from "@/components/page-layout"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
 import { getTimeline } from "@/api/timeline"
@@ -55,6 +54,20 @@ function moveDate(value: string, days: number): string {
   return dateValue(next)
 }
 
+function moveMonth(value: string, months: number): string {
+  const current = localDate(value)
+  const day = current.getDate()
+  current.setDate(1)
+  current.setMonth(current.getMonth() + months)
+  const lastDay = new Date(
+    current.getFullYear(),
+    current.getMonth() + 1,
+    0
+  ).getDate()
+  current.setDate(Math.min(day, lastDay))
+  return dateValue(current)
+}
+
 function week(value: string): Date[] {
   const selected = localDate(value)
   selected.setDate(selected.getDate() - selected.getDay())
@@ -77,6 +90,82 @@ function longDate(value: string): string {
     day: "numeric",
     weekday: "long",
   }).format(localDate(value))
+}
+
+function WeekRail({
+  date,
+  onDateChange,
+}: {
+  date: string
+  onDateChange: (date: string) => void
+}) {
+  const railRef = useRef<HTMLDivElement>(null)
+  const scrollTimerRef = useRef<number | null>(null)
+  const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
+
+  useLayoutEffect(() => {
+    const rail = railRef.current
+    if (rail) rail.scrollLeft = rail.clientWidth
+  }, [date])
+
+  useEffect(
+    () => () => {
+      if (scrollTimerRef.current !== null) {
+        window.clearTimeout(scrollTimerRef.current)
+      }
+    },
+    []
+  )
+
+  function handleScroll() {
+    if (scrollTimerRef.current !== null) {
+      window.clearTimeout(scrollTimerRef.current)
+    }
+    scrollTimerRef.current = window.setTimeout(() => {
+      const rail = railRef.current
+      if (!rail || rail.clientWidth === 0) return
+      const page = Math.round(rail.scrollLeft / rail.clientWidth)
+      if (page === 0) onDateChange(moveDate(date, -7))
+      if (page === 2) onDateChange(moveDate(date, 7))
+    }, 100)
+  }
+
+  return (
+    <div
+      ref={railRef}
+      aria-label="週を切り替え"
+      className="flex snap-x snap-mandatory overflow-x-auto border-b pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      onScroll={handleScroll}
+    >
+      {pageDates.map((pageDate) => (
+        <div
+          key={pageDate}
+          className="grid w-full shrink-0 snap-center grid-cols-7"
+        >
+          {week(pageDate).map((day) => {
+            const value = dateValue(day)
+            const selected = value === date
+            return (
+              <button
+                key={value}
+                type="button"
+                className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
+                aria-current={selected ? "date" : undefined}
+                onClick={() => onDateChange(value)}
+              >
+                <span>{weekdays[day.getDay()]}</span>
+                <span
+                  className={`grid size-8 place-items-center rounded-full text-sm tabular-nums ${selected ? "bg-foreground font-semibold text-background" : "text-foreground"}`}
+                >
+                  {day.getDate()}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function TimelinePage() {
@@ -166,8 +255,8 @@ export function TimelinePage() {
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="前の週"
-            onClick={() => setDate((current) => moveDate(current, -7))}
+            aria-label="前の月"
+            onClick={() => setDate((current) => moveMonth(current, -1))}
           >
             <ChevronLeft />
           </Button>
@@ -177,14 +266,13 @@ export function TimelinePage() {
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="次の週"
-            onClick={() => setDate((current) => moveDate(current, 7))}
+            aria-label="次の月"
+            onClick={() => setDate((current) => moveMonth(current, 1))}
           >
             <ChevronRight />
           </Button>
         </div>
         <div className="flex items-center gap-1">
-          <PushControl />
           <Button asChild size="icon-sm" variant="ghost">
             <Link to="/availability">
               <CalendarRange />
@@ -194,28 +282,7 @@ export function TimelinePage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-7 border-b pb-3">
-        {week(date).map((day) => {
-          const value = dateValue(day)
-          const selected = value === date
-          return (
-            <button
-              key={value}
-              type="button"
-              className="flex min-h-14 flex-col items-center justify-center gap-1 text-xs text-muted-foreground"
-              aria-current={selected ? "date" : undefined}
-              onClick={() => setDate(value)}
-            >
-              <span>{weekdays[day.getDay()]}</span>
-              <span
-                className={`grid size-8 place-items-center rounded-full text-sm tabular-nums ${selected ? "bg-foreground font-semibold text-background" : "text-foreground"}`}
-              >
-                {day.getDate()}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      <WeekRail date={date} onDateChange={setDate} />
 
       <p className="py-1 text-center text-sm font-semibold">{longDate(date)}</p>
 
@@ -305,11 +372,6 @@ export function TimelinePage() {
               </div>
             )}
           </div>
-          {assignments.length === 0 && (
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2">
-              <EmptyState>この日のシフトはありません</EmptyState>
-            </div>
-          )}
         </div>
       )}
 
