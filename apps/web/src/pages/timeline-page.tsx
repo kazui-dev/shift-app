@@ -273,11 +273,13 @@ export function TimelinePage() {
           </Button>
         </div>
         <div className="flex items-center gap-1">
-          <Button asChild size="icon-sm" variant="ghost">
-            <Link to="/availability">
-              <CalendarRange />
-              <span className="sr-only">シフト希望</span>
-            </Link>
+          <Button
+            render={<Link to="/availability" />}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <CalendarRange />
+            <span className="sr-only">シフト希望</span>
           </Button>
         </div>
       </header>
