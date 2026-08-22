@@ -7,6 +7,8 @@ import { Button } from "@workspace/ui/components/button"
 
 import { revokeAdminSessions, updateAdminAccessLevel } from "@/api/admin"
 import { errorMessage } from "@/api/client"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
 
 const accessLevelLabels = {
   system_admin: "システム管理者",
@@ -87,7 +89,7 @@ export function AdminMemberCard({ member }: { member: AdminMember }) {
   const roleIsUnchanged = accessLevel === member.accessLevel
 
   return (
-    <li className="space-y-3 rounded-lg border bg-background p-4">
+    <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-medium">
@@ -109,7 +111,7 @@ export function AdminMemberCard({ member }: { member: AdminMember }) {
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium">権限</span>
           <select
-            className="h-10 rounded-md border bg-background px-3 disabled:opacity-60"
+            className={`${fieldClassName} disabled:opacity-60`}
             disabled={member.isCurrentUser || pending !== null}
             value={accessLevel}
             onChange={(event) => {
@@ -128,7 +130,7 @@ export function AdminMemberCard({ member }: { member: AdminMember }) {
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium">操作理由</span>
           <input
-            className="h-10 rounded-md border bg-background px-3"
+            className={fieldClassName}
             disabled={pending !== null}
             maxLength={240}
             placeholder="例: 委員会幹部への就任"
@@ -168,7 +170,9 @@ export function AdminMemberCard({ member }: { member: AdminMember }) {
           管理者自身の権限はこの画面から変更できません。
         </p>
       )}
-      {message && <p className="text-xs text-muted-foreground">{message}</p>}
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
     </li>
   )
 }

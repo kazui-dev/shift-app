@@ -12,6 +12,8 @@ import {
   getYearRoles,
   removeYearRole,
 } from "@/api/years"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
 
 export function YearRoleManager({ year }: { year: number }) {
   const queryClient = useQueryClient()
@@ -91,13 +93,14 @@ export function YearRoleManager({ year }: { year: number }) {
   }
 
   return (
-    <div className="space-y-4">
+    <section className="space-y-4 border-t pt-5">
+      <h3 className="font-medium">年度ロール</h3>
       <form
         className="grid gap-2 sm:grid-cols-[1fr_auto_auto]"
         onSubmit={addRole}
       >
         <input
-          className="h-10 rounded-md border bg-background px-3"
+          className={fieldClassName}
           placeholder="年度ロール名"
           required
           value={roleName}
@@ -105,7 +108,8 @@ export function YearRoleManager({ year }: { year: number }) {
         />
         <input
           type="color"
-          className="h-10 w-full rounded-md border px-1 sm:w-16"
+          aria-label="ロールの色"
+          className={`${fieldClassName} p-1 sm:w-16`}
           value={roleColor}
           onChange={(event) => setRoleColor(event.target.value)}
         />
@@ -127,7 +131,7 @@ export function YearRoleManager({ year }: { year: number }) {
         onSubmit={addMembership}
       >
         <select
-          className="h-10 rounded-md border bg-background px-2"
+          className={fieldClassName}
           required
           value={roleId}
           onChange={(event) => setRoleId(event.target.value)}
@@ -140,7 +144,7 @@ export function YearRoleManager({ year }: { year: number }) {
           ))}
         </select>
         <select
-          className="h-10 rounded-md border bg-background px-2"
+          className={fieldClassName}
           required
           value={memberId}
           onChange={(event) => setMemberId(event.target.value)}
@@ -159,7 +163,7 @@ export function YearRoleManager({ year }: { year: number }) {
         {members.data?.members
           .filter((member) => member.roles.length > 0)
           .map((member) => (
-            <li key={member.id} className="rounded-md border p-3">
+            <li key={member.id} className="border-b py-3 last:border-0">
               <span className="font-medium">{member.displayName}</span>
               <div className="mt-2 flex flex-wrap gap-2">
                 {member.roles.map((role) => (
@@ -178,7 +182,9 @@ export function YearRoleManager({ year }: { year: number }) {
             </li>
           ))}
       </ul>
-      {message && <p className="text-sm">{message}</p>}
-    </div>
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
+    </section>
   )
 }

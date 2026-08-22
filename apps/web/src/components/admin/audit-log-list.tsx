@@ -14,7 +14,7 @@ export function AuditLogList({ logs }: { logs: AdminAuditLog[] }) {
   return (
     <div className="space-y-3">
       <h3 className="font-medium">監査ログ</h3>
-      <ol className="divide-y rounded-lg border bg-background px-4">
+      <ol className="divide-y border-y">
         {logs.map((log) => {
           const reason =
             typeof log.details?.reason === "string" ? log.details.reason : null

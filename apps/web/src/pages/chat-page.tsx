@@ -5,10 +5,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { LoaderCircle } from "lucide-react"
+import { LoaderCircle, Plus, Send } from "lucide-react"
 import * as v from "valibot"
 
-import { chatEventSchema } from "@workspace/shared/communications"
+import {
+  chatEventSchema,
+  type ChatTargetOption,
+} from "@workspace/shared/communications"
 import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/api/client"
@@ -20,6 +23,9 @@ import {
   sendChatMessage,
 } from "@/api/chat"
 import { getYears } from "@/api/years"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
+import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -43,6 +49,9 @@ export function ChatPage() {
     roomId && rooms.data?.rooms.some((room) => room.id === roomId)
       ? roomId
       : (rooms.data?.rooms[0]?.id ?? null)
+  const selectedRoom = rooms.data?.rooms.find(
+    (room) => room.id === selectedRoomId
+  )
   const messages = useQuery({
     queryKey: ["chat-messages", selectedRoomId],
     queryFn:
@@ -59,7 +68,7 @@ export function ChatPage() {
       selectedYear === null ? skipToken : () => getChatTargets(selectedYear),
   })
   const [name, setName] = useState("")
-  const [memberId, setMemberId] = useState("")
+  const [targetKey, setTargetKey] = useState("")
   const [content, setContent] = useState("")
   const [feedback, setFeedback] = useState<string | null>(null)
 
@@ -104,15 +113,24 @@ export function ChatPage() {
   }, [queryClient, selectedRoomId])
 
   const createRoom = useMutation({
-    mutationFn: (input: { year: number; name: string; memberId: string }) =>
+    mutationFn: (input: {
+      year: number
+      name: string
+      target: ChatTargetOption
+    }) =>
       createChatRoom({
         year: input.year,
         name: input.name,
-        targets: [{ targetType: "member", targetId: input.memberId }],
+        targets: [
+          {
+            targetType: input.target.targetType,
+            targetId: input.target.targetId,
+          },
+        ],
       }),
     onSuccess: async ({ room }) => {
       setName("")
-      setMemberId("")
+      setTargetKey("")
       setRoomId(room.id)
       setFeedback(null)
       await queryClient.invalidateQueries({ queryKey: ["chat-rooms"] })
@@ -143,8 +161,11 @@ export function ChatPage() {
 
   function handleCreate(event: FormEvent) {
     event.preventDefault()
-    if (selectedYear !== null && name && memberId) {
-      createRoom.mutate({ year: selectedYear, name, memberId })
+    const target = targets.data?.targets.find(
+      (item) => `${item.targetType}:${item.targetId}` === targetKey
+    )
+    if (selectedYear !== null && name && target) {
+      createRoom.mutate({ year: selectedYear, name, target })
     }
   }
 
@@ -161,20 +182,21 @@ export function ChatPage() {
   }
 
   return (
-    <section className="space-y-5">
-      <div>
-        <p className="text-sm text-muted-foreground">連絡先別</p>
-        <h1 className="text-xl font-medium">チャット</h1>
-      </div>
+    <section className="space-y-6">
+      <PageHeader title="連絡" />
 
-      <details className="rounded-lg border p-4">
-        <summary className="cursor-pointer font-medium">ルームを作成</summary>
+      <details className="group rounded-xl border bg-card p-4 shadow-xs">
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-medium marker:hidden">
+          <Plus className="size-4" />
+          ルームを作成
+        </summary>
         <form
-          className="mt-4 grid gap-3 sm:grid-cols-3"
+          className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-3"
           onSubmit={handleCreate}
         >
           <select
-            className="h-10 rounded-md border bg-background px-2"
+            aria-label="年度"
+            className={fieldClassName}
             value={selectedYear ?? ""}
             onChange={(event) => setYear(Number(event.target.value))}
           >
@@ -185,7 +207,7 @@ export function ChatPage() {
             ))}
           </select>
           <input
-            className="h-10 rounded-md border bg-background px-3"
+            className={fieldClassName}
             placeholder="ルーム名"
             required
             maxLength={120}
@@ -193,17 +215,36 @@ export function ChatPage() {
             onChange={(event) => setName(event.target.value)}
           />
           <select
-            className="h-10 rounded-md border bg-background px-2"
+            className={fieldClassName}
             required
-            value={memberId}
-            onChange={(event) => setMemberId(event.target.value)}
+            value={targetKey}
+            onChange={(event) => setTargetKey(event.target.value)}
           >
-            <option value="">相手を選択</option>
-            {targets.data?.targets.map((target) => (
-              <option key={target.targetId} value={target.targetId}>
-                {target.displayName}
-              </option>
-            ))}
+            <option value="">宛先を選択</option>
+            {(["member", "role", "activity"] as const).map((type) => {
+              const options = targets.data?.targets.filter(
+                (target) => target.targetType === type
+              )
+              if (!options?.length) return null
+              const label =
+                type === "member"
+                  ? "メンバー"
+                  : type === "role"
+                    ? "役割"
+                    : "活動"
+              return (
+                <optgroup key={type} label={label}>
+                  {options.map((target) => (
+                    <option
+                      key={`${target.targetType}:${target.targetId}`}
+                      value={`${target.targetType}:${target.targetId}`}
+                    >
+                      {target.displayName}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            })}
           </select>
           <Button className="sm:col-span-3" disabled={createRoom.isPending}>
             {createRoom.isPending && <LoaderCircle className="animate-spin" />}
@@ -212,54 +253,69 @@ export function ChatPage() {
         </form>
       </details>
 
-      {feedback && <p className="text-sm text-destructive">{feedback}</p>}
-      <div className="grid gap-4 md:grid-cols-[15rem_1fr]">
-        <div className="space-y-2">
-          {rooms.isPending && <LoaderCircle className="animate-spin" />}
+      <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-1 md:overflow-visible">
+          {rooms.isPending && <LoadingState />}
           {rooms.data?.rooms.map((room) => (
             <button
               key={room.id}
               type="button"
-              className={`w-full rounded-md border p-3 text-left ${selectedRoomId === room.id ? "border-foreground" : ""}`}
+              className={`shrink-0 rounded-lg px-3 py-2.5 text-left text-sm transition-colors md:w-full ${selectedRoomId === room.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
               onClick={() => setRoomId(room.id)}
             >
-              <span className="font-medium">{room.name}</span>
+              {room.name}
             </button>
           ))}
           {rooms.data?.rooms.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              ルームはありません。
-            </p>
+            <EmptyState>ルームはありません</EmptyState>
           )}
         </div>
 
-        <div className="space-y-3 rounded-lg border p-4">
-          {messages.isPending && <LoaderCircle className="animate-spin" />}
-          <ul className="max-h-[50svh] space-y-3 overflow-y-auto">
+        <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-xl border bg-card shadow-xs md:h-[65svh]">
+          <div className="border-b px-4 py-3">
+            <h2 className="font-semibold">
+              {selectedRoom?.name ?? "ルームを選択"}
+            </h2>
+          </div>
+          {messages.isPending && <LoadingState />}
+          <ul className="min-h-0 flex-1 divide-y overflow-y-auto px-4">
             {messages.data?.messages.map((message) => (
-              <li key={message.id} className="border-b pb-2">
-                <p className="text-sm font-medium">
+              <li key={message.id} className="py-3">
+                <p className="text-xs font-medium text-muted-foreground">
                   {message.memberDisplayName}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  <span className="ml-2 font-normal">
                     {time(message.createdAt)}
                   </span>
                 </p>
-                <p className="mt-1 text-sm whitespace-pre-wrap">
+                <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">
                   {message.content}
                 </p>
               </li>
             ))}
           </ul>
           {selectedRoomId ? (
-            <form className="flex gap-2" onSubmit={handleSend}>
+            <form
+              className="flex gap-2 border-t bg-background p-3"
+              onSubmit={handleSend}
+            >
               <input
-                className="h-10 min-w-0 flex-1 rounded-md border bg-background px-3"
+                className={`${fieldClassName} min-w-0 flex-1`}
                 placeholder="メッセージ"
                 maxLength={2000}
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
               />
-              <Button disabled={send.isPending || !content.trim()}>送信</Button>
+              <Button
+                size="icon-lg"
+                disabled={send.isPending || !content.trim()}
+                aria-label="送信"
+              >
+                {send.isPending ? (
+                  <LoaderCircle className="animate-spin" />
+                ) : (
+                  <Send />
+                )}
+              </Button>
             </form>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -268,6 +324,12 @@ export function ChatPage() {
           )}
         </div>
       </div>
+      {feedback && (
+        <FeedbackNotice
+          message={feedback}
+          onDismiss={() => setFeedback(null)}
+        />
+      )}
     </section>
   )
 }

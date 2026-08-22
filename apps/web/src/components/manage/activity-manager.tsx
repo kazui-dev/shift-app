@@ -11,6 +11,13 @@ import { createActivity, getActivities, getActivity } from "@/api/activities"
 import { cancelAssignment, createAssignment } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { getRoster } from "@/api/years"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName, textareaClassName } from "@/components/form-styles"
+import {
+  EmptyState,
+  LoadingState,
+  SectionHeader,
+} from "@/components/page-layout"
 
 function iso(local: string): string {
   return new Date(local).toISOString()
@@ -154,41 +161,43 @@ export function ActivityManager({ year }: { year: number }) {
   }
 
   return (
-    <div className="space-y-5">
-      <details className="rounded-lg border p-4">
-        <summary className="cursor-pointer font-medium">活動を作成</summary>
+    <section className="space-y-5">
+      <SectionHeader title="活動と割当" />
+      <details className="rounded-xl border bg-card p-4 shadow-xs">
+        <summary className="cursor-pointer font-medium">新しい活動</summary>
         <form
           className="mt-4 grid gap-3 sm:grid-cols-2"
           onSubmit={activityForm.handleSubmit(addActivity)}
         >
           <input
-            className="h-10 rounded-md border bg-background px-3"
+            className={fieldClassName}
             placeholder="活動名"
             required
             {...activityForm.register("name")}
           />
           <input
-            className="h-10 rounded-md border bg-background px-3"
+            className={fieldClassName}
             placeholder="場所"
             required
             {...activityForm.register("place")}
           />
           <input
-            className="h-10 rounded-md border bg-background px-3"
+            className={fieldClassName}
             placeholder="種別"
             required
             {...activityForm.register("activityType")}
           />
           <input
             type="color"
-            className="h-10 w-full rounded-md border bg-background px-1"
+            aria-label="活動の色"
+            className={`${fieldClassName} p-1`}
             {...activityForm.register("color")}
           />
           <label className="text-xs">
             開始
             <input
               type="datetime-local"
-              className="mt-1 h-10 w-full rounded-md border bg-background px-2 text-sm"
+              className={`${fieldClassName} mt-1`}
               required
               {...activityForm.register("startsAt")}
             />
@@ -197,13 +206,13 @@ export function ActivityManager({ year }: { year: number }) {
             終了
             <input
               type="datetime-local"
-              className="mt-1 h-10 w-full rounded-md border bg-background px-2 text-sm"
+              className={`${fieldClassName} mt-1`}
               required
               {...activityForm.register("endsAt")}
             />
           </label>
           <textarea
-            className="min-h-20 rounded-md border bg-background p-3 sm:col-span-2"
+            className={`${textareaClassName} sm:col-span-2`}
             placeholder="備考（任意）"
             {...activityForm.register("notes")}
           />
@@ -221,87 +230,96 @@ export function ActivityManager({ year }: { year: number }) {
         </form>
       </details>
 
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="grid overflow-hidden rounded-xl border md:grid-cols-2">
         <div className="space-y-3">
-          <h2 className="font-medium">活動</h2>
-          {activities.isPending && <LoaderCircle className="animate-spin" />}
-          {activities.data?.activities.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`w-full rounded-lg border p-3 text-left ${selectedActivity === item.id ? "border-foreground" : ""}`}
-              onClick={() => setSelectedActivity(item.id)}
-            >
-              <p className="font-medium">{item.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {dateTime(item.startsAt)}–{dateTime(item.endsAt)} · {item.place}{" "}
-                · {item.assignmentCount}人
-              </p>
-            </button>
-          ))}
+          <h3 className="border-b px-4 py-3 font-medium">活動</h3>
+          {activities.isPending && <LoadingState />}
+          <div className="space-y-1 px-2 pb-3">
+            {activities.data?.activities.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${selectedActivity === item.id ? "bg-muted" : "hover:bg-muted/60"}`}
+                onClick={() => setSelectedActivity(item.id)}
+              >
+                <p className="font-medium">{item.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {dateTime(item.startsAt)}–{dateTime(item.endsAt)} ·{" "}
+                  {item.place} · {item.assignmentCount}人
+                </p>
+              </button>
+            ))}
+            {activities.data?.activities.length === 0 && (
+              <EmptyState>活動はありません</EmptyState>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="font-medium">割当</h2>
-          {selectedActivity === null && (
-            <p className="text-sm text-muted-foreground">
-              活動を選択してください。
-            </p>
-          )}
-          {activity.isPending && <LoaderCircle className="animate-spin" />}
-          {activity.data && (
-            <>
-              <form className="flex gap-2" onSubmit={addAssignment}>
-                <select
-                  className="h-10 min-w-0 flex-1 rounded-md border bg-background px-2"
-                  required
-                  value={memberId}
-                  onChange={(event) => setMemberId(event.target.value)}
-                >
-                  <option value="">メンバーを選択</option>
-                  {members.data?.members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.displayName}（{member.studentId}）
-                    </option>
-                  ))}
-                </select>
-                <Button disabled={pending !== null}>
-                  {pending === "assignment" && (
-                    <LoaderCircle className="animate-spin" />
-                  )}
-                  割当
-                </Button>
-              </form>
-              <ul className="space-y-2">
-                {activity.data.assignments.map((assignment) => (
-                  <li
-                    key={assignment.id}
-                    className="flex items-center justify-between gap-2 rounded-md border p-3"
+        <div className="space-y-3 border-t md:border-t-0 md:border-l">
+          <h3 className="border-b px-4 py-3 font-medium">割当</h3>
+          <div className="space-y-3 px-4 pb-4">
+            {selectedActivity === null && (
+              <EmptyState>活動を選択してください</EmptyState>
+            )}
+            {selectedActivity !== null && activity.isPending && (
+              <LoadingState />
+            )}
+            {activity.data && (
+              <>
+                <form className="flex gap-2" onSubmit={addAssignment}>
+                  <select
+                    className={`${fieldClassName} min-w-0 flex-1`}
+                    required
+                    value={memberId}
+                    onChange={(event) => setMemberId(event.target.value)}
                   >
-                    <div>
-                      <p>{assignment.memberDisplayName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {dateTime(assignment.startsAt)}–
-                        {dateTime(assignment.endsAt)}
-                      </p>
-                    </div>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      disabled={pending !== null}
-                      onClick={() => void removeAssignment(assignment.id)}
+                    <option value="">メンバーを選択</option>
+                    {members.data?.members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.displayName}（{member.studentId}）
+                      </option>
+                    ))}
+                  </select>
+                  <Button disabled={pending !== null}>
+                    {pending === "assignment" && (
+                      <LoaderCircle className="animate-spin" />
+                    )}
+                    割当
+                  </Button>
+                </form>
+                <ul className="space-y-2">
+                  {activity.data.assignments.map((assignment) => (
+                    <li
+                      key={assignment.id}
+                      className="flex items-center justify-between gap-2 border-b py-3 last:border-0"
                     >
-                      <Trash2 />
-                      <span className="sr-only">取消</span>
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+                      <div>
+                        <p>{assignment.memberDisplayName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {dateTime(assignment.startsAt)}–
+                          {dateTime(assignment.endsAt)}
+                        </p>
+                      </div>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={pending !== null}
+                        onClick={() => void removeAssignment(assignment.id)}
+                      >
+                        <Trash2 />
+                        <span className="sr-only">取消</span>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
         </div>
       </div>
-      {message && <p className="text-sm">{message}</p>}
-    </div>
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
+    </section>
   )
 }

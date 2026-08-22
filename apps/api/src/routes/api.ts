@@ -8,7 +8,6 @@ import {
   requireSameOriginForMutation,
 } from "../lib/http"
 import { activitiesApp } from "./activities"
-import { announcementsApp } from "./announcements"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat"
 import { chatTargetsApp } from "./chat-targets"
@@ -44,7 +43,6 @@ apiApp.route("/push", pushApp)
 apiApp.route("/years", yearsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
-apiApp.route("/announcements", announcementsApp)
 apiApp.route("/assignments", assignmentsApp)
 apiApp.route("/chat", chatTargetsApp)
 apiApp.route("/chat", chatApp)

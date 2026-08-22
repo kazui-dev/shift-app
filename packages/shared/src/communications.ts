@@ -2,42 +2,28 @@ import * as v from "valibot"
 
 import { instantSchema, operatingYearSchema } from "./shifts"
 
-export const createAnnouncementInputSchema = v.object({
-  title: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
-  body: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(5000)),
-  priority: v.optional(v.picklist(["normal", "important"]), "normal"),
-  expiresAt: v.optional(v.nullable(instantSchema), null),
-})
-
-export const announcementResponseSchema = v.object({
-  id: v.pipe(v.string(), v.uuid()),
-  year: operatingYearSchema,
-  title: v.string(),
-  body: v.string(),
-  priority: v.picklist(["normal", "important"]),
-  publishedAt: instantSchema,
-  expiresAt: v.nullable(instantSchema),
-  authorDisplayName: v.string(),
-})
-
-export const announcementEnvelopeSchema = v.object({
-  announcement: announcementResponseSchema,
-})
-
-export const announcementsResponseSchema = v.object({
-  announcements: v.array(announcementResponseSchema),
-})
-
 export const chatTargetSchema = v.object({
   targetType: v.picklist(["member", "role", "activity"]),
   targetId: v.pipe(v.string(), v.uuid()),
 })
 
-export const chatTargetOptionSchema = v.strictObject({
-  targetType: v.literal("member"),
-  targetId: v.pipe(v.string(), v.uuid()),
-  displayName: v.string(),
-})
+export const chatTargetOptionSchema = v.variant("targetType", [
+  v.strictObject({
+    targetType: v.literal("member"),
+    targetId: v.pipe(v.string(), v.uuid()),
+    displayName: v.string(),
+  }),
+  v.strictObject({
+    targetType: v.literal("role"),
+    targetId: v.pipe(v.string(), v.uuid()),
+    displayName: v.string(),
+  }),
+  v.strictObject({
+    targetType: v.literal("activity"),
+    targetId: v.pipe(v.string(), v.uuid()),
+    displayName: v.string(),
+  }),
+])
 
 export const chatTargetsResponseSchema = v.object({
   targets: v.array(chatTargetOptionSchema),

@@ -5,6 +5,9 @@ import { LoaderCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 
 import { PushControl } from "@/components/push-control"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName, textareaClassName } from "@/components/form-styles"
+import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
 import { getTimeline } from "@/api/timeline"
@@ -75,24 +78,21 @@ export function TimelinePage() {
   }
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">自分の予定</p>
-          <h1 className="text-xl font-medium">タイムライン</h1>
-        </div>
-        <div className="space-y-2 text-right">
+    <section className="space-y-6">
+      <PageHeader title="タイムライン">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <input
             type="date"
-            className="h-10 rounded-md border bg-background px-3"
+            aria-label="表示する日"
+            className={`${fieldClassName} min-w-0 flex-1 sm:w-auto`}
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
           <PushControl />
         </div>
-      </div>
+      </PageHeader>
 
-      {timeline.isPending && <LoaderCircle className="animate-spin" />}
+      {timeline.isPending && <LoadingState />}
       {timeline.isError && (
         <div className="space-y-2 text-destructive">
           <p>{errorMessage(timeline.error)}</p>
@@ -106,31 +106,43 @@ export function TimelinePage() {
         </div>
       )}
       {timeline.data?.assignments.length === 0 && (
-        <p className="rounded-lg border p-4 text-muted-foreground">
-          この日のシフトはありません。
-        </p>
+        <EmptyState>この日のシフトはありません</EmptyState>
       )}
-      <ol className="space-y-3">
+      <ol className="space-y-4">
         {timeline.data?.assignments.map((assignment) => (
           <li
             key={assignment.id}
-            className="border-l-4 bg-card p-4"
-            style={{ borderColor: assignment.color }}
+            className="relative overflow-hidden rounded-xl border bg-card p-4 pl-5 shadow-xs"
           >
-            <p className="font-mono text-sm">
-              {time(assignment.startsAt)}–{time(assignment.endsAt)}
-            </p>
-            <h2 className="font-medium">{assignment.activityName}</h2>
-            <p className="text-sm text-muted-foreground">
-              {assignment.place} · {assignment.activityType}
-            </p>
+            <span
+              className="absolute inset-y-0 left-0 w-1"
+              style={{ backgroundColor: assignment.color }}
+            />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-medium tabular-nums">
+                  {time(assignment.startsAt)}–{time(assignment.endsAt)}
+                </p>
+                <h2 className="mt-1 font-semibold">
+                  {assignment.activityName}
+                </h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {assignment.place} · {assignment.activityType}
+                </p>
+              </div>
+              {assignment.checkedInAt && (
+                <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                  出勤済み
+                </span>
+              )}
+            </div>
             {assignment.notes && (
-              <p className="mt-2 text-sm">{assignment.notes}</p>
+              <p className="mt-3 border-t pt-3 text-sm">{assignment.notes}</p>
             )}
-            <div className="mt-3">
+            <div className="mt-4 flex flex-wrap gap-2">
               {assignment.checkedInAt ? (
-                <p className="text-xs text-muted-foreground">
-                  {time(assignment.checkedInAt)} 出勤済み
+                <p className="self-center text-xs text-muted-foreground">
+                  {time(assignment.checkedInAt)}に記録
                 </p>
               ) : (
                 <Button
@@ -151,7 +163,6 @@ export function TimelinePage() {
                 </Button>
               )}
               <Button
-                className="ml-2"
                 size="sm"
                 variant="outline"
                 onClick={() =>
@@ -164,9 +175,10 @@ export function TimelinePage() {
               </Button>
             </div>
             {reportTarget === assignment.id && (
-              <div className="mt-3 space-y-2 rounded-md border p-3">
+              <div className="mt-4 space-y-3 border-t pt-4">
                 <select
-                  className="h-9 rounded-md border bg-background px-2"
+                  aria-label="連絡種別"
+                  className={fieldClassName}
                   value={reportKind}
                   onChange={(event) => {
                     const kind = event.target.value
@@ -179,7 +191,7 @@ export function TimelinePage() {
                   <option value="absence">欠勤</option>
                 </select>
                 <textarea
-                  className="min-h-20 w-full rounded-md border bg-background p-2"
+                  className={textareaClassName}
                   maxLength={1000}
                   placeholder="到着見込み、理由など"
                   required
@@ -198,7 +210,9 @@ export function TimelinePage() {
           </li>
         ))}
       </ol>
-      {message && <p className="text-sm">{message}</p>}
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
     </section>
   )
 }

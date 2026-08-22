@@ -9,16 +9,24 @@ export function AvailabilitySummary({ year }: { year: number }) {
   })
 
   return (
-    <details className="rounded-lg border p-4">
+    <details className="rounded-xl border bg-card p-4 shadow-xs">
       <summary className="cursor-pointer font-medium">
-        希望提出状況（{submissions.data?.submissions.length ?? 0}件）
+        希望提出状況
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {submissions.data?.submissions.length ?? 0}件
+        </span>
       </summary>
-      <ul className="mt-3 space-y-2 text-sm">
+      <ul className="mt-4 divide-y border-t text-sm">
         {submissions.data?.submissions.map((submission) => (
-          <li key={submission.id} className="border-b pb-2">
-            {submission.member.displayName} ·{" "}
-            {submission.status === "submitted" ? "提出済み" : "下書き"} ·{" "}
-            {submission.windows.length}枠
+          <li
+            key={submission.id}
+            className="flex items-center justify-between gap-3 py-3"
+          >
+            <span>{submission.member.displayName}</span>
+            <span className="text-xs text-muted-foreground">
+              {submission.status === "submitted" ? "提出済み" : "下書き"} ·{" "}
+              {submission.windows.length}枠
+            </span>
           </li>
         ))}
       </ul>

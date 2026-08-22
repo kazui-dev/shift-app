@@ -8,6 +8,7 @@ import {
   resolveAssignmentReport,
 } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
+import { FeedbackNotice } from "@/components/feedback-notice"
 
 function dateTime(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -44,16 +45,18 @@ export function ReportManager({ year }: { year: number }) {
   }
 
   return (
-    <details className="rounded-lg border p-4" open>
+    <details className="rounded-xl border bg-card p-4 shadow-xs" open>
       <summary className="cursor-pointer font-medium">
-        遅刻・欠勤連絡（
-        {reports.data?.reports.filter((report) => report.status === "open")
-          .length ?? 0}
-        件未対応）
+        遅刻・欠勤連絡
+        <span className="ml-2 text-xs font-normal text-muted-foreground">
+          {reports.data?.reports.filter((report) => report.status === "open")
+            .length ?? 0}
+          件未対応
+        </span>
       </summary>
-      <ul className="mt-3 space-y-2 text-sm">
+      <ul className="mt-4 divide-y border-t text-sm">
         {reports.data?.reports.map((report) => (
-          <li key={report.id} className="rounded-md border p-3">
+          <li key={report.id} className="py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-medium">
@@ -81,7 +84,9 @@ export function ReportManager({ year }: { year: number }) {
           </li>
         ))}
       </ul>
-      {message && <p className="mt-3 text-sm">{message}</p>}
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
     </details>
   )
 }

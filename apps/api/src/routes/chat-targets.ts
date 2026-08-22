@@ -5,6 +5,7 @@ import type { ChatTargetOption } from "@workspace/shared/communications"
 import {
   apiError,
   type ApiEnv,
+  canManageShifts,
   hasActiveYearMembership,
   parseYear,
 } from "../lib/http"
@@ -27,7 +28,7 @@ chatTargetsApp.get("/targets", async (c) => {
     )
   }
 
-  const targets = await c.env.shift_app
+  const members = await c.env.shift_app
     .prepare(
       `SELECT member.id AS targetId, member.display_name AS displayName
        FROM year_memberships membership
@@ -38,13 +39,46 @@ chatTargetsApp.get("/targets", async (c) => {
     .bind(year)
     .all<{ targetId: string; displayName: string }>()
 
-  return c.json({
-    targets: targets.results.map(
-      (target) =>
-        ({
-          targetType: "member",
-          ...target,
-        }) satisfies ChatTargetOption
-    ),
-  })
+  const targets: ChatTargetOption[] = members.results.map(
+    (target) =>
+      ({
+        targetType: "member",
+        ...target,
+      }) satisfies ChatTargetOption
+  )
+
+  if (await canManageShifts(c.env, member, year)) {
+    const [roles, activities] = await Promise.all([
+      c.env.shift_app
+        .prepare(
+          `SELECT id AS targetId, name AS displayName
+           FROM year_roles
+           WHERE year = ?
+           ORDER BY lower(name), id`
+        )
+        .bind(year)
+        .all<{ targetId: string; displayName: string }>(),
+      c.env.shift_app
+        .prepare(
+          `SELECT id AS targetId, name AS displayName
+           FROM activities
+           WHERE year = ? AND status = 'active'
+           ORDER BY starts_at, lower(name), id`
+        )
+        .bind(year)
+        .all<{ targetId: string; displayName: string }>(),
+    ])
+    targets.push(
+      ...roles.results.map(
+        (target) =>
+          ({ targetType: "role", ...target }) satisfies ChatTargetOption
+      ),
+      ...activities.results.map(
+        (target) =>
+          ({ targetType: "activity", ...target }) satisfies ChatTargetOption
+      )
+    )
+  }
+
+  return c.json({ targets })
 })

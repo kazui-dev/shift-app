@@ -7,6 +7,8 @@ import { Button } from "@workspace/ui/components/button"
 
 import { decideRecoveryRequest } from "@/api/admin"
 import { errorMessage } from "@/api/client"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
 
 export function RecoveryRequestCard({
   request,
@@ -51,7 +53,7 @@ export function RecoveryRequestCard({
   }
 
   return (
-    <li className="space-y-3 rounded-lg border bg-background p-4">
+    <li className="space-y-3 py-4">
       <div>
         <p>
           <span className="font-medium">{request.requesterDisplayName}</span>
@@ -62,7 +64,7 @@ export function RecoveryRequestCard({
         </p>
       </div>
       <input
-        className="h-10 w-full rounded-md border bg-background px-3"
+        className={fieldClassName}
         maxLength={240}
         placeholder="本人確認の方法、または拒否理由"
         value={reason}
@@ -91,11 +93,16 @@ export function RecoveryRequestCard({
       </div>
       {request.targetsCurrentAdmin && (
         <p className="text-xs text-destructive">
-          自分のidentity
-          recoveryは別の管理者またはCloudflare運用者による確認が必要です。
+          自分のアカウント連携は、別の管理者による確認が必要です。
         </p>
       )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && (
+        <FeedbackNotice
+          message={error}
+          tone="error"
+          onDismiss={() => setError(null)}
+        />
+      )}
     </li>
   )
 }

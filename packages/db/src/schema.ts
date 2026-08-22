@@ -372,42 +372,6 @@ export const assignmentReports = sqliteTable(
   ]
 )
 
-export const announcements = sqliteTable(
-  "announcements",
-  {
-    id: text("id").primaryKey(),
-    year: integer("year")
-      .notNull()
-      .references(() => operatingYears.year, { onDelete: "cascade" }),
-    title: text("title").notNull(),
-    body: text("body").notNull(),
-    priority: text("priority", { enum: ["normal", "important"] })
-      .notNull()
-      .default("normal"),
-    status: text("status", { enum: ["published", "archived"] })
-      .notNull()
-      .default("published"),
-    publishedAt: integer("published_at", { mode: "timestamp_ms" }).notNull(),
-    expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => members.id, { onDelete: "restrict" }),
-    archivedBy: text("archived_by").references(() => members.id, {
-      onDelete: "set null",
-    }),
-    archivedAt: integer("archived_at", { mode: "timestamp_ms" }),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-  },
-  (table) => [
-    index("announcements_year_status_publishedAt_idx").on(
-      table.year,
-      table.status,
-      table.publishedAt
-    ),
-  ]
-)
-
 export const chatRooms = sqliteTable(
   "chat_rooms",
   {

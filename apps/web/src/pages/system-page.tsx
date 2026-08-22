@@ -1,13 +1,11 @@
 import { AdminPanel } from "@/components/admin-panel"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
+import { PageHeader } from "@/components/page-layout"
 
 export function SystemPage() {
   return (
-    <section className="space-y-8">
-      <div>
-        <p className="text-sm text-muted-foreground">管理者専用</p>
-        <h1 className="text-xl font-medium">システム設定</h1>
-      </div>
+    <section className="space-y-10">
+      <PageHeader title="システム設定" />
 
       <YearSettingsPanel />
       <AdminPanel />

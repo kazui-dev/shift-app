@@ -7,6 +7,9 @@ import { Button } from "@workspace/ui/components/button"
 import { errorMessage } from "@/api/client"
 import { getAvailability, replaceAvailability } from "@/api/availability"
 import { getYears } from "@/api/years"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
+import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
 
 type WindowInput = { id: string; startsAt: string; endsAt: string }
 
@@ -29,34 +32,32 @@ export function AvailabilityPage() {
     queryFn: year === null ? skipToken : () => getAvailability(year),
   })
   return (
-    <section className="space-y-5">
-      <div>
-        <p className="text-sm text-muted-foreground">勤務できる時間</p>
-        <h1 className="text-xl font-medium">希望提出</h1>
-      </div>
-      {activeYears.length > 1 && (
-        <select
-          className="h-10 rounded-md border bg-background px-3"
-          value={year ?? ""}
-          onChange={(event) => setSelectedYear(Number(event.target.value))}
-        >
-          {activeYears.map((item) => (
-            <option key={item.year} value={item.year}>
-              {item.year}
-            </option>
-          ))}
-        </select>
-      )}
+    <section className="space-y-6">
+      <PageHeader title="希望提出">
+        {activeYears.length > 1 && (
+          <select
+            aria-label="年度"
+            className={`${fieldClassName} w-auto`}
+            value={year ?? ""}
+            onChange={(event) => setSelectedYear(Number(event.target.value))}
+          >
+            {activeYears.map((item) => (
+              <option key={item.year} value={item.year}>
+                {item.year}年度
+              </option>
+            ))}
+          </select>
+        )}
+      </PageHeader>
       {years.isPending || availability.isPending ? (
-        <LoaderCircle className="animate-spin" />
+        <LoadingState />
       ) : activeYears.length === 0 ? (
-        <p className="rounded-lg border p-4 text-muted-foreground">
-          希望を受付中の年度はありません。
-        </p>
+        <EmptyState>現在、希望は受け付けていません</EmptyState>
       ) : availability.data && year !== null ? (
         <AvailabilityForm
           key={`${year}-${availability.data.availability.updatedAt ?? "new"}`}
           year={year}
+          initialStatus={availability.data.availability.status}
           initialWindows={availability.data.availability.windows}
         />
       ) : null}
@@ -66,9 +67,11 @@ export function AvailabilityPage() {
 
 function AvailabilityForm({
   year,
+  initialStatus,
   initialWindows,
 }: {
   year: number
+  initialStatus: "draft" | "submitted"
   initialWindows: Array<{ id?: string; startsAt: string; endsAt: string }>
 }) {
   const queryClient = useQueryClient()
@@ -119,48 +122,64 @@ function AvailabilityForm({
   }
 
   return (
-    <form className="space-y-4" onSubmit={submit}>
+    <form className="space-y-5" onSubmit={submit}>
+      <div className="flex items-center justify-between border-b pb-3">
+        <p className="text-sm text-muted-foreground">勤務できる時間帯</p>
+        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+          {initialStatus === "submitted" ? "提出済み" : "下書き"}
+        </span>
+      </div>
       {windows.map((window, index) => (
         <div
           key={window.id}
-          className="grid gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_1fr_auto]"
+          className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:grid-cols-[1fr_1fr_auto] sm:items-end"
         >
-          <input
-            aria-label={`希望${index + 1}の開始`}
-            type="datetime-local"
-            className="h-10 rounded-md border bg-background px-2"
-            required
-            value={window.startsAt}
-            onChange={(event) =>
-              setWindows((current) =>
-                current.map((item) =>
-                  item.id === window.id
-                    ? { ...item, startsAt: event.target.value }
-                    : item
+          <p className="text-sm font-medium sm:col-span-3">
+            時間帯 {index + 1}
+          </p>
+          <label className="space-y-1.5">
+            <span className="text-xs text-muted-foreground">開始</span>
+            <input
+              aria-label={`希望${index + 1}の開始`}
+              type="datetime-local"
+              className={fieldClassName}
+              required
+              value={window.startsAt}
+              onChange={(event) =>
+                setWindows((current) =>
+                  current.map((item) =>
+                    item.id === window.id
+                      ? { ...item, startsAt: event.target.value }
+                      : item
+                  )
                 )
-              )
-            }
-          />
-          <input
-            aria-label={`希望${index + 1}の終了`}
-            type="datetime-local"
-            className="h-10 rounded-md border bg-background px-2"
-            required
-            value={window.endsAt}
-            onChange={(event) =>
-              setWindows((current) =>
-                current.map((item) =>
-                  item.id === window.id
-                    ? { ...item, endsAt: event.target.value }
-                    : item
+              }
+            />
+          </label>
+          <label className="space-y-1.5">
+            <span className="text-xs text-muted-foreground">終了</span>
+            <input
+              aria-label={`希望${index + 1}の終了`}
+              type="datetime-local"
+              className={fieldClassName}
+              required
+              value={window.endsAt}
+              onChange={(event) =>
+                setWindows((current) =>
+                  current.map((item) =>
+                    item.id === window.id
+                      ? { ...item, endsAt: event.target.value }
+                      : item
+                  )
                 )
-              )
-            }
-          />
+              }
+            />
+          </label>
           <Button
             type="button"
             size="icon"
             variant="ghost"
+            className="justify-self-end text-muted-foreground hover:text-destructive"
             onClick={() =>
               setWindows((current) =>
                 current.filter((item) => item.id !== window.id)
@@ -172,13 +191,21 @@ function AvailabilityForm({
           </Button>
         </div>
       ))}
-      <Button type="button" variant="outline" onClick={addWindow}>
+      {windows.length === 0 && (
+        <EmptyState>時間帯がまだ追加されていません</EmptyState>
+      )}
+      <Button
+        className="w-full sm:w-auto"
+        type="button"
+        variant="outline"
+        onClick={addWindow}
+      >
         <Plus />
         時間帯を追加
       </Button>
-      {message && <p className="text-sm">{message}</p>}
-      <div className="flex gap-2">
+      <div className="flex gap-2 border-t pt-5 sm:justify-end">
         <Button
+          className="flex-1 sm:flex-none"
           type="button"
           variant="outline"
           disabled={pending !== null}
@@ -187,11 +214,18 @@ function AvailabilityForm({
           {pending === "draft" && <LoaderCircle className="animate-spin" />}
           下書き保存
         </Button>
-        <Button type="submit" disabled={pending !== null}>
+        <Button
+          className="flex-1 sm:flex-none"
+          type="submit"
+          disabled={pending !== null}
+        >
           {pending === "submitted" && <LoaderCircle className="animate-spin" />}
           提出
         </Button>
       </div>
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
     </form>
   )
 }

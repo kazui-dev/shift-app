@@ -9,6 +9,8 @@ import {
   deactivateYearMembership,
   getYearMemberships,
 } from "@/api/years"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
 
 export function YearMembershipManager({ year }: { year: number }) {
   const queryClient = useQueryClient()
@@ -65,16 +67,19 @@ export function YearMembershipManager({ year }: { year: number }) {
   }
 
   return (
-    <div className="space-y-3 rounded-md border p-3">
+    <section className="space-y-4 border-t pt-5">
       <div>
         <h3 className="font-medium">年度参加者</h3>
         <p className="text-sm text-muted-foreground">
-          新年度には自動追加されません。参加者を明示的に追加してください。
+          この年度を利用できるメンバーを設定します。
         </p>
       </div>
-      <form className="flex gap-2" onSubmit={addParticipant}>
+      <form
+        className="flex flex-col gap-2 sm:flex-row"
+        onSubmit={addParticipant}
+      >
         <select
-          className="h-10 min-w-0 flex-1 rounded-md border bg-background px-2"
+          className={`${fieldClassName} min-w-0 flex-1`}
           required
           value={participantId}
           onChange={(event) => setParticipantId(event.target.value)}
@@ -96,7 +101,7 @@ export function YearMembershipManager({ year }: { year: number }) {
           .map((membership) => (
             <li
               key={membership.member.id}
-              className="flex items-center justify-between gap-2"
+              className="flex items-center justify-between gap-2 border-b py-2 last:border-0"
             >
               <span>
                 {membership.member.displayName}（{membership.member.studentId}）
@@ -113,7 +118,9 @@ export function YearMembershipManager({ year }: { year: number }) {
             </li>
           ))}
       </ul>
-      {message && <p className="text-sm">{message}</p>}
-    </div>
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
+    </section>
   )
 }

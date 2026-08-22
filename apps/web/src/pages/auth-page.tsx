@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentProps, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { LoaderCircle, RotateCcw, X } from "lucide-react"
+import { LoaderCircle, RotateCcw } from "lucide-react"
 import * as v from "valibot"
 
 import { onboardingInputSchema } from "@workspace/shared/auth"
@@ -10,6 +10,8 @@ import { createAccount } from "@/api/account"
 import { ApiError } from "@/api/client"
 import { authClient } from "@/lib/auth-client"
 import { accountStateQueryOptions } from "@/lib/account-state"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
@@ -29,31 +31,6 @@ function DiscordIcon(props: ComponentProps<"svg">) {
         d="M40.575 0C39.9562 1.09866 39.4006 2.2352 38.8954 3.397C34.0967 2.67719 29.2096 2.67719 24.3982 3.397C23.9057 2.2352 23.3374 1.09866 22.7186 0C18.2104 0.770324 13.8157 2.12155 9.64839 4.02841C1.38951 16.2652 -0.845688 28.1863 0.265599 39.9432C5.10222 43.517 10.5197 46.2447 16.2909 47.9874C17.5916 46.2447 18.7407 44.3883 19.7257 42.4562C17.8568 41.7616 16.0509 40.8903 14.3208 39.88C14.7755 39.5517 15.2175 39.2107 15.6468 38.8824C25.7873 43.6559 37.5316 43.6559 47.6847 38.8824C48.1141 39.236 48.5561 39.577 49.0107 39.88C47.2806 40.9029 45.4748 41.7616 43.5931 42.4688C44.5781 44.4009 45.7273 46.2573 47.028 48C52.7991 46.2573 58.2167 43.5422 63.0533 39.9684C64.3666 26.3299 60.8055 14.5099 53.6452 4.04104C49.4905 2.13418 45.0959 0.782952 40.5876 0.0252565L40.575 0ZM21.1401 32.7072C18.0209 32.7072 15.4321 29.8785 15.4321 26.3804C15.4321 22.8824 17.9199 20.041 21.1275 20.041C24.3351 20.041 26.886 22.895 26.8354 26.3804C26.7849 29.8658 24.3224 32.7072 21.1401 32.7072ZM42.1788 32.7072C39.047 32.7072 36.4834 29.8785 36.4834 26.3804C36.4834 22.8824 38.9712 20.041 42.1788 20.041C45.3864 20.041 47.9246 22.895 47.8741 26.3804C47.8236 29.8658 45.3611 32.7072 42.1788 32.7072Z"
       />
     </svg>
-  )
-}
-
-function FloatingAlert({
-  message,
-  onDismiss,
-}: {
-  message: string
-  onDismiss: () => void
-}) {
-  return (
-    <div
-      className="fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-sm items-start gap-3 rounded-lg border border-destructive/30 bg-popover px-4 py-3 text-popover-foreground shadow-lg"
-      role="alert"
-    >
-      <p className="min-w-0 flex-1 text-sm leading-relaxed">{message}</p>
-      <button
-        className="mt-0.5 shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
-        type="button"
-        aria-label="通知を閉じる"
-        onClick={onDismiss}
-      >
-        <X className="size-4" />
-      </button>
-    </div>
   )
 }
 
@@ -183,7 +160,7 @@ function OnboardingView() {
         <label className="flex flex-col gap-1.5">
           <span className="font-medium">学籍番号</span>
           <input
-            className="h-10 rounded-md border bg-background px-3 font-mono"
+            className={`${fieldClassName} font-mono`}
             placeholder="26AJ000"
             required
             value={studentId}
@@ -193,7 +170,7 @@ function OnboardingView() {
         <label className="flex flex-col gap-1.5">
           <span className="font-medium">氏名</span>
           <input
-            className="h-10 rounded-md border bg-background px-3"
+            className={fieldClassName}
             maxLength={80}
             placeholder="電大太郎"
             required
@@ -207,7 +184,12 @@ function OnboardingView() {
         </Button>
       </form>
       {error && (
-        <FloatingAlert message={error} onDismiss={() => setError(null)} />
+        <FeedbackNotice
+          message={error}
+          tone="error"
+          aboveNavigation={false}
+          onDismiss={() => setError(null)}
+        />
       )}
     </AuthShell>
   )

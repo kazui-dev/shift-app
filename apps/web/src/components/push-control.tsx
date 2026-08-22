@@ -10,6 +10,7 @@ import {
   removePushSubscription,
   savePushSubscription,
 } from "@/api/push"
+import { FeedbackNotice } from "@/components/feedback-notice"
 
 export function PushControl() {
   const supported =
@@ -68,7 +69,7 @@ export function PushControl() {
   if (!supported) return null
 
   return (
-    <div className="text-right">
+    <>
       <Button size="sm" variant="outline" disabled={pending} onClick={toggle}>
         {pending ? (
           <LoaderCircle className="animate-spin" />
@@ -77,11 +78,11 @@ export function PushControl() {
         ) : (
           <Bell />
         )}
-        {enabled ? "通知を解除" : "通知を有効化"}
+        {enabled ? "通知中" : "通知"}
       </Button>
       {message && (
-        <p className="mt-1 text-xs text-muted-foreground">{message}</p>
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}
-    </div>
+    </>
   )
 }

@@ -1,13 +1,20 @@
 import { useMemo, useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { LoaderCircle } from "lucide-react"
-
 import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/api/client"
 import { createYear, getYears, updateYear } from "@/api/years"
 import { YearMembershipManager } from "@/components/system/year-membership-manager"
 import { YearRoleManager } from "@/components/system/year-role-manager"
+import { FeedbackNotice } from "@/components/feedback-notice"
+import { fieldClassName } from "@/components/form-styles"
+import { LoadingState, SectionHeader } from "@/components/page-layout"
+
+const statusLabels = {
+  draft: "準備中",
+  active: "運用中",
+  archived: "終了",
+} as const
 
 export function YearSettingsPanel() {
   const queryClient = useQueryClient()
@@ -58,38 +65,40 @@ export function YearSettingsPanel() {
   }
 
   return (
-    <div className="space-y-4 rounded-xl border p-4">
-      <h2 className="font-medium">年度と権限</h2>
-      <form className="flex gap-2" onSubmit={addYear}>
+    <section className="space-y-5 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
+      <SectionHeader title="年度と権限" />
+      <form className="flex flex-col gap-2 sm:flex-row" onSubmit={addYear}>
         <input
           type="number"
           min="2000"
           max="2100"
-          className="h-10 rounded-md border bg-background px-3"
+          aria-label="作成する年度"
+          className={`${fieldClassName} sm:w-40`}
           value={yearNumber}
           onChange={(event) => setYearNumber(Number(event.target.value))}
         />
-        <Button disabled={pending}>年度を作成</Button>
+        <Button disabled={pending}>年度を追加</Button>
       </form>
 
       {years.isPending ? (
-        <LoaderCircle className="animate-spin" />
+        <LoadingState />
       ) : (
         <select
-          className="h-10 w-full rounded-md border bg-background px-3"
+          aria-label="設定する年度"
+          className={fieldClassName}
           value={year ?? ""}
           onChange={(event) => setSelectedYear(Number(event.target.value))}
         >
           {years.data?.years.map((item) => (
             <option key={item.year} value={item.year}>
-              {item.year}（{item.status}）
+              {item.year}年度（{statusLabels[item.status]}）
             </option>
           ))}
         </select>
       )}
       {currentYear && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm">状態:</span>
+          <span className="mr-1 text-sm text-muted-foreground">状態</span>
           {(["draft", "active", "archived"] as const).map((status) => (
             <Button
               key={status}
@@ -98,7 +107,7 @@ export function YearSettingsPanel() {
               disabled={pending || currentYear.status === status}
               onClick={() => void changeStatus(status)}
             >
-              {status}
+              {statusLabels[status]}
             </Button>
           ))}
         </div>
@@ -110,7 +119,9 @@ export function YearSettingsPanel() {
           <YearRoleManager key={`roles-${year}`} year={year} />
         </>
       )}
-      {message && <p className="text-sm">{message}</p>}
-    </div>
+      {message && (
+        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
+    </section>
   )
 }

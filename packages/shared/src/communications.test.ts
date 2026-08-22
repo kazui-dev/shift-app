@@ -3,35 +3,12 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   chatTargetsResponseSchema,
-  createAnnouncementInputSchema,
   createChatRoomInputSchema,
   pushSubscriptionInputSchema,
   sendChatMessageInputSchema,
 } from "./communications"
 
 describe("communication schemas", () => {
-  it("normalizes announcement input", () => {
-    expect(
-      v.parse(createAnnouncementInputSchema, {
-        title: "  集合場所の変更  ",
-        body: "正門ではなく本部へ集合してください。",
-        priority: "important",
-      })
-    ).toEqual({
-      title: "集合場所の変更",
-      body: "正門ではなく本部へ集合してください。",
-      priority: "important",
-      expiresAt: null,
-    })
-  })
-
-  it("rejects an empty announcement", () => {
-    expect(
-      v.safeParse(createAnnouncementInputSchema, { title: "", body: "" })
-        .success
-    ).toBe(false)
-  })
-
   it("accepts a member-targeted chat room", () => {
     expect(
       v.parse(createChatRoomInputSchema, {
@@ -62,6 +39,23 @@ describe("communication schemas", () => {
         targets: [{ ...target, studentId: "26AJ112" }],
       }).success
     ).toBe(false)
+  })
+
+  it("accepts role and activity chat targets", () => {
+    const targets = [
+      {
+        targetType: "role",
+        targetId: "1ef914f9-54ef-4b21-b415-df06abf43d43",
+        displayName: "本部",
+      },
+      {
+        targetType: "activity",
+        targetId: "89c8940f-a0d1-48bb-965e-2ac8718bca11",
+        displayName: "正門警備",
+      },
+    ]
+
+    expect(v.parse(chatTargetsResponseSchema, { targets })).toEqual({ targets })
   })
 
   it("requires an idempotency id for chat messages", () => {
