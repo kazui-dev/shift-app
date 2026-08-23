@@ -3,11 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Plus, X } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import { Field, FieldLabel } from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
 import { createYearRole, getYearRoles } from "@/api/years"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
 
 export function YearRoleManager({ year }: { year: number }) {
   const queryClient = useQueryClient()
@@ -20,12 +22,10 @@ export function YearRoleManager({ year }: { year: number }) {
   const [color, setColor] = useState("#7C3AED")
   const [canManage, setCanManage] = useState(false)
   const [pending, setPending] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
 
   async function addRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setPending(true)
-    setMessage(null)
     try {
       await createYearRole(year, {
         name,
@@ -39,9 +39,9 @@ export function YearRoleManager({ year }: { year: number }) {
         queryClient.invalidateQueries({ queryKey: ["year-roles", year] }),
         queryClient.invalidateQueries({ queryKey: ["years"] }),
       ])
-      setMessage("ロールを作成しました。")
+      toast.success("ロールを作成しました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(false)
     }
@@ -72,28 +72,30 @@ export function YearRoleManager({ year }: { year: number }) {
               <X />
             </Button>
           </div>
-          <input
-            className={fieldClassName}
+          <Input
+            className="h-11"
             placeholder="ロール名"
             required
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-          <input
+          <Input
             type="color"
             aria-label="ロールの色"
-            className={`${fieldClassName} p-1 sm:w-16`}
+            className="h-11 p-1 sm:w-16"
             value={color}
             onChange={(event) => setColor(event.target.value)}
           />
-          <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
-            <input
-              type="checkbox"
+          <Field orientation="horizontal" className="min-h-11 sm:col-span-2">
+            <Checkbox
+              id="can-manage-shifts"
               checked={canManage}
-              onChange={(event) => setCanManage(event.target.checked)}
+              onCheckedChange={setCanManage}
             />
-            シフト管理を許可
-          </label>
+            <FieldLabel htmlFor="can-manage-shifts">
+              シフト管理を許可
+            </FieldLabel>
+          </Field>
           <Button className="sm:col-span-2" disabled={pending}>
             作成
           </Button>
@@ -117,9 +119,6 @@ export function YearRoleManager({ year }: { year: number }) {
             </li>
           ))}
         </ul>
-      )}
-      {message && (
-        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}
     </section>
   )

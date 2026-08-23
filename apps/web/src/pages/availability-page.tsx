@@ -4,12 +4,13 @@ import { Link } from "@tanstack/react-router"
 import { ChevronLeft, LoaderCircle, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { getAvailability, replaceAvailability } from "@/api/availability"
 import { errorMessage } from "@/api/client"
 import { getYears } from "@/api/years"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { EmptyState, PageHeader } from "@/components/page-layout"
 import {
   validateAvailabilityWindows,
@@ -79,7 +80,7 @@ export function AvailabilityPage() {
         {activeYears.length > 1 && (
           <select
             aria-label="年度"
-            className={`${fieldClassName} w-auto`}
+            className={`${nativeSelectClassName} w-auto`}
             value={year ?? ""}
             onChange={(event) => setSelectedYear(Number(event.target.value))}
           >
@@ -134,10 +135,6 @@ function AvailabilityForm({
     }))
   )
   const [pending, setPending] = useState<"draft" | "submitted" | null>(null)
-  const [feedback, setFeedback] = useState<{
-    message: string
-    tone: "default" | "error"
-  } | null>(null)
   const validation = validateAvailabilityWindows(windows)
   const groups = useMemo(
     () =>
@@ -189,11 +186,10 @@ function AvailabilityForm({
 
   async function save(status: "draft" | "submitted") {
     if (validation) {
-      setFeedback({ message: validation, tone: "error" })
+      toast.error(validation)
       return
     }
     setPending(status)
-    setFeedback(null)
     try {
       await replaceAvailability(year, {
         status,
@@ -204,15 +200,13 @@ function AvailabilityForm({
         })),
       })
       await queryClient.invalidateQueries({ queryKey: ["availability", year] })
-      setFeedback({
-        message:
-          status === "submitted"
-            ? "希望を提出しました。"
-            : "下書きを保存しました。",
-        tone: "default",
-      })
+      toast.success(
+        status === "submitted"
+          ? "希望を提出しました。"
+          : "下書きを保存しました。"
+      )
     } catch (error) {
-      setFeedback({ message: errorMessage(error), tone: "error" })
+      toast.error(errorMessage(error))
     } finally {
       setPending(null)
     }
@@ -236,10 +230,10 @@ function AvailabilityForm({
                 key={window.id}
                 className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 py-3"
               >
-                <input
+                <Input
                   type="time"
                   aria-label={`${dateLabel(date)}の開始時刻`}
-                  className={fieldClassName}
+                  className="h-11"
                   required
                   value={timePart(window.startsAt)}
                   onChange={(event) =>
@@ -249,10 +243,10 @@ function AvailabilityForm({
                   }
                 />
                 <span className="text-muted-foreground">–</span>
-                <input
+                <Input
                   type="time"
                   aria-label={`${dateLabel(date)}の終了時刻`}
-                  className={fieldClassName}
+                  className="h-11"
                   required
                   value={timePart(window.endsAt)}
                   onChange={(event) =>
@@ -312,13 +306,6 @@ function AvailabilityForm({
           提出
         </Button>
       </div>
-      {feedback && (
-        <FeedbackNotice
-          message={feedback.message}
-          onDismiss={() => setFeedback(null)}
-          tone={feedback.tone}
-        />
-      )}
     </form>
   )
 }

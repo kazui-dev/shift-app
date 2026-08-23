@@ -1,4 +1,13 @@
-import { Button } from "@workspace/ui/components/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog"
 
 export function ConfirmDialog({
   title,
@@ -14,31 +23,24 @@ export function ConfirmDialog({
   onConfirm: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-end bg-black/30 md:items-center md:justify-center">
-      <button
-        type="button"
-        className="absolute inset-0"
-        aria-label="閉じる"
-        onClick={onCancel}
-      />
-      <section
-        role="alertdialog"
-        aria-modal="true"
-        className="relative z-10 w-full rounded-t-2xl bg-background p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:max-w-sm md:rounded-2xl md:border md:p-6"
-      >
-        <h2 className="font-semibold">{title}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onCancel}>
-            キャンセル
-          </Button>
-          <Button variant="destructive" onClick={onConfirm}>
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onCancel()
+      }}
+    >
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel variant="ghost">キャンセル</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={onConfirm}>
             {confirmLabel}
-          </Button>
-        </div>
-      </section>
-    </div>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

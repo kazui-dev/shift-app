@@ -7,15 +7,17 @@ import {
 } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { LoaderCircle, SquarePen, X } from "lucide-react"
+import { LoaderCircle, SquarePen } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Textarea } from "@workspace/ui/components/textarea"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName, textareaClassName } from "@/components/form-styles"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
+import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
 import { getMyAssignments } from "@/api/assignments"
@@ -563,7 +565,6 @@ export function CalendarPage() {
   const { date, setDate, preferredDayRef, scrollTopRef } =
     useCalendarViewState()
   const [checkInPending, setCheckInPending] = useState<string | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
   const [reportTarget, setReportTarget] = useState<string | null>(null)
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<
     string | null
@@ -719,13 +720,12 @@ export function CalendarPage() {
 
   async function recordCheckIn(assignmentId: string) {
     setCheckInPending(assignmentId)
-    setMessage(null)
     try {
       await checkIn(assignmentId)
       await queryClient.invalidateQueries({ queryKey: ["assignments", date] })
-      setMessage("出勤を記録しました。")
+      toast.success("出勤を記録しました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setCheckInPending(null)
     }
@@ -733,7 +733,6 @@ export function CalendarPage() {
 
   async function submitReport(assignmentId: string) {
     setCheckInPending(assignmentId)
-    setMessage(null)
     try {
       await submitAssignmentReport(assignmentId, {
         kind: reportKind,
@@ -741,9 +740,9 @@ export function CalendarPage() {
       })
       setReportTarget(null)
       setReportMessage("")
-      setMessage("連絡を送信しました。")
+      toast.success("連絡を送信しました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setCheckInPending(null)
     }
@@ -842,110 +841,97 @@ export function CalendarPage() {
           </Button>
         )}
         {selectedAssignment && (
-          <section className="absolute inset-x-0 bottom-0 z-20 max-h-[min(70%,32rem)] space-y-3 overflow-y-auto overscroll-contain border-t bg-background p-4 shadow-[0_-12px_32px_-24px_rgb(0_0_0/0.45)]">
-            <Button
-              className="absolute top-2 right-2"
-              size="icon-sm"
-              variant="ghost"
-              aria-label="予定の詳細を閉じる"
-              onClick={() => {
-                setSelectedAssignmentId(null)
-                setReportTarget(null)
-                setReportMessage("")
-              }}
-            >
-              <X />
-            </Button>
-            <div>
-              <p className="pr-10 font-semibold">
-                {selectedAssignment.activityName}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {time(selectedAssignment.startsAt)}–
-                {time(selectedAssignment.endsAt)} · {selectedAssignment.place}
-              </p>
+          <ResponsiveDialog
+            open
+            title={selectedAssignment.activityName}
+            description={`${time(selectedAssignment.startsAt)}–${time(selectedAssignment.endsAt)} · ${selectedAssignment.place}`}
+            onOpenChange={(open) => {
+              if (open) return
+              setSelectedAssignmentId(null)
+              setReportTarget(null)
+              setReportMessage("")
+            }}
+          >
+            <div className="space-y-3">
               {selectedAssignment.notes && (
-                <p className="mt-2 text-sm">{selectedAssignment.notes}</p>
+                <p className="text-sm">{selectedAssignment.notes}</p>
               )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {selectedAssignment.checkedInAt ? (
-                <p className="self-center text-xs text-muted-foreground">
-                  {time(selectedAssignment.checkedInAt)}に出勤記録済み
-                </p>
-              ) : !offline ? (
-                <Button
-                  size="sm"
-                  disabled={
-                    checkInPending !== null ||
-                    calendar.dataUpdatedAt <
-                      new Date(selectedAssignment.startsAt).getTime() ||
-                    calendar.dataUpdatedAt >
-                      new Date(selectedAssignment.endsAt).getTime()
-                  }
-                  onClick={() => void recordCheckIn(selectedAssignment.id)}
-                >
-                  {checkInPending === selectedAssignment.id && (
-                    <LoaderCircle className="animate-spin" />
-                  )}
-                  出勤
-                </Button>
-              ) : null}
-              {!offline && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    setReportTarget((current) =>
-                      current === selectedAssignment.id
-                        ? null
-                        : selectedAssignment.id
-                    )
-                  }
-                >
-                  遅刻・欠勤連絡
-                </Button>
-              )}
-            </div>
-            {!offline && reportTarget === selectedAssignment.id && (
-              <div className="space-y-3 border-t pt-4">
-                <select
-                  aria-label="連絡種別"
-                  className={fieldClassName}
-                  value={reportKind}
-                  onChange={(event) => {
-                    const kind = event.target.value
-                    if (kind === "late" || kind === "absence") {
-                      setReportKind(kind)
+              <div className="flex flex-wrap gap-2">
+                {selectedAssignment.checkedInAt ? (
+                  <p className="self-center text-xs text-muted-foreground">
+                    {time(selectedAssignment.checkedInAt)}に出勤記録済み
+                  </p>
+                ) : !offline ? (
+                  <Button
+                    size="sm"
+                    disabled={
+                      checkInPending !== null ||
+                      calendar.dataUpdatedAt <
+                        new Date(selectedAssignment.startsAt).getTime() ||
+                      calendar.dataUpdatedAt >
+                        new Date(selectedAssignment.endsAt).getTime()
                     }
-                  }}
-                >
-                  <option value="late">遅刻</option>
-                  <option value="absence">欠勤</option>
-                </select>
-                <textarea
-                  className={textareaClassName}
-                  maxLength={1000}
-                  placeholder="到着見込み、理由など"
-                  required
-                  value={reportMessage}
-                  onChange={(event) => setReportMessage(event.target.value)}
-                />
-                <Button
-                  size="sm"
-                  disabled={!reportMessage.trim() || checkInPending !== null}
-                  onClick={() => void submitReport(selectedAssignment.id)}
-                >
-                  送信
-                </Button>
+                    onClick={() => void recordCheckIn(selectedAssignment.id)}
+                  >
+                    {checkInPending === selectedAssignment.id && (
+                      <LoaderCircle className="animate-spin" />
+                    )}
+                    出勤
+                  </Button>
+                ) : null}
+                {!offline && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setReportTarget((current) =>
+                        current === selectedAssignment.id
+                          ? null
+                          : selectedAssignment.id
+                      )
+                    }
+                  >
+                    遅刻・欠勤連絡
+                  </Button>
+                )}
               </div>
-            )}
-          </section>
+              {!offline && reportTarget === selectedAssignment.id && (
+                <div className="space-y-3 border-t pt-4">
+                  <select
+                    aria-label="連絡種別"
+                    className={nativeSelectClassName}
+                    value={reportKind}
+                    onChange={(event) => {
+                      const kind = event.target.value
+                      if (kind === "late" || kind === "absence") {
+                        setReportKind(kind)
+                      }
+                    }}
+                  >
+                    <option value="late">遅刻</option>
+                    <option value="absence">欠勤</option>
+                  </select>
+                  <Textarea
+                    className="min-h-24"
+                    maxLength={1000}
+                    placeholder="到着見込み、理由など"
+                    required
+                    value={reportMessage}
+                    onChange={(event) => setReportMessage(event.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!reportMessage.trim() || checkInPending !== null}
+                    onClick={() => void submitReport(selectedAssignment.id)}
+                  >
+                    送信
+                  </Button>
+                </div>
+              )}
+            </div>
+          </ResponsiveDialog>
         )}
       </div>
-      {message && (
-        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
-      )}
     </section>
   )
 }

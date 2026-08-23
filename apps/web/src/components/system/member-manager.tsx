@@ -1,9 +1,19 @@
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, ChevronRight, X } from "lucide-react"
+import { Check, ChevronRight } from "lucide-react"
 
 import type { AdminMember } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { updateAdminAccessLevel, getAdminMembers } from "@/api/admin"
 import { errorMessage } from "@/api/client"
@@ -16,8 +26,9 @@ import {
   getYearRoles,
   removeYearRole,
 } from "@/api/years"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
+import { nativeSelectClassName } from "@/components/form-styles"
+import { ResponsiveSheet } from "@/components/responsive-overlay"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 const accessLabels = {
   member: "メンバー",
@@ -78,54 +89,54 @@ export function MemberManager({ year }: { year: number }) {
 
   return (
     <>
-      <div className="overflow-x-auto border-y">
-        <table className="hidden w-full text-left text-sm md:table">
-          <thead className="border-b text-xs text-muted-foreground">
-            <tr>
-              <th className="py-3 font-medium">メンバー</th>
-              <th className="py-3 font-medium">{year}年度</th>
-              <th className="py-3 font-medium">ロール</th>
-              <th className="py-3 font-medium">全体権限</th>
-              <th>
+      <div className="border-y">
+        <Table className="hidden md:table">
+          <TableHeader className="text-xs text-muted-foreground">
+            <TableRow>
+              <TableHead className="pl-0">メンバー</TableHead>
+              <TableHead>{year}年度</TableHead>
+              <TableHead>ロール</TableHead>
+              <TableHead>全体権限</TableHead>
+              <TableHead>
                 <span className="sr-only">詳細</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {members.data.members.map((member) => {
               const active = membershipById.get(member.id)?.status === "active"
               const memberRoles = rosterById.get(member.id)?.roles ?? []
               return (
-                <tr
+                <TableRow
                   key={member.id}
                   className="cursor-pointer"
                   onClick={() => setSelectedId(member.id)}
                 >
-                  <td className="py-3">
+                  <TableCell className="py-3 pl-0">
                     <span className="block font-medium">
                       {member.displayName}
                     </span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {member.studentId}
                     </span>
-                  </td>
-                  <td className="py-3 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-3 text-muted-foreground">
                     {active ? "メンバー" : "未参加"}
-                  </td>
-                  <td className="py-3 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-3 text-muted-foreground">
                     {memberRoles.map((role) => role.name).join("、") || "—"}
-                  </td>
-                  <td className="py-3 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="py-3 text-muted-foreground">
                     {accessLabels[member.accessLevel]}
-                  </td>
-                  <td className="py-3 text-right">
+                  </TableCell>
+                  <TableCell className="py-3 pr-0 text-right">
                     <ChevronRight className="ml-auto size-4 text-muted-foreground" />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
         <ul className="divide-y md:hidden">
           {members.data.members.map((member) => {
             const active = membershipById.get(member.id)?.status === "active"
@@ -190,7 +201,6 @@ function MemberDetail({
   const [reason, setReason] = useState("")
   const [confirmStop, setConfirmStop] = useState(false)
   const [pending, setPending] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
 
   async function refresh() {
     await Promise.all([
@@ -202,203 +212,166 @@ function MemberDetail({
   }
   async function run(action: () => Promise<unknown>, success: string) {
     setPending(true)
-    setMessage(null)
     try {
       await action()
       await refresh()
-      setMessage(success)
+      toast.success(success)
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30">
-      <button
-        type="button"
-        className="absolute inset-0"
-        aria-label="閉じる"
-        onClick={onClose}
-      />
-      <section className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-background px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:inset-y-0 md:right-0 md:left-auto md:w-[28rem] md:rounded-none md:border-l md:p-6">
-        <header className="flex items-start justify-between gap-3 border-b pb-4">
-          <div>
-            <h2 className="font-semibold">{member.displayName}</h2>
-            <p className="font-mono text-xs text-muted-foreground">
-              {member.studentId}
-            </p>
-          </div>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="閉じる"
-            onClick={onClose}
-          >
-            <X />
-          </Button>
-        </header>
-        <div className="divide-y">
-          <section className="py-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium">{year}年度メンバー</h3>
-                <p className="text-xs text-muted-foreground">
-                  {active ? "参加中" : "未参加"}
-                </p>
-              </div>
-              {active ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={pending}
-                  onClick={() => setConfirmStop(true)}
-                >
-                  停止
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  disabled={pending}
-                  onClick={() =>
-                    void run(
-                      () => activateYearMembership(year, member.id),
-                      "年度メンバーに追加しました。"
-                    )
-                  }
-                >
-                  追加
-                </Button>
-              )}
+    <ResponsiveSheet
+      open
+      title={member.displayName}
+      description={member.studentId}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <div className="divide-y">
+        <section className="py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">{year}年度メンバー</h3>
+              <p className="text-xs text-muted-foreground">
+                {active ? "参加中" : "未参加"}
+              </p>
             </div>
-            {confirmStop && (
-              <div className="mt-4 border-l-2 border-destructive pl-3 text-sm">
-                <p>年度への参加を停止しますか？</p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmStop(false)}
-                  >
-                    キャンセル
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={pending}
-                    onClick={() => {
-                      setConfirmStop(false)
-                      void run(
-                        () => deactivateYearMembership(year, member.id),
-                        "年度参加を停止しました。"
-                      )
-                    }}
-                  >
-                    停止する
-                  </Button>
-                </div>
-              </div>
-            )}
-          </section>
-          <section className="py-5">
-            <h3 className="mb-3 font-medium">ロール</h3>
             {active ? (
-              <div className="space-y-1">
-                {roles.map((role) => {
-                  const assigned = assignedRoleIds.has(role.id)
-                  return (
-                    <button
-                      key={role.id}
-                      type="button"
-                      disabled={pending}
-                      className="flex min-h-11 w-full items-center gap-3 text-left"
-                      onClick={() =>
-                        void run(
-                          () =>
-                            assigned
-                              ? removeYearRole(role.id, member.id)
-                              : assignYearRole(role.id, member.id),
-                          assigned
-                            ? "ロールを解除しました。"
-                            : "ロールを付与しました。"
-                        )
-                      }
-                    >
-                      <span
-                        className="size-2.5 rounded-full"
-                        style={{ backgroundColor: role.color }}
-                      />
-                      <span className="flex-1">{role.name}</span>
-                      {assigned && <Check className="size-4" />}
-                    </button>
-                  )
-                })}
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending}
+                onClick={() => setConfirmStop(true)}
+              >
+                停止
+              </Button>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                年度メンバーに追加すると設定できます。
-              </p>
+              <Button
+                size="sm"
+                disabled={pending}
+                onClick={() =>
+                  void run(
+                    () => activateYearMembership(year, member.id),
+                    "年度メンバーに追加しました。"
+                  )
+                }
+              >
+                追加
+              </Button>
             )}
-          </section>
-          <section className="py-5">
-            <h3 className="mb-3 font-medium">全体権限</h3>
-            <select
-              className={fieldClassName}
-              disabled={member.isCurrentUser || pending}
-              value={accessLevel}
-              onChange={(event) => {
-                if (isAccessLevel(event.target.value))
-                  setAccessLevel(event.target.value)
+          </div>
+          {confirmStop && (
+            <ConfirmDialog
+              title="年度への参加を停止しますか"
+              description={`${member.displayName}を${year}年度のメンバーから外します。`}
+              confirmLabel="停止する"
+              onCancel={() => setConfirmStop(false)}
+              onConfirm={() => {
+                setConfirmStop(false)
+                void run(
+                  () => deactivateYearMembership(year, member.id),
+                  "年度参加を停止しました。"
+                )
               }}
-            >
-              {Object.entries(accessLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {accessLevel !== member.accessLevel && (
-              <div className="mt-3 space-y-3">
-                <input
-                  className={fieldClassName}
-                  maxLength={240}
-                  placeholder="変更理由"
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                />
-                <Button
-                  className="w-full"
-                  disabled={!reason.trim() || pending}
-                  onClick={() =>
-                    void run(
-                      () =>
-                        updateAdminAccessLevel(member.id, {
-                          accessLevel,
-                          reason,
-                        }),
-                      "全体権限を更新しました。"
-                    )
-                  }
-                >
-                  変更を保存
-                </Button>
-              </div>
-            )}
-            {member.isCurrentUser && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                自分の全体権限は変更できません。
-              </p>
-            )}
-          </section>
-        </div>
-        {message && (
-          <FeedbackNotice
-            message={message}
-            onDismiss={() => setMessage(null)}
-          />
-        )}
-      </section>
-    </div>
+            />
+          )}
+        </section>
+        <section className="py-5">
+          <h3 className="mb-3 font-medium">ロール</h3>
+          {active ? (
+            <div className="space-y-1">
+              {roles.map((role) => {
+                const assigned = assignedRoleIds.has(role.id)
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    disabled={pending}
+                    className="flex min-h-11 w-full items-center gap-3 text-left"
+                    onClick={() =>
+                      void run(
+                        () =>
+                          assigned
+                            ? removeYearRole(role.id, member.id)
+                            : assignYearRole(role.id, member.id),
+                        assigned
+                          ? "ロールを解除しました。"
+                          : "ロールを付与しました。"
+                      )
+                    }
+                  >
+                    <span
+                      className="size-2.5 rounded-full"
+                      style={{ backgroundColor: role.color }}
+                    />
+                    <span className="flex-1">{role.name}</span>
+                    {assigned && <Check className="size-4" />}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              年度メンバーに追加すると設定できます。
+            </p>
+          )}
+        </section>
+        <section className="py-5">
+          <h3 className="mb-3 font-medium">全体権限</h3>
+          <select
+            className={nativeSelectClassName}
+            disabled={member.isCurrentUser || pending}
+            value={accessLevel}
+            onChange={(event) => {
+              if (isAccessLevel(event.target.value))
+                setAccessLevel(event.target.value)
+            }}
+          >
+            {Object.entries(accessLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {accessLevel !== member.accessLevel && (
+            <div className="mt-3 space-y-3">
+              <Input
+                className="h-11"
+                maxLength={240}
+                placeholder="変更理由"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+              <Button
+                className="w-full"
+                disabled={!reason.trim() || pending}
+                onClick={() =>
+                  void run(
+                    () =>
+                      updateAdminAccessLevel(member.id, {
+                        accessLevel,
+                        reason,
+                      }),
+                    "全体権限を更新しました。"
+                  )
+                }
+              >
+                変更を保存
+              </Button>
+            </div>
+          )}
+          {member.isCurrentUser && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              自分の全体権限は変更できません。
+            </p>
+          )}
+        </section>
+      </div>
+    </ResponsiveSheet>
   )
 }

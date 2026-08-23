@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Bell, BellOff, LoaderCircle } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
 import {
@@ -10,7 +11,6 @@ import {
   removePushSubscription,
   savePushSubscription,
 } from "@/api/push"
-import { FeedbackNotice } from "@/components/feedback-notice"
 import { useOfflineMode } from "@/components/offline-mode-context"
 
 export function PushControl() {
@@ -21,7 +21,6 @@ export function PushControl() {
     "Notification" in window
   const [enabled, setEnabled] = useState(false)
   const [pending, setPending] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (!supported) return
@@ -32,7 +31,6 @@ export function PushControl() {
 
   async function toggle() {
     setPending(true)
-    setMessage(null)
     try {
       const registration = await navigator.serviceWorker.ready
       const current = await registration.pushManager.getSubscription()
@@ -40,12 +38,12 @@ export function PushControl() {
         await removePushSubscription(current.endpoint)
         await current.unsubscribe()
         setEnabled(false)
-        setMessage("通知を解除しました。")
+        toast.success("通知を解除しました。")
         return
       }
       const permission = await Notification.requestPermission()
       if (permission !== "granted") {
-        setMessage("通知が許可されていません。")
+        toast.error("通知が許可されていません。")
         return
       }
       const { publicKey } = await getPushConfig()
@@ -60,9 +58,9 @@ export function PushControl() {
         throw error
       }
       setEnabled(true)
-      setMessage("通知を有効にしました。")
+      toast.success("通知を有効にしました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(false)
     }
@@ -88,9 +86,6 @@ export function PushControl() {
         )}
         {enabled ? "通知中" : "通知"}
       </Button>
-      {message && (
-        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
-      )}
     </>
   )
 }

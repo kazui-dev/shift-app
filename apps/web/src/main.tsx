@@ -5,6 +5,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 
 import "@workspace/ui/globals.css"
+import { AppToaster } from "@/components/app-toaster.tsx"
 import { PwaUpdateNotice } from "@/components/pwa-update-notice.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import {
@@ -49,6 +50,7 @@ createRoot(rootElement).render(
       <ThemeProvider>
         <RouterProvider router={router} />
         <PwaUpdateNotice />
+        <AppToaster />
       </ThemeProvider>
     </PersistQueryClientProvider>
   </StrictMode>

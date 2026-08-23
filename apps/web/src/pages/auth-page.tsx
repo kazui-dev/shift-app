@@ -5,14 +5,15 @@ import * as v from "valibot"
 
 import { onboardingInputSchema } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
+import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { createAccount } from "@/api/account"
 import { ApiError } from "@/api/client"
 import { authClient } from "@/lib/auth-client"
 import { accountStateQueryOptions } from "@/lib/account-state"
 import { AuthShell } from "@/components/auth-shell"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
 
 function DiscordIcon(props: ComponentProps<"svg">) {
   return (
@@ -115,7 +116,6 @@ function OnboardingView() {
   const [studentId, setStudentId] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -124,18 +124,17 @@ function OnboardingView() {
       displayName,
     })
     if (!parsed.success) {
-      setError(parsed.issues[0]?.message ?? "入力内容を確認してください。")
+      toast.error(parsed.issues[0]?.message ?? "入力内容を確認してください。")
       return
     }
 
     setPending(true)
-    setError(null)
     try {
       await createAccount(parsed.output)
       await queryClient.invalidateQueries({ queryKey: ["account"] })
       window.location.assign("/calendar")
     } catch (caught) {
-      setError(
+      toast.error(
         caught instanceof ApiError && caught.status === 409
           ? "この学籍番号はすでに使われています。本人確認を依頼しました。管理者へ連絡してください。"
           : "登録できませんでした。もう一度お試しください。"
@@ -148,40 +147,36 @@ function OnboardingView() {
     <AuthShell>
       <h1 className="text-center text-xl font-medium">新規登録</h1>
       <form className="flex flex-col gap-4" onSubmit={submit}>
-        <label className="flex flex-col gap-1.5">
-          <span className="font-medium">学籍番号</span>
-          <input
-            className={`${fieldClassName} font-mono`}
-            placeholder="26AJ000"
-            required
-            value={studentId}
-            onChange={(event) => setStudentId(event.target.value)}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="font-medium">氏名</span>
-          <input
-            className={fieldClassName}
-            maxLength={80}
-            placeholder="電大太郎"
-            required
-            value={displayName}
-            onChange={(event) => setDisplayName(event.target.value)}
-          />
-        </label>
+        <FieldGroup className="gap-4">
+          <Field>
+            <FieldLabel htmlFor="student-id">学籍番号</FieldLabel>
+            <Input
+              id="student-id"
+              className="h-11 font-mono"
+              placeholder="26AJ000"
+              required
+              value={studentId}
+              onChange={(event) => setStudentId(event.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="display-name">氏名</FieldLabel>
+            <Input
+              id="display-name"
+              className="h-11"
+              maxLength={80}
+              placeholder="電大太郎"
+              required
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </Field>
+        </FieldGroup>
         <Button size="lg" type="submit" disabled={pending}>
           {pending && <LoaderCircle className="animate-spin" />}
           登録する
         </Button>
       </form>
-      {error && (
-        <FeedbackNotice
-          message={error}
-          tone="error"
-          aboveNavigation={false}
-          onDismiss={() => setError(null)}
-        />
-      )}
     </AuthShell>
   )
 }

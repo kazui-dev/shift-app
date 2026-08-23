@@ -4,12 +4,12 @@ import { LoaderCircle } from "lucide-react"
 
 import type { IdentityLinkRequest } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { decideDiscordLinkRequest } from "@/api/admin"
 import { errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
 
 export function DiscordLinkRequestCard({
   request,
@@ -19,16 +19,14 @@ export function DiscordLinkRequestCard({
   const queryClient = useQueryClient()
   const [reason, setReason] = useState("")
   const [pending, setPending] = useState<"approved" | "rejected" | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [confirmApproval, setConfirmApproval] = useState(false)
 
   async function decide(decision: "approved" | "rejected") {
     if (!reason.trim()) {
-      setError("判断理由を入力してください。")
+      toast.error("判断理由を入力してください。")
       return
     }
     setPending(decision)
-    setError(null)
     try {
       await decideDiscordLinkRequest(request.id, { decision, reason })
       await Promise.all([
@@ -39,7 +37,7 @@ export function DiscordLinkRequestCard({
         queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] }),
       ])
     } catch (caught) {
-      setError(errorMessage(caught))
+      toast.error(errorMessage(caught))
     } finally {
       setPending(null)
     }
@@ -53,8 +51,8 @@ export function DiscordLinkRequestCard({
           連携先: {request.targetDisplayName}（{request.targetStudentId}）
         </p>
       </div>
-      <input
-        className={fieldClassName}
+      <Input
+        className="h-11"
         maxLength={240}
         placeholder="本人確認の方法、または拒否理由"
         value={reason}
@@ -85,13 +83,6 @@ export function DiscordLinkRequestCard({
         <p className="text-xs text-destructive">
           自分のDiscord連携は、別の管理者による確認が必要です。
         </p>
-      )}
-      {error && (
-        <FeedbackNotice
-          message={error}
-          tone="error"
-          onDismiss={() => setError(null)}
-        />
       )}
       {confirmApproval && (
         <ConfirmDialog

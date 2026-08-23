@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 
 import {
   createAvailabilityDate,
@@ -12,8 +14,6 @@ import {
 } from "@/api/availability"
 import { errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
 import { EmptyState } from "@/components/page-layout"
 
 function dateLabel(value: string): string {
@@ -29,10 +29,6 @@ export function AvailabilitySummary({ year }: { year: number }) {
   const queryClient = useQueryClient()
   const [newDate, setNewDate] = useState("")
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
-  const [feedback, setFeedback] = useState<{
-    message: string
-    tone: "default" | "error"
-  } | null>(null)
   const dates = useQuery({
     queryKey: ["availability-dates", year],
     queryFn: () => getAvailabilityDates(year),
@@ -45,19 +41,18 @@ export function AvailabilitySummary({ year }: { year: number }) {
     mutationFn: (date: string) => createAvailabilityDate(year, date),
     onSuccess: async () => {
       setNewDate("")
-      setFeedback({ message: "入力日を追加しました。", tone: "default" })
+      toast.success("入力日を追加しました。")
       await queryClient.invalidateQueries({
         queryKey: ["availability-dates", year],
       })
     },
-    onError: (error) =>
-      setFeedback({ message: errorMessage(error), tone: "error" }),
+    onError: (error) => toast.error(errorMessage(error)),
   })
   const deleteDate = useMutation({
     mutationFn: (date: string) => deleteAvailabilityDate(year, date),
     onSuccess: async () => {
       setDeleteTarget(null)
-      setFeedback({ message: "入力日を削除しました。", tone: "default" })
+      toast.success("入力日を削除しました。")
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["availability-dates", year],
@@ -70,7 +65,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
     },
     onError: (error) => {
       setDeleteTarget(null)
-      setFeedback({ message: errorMessage(error), tone: "error" })
+      toast.error(errorMessage(error))
     },
   })
 
@@ -108,10 +103,10 @@ export function AvailabilitySummary({ year }: { year: number }) {
           </ul>
         )}
         <form className="mt-3 flex gap-2" onSubmit={submitDate}>
-          <input
+          <Input
             type="date"
             aria-label="追加する入力日"
-            className={`${fieldClassName} min-w-0 flex-1`}
+            className="h-11 min-w-0 flex-1"
             value={newDate}
             onChange={(event) => setNewDate(event.target.value)}
           />
@@ -159,13 +154,6 @@ export function AvailabilitySummary({ year }: { year: number }) {
           confirmLabel="削除"
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => deleteDate.mutate(deleteTarget)}
-        />
-      )}
-      {feedback && (
-        <FeedbackNotice
-          message={feedback.message}
-          tone={feedback.tone}
-          onDismiss={() => setFeedback(null)}
         />
       )}
     </section>

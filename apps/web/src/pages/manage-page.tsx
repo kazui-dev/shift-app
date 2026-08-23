@@ -20,7 +20,7 @@ import {
   AuditLogManager,
   DiscordLinkRequestManager,
 } from "@/components/admin-panel"
-import { fieldClassName } from "@/components/form-styles"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { ReportManager } from "@/components/manage/report-manager"
@@ -129,7 +129,7 @@ export function ManagePage({ view }: { view: ManageView }) {
           {manageableYears.length > 1 && (
             <select
               aria-label="年度"
-              className={`${fieldClassName} w-auto`}
+              className={`${nativeSelectClassName} w-auto`}
               value={year ?? ""}
               onChange={(event) => setSelectedYear(Number(event.target.value))}
             >
@@ -215,7 +215,7 @@ export function ManagePage({ view }: { view: ManageView }) {
         {yearScoped && manageableYears.length > 1 && (
           <select
             aria-label="年度"
-            className={`${fieldClassName} w-auto`}
+            className={`${nativeSelectClassName} w-auto`}
             value={year ?? ""}
             onChange={(event) => setSelectedYear(Number(event.target.value))}
           >
@@ -229,7 +229,7 @@ export function ManagePage({ view }: { view: ManageView }) {
         {systemYearScoped && years.data && years.data.years.length > 1 && (
           <select
             aria-label="年度"
-            className={`${fieldClassName} w-auto`}
+            className={`${nativeSelectClassName} w-auto`}
             value={systemYear ?? ""}
             onChange={(event) =>
               setSelectedSystemYear(Number(event.target.value))

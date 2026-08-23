@@ -79,7 +79,7 @@ export function PwaUpdateNotice() {
 
   return (
     <output
-      className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-50 mx-auto flex max-w-sm items-center gap-3 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg md:bottom-6"
+      className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-sm items-center gap-3 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg md:bottom-6"
       aria-live="polite"
       aria-busy={updating}
     >

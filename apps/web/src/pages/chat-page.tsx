@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { ChevronLeft, LoaderCircle, Plus, Send, X } from "lucide-react"
+import { ChevronLeft, LoaderCircle, Plus, Send } from "lucide-react"
 import * as v from "valibot"
 
 import {
@@ -13,6 +13,8 @@ import {
   type ChatTargetOption,
 } from "@workspace/shared/communications"
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
 import {
@@ -23,10 +25,10 @@ import {
   sendChatMessage,
 } from "@/api/chat"
 import { getYears } from "@/api/years"
-import { FeedbackNotice } from "@/components/feedback-notice"
-import { fieldClassName } from "@/components/form-styles"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { EmptyState, PageHeader } from "@/components/page-layout"
+import { ResponsiveDialog } from "@/components/responsive-overlay"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -84,7 +86,6 @@ export function ChatPage() {
   const [name, setName] = useState("")
   const [targetKey, setTargetKey] = useState("")
   const [content, setContent] = useState("")
-  const [feedback, setFeedback] = useState<string | null>(null)
 
   useEffect(() => {
     if (!selectedRoomId || offline) return undefined
@@ -147,10 +148,9 @@ export function ChatPage() {
       setTargetKey("")
       setRoomId(room.id)
       setCreateOpen(false)
-      setFeedback(null)
       await queryClient.invalidateQueries({ queryKey: ["chat-rooms"] })
     },
-    onError: (error) => setFeedback(errorMessage(error)),
+    onError: (error) => toast.error(errorMessage(error)),
   })
 
   const send = useMutation({
@@ -159,11 +159,10 @@ export function ChatPage() {
       sendChatMessage(variables.roomId, variables),
     onMutate: () => {
       setContent("")
-      setFeedback(offline ? "オフライン送信待ちです。" : null)
+      if (offline) toast.info("オフライン送信待ちです。")
     },
     onSuccess: async () => {
       setContent("")
-      setFeedback(null)
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["chat-messages", selectedRoomId],
@@ -171,7 +170,7 @@ export function ChatPage() {
         queryClient.invalidateQueries({ queryKey: ["chat-rooms"] }),
       ])
     },
-    onError: (error) => setFeedback(errorMessage(error)),
+    onError: (error) => toast.error(errorMessage(error)),
   })
 
   function handleCreate(event: FormEvent) {
@@ -300,8 +299,8 @@ export function ChatPage() {
               className="flex gap-2 border-t bg-background py-3 md:px-4"
               onSubmit={handleSend}
             >
-              <input
-                className={`${fieldClassName} min-w-0 flex-1 rounded-full px-4`}
+              <Input
+                className="h-11 min-w-0 flex-1 rounded-full px-4"
                 placeholder="メッセージ"
                 maxLength={2000}
                 value={content}
@@ -325,96 +324,74 @@ export function ChatPage() {
       </div>
 
       {createOpen && !offline && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/30 md:items-center md:justify-center">
-          <button
-            type="button"
-            className="absolute inset-0"
-            aria-label="閉じる"
-            onClick={() => setCreateOpen(false)}
-          />
-          <section
-            className="relative z-10 w-full rounded-t-2xl bg-background px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:max-w-md md:rounded-2xl md:border md:p-6"
-            aria-label="ルームを作成"
-          >
-            <header className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">ルームを作成</h2>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label="閉じる"
-                onClick={() => setCreateOpen(false)}
-              >
-                <X />
-              </Button>
-            </header>
-            <form className="grid gap-3" onSubmit={handleCreate}>
-              <select
-                aria-label="年度"
-                className={fieldClassName}
-                value={selectedYear ?? ""}
-                onChange={(event) => setYear(Number(event.target.value))}
-              >
-                {activeYears.map((item) => (
-                  <option key={item.year} value={item.year}>
-                    {item.year}
-                  </option>
-                ))}
-              </select>
-              <input
-                className={fieldClassName}
-                placeholder="ルーム名"
-                required
-                maxLength={120}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-              <select
-                className={fieldClassName}
-                required
-                value={targetKey}
-                onChange={(event) => setTargetKey(event.target.value)}
-              >
-                <option value="">宛先を選択</option>
-                {(["member", "role", "activity"] as const).map((type) => {
-                  const options = targets.data?.targets.filter(
-                    (target) => target.targetType === type
-                  )
-                  if (!options?.length) return null
-                  const label =
-                    type === "member"
-                      ? "メンバー"
-                      : type === "role"
-                        ? "役割"
-                        : "活動"
-                  return (
-                    <optgroup key={type} label={label}>
-                      {options.map((target) => (
-                        <option
-                          key={`${target.targetType}:${target.targetId}`}
-                          value={`${target.targetType}:${target.targetId}`}
-                        >
-                          {target.displayName}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )
-                })}
-              </select>
-              <Button disabled={createRoom.isPending}>
-                {createRoom.isPending && (
-                  <LoaderCircle className="animate-spin" />
-                )}
-                作成
-              </Button>
-            </form>
-          </section>
-        </div>
-      )}
-      {feedback && (
-        <FeedbackNotice
-          message={feedback}
-          onDismiss={() => setFeedback(null)}
-        />
+        <ResponsiveDialog
+          open
+          title="ルームを作成"
+          onOpenChange={(open) => {
+            if (!open) setCreateOpen(false)
+          }}
+        >
+          <form className="grid gap-3" onSubmit={handleCreate}>
+            <select
+              aria-label="年度"
+              className={nativeSelectClassName}
+              value={selectedYear ?? ""}
+              onChange={(event) => setYear(Number(event.target.value))}
+            >
+              {activeYears.map((item) => (
+                <option key={item.year} value={item.year}>
+                  {item.year}
+                </option>
+              ))}
+            </select>
+            <Input
+              className="h-11"
+              placeholder="ルーム名"
+              required
+              maxLength={120}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+            <select
+              className={nativeSelectClassName}
+              required
+              value={targetKey}
+              onChange={(event) => setTargetKey(event.target.value)}
+            >
+              <option value="">宛先を選択</option>
+              {(["member", "role", "activity"] as const).map((type) => {
+                const options = targets.data?.targets.filter(
+                  (target) => target.targetType === type
+                )
+                if (!options?.length) return null
+                const label =
+                  type === "member"
+                    ? "メンバー"
+                    : type === "role"
+                      ? "役割"
+                      : "活動"
+                return (
+                  <optgroup key={type} label={label}>
+                    {options.map((target) => (
+                      <option
+                        key={`${target.targetType}:${target.targetId}`}
+                        value={`${target.targetType}:${target.targetId}`}
+                      >
+                        {target.displayName}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
+              })}
+            </select>
+            <Button disabled={createRoom.isPending}>
+              {createRoom.isPending && (
+                <LoaderCircle className="animate-spin" />
+              )}
+              作成
+            </Button>
+          </form>
+        </ResponsiveDialog>
       )}
     </section>
   )

@@ -2,13 +2,13 @@ import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { Button } from "@workspace/ui/components/button"
+import { toast } from "@workspace/ui/lib/toast"
 
 import {
   getAssignmentReports,
   resolveAssignmentReport,
 } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
-import { FeedbackNotice } from "@/components/feedback-notice"
 
 function dateTime(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -26,19 +26,17 @@ export function ReportManager({ year }: { year: number }) {
     queryFn: () => getAssignmentReports(year),
   })
   const [pending, setPending] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
 
   async function resolveReport(reportId: string) {
     setPending(true)
-    setMessage(null)
     try {
       await resolveAssignmentReport(reportId)
       await queryClient.invalidateQueries({
         queryKey: ["assignment-reports", year],
       })
-      setMessage("連絡を対応済みにしました。")
+      toast.success("連絡を対応済みにしました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(false)
     }
@@ -84,9 +82,6 @@ export function ReportManager({ year }: { year: number }) {
           </li>
         ))}
       </ul>
-      {message && (
-        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
-      )}
     </section>
   )
 }

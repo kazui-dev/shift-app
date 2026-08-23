@@ -6,14 +6,16 @@ import { useForm } from "react-hook-form"
 import * as v from "valibot"
 
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { Textarea } from "@workspace/ui/components/textarea"
+import { toast } from "@workspace/ui/lib/toast"
 
 import { createActivity, getActivities, getActivity } from "@/api/activities"
 import { cancelAssignment, createAssignment } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { getRoster } from "@/api/years"
-import { FeedbackNotice } from "@/components/feedback-notice"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { fieldClassName, textareaClassName } from "@/components/form-styles"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { EmptyState, SectionHeader } from "@/components/page-layout"
 
 function iso(local: string): string {
@@ -86,11 +88,9 @@ export function ActivityManager({ year }: { year: number }) {
   const [pending, setPending] = useState<
     "activity" | "assignment" | "cancel" | null
   >(null)
-  const [message, setMessage] = useState<string | null>(null)
 
   async function addActivity(values: ActivityFormValues) {
     setPending("activity")
-    setMessage(null)
     try {
       await createActivity(year, {
         ...values,
@@ -101,9 +101,9 @@ export function ActivityManager({ year }: { year: number }) {
       activityForm.reset()
       setCreateOpen(false)
       await queryClient.invalidateQueries({ queryKey: ["activities", year] })
-      setMessage("活動を作成しました。")
+      toast.success("活動を作成しました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(null)
     }
@@ -114,7 +114,6 @@ export function ActivityManager({ year }: { year: number }) {
     if (selectedActivity === null || !memberId) return
     const activityId = selectedActivity
     setPending("assignment")
-    setMessage(null)
     try {
       const result = await createAssignment(activityId, {
         memberId,
@@ -124,13 +123,13 @@ export function ActivityManager({ year }: { year: number }) {
         queryClient.invalidateQueries({ queryKey: ["activity", activityId] }),
         queryClient.invalidateQueries({ queryKey: ["activities", year] }),
       ])
-      setMessage(
+      toast.success(
         result.warnings.includes("OUTSIDE_SUBMITTED_AVAILABILITY")
           ? "割り当てました（提出希望時間外です）。"
           : "割り当てました。"
       )
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(null)
     }
@@ -140,7 +139,6 @@ export function ActivityManager({ year }: { year: number }) {
     if (selectedActivity === null) return
     const activityId = selectedActivity
     setPending("cancel")
-    setMessage(null)
     try {
       await cancelAssignment(assignmentId)
       await Promise.all([
@@ -148,9 +146,9 @@ export function ActivityManager({ year }: { year: number }) {
         queryClient.invalidateQueries({ queryKey: ["activities", year] }),
         queryClient.invalidateQueries({ queryKey: ["assignments"] }),
       ])
-      setMessage("割当を取り消しました。")
+      toast.success("割当を取り消しました。")
     } catch (error) {
-      setMessage(errorMessage(error))
+      toast.error(errorMessage(error))
     } finally {
       setPending(null)
     }
@@ -181,50 +179,52 @@ export function ActivityManager({ year }: { year: number }) {
             className="grid gap-3 sm:grid-cols-2"
             onSubmit={activityForm.handleSubmit(addActivity)}
           >
-            <input
-              className={fieldClassName}
+            <Input
+              className="h-11"
               placeholder="活動名"
               required
               {...activityForm.register("name")}
             />
-            <input
-              className={fieldClassName}
+            <Input
+              className="h-11"
               placeholder="場所"
               required
               {...activityForm.register("place")}
             />
-            <input
-              className={fieldClassName}
+            <Input
+              className="h-11"
               placeholder="種別"
               required
               {...activityForm.register("activityType")}
             />
-            <input
+            <Input
               type="color"
               aria-label="活動の色"
-              className={`${fieldClassName} p-1`}
+              className="h-11 p-1"
               {...activityForm.register("color")}
             />
-            <label className="text-xs">
+            <label className="text-xs" htmlFor="activity-starts-at">
               開始
-              <input
+              <Input
+                id="activity-starts-at"
                 type="datetime-local"
-                className={`${fieldClassName} mt-1`}
+                className="mt-1 h-11"
                 required
                 {...activityForm.register("startsAt")}
               />
             </label>
-            <label className="text-xs">
+            <label className="text-xs" htmlFor="activity-ends-at">
               終了
-              <input
+              <Input
+                id="activity-ends-at"
                 type="datetime-local"
-                className={`${fieldClassName} mt-1`}
+                className="mt-1 h-11"
                 required
                 {...activityForm.register("endsAt")}
               />
             </label>
-            <textarea
-              className={`${textareaClassName} sm:col-span-2`}
+            <Textarea
+              className="min-h-24 sm:col-span-2"
               placeholder="備考（任意）"
               {...activityForm.register("notes")}
             />
@@ -277,7 +277,7 @@ export function ActivityManager({ year }: { year: number }) {
               <>
                 <form className="flex gap-2" onSubmit={addAssignment}>
                   <select
-                    className={`${fieldClassName} min-w-0 flex-1`}
+                    className={`${nativeSelectClassName} min-w-0 flex-1`}
                     required
                     value={memberId}
                     onChange={(event) => setMemberId(event.target.value)}
@@ -326,9 +326,6 @@ export function ActivityManager({ year }: { year: number }) {
           </div>
         </div>
       </div>
-      {message && (
-        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
-      )}
       {cancelTarget && (
         <ConfirmDialog
           title="割当を取り消しますか"
