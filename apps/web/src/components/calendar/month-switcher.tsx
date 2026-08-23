@@ -11,6 +11,12 @@ type MonthGesture = {
   axis: "pending" | "horizontal" | "vertical"
 }
 
+const maxMonthSwipe = 6
+const monthPages = Array.from(
+  { length: maxMonthSwipe * 2 + 1 },
+  (_, index) => index - maxMonthSwipe
+)
+
 function monthLabel(date: string, offset: number): string {
   const month = new Date(`${date}T12:00:00`).getMonth()
   return `${((month + offset + 12) % 12) + 1}月`
@@ -23,12 +29,12 @@ export function MonthSwitcher({
 }: {
   date: string
   onDateChange: (date: string) => void
-  onMonthChange: (direction: -1 | 1) => void
+  onMonthChange: (months: number) => void
 }) {
   const viewportRef = useRef<HTMLLabelElement>(null)
   const gestureRef = useRef<MonthGesture | null>(null)
   const offsetRef = useRef(0)
-  const directionRef = useRef<-1 | 1 | null>(null)
+  const monthDeltaRef = useRef<number | null>(null)
   const settleTimerRef = useRef<number | null>(null)
   const suppressClickRef = useRef(false)
   const [offset, setOffset] = useState(0)
@@ -53,29 +59,31 @@ export function MonthSwitcher({
       window.clearTimeout(settleTimerRef.current)
       settleTimerRef.current = null
     }
-    const direction = directionRef.current
-    directionRef.current = null
+    const monthDelta = monthDeltaRef.current
+    monthDeltaRef.current = null
     setIsSettling(false)
     updateOffset(0)
-    if (direction !== null) onMonthChange(direction)
+    if (monthDelta !== null) onMonthChange(monthDelta)
   }
 
-  function settleSwipe(direction: -1 | 1 | null) {
+  function settleSwipe(monthDelta: number | null) {
     const viewport = viewportRef.current
     if (!viewport) return
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       updateOffset(0)
-      if (direction !== null) onMonthChange(direction)
+      if (monthDelta !== null) onMonthChange(monthDelta)
       return
     }
-    directionRef.current = direction
+    monthDeltaRef.current = monthDelta
     setIsSettling(true)
-    updateOffset(direction === null ? 0 : direction * -viewport.clientWidth)
+    updateOffset(monthDelta === null ? 0 : monthDelta * -viewport.clientWidth)
     settleTimerRef.current = window.setTimeout(finishSwipe, 240)
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!event.isPrimary || event.button !== 0 || isSettling) return
+    if (!event.isPrimary || event.button !== 0) return
+    if (isSettling) finishSwipe()
+    suppressClickRef.current = false
     gestureRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -108,7 +116,9 @@ export function MonthSwitcher({
     event.preventDefault()
     suppressClickRef.current = true
     const width = viewportRef.current?.clientWidth ?? 0
-    updateOffset(Math.max(-width, Math.min(width, deltaX)))
+    updateOffset(
+      Math.max(-width * maxMonthSwipe, Math.min(width * maxMonthSwipe, deltaX))
+    )
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
@@ -121,15 +131,26 @@ export function MonthSwitcher({
     if (gesture.axis !== "horizontal") return
     const distance = offsetRef.current
     const width = viewportRef.current?.clientWidth ?? 0
+    if (width <= 0) {
+      settleSwipe(null)
+      return
+    }
     const elapsed = Math.max(1, performance.now() - gesture.startedAt)
-    const velocity = Math.abs(distance) / elapsed
-    const committed =
+    const velocityInPages = -distance / elapsed / width
+    const distanceInPages = -distance / width
+    const projectedPages =
+      distanceInPages + Math.max(-0.75, Math.min(0.75, velocityInPages * 80))
+    const crossesThreshold =
       Math.abs(distance) >= Math.min(36, width * 0.28) ||
-      (Math.abs(distance) >= 12 && velocity >= 0.35)
-    settleSwipe(committed ? (distance < 0 ? 1 : -1) : null)
-    window.setTimeout(() => {
-      suppressClickRef.current = false
-    }, 0)
+      (Math.abs(distance) >= 12 && Math.abs(velocityInPages * width) >= 0.35)
+    const monthDelta = Math.max(
+      -maxMonthSwipe,
+      Math.min(
+        maxMonthSwipe,
+        Math.round(projectedPages) || (distance < 0 ? 1 : -1)
+      )
+    )
+    settleSwipe(crossesThreshold ? monthDelta : null)
   }
 
   function handlePointerCancel(event: PointerEvent<HTMLDivElement>) {
@@ -137,9 +158,6 @@ export function MonthSwitcher({
     if (!gesture || gesture.pointerId !== event.pointerId) return
     gestureRef.current = null
     if (gesture.axis === "horizontal") settleSwipe(null)
-    window.setTimeout(() => {
-      suppressClickRef.current = false
-    }, 0)
   }
 
   return (
@@ -179,7 +197,7 @@ export function MonthSwitcher({
           }}
           onTransitionEnd={finishSwipe}
         >
-          {[-1, 0, 1].map((monthOffset) => (
+          {monthPages.map((monthOffset) => (
             <span
               key={monthOffset}
               className="absolute inset-0 grid place-items-center"

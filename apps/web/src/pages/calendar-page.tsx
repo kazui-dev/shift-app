@@ -701,8 +701,8 @@ export function CalendarPage() {
     }
   }
 
-  function changeMonth(direction: -1 | 1) {
-    changeDate(moveMonth(date, direction, preferredDayRef.current), {
+  function changeMonth(months: number) {
+    changeDate(moveMonth(date, months, preferredDayRef.current), {
       preservePreferredDay: true,
       railTransition: { fromDate: date },
     })
