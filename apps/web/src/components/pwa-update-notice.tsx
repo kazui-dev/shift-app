@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { LoaderCircle, X } from "lucide-react"
+import { X } from "lucide-react"
 import { useRegisterSW } from "virtual:pwa-register/react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -86,14 +86,8 @@ export function PwaUpdateNotice() {
       <p className="min-w-0 flex-1 text-sm leading-relaxed">
         新しいバージョンがあります
       </p>
-      <Button
-        className="relative w-24"
-        size="sm"
-        disabled={updating}
-        onClick={() => void applyUpdate()}
-      >
-        {updating && <LoaderCircle className="absolute left-3 animate-spin" />}
-        <span>{updating ? "更新中" : "更新"}</span>
+      <Button size="sm" disabled={updating} onClick={() => void applyUpdate()}>
+        更新
       </Button>
       <button
         className="shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
