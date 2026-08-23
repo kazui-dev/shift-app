@@ -8,7 +8,6 @@ import {
   CircleAlert,
   ClipboardCheck,
   History,
-  KeyRound,
   Link,
   Tags,
   Users,
@@ -18,7 +17,6 @@ import { Button } from "@workspace/ui/components/button"
 
 import { getYears } from "@/api/years"
 import {
-  AccountManager,
   AuditLogManager,
   RecoveryRequestManager,
 } from "@/components/admin-panel"
@@ -28,7 +26,7 @@ import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { ReportManager } from "@/components/manage/report-manager"
 import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
-import { YearMembershipManager } from "@/components/system/year-membership-manager"
+import { MemberManager } from "@/components/system/member-manager"
 import { YearRoleManager } from "@/components/system/year-role-manager"
 
 const routeApi = getRouteApi("/_app")
@@ -41,7 +39,6 @@ type ManageView =
   | "years"
   | "members"
   | "roles"
-  | "accounts"
   | "recovery"
   | "audit"
 
@@ -52,7 +49,6 @@ const viewTitles: Record<Exclude<ManageView, "home">, string> = {
   years: "年度",
   members: "メンバー",
   roles: "ロール",
-  accounts: "アカウント管理",
   recovery: "連携申請",
   audit: "操作履歴",
 }
@@ -125,12 +121,6 @@ export function ManagePage() {
         label: "ロール",
         description: "年度ロールと権限",
         icon: Tags,
-      },
-      {
-        view: "accounts" as const,
-        label: "アカウント管理",
-        description: "利用者と全体権限を管理",
-        icon: KeyRound,
       },
       {
         view: "recovery" as const,
@@ -278,12 +268,11 @@ export function ManagePage() {
       )}
       {view === "years" && <YearSettingsPanel />}
       {view === "members" && systemYear !== null && (
-        <YearMembershipManager key={systemYear} year={systemYear} />
+        <MemberManager key={systemYear} year={systemYear} />
       )}
       {view === "roles" && systemYear !== null && (
         <YearRoleManager key={systemYear} year={systemYear} />
       )}
-      {view === "accounts" && <AccountManager />}
       {view === "recovery" && <RecoveryRequestManager />}
       {view === "audit" && <AuditLogManager />}
     </section>

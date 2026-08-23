@@ -12,6 +12,7 @@ import { cancelAssignment, createAssignment } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { getRoster } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
 import {
   EmptyState,
@@ -85,6 +86,7 @@ export function ActivityManager({ year }: { year: number }) {
   })
   const [memberId, setMemberId] = useState("")
   const [createOpen, setCreateOpen] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState<string | null>(null)
   const [pending, setPending] = useState<
     "activity" | "assignment" | "cancel" | null
   >(null)
@@ -139,11 +141,7 @@ export function ActivityManager({ year }: { year: number }) {
   }
 
   async function removeAssignment(assignmentId: string) {
-    if (
-      selectedActivity === null ||
-      !window.confirm("この割当を取り消しますか？")
-    )
-      return
+    if (selectedActivity === null) return
     const activityId = selectedActivity
     setPending("cancel")
     setMessage(null)
@@ -323,7 +321,7 @@ export function ActivityManager({ year }: { year: number }) {
                         size="icon-sm"
                         variant="ghost"
                         disabled={pending !== null}
-                        onClick={() => void removeAssignment(assignment.id)}
+                        onClick={() => setCancelTarget(assignment.id)}
                       >
                         <Trash2 />
                         <span className="sr-only">取消</span>
@@ -338,6 +336,19 @@ export function ActivityManager({ year }: { year: number }) {
       </div>
       {message && (
         <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      )}
+      {cancelTarget && (
+        <ConfirmDialog
+          title="割当を取り消しますか"
+          description="このメンバーの割当を取り消します。"
+          confirmLabel="取り消す"
+          onCancel={() => setCancelTarget(null)}
+          onConfirm={() => {
+            const target = cancelTarget
+            setCancelTarget(null)
+            void removeAssignment(target)
+          }}
+        />
       )}
     </section>
   )

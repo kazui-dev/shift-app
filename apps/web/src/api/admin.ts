@@ -3,7 +3,6 @@ import {
   adminMembersResponseSchema,
   adminMutationResponseSchema,
   identityLinkRequestsResponseSchema,
-  revokeSessionsResponseSchema,
   type AdminMember,
 } from "@workspace/shared/auth"
 
@@ -26,13 +25,6 @@ export const updateAdminAccessLevel = (
     `/api/admin/members/${encodeURIComponent(memberId)}`,
     adminMutationResponseSchema,
     { method: "PATCH", body: JSON.stringify(input) }
-  )
-
-export const revokeAdminSessions = (memberId: string, reason: string) =>
-  apiJson(
-    `/api/admin/members/${encodeURIComponent(memberId)}/revoke-sessions`,
-    revokeSessionsResponseSchema,
-    { method: "POST", body: JSON.stringify({ reason }) }
   )
 
 export const decideRecoveryRequest = (

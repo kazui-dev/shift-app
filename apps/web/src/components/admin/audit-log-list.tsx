@@ -12,8 +12,7 @@ function auditSummary(log: AdminAuditLog): string {
 
 export function AuditLogList({ logs }: { logs: AdminAuditLog[] }) {
   return (
-    <div className="space-y-3">
-      <h3 className="font-medium">監査ログ</h3>
+    <div>
       <ol className="divide-y border-y">
         {logs.map((log) => {
           const reason =

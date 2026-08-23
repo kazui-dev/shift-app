@@ -8,6 +8,7 @@ import { Button } from "@workspace/ui/components/button"
 import { decideRecoveryRequest } from "@/api/admin"
 import { errorMessage } from "@/api/client"
 import { FeedbackNotice } from "@/components/feedback-notice"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { fieldClassName } from "@/components/form-styles"
 
 export function RecoveryRequestCard({
@@ -19,21 +20,13 @@ export function RecoveryRequestCard({
   const [reason, setReason] = useState("")
   const [pending, setPending] = useState<"approved" | "rejected" | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [confirmApproval, setConfirmApproval] = useState(false)
 
   async function decide(decision: "approved" | "rejected") {
     if (!reason.trim()) {
       setError("判断理由を入力してください。")
       return
     }
-    if (
-      decision === "approved" &&
-      !window.confirm(
-        "既存のDiscord連携を置き換え、関係する全セッションを失効します。本人確認済みの場合だけ続行してください。"
-      )
-    ) {
-      return
-    }
-
     setPending(decision)
     setError(null)
     try {
@@ -76,7 +69,7 @@ export function RecoveryRequestCard({
           disabled={
             request.targetsCurrentAdmin || !reason.trim() || pending !== null
           }
-          onClick={() => decide("approved")}
+          onClick={() => setConfirmApproval(true)}
         >
           {pending === "approved" && <LoaderCircle className="animate-spin" />}
           承認
@@ -101,6 +94,18 @@ export function RecoveryRequestCard({
           message={error}
           tone="error"
           onDismiss={() => setError(null)}
+        />
+      )}
+      {confirmApproval && (
+        <ConfirmDialog
+          title="連携先を置き換えますか"
+          description="既存のDiscord連携を置き換えます。本人確認済みの場合だけ続けてください。"
+          confirmLabel="承認する"
+          onCancel={() => setConfirmApproval(false)}
+          onConfirm={() => {
+            setConfirmApproval(false)
+            void decide("approved")
+          }}
         />
       )}
     </li>

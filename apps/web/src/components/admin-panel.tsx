@@ -1,36 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 
-import {
-  getAdminAuditLogs,
-  getAdminMembers,
-  getRecoveryRequests,
-} from "@/api/admin"
+import { getAdminAuditLogs, getRecoveryRequests } from "@/api/admin"
 import { AuditLogList } from "@/components/admin/audit-log-list"
-import { AdminMemberCard } from "@/components/admin/member-card"
 import { RecoveryRequestCard } from "@/components/admin/recovery-request-card"
 import { EmptyState, LoadingState } from "@/components/page-layout"
-
-export function AccountManager() {
-  const members = useQuery({
-    queryKey: ["admin", "members"],
-    queryFn: getAdminMembers,
-    meta: { persist: false },
-  })
-  if (members.isPending) return <LoadingState />
-  if (members.isError)
-    return (
-      <p className="text-sm text-destructive">
-        アカウントを読み込めませんでした。
-      </p>
-    )
-  return (
-    <ul className="divide-y border-y">
-      {members.data.members.map((member) => (
-        <AdminMemberCard key={member.id} member={member} />
-      ))}
-    </ul>
-  )
-}
 
 export function RecoveryRequestManager() {
   const requests = useQuery({

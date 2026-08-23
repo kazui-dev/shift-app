@@ -1,19 +1,14 @@
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/api/client"
-import {
-  assignYearRole,
-  createYearRole,
-  getRoster,
-  getYearRoles,
-  removeYearRole,
-} from "@/api/years"
+import { createYearRole, getYearRoles } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
+import { LoadingState } from "@/components/page-layout"
 
 export function YearRoleManager({ year }: { year: number }) {
   const queryClient = useQueryClient()
@@ -21,25 +16,12 @@ export function YearRoleManager({ year }: { year: number }) {
     queryKey: ["year-roles", year],
     queryFn: () => getYearRoles(year),
   })
-  const members = useQuery({
-    queryKey: ["roster", year],
-    queryFn: () => getRoster(year),
-  })
-  const [roleName, setRoleName] = useState("")
-  const [roleColor, setRoleColor] = useState("#7C3AED")
-  const [roleCanManage, setRoleCanManage] = useState(false)
-  const [roleId, setRoleId] = useState("")
-  const [memberId, setMemberId] = useState("")
+  const [createOpen, setCreateOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [color, setColor] = useState("#7C3AED")
+  const [canManage, setCanManage] = useState(false)
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-
-  async function refreshRoles() {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["year-roles", year] }),
-      queryClient.invalidateQueries({ queryKey: ["roster", year] }),
-      queryClient.invalidateQueries({ queryKey: ["years"] }),
-    ])
-  }
 
   async function addRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -47,44 +29,18 @@ export function YearRoleManager({ year }: { year: number }) {
     setMessage(null)
     try {
       await createYearRole(year, {
-        name: roleName,
-        color: roleColor,
-        permissions: roleCanManage ? ["shift.manage"] : [],
+        name,
+        color,
+        permissions: canManage ? ["shift.manage"] : [],
       })
-      setRoleName("")
-      setRoleCanManage(false)
-      await refreshRoles()
-      setMessage("年度ロールを作成しました。")
-    } catch (error) {
-      setMessage(errorMessage(error))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  async function addMembership(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!roleId || !memberId) return
-    setPending(true)
-    setMessage(null)
-    try {
-      await assignYearRole(roleId, memberId)
-      await refreshRoles()
-      setMessage("ロールを付与しました。")
-    } catch (error) {
-      setMessage(errorMessage(error))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  async function deleteMembership(role: string, member: string) {
-    setPending(true)
-    setMessage(null)
-    try {
-      await removeYearRole(role, member)
-      await refreshRoles()
-      setMessage("ロールを解除しました。")
+      setName("")
+      setCanManage(false)
+      setCreateOpen(false)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["year-roles", year] }),
+        queryClient.invalidateQueries({ queryKey: ["years"] }),
+      ])
+      setMessage("ロールを作成しました。")
     } catch (error) {
       setMessage(errorMessage(error))
     } finally {
@@ -93,95 +49,78 @@ export function YearRoleManager({ year }: { year: number }) {
   }
 
   return (
-    <section className="space-y-4 border-t pt-5">
-      <h3 className="font-medium">年度ロール</h3>
-      <form
-        className="grid gap-2 sm:grid-cols-[1fr_auto_auto]"
-        onSubmit={addRole}
-      >
-        <input
-          className={fieldClassName}
-          placeholder="年度ロール名"
-          required
-          value={roleName}
-          onChange={(event) => setRoleName(event.target.value)}
-        />
-        <input
-          type="color"
-          aria-label="ロールの色"
-          className={`${fieldClassName} p-1 sm:w-16`}
-          value={roleColor}
-          onChange={(event) => setRoleColor(event.target.value)}
-        />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={roleCanManage}
-            onChange={(event) => setRoleCanManage(event.target.checked)}
-          />
-          シフト管理
-        </label>
-        <Button className="sm:col-span-3" disabled={pending}>
-          ロールを作成
+    <section className="space-y-4">
+      <div className="flex justify-end">
+        <Button size="sm" variant="ghost" onClick={() => setCreateOpen(true)}>
+          <Plus />
+          ロールを追加
         </Button>
-      </form>
-
-      <form
-        className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
-        onSubmit={addMembership}
-      >
-        <select
-          className={fieldClassName}
-          required
-          value={roleId}
-          onChange={(event) => setRoleId(event.target.value)}
+      </div>
+      {createOpen && (
+        <form
+          className="grid gap-3 border-y py-4 sm:grid-cols-[1fr_auto]"
+          onSubmit={addRole}
         >
-          <option value="">ロール</option>
+          <div className="flex items-center justify-between sm:col-span-2">
+            <h2 className="font-medium">新しいロール</h2>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              type="button"
+              aria-label="閉じる"
+              onClick={() => setCreateOpen(false)}
+            >
+              <X />
+            </Button>
+          </div>
+          <input
+            className={fieldClassName}
+            placeholder="ロール名"
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+          <input
+            type="color"
+            aria-label="ロールの色"
+            className={`${fieldClassName} p-1 sm:w-16`}
+            value={color}
+            onChange={(event) => setColor(event.target.value)}
+          />
+          <label className="flex min-h-11 items-center gap-2 text-sm sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={canManage}
+              onChange={(event) => setCanManage(event.target.checked)}
+            />
+            シフト管理を許可
+          </label>
+          <Button className="sm:col-span-2" disabled={pending}>
+            作成
+          </Button>
+        </form>
+      )}
+      {roles.isPending ? (
+        <LoadingState />
+      ) : (
+        <ul className="divide-y border-y">
           {roles.data?.roles.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </select>
-        <select
-          className={fieldClassName}
-          required
-          value={memberId}
-          onChange={(event) => setMemberId(event.target.value)}
-        >
-          <option value="">メンバー</option>
-          {members.data?.members.map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.displayName}
-            </option>
-          ))}
-        </select>
-        <Button disabled={pending}>付与</Button>
-      </form>
-
-      <ul className="space-y-2 text-sm">
-        {members.data?.members
-          .filter((member) => member.roles.length > 0)
-          .map((member) => (
-            <li key={member.id} className="border-b py-3 last:border-0">
-              <span className="font-medium">{member.displayName}</span>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {member.roles.map((role) => (
-                  <Button
-                    key={role.id}
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() => void deleteMembership(role.id, member.id)}
-                  >
-                    {role.name}
-                    <X />
-                  </Button>
-                ))}
-              </div>
+            <li key={role.id} className="flex min-h-14 items-center gap-3 py-3">
+              <span
+                className="size-3 rounded-full"
+                style={{ backgroundColor: role.color }}
+              />
+              <span className="min-w-0 flex-1 font-medium">{role.name}</span>
+              <span className="text-xs text-muted-foreground">
+                {role.memberCount}人
+                {role.permissions.includes("shift.manage")
+                  ? " · シフト管理"
+                  : ""}
+              </span>
             </li>
           ))}
-      </ul>
+        </ul>
+      )}
       {message && (
         <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}
