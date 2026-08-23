@@ -8,7 +8,6 @@ import { errorMessage } from "@/api/client"
 import { createYearRole, getYearRoles } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
-import { LoadingState } from "@/components/page-layout"
 
 export function YearRoleManager({ year }: { year: number }) {
   const queryClient = useQueryClient()
@@ -100,9 +99,7 @@ export function YearRoleManager({ year }: { year: number }) {
           </Button>
         </form>
       )}
-      {roles.isPending ? (
-        <LoadingState />
-      ) : (
+      {!roles.isPending && (
         <ul className="divide-y border-y">
           {roles.data?.roles.map((role) => (
             <li key={role.id} className="flex min-h-14 items-center gap-3 py-3">

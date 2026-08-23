@@ -6,7 +6,7 @@ import { errorMessage } from "@/api/client"
 import { createYear, getYears, updateYear } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
-import { LoadingState, SectionHeader } from "@/components/page-layout"
+import { SectionHeader } from "@/components/page-layout"
 
 const statusLabels = {
   draft: "準備中",
@@ -80,9 +80,7 @@ export function YearSettingsPanel() {
         </Button>
       </form>
 
-      {years.isPending ? (
-        <LoadingState />
-      ) : (
+      {!years.isPending && (
         <select
           aria-label="設定する年度"
           className={fieldClassName}

@@ -14,7 +14,7 @@ import { errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
-import { EmptyState, LoadingState } from "@/components/page-layout"
+import { EmptyState } from "@/components/page-layout"
 
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -85,9 +85,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
         <h2 className="flex min-h-11 items-center border-b font-medium">
           入力日
         </h2>
-        {dates.isPending ? (
-          <LoadingState />
-        ) : (
+        {!dates.isPending && (
           <ul className="divide-y">
             {dates.data?.dates.map((date) => (
               <li
@@ -134,11 +132,9 @@ export function AvailabilitySummary({ year }: { year: number }) {
             {submissions.data?.submissions.length ?? 0}件
           </span>
         </h2>
-        {submissions.isPending ? (
-          <LoadingState />
-        ) : submissions.data?.submissions.length === 0 ? (
+        {submissions.data?.submissions.length === 0 ? (
           <EmptyState>提出はありません</EmptyState>
-        ) : (
+        ) : submissions.data ? (
           <ul className="divide-y border-b text-sm">
             {submissions.data?.submissions.map((submission) => (
               <li
@@ -153,7 +149,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
       </div>
 
       {deleteTarget && (

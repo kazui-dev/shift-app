@@ -12,7 +12,6 @@ import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
 import {
   EmptyState,
-  LoadingState,
   PageBreadcrumb,
   PageHeader,
 } from "@/components/page-layout"
@@ -93,9 +92,8 @@ export function AvailabilityPage() {
           </select>
         )}
       </PageHeader>
-      {years.isPending || availability.isPending ? (
-        <LoadingState />
-      ) : activeYears.length === 0 ? (
+      {years.isPending || availability.isPending ? null : activeYears.length ===
+        0 ? (
         <EmptyState>現在、希望は受け付けていません</EmptyState>
       ) : availability.data && year !== null ? (
         availability.data.availability.dates.length === 0 ? (

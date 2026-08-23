@@ -11,11 +11,14 @@ import { apiJson } from "./client"
 export const getAdminMembers = () =>
   apiJson("/api/admin/members", adminMembersResponseSchema)
 
-export const getRecoveryRequests = () =>
-  apiJson("/api/admin/recovery-requests", identityLinkRequestsResponseSchema)
-
 export const getAdminAuditLogs = () =>
   apiJson("/api/admin/audit-logs", adminAuditLogsResponseSchema)
+
+export const getDiscordLinkRequests = () =>
+  apiJson(
+    "/api/admin/identity-link-requests",
+    identityLinkRequestsResponseSchema
+  )
 
 export const updateAdminAccessLevel = (
   memberId: string,
@@ -27,12 +30,12 @@ export const updateAdminAccessLevel = (
     { method: "PATCH", body: JSON.stringify(input) }
   )
 
-export const decideRecoveryRequest = (
+export const decideDiscordLinkRequest = (
   requestId: string,
   input: { decision: "approved" | "rejected"; reason: string }
 ) =>
   apiJson(
-    `/api/admin/recovery-requests/${encodeURIComponent(requestId)}`,
+    `/api/admin/identity-link-requests/${encodeURIComponent(requestId)}`,
     adminMutationResponseSchema,
     { method: "PATCH", body: JSON.stringify(input) }
   )

@@ -116,7 +116,7 @@ adminQueriesApp.get("/audit-logs", async (c) => {
   })
 })
 
-adminQueriesApp.get("/recovery-requests", async (c) => {
+adminQueriesApp.get("/identity-link-requests", async (c) => {
   const adminMember = c.get("adminMember")
   const result = await c.env.shift_app
     .prepare(

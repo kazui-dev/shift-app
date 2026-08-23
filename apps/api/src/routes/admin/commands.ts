@@ -169,7 +169,7 @@ adminCommandsApp.post("/members/:memberId/revoke-sessions", async (c) => {
   })
 })
 
-adminCommandsApp.patch("/recovery-requests/:requestId", async (c) => {
+adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
   const parsed = v.safeParse(
     identityLinkDecisionInputSchema,
     await readJson(c.req.raw)

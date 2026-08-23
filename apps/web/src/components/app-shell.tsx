@@ -35,7 +35,9 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
   })
   const [browserOffline, setBrowserOffline] = useState(() => !navigator.onLine)
   const offline = accountOffline || browserOffline
-  const unsafeOfflineRoute = offline && unsafeOfflineRoutes.has(pathname)
+  const unsafeOfflineRoute =
+    offline &&
+    (unsafeOfflineRoutes.has(pathname) || pathname.startsWith("/manage/"))
 
   useEffect(() => {
     const revalidateAccount = () => {

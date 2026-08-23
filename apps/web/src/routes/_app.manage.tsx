@@ -1,10 +1,8 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
-
-import { ManagePage } from "@/pages/manage-page"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_app/manage")({
   beforeLoad: ({ context }) => {
     if (context.offline) throw redirect({ to: "/calendar" })
   },
-  component: ManagePage,
+  component: Outlet,
 })

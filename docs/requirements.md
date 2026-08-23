@@ -84,9 +84,9 @@ OAuth 後の処理:
 2. provider identity が有効な旭祭シフトのアカウントに連携済みなら、追加入力なしでログインを完了する。
 3. 連携済みアカウントがなければ、学籍番号と表示名を入力する onboarding を表示する。
 4. 学籍番号が未登録なら、アカウントを作成し、OAuth identity を連携する。初期 application role は `member` とする。
-5. 学籍番号が登録済みなら、新しいアカウントを作成せず、既存データや表示名も上書きしない。既存の Discord account でログインするか、管理者へ連携申請するよう案内する。
+5. 学籍番号が登録済みなら、新しいアカウントを作成せず、既存データや表示名も上書きしない。既存の Discord account でログインするか、管理者へ Discord 連携申請するよう案内する。
 
-OAuth callback と onboarding の間は制限付き session とし、onboarding、logout、連携申請以外の API を利用させない。学籍番号の一意性は UI の事前確認ではなく DB の unique constraint で保証し、同時登録時の競合も安全に失敗させる。
+OAuth callback と onboarding の間は制限付き session とし、onboarding、logout、Discord 連携申請以外の API を利用させない。学籍番号の一意性は UI の事前確認ではなく DB の unique constraint で保証し、同時登録時の競合も安全に失敗させる。
 
 学籍番号は `00NN000` 形式の 7 文字とする。先頭 2 桁が入学年度、続く英字 2 文字が学科、末尾 3 桁が番号で、`26AJ112` などが該当する。validation は `^\d{2}[A-Za-z]{2}\d{3}$` とし、保存前に次の順で正規化する。
 
@@ -103,7 +103,7 @@ OAuth callback と onboarding の間は制限付き session とし、onboarding�
 - provider 追加 UI は初期リリースでは実装しない。
 - すでに別アカウントへ連携された OAuth identity は移動しない。
 - 学籍番号の一致だけを根拠に OAuth identity を自動連携しない。他人の学籍番号を入力した account takeover を防ぐため、`system_admin` の承認を必須とする。
-- 連携申請中も対象アカウントのデータを申請者へ開示しない。申請・承認・拒否・session 失効は監査可能にする。
+- Discord 連携申請中も対象アカウントのデータを申請者へ開示しない。申請・承認・拒否・session 失効は監査可能にする。
 
 初期リリースでは学籍番号と password によるログインを実装しない。Discord account を失った場合は管理者による本人確認と identity recovery を使う。password login は、reset 方法、rate limit、credential storage の運用を含めて必要性が生じた時点で再検討する。
 

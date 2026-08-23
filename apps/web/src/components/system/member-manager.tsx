@@ -18,7 +18,6 @@ import {
 } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
-import { LoadingState } from "@/components/page-layout"
 
 const accessLabels = {
   member: "メンバー",
@@ -56,7 +55,7 @@ export function MemberManager({ year }: { year: number }) {
     roster.isPending ||
     roles.isPending
   )
-    return <LoadingState />
+    return null
   if (
     members.isError ||
     memberships.isError ||

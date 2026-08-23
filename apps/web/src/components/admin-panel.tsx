@@ -1,21 +1,21 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { getAdminAuditLogs, getRecoveryRequests } from "@/api/admin"
+import { getAdminAuditLogs, getDiscordLinkRequests } from "@/api/admin"
 import { AuditLogList } from "@/components/admin/audit-log-list"
-import { RecoveryRequestCard } from "@/components/admin/recovery-request-card"
-import { EmptyState, LoadingState } from "@/components/page-layout"
+import { DiscordLinkRequestCard } from "@/components/admin/discord-link-request-card"
+import { EmptyState } from "@/components/page-layout"
 
-export function RecoveryRequestManager() {
+export function DiscordLinkRequestManager() {
   const requests = useQuery({
-    queryKey: ["admin", "recovery-requests"],
-    queryFn: getRecoveryRequests,
+    queryKey: ["admin", "discord-link-requests"],
+    queryFn: getDiscordLinkRequests,
     meta: { persist: false },
   })
-  if (requests.isPending) return <LoadingState />
+  if (requests.isPending) return null
   if (requests.isError)
     return (
       <p className="text-sm text-destructive">
-        連携申請を読み込めませんでした。
+        Discord連携申請を読み込めませんでした。
       </p>
     )
   if (requests.data.requests.length === 0)
@@ -23,7 +23,7 @@ export function RecoveryRequestManager() {
   return (
     <ul className="divide-y border-y">
       {requests.data.requests.map((request) => (
-        <RecoveryRequestCard key={request.id} request={request} />
+        <DiscordLinkRequestCard key={request.id} request={request} />
       ))}
     </ul>
   )
@@ -35,7 +35,7 @@ export function AuditLogManager() {
     queryFn: getAdminAuditLogs,
     meta: { persist: false },
   })
-  if (logs.isPending) return <LoadingState />
+  if (logs.isPending) return null
   if (logs.isError)
     return (
       <p className="text-sm text-destructive">

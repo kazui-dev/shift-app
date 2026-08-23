@@ -14,11 +14,7 @@ import { getRoster } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
-import {
-  EmptyState,
-  LoadingState,
-  SectionHeader,
-} from "@/components/page-layout"
+import { EmptyState, SectionHeader } from "@/components/page-layout"
 
 function iso(local: string): string {
   return new Date(local).toISOString()
@@ -250,7 +246,6 @@ export function ActivityManager({ year }: { year: number }) {
       <div className="grid border-y md:grid-cols-2">
         <div className="space-y-3">
           <h3 className="border-b px-4 py-3 font-medium">活動</h3>
-          {activities.isPending && <LoadingState />}
           <div className="space-y-1 px-2 pb-3">
             {activities.data?.activities.map((item) => (
               <button
@@ -277,9 +272,6 @@ export function ActivityManager({ year }: { year: number }) {
           <div className="space-y-3 px-4 pb-4">
             {selectedActivity === null && (
               <EmptyState>活動を選択してください</EmptyState>
-            )}
-            {selectedActivity !== null && activity.isPending && (
-              <LoadingState />
             )}
             {activity.data && (
               <>

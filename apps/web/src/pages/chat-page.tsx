@@ -26,7 +26,7 @@ import { getYears } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
-import { EmptyState, LoadingState } from "@/components/page-layout"
+import { EmptyState } from "@/components/page-layout"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -216,7 +216,6 @@ export function ChatPage() {
             )}
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {rooms.isPending && !offline && <LoadingState />}
             <ul className="divide-y">
               {rooms.data?.rooms.map((room) => (
                 <li key={room.id}>
@@ -256,7 +255,6 @@ export function ChatPage() {
               {selectedRoom?.name ?? "連絡"}
             </h2>
           </header>
-          {messages.isPending && !offline && <LoadingState />}
           <ul className="min-h-0 flex-1 overflow-y-auto px-1 md:px-4">
             {messages.data?.messages.map((message, index) => {
               const previous = messages.data.messages[index - 1]

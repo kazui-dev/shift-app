@@ -1,24 +1,14 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { getRouteApi } from "@tanstack/react-router"
-import {
-  ArrowLeft,
-  CalendarClock,
-  ChevronRight,
-  CircleAlert,
-  ClipboardCheck,
-  History,
-  Link,
-  Tags,
-  Users,
-} from "lucide-react"
+import { getRouteApi, Link } from "@tanstack/react-router"
+import { ArrowLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
 import { getYears } from "@/api/years"
 import {
   AuditLogManager,
-  RecoveryRequestManager,
+  DiscordLinkRequestManager,
 } from "@/components/admin-panel"
 import { fieldClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
@@ -26,7 +16,6 @@ import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { ReportManager } from "@/components/manage/report-manager"
 import {
   EmptyState,
-  LoadingState,
   PageBreadcrumb,
   PageHeader,
 } from "@/components/page-layout"
@@ -44,7 +33,7 @@ type ManageView =
   | "years"
   | "members"
   | "roles"
-  | "recovery"
+  | "discordLinks"
   | "audit"
 
 const viewTitles: Record<Exclude<ManageView, "home">, string> = {
@@ -54,11 +43,11 @@ const viewTitles: Record<Exclude<ManageView, "home">, string> = {
   years: "年度",
   members: "メンバー",
   roles: "ロール",
-  recovery: "連携申請",
+  discordLinks: "Discord連携申請",
   audit: "操作履歴",
 }
 
-export function ManagePage() {
+export function ManagePage({ view }: { view: ManageView }) {
   const { state } = routeApi.useRouteContext()
   const systemAdmin = state.member.accessLevel === "system_admin"
   const years = useQuery({ queryKey: ["years"], queryFn: getYears })
@@ -70,12 +59,10 @@ export function ManagePage() {
   const [selectedSystemYear, setSelectedSystemYear] = useState<number | null>(
     null
   )
-  const [view, setView] = useState<ManageView>("home")
   const year = selectedYear ?? manageableYears[0]?.year ?? null
   const systemYear = selectedSystemYear ?? years.data?.years[0]?.year ?? null
 
-  if (years.isPending) return <LoadingState />
-  if (year === null && !systemAdmin) {
+  if (!years.isPending && year === null && !systemAdmin) {
     return (
       <section className="mx-auto max-w-3xl space-y-6">
         <PageHeader title="管理" />
@@ -87,58 +74,46 @@ export function ManagePage() {
   if (view === "home") {
     const shiftItems = [
       {
-        view: "shifts" as const,
+        to: "/manage/shifts" as const,
         label: "シフト",
-        description: "活動と担当者を編集",
-        icon: CalendarClock,
         visible: year !== null,
       },
       {
-        view: "reports" as const,
+        to: "/manage/reports" as const,
         label: "遅刻・欠勤連絡",
-        description: "未対応の連絡を確認",
-        icon: CircleAlert,
         visible: year !== null,
       },
       {
-        view: "availability" as const,
+        to: "/manage/availability" as const,
         label: "シフト希望",
-        description: "入力日と提出状況を管理",
-        icon: ClipboardCheck,
         visible: year !== null,
       },
     ]
     const systemItems = [
       {
-        view: "years" as const,
+        to: "/manage/years" as const,
         label: "年度",
-        description: "年度の作成と運用状態",
-        icon: CalendarClock,
       },
       {
-        view: "members" as const,
+        to: "/manage/members" as const,
         label: "メンバー",
-        description: "年度に参加するメンバー",
-        icon: Users,
       },
       {
-        view: "roles" as const,
+        to: "/manage/roles" as const,
         label: "ロール",
-        description: "年度ロールと権限",
-        icon: Tags,
       },
       {
-        view: "recovery" as const,
-        label: "連携申請",
-        description: "Discord連携申請を確認",
-        icon: Link,
+        to: "/manage/discord-link-requests" as const,
+        label: "Discord連携申請",
       },
       {
-        view: "audit" as const,
+        to: "/manage/audit" as const,
         label: "操作履歴",
-        description: "管理操作の履歴",
-        icon: History,
       },
+    ]
+    const items = [
+      ...shiftItems.filter((item) => item.visible),
+      ...(systemAdmin ? systemItems : []),
     ]
 
     return (
@@ -159,63 +134,20 @@ export function ManagePage() {
             </select>
           )}
         </PageHeader>
-        {year !== null && (
-          <div>
-            <h2 className="mb-2 text-xs font-medium text-muted-foreground">
-              シフト管理
-            </h2>
-            <ul className="divide-y border-y">
-              {shiftItems
-                .filter((item) => item.visible)
-                .map(({ view: nextView, label, description, icon: Icon }) => (
-                  <li key={nextView}>
-                    <button
-                      type="button"
-                      className="flex min-h-17 w-full items-center gap-3 py-3 text-left"
-                      onClick={() => setView(nextView)}
-                    >
-                      <Icon className="size-5 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium">{label}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {description}
-                        </span>
-                      </span>
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        )}
-        {systemAdmin && (
-          <div>
-            <h2 className="mb-2 text-xs font-medium text-muted-foreground">
-              システム管理
-            </h2>
-            <ul className="divide-y border-y">
-              {systemItems.map(
-                ({ view: nextView, label, description, icon: Icon }) => (
-                  <li key={nextView}>
-                    <button
-                      type="button"
-                      className="flex min-h-17 w-full items-center gap-3 py-3 text-left"
-                      onClick={() => setView(nextView)}
-                    >
-                      <Icon className="size-5 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-medium">{label}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {description}
-                        </span>
-                      </span>
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    </button>
-                  </li>
-                )
-              )}
-            </ul>
-          </div>
+        {!years.isPending && (
+          <ul className="divide-y border-y">
+            {items.map(({ to, label }) => (
+              <li key={to}>
+                <Link
+                  to={to}
+                  className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium"
+                >
+                  {label}
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     )
@@ -228,7 +160,12 @@ export function ManagePage() {
   return (
     <section className="mx-auto max-w-4xl space-y-6">
       <PageBreadcrumb>
-        <Button variant="ghost" size="sm" onClick={() => setView("home")}>
+        <Button
+          render={<Link to="/manage" />}
+          nativeButton={false}
+          variant="ghost"
+          size="sm"
+        >
           <ArrowLeft />
           管理
         </Button>
@@ -280,7 +217,7 @@ export function ManagePage() {
       {view === "roles" && systemYear !== null && (
         <YearRoleManager key={systemYear} year={systemYear} />
       )}
-      {view === "recovery" && <RecoveryRequestManager />}
+      {view === "discordLinks" && <DiscordLinkRequestManager />}
       {view === "audit" && <AuditLogManager />}
     </section>
   )
