@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { X } from "lucide-react"
 import { useRegisterSW } from "virtual:pwa-register/react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -6,6 +7,7 @@ import { Button } from "@workspace/ui/components/button"
 const updateCheckInterval = 60 * 60 * 1000
 
 export function PwaUpdateNotice() {
+  const [dismissed, setDismissed] = useState(false)
   const [updating, setUpdating] = useState(false)
   const {
     needRefresh: [needsRefresh],
@@ -51,7 +53,7 @@ export function PwaUpdateNotice() {
     }
   }, [])
 
-  if (!needsRefresh) return null
+  if (!needsRefresh || dismissed) return null
 
   const applyUpdate = async () => {
     setUpdating(true)
@@ -71,8 +73,16 @@ export function PwaUpdateNotice() {
         新しいバージョンがあります
       </p>
       <Button size="sm" disabled={updating} onClick={() => void applyUpdate()}>
-        {updating ? "更新中" : "更新"}
+        {updating ? "再読み込み中" : "再読み込み"}
       </Button>
+      <button
+        className="shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+        type="button"
+        aria-label="更新通知を閉じる"
+        onClick={() => setDismissed(true)}
+      >
+        <X className="size-4" />
+      </button>
     </output>
   )
 }
