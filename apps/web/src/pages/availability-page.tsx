@@ -10,11 +10,7 @@ import { errorMessage } from "@/api/client"
 import { getYears } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
-import {
-  EmptyState,
-  PageBreadcrumb,
-  PageHeader,
-} from "@/components/page-layout"
+import { EmptyState, PageHeader } from "@/components/page-layout"
 import {
   validateAvailabilityWindows,
   type AvailabilityWindowInput,
@@ -64,19 +60,22 @@ export function AvailabilityPage() {
   })
 
   return (
-    <section className="mx-auto max-w-2xl space-y-5">
-      <PageBreadcrumb>
-        <Button
-          render={<Link to="/calendar" />}
-          nativeButton={false}
-          size="sm"
-          variant="ghost"
-        >
-          <ChevronLeft />
-          カレンダー
-        </Button>
-      </PageBreadcrumb>
-      <PageHeader title="シフト希望">
+    <section className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="シフト希望"
+        back={
+          <Button
+            className="-ml-2"
+            render={<Link to="/calendar" />}
+            nativeButton={false}
+            size="icon-sm"
+            variant="ghost"
+            aria-label="カレンダーに戻る"
+          >
+            <ChevronLeft />
+          </Button>
+        }
+      >
         {activeYears.length > 1 && (
           <select
             aria-label="年度"

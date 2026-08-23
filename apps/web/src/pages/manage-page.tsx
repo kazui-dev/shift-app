@@ -2,8 +2,8 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import {
-  ArrowLeft,
   CalendarClock,
+  ChevronLeft,
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
@@ -24,11 +24,7 @@ import { fieldClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { ReportManager } from "@/components/manage/report-manager"
-import {
-  EmptyState,
-  PageBreadcrumb,
-  PageHeader,
-} from "@/components/page-layout"
+import { EmptyState, PageHeader } from "@/components/page-layout"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
 import { MemberManager } from "@/components/system/member-manager"
 import { YearRoleManager } from "@/components/system/year-role-manager"
@@ -201,18 +197,21 @@ export function ManagePage({ view }: { view: ManageView }) {
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
-      <PageBreadcrumb>
-        <Button
-          render={<Link to="/manage" />}
-          nativeButton={false}
-          variant="ghost"
-          size="sm"
-        >
-          <ArrowLeft />
-          管理
-        </Button>
-      </PageBreadcrumb>
-      <PageHeader title={viewTitles[view]}>
+      <PageHeader
+        title={viewTitles[view]}
+        back={
+          <Button
+            className="-ml-2"
+            render={<Link to="/manage" />}
+            nativeButton={false}
+            variant="ghost"
+            size="icon-sm"
+            aria-label="管理に戻る"
+          >
+            <ChevronLeft />
+          </Button>
+        }
+      >
         {yearScoped && manageableYears.length > 1 && (
           <select
             aria-label="年度"

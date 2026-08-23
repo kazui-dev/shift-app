@@ -1,31 +1,23 @@
 import { cn } from "@workspace/ui/lib/utils"
 
-export function PageBreadcrumb({ children }: { children: React.ReactNode }) {
-  return (
-    <nav className="flex min-h-9 items-center" aria-label="パンくず">
-      {children}
-    </nav>
-  )
-}
-
 export function PageHeader({
   title,
+  back,
   children,
   className,
 }: {
   title: string
+  back?: React.ReactNode
   children?: React.ReactNode
   className?: string
 }) {
   return (
-    <header
-      className={cn(
-        "flex min-h-10 flex-wrap items-center justify-between gap-3",
-        className
-      )}
-    >
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      {children}
+    <header className={cn("flex min-h-11 items-center gap-2", className)}>
+      {back}
+      <h1 className="min-w-0 flex-1 truncate text-xl font-semibold tracking-tight">
+        {title}
+      </h1>
+      {children && <div className="flex shrink-0 items-center">{children}</div>}
     </header>
   )
 }

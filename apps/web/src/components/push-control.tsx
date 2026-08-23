@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
-import { LoaderCircle } from "lucide-react"
+import { Bell, BellOff, LoaderCircle } from "lucide-react"
+
+import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/api/client"
 import {
@@ -58,7 +60,7 @@ export function PushControl() {
         throw error
       }
       setEnabled(true)
-      setMessage("シフト通知を有効にしました。")
+      setMessage("通知を有効にしました。")
     } catch (error) {
       setMessage(errorMessage(error))
     } finally {
@@ -70,24 +72,22 @@ export function PushControl() {
 
   return (
     <>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-label="シフト通知"
-        className={`relative h-7 w-12 rounded-full transition-colors ${enabled ? "bg-foreground" : "bg-muted-foreground/30"} disabled:opacity-50`}
+      <Button
+        size="sm"
+        variant="outline"
         disabled={pending || offline}
         title={offline ? "オンライン時に変更できます" : undefined}
         onClick={toggle}
       >
         {pending ? (
-          <LoaderCircle className="absolute inset-0 m-auto size-4 animate-spin text-background" />
+          <LoaderCircle className="animate-spin" />
+        ) : enabled ? (
+          <BellOff />
         ) : (
-          <span
-            className={`absolute top-1 size-5 rounded-full bg-background shadow-sm transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`}
-          />
+          <Bell />
         )}
-      </button>
+        {enabled ? "通知中" : "通知"}
+      </Button>
       {message && (
         <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}

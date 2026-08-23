@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { ArrowLeft, LoaderCircle, Plus, Send, X } from "lucide-react"
+import { ChevronLeft, LoaderCircle, Plus, Send, X } from "lucide-react"
 import * as v from "valibot"
 
 import {
@@ -198,7 +198,35 @@ export function ChatPage() {
 
   return (
     <section className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-5xl flex-col gap-6 md:min-h-[70dvh]">
-      <PageHeader title="チャット">
+      <PageHeader
+        className="md:hidden"
+        title={selectedRoom?.name ?? "チャット"}
+        back={
+          selectedRoomId !== null ? (
+            <Button
+              className="-ml-2"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="チャット一覧に戻る"
+              onClick={() => setRoomId(null)}
+            >
+              <ChevronLeft />
+            </Button>
+          ) : undefined
+        }
+      >
+        {selectedRoomId === null && !offline && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="ルームを作成"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus />
+          </Button>
+        )}
+      </PageHeader>
+      <PageHeader className="hidden md:flex" title="チャット">
         {!offline && (
           <Button
             size="icon-sm"
@@ -240,16 +268,7 @@ export function ChatPage() {
         <div
           className={`${selectedRoomId === null ? "hidden" : "flex"} min-h-0 flex-col md:flex`}
         >
-          <header className="flex min-h-12 items-center gap-2 border-b md:px-4">
-            <Button
-              className="md:hidden"
-              size="icon-sm"
-              variant="ghost"
-              aria-label="チャット一覧に戻る"
-              onClick={() => setRoomId(null)}
-            >
-              <ArrowLeft />
-            </Button>
+          <header className="hidden min-h-12 items-center gap-2 border-b px-4 md:flex">
             <h2 className="min-w-0 truncate font-semibold">
               {selectedRoom?.name ?? "チャット"}
             </h2>

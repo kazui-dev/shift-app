@@ -37,7 +37,7 @@ export function SettingsPage() {
       <div>
         <h2 className="mb-2 text-xs font-medium text-muted-foreground">通知</h2>
         <div className="flex min-h-16 items-center justify-between gap-4 border-y py-3">
-          <span className="font-medium">シフト通知</span>
+          <span className="font-medium">通知</span>
           <PushControl />
         </div>
       </div>
