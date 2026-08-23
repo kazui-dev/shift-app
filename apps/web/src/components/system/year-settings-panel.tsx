@@ -4,8 +4,6 @@ import { Button } from "@workspace/ui/components/button"
 
 import { errorMessage } from "@/api/client"
 import { createYear, getYears, updateYear } from "@/api/years"
-import { YearMembershipManager } from "@/components/system/year-membership-manager"
-import { YearRoleManager } from "@/components/system/year-role-manager"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
 import { LoadingState, SectionHeader } from "@/components/page-layout"
@@ -66,7 +64,7 @@ export function YearSettingsPanel() {
 
   return (
     <section className="space-y-5">
-      <SectionHeader title="年度と権限" />
+      <SectionHeader title="年度" />
       <form className="flex flex-col gap-2 sm:flex-row" onSubmit={addYear}>
         <input
           type="number"
@@ -113,12 +111,6 @@ export function YearSettingsPanel() {
         </div>
       )}
 
-      {year !== null && (
-        <>
-          <YearMembershipManager key={`membership-${year}`} year={year} />
-          <YearRoleManager key={`roles-${year}`} year={year} />
-        </>
-      )}
       {message && (
         <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}

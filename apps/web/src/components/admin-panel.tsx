@@ -1,7 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { RefreshCw } from "lucide-react"
-
-import { Button } from "@workspace/ui/components/button"
+import { useQuery } from "@tanstack/react-query"
 
 import {
   getAdminAuditLogs,
@@ -13,81 +10,64 @@ import { AdminMemberCard } from "@/components/admin/member-card"
 import { RecoveryRequestCard } from "@/components/admin/recovery-request-card"
 import { EmptyState, LoadingState } from "@/components/page-layout"
 
-export function AdminPanel() {
-  const queryClient = useQueryClient()
+export function AccountManager() {
   const members = useQuery({
     queryKey: ["admin", "members"],
     queryFn: getAdminMembers,
     meta: { persist: false },
   })
-  const linkRequests = useQuery({
+  if (members.isPending) return <LoadingState />
+  if (members.isError)
+    return (
+      <p className="text-sm text-destructive">
+        アカウントを読み込めませんでした。
+      </p>
+    )
+  return (
+    <ul className="divide-y border-y">
+      {members.data.members.map((member) => (
+        <AdminMemberCard key={member.id} member={member} />
+      ))}
+    </ul>
+  )
+}
+
+export function RecoveryRequestManager() {
+  const requests = useQuery({
     queryKey: ["admin", "recovery-requests"],
     queryFn: getRecoveryRequests,
     meta: { persist: false },
   })
-  const auditLogs = useQuery({
+  if (requests.isPending) return <LoadingState />
+  if (requests.isError)
+    return (
+      <p className="text-sm text-destructive">
+        連携申請を読み込めませんでした。
+      </p>
+    )
+  if (requests.data.requests.length === 0)
+    return <EmptyState>申請はありません</EmptyState>
+  return (
+    <ul className="divide-y border-y">
+      {requests.data.requests.map((request) => (
+        <RecoveryRequestCard key={request.id} request={request} />
+      ))}
+    </ul>
+  )
+}
+
+export function AuditLogManager() {
+  const logs = useQuery({
     queryKey: ["admin", "audit-logs"],
     queryFn: getAdminAuditLogs,
     meta: { persist: false },
   })
-
-  const isPending =
-    members.isPending || linkRequests.isPending || auditLogs.isPending
-  const isError = members.isError || linkRequests.isError || auditLogs.isError
-
-  return (
-    <section className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">アカウント管理</h2>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => queryClient.invalidateQueries({ queryKey: ["admin"] })}
-        >
-          <RefreshCw />
-          <span className="sr-only">再読み込み</span>
-        </Button>
-      </div>
-
-      {isPending && <LoadingState />}
-      {isError && (
-        <p className="text-sm text-destructive">
-          管理情報を読み込めませんでした。再読み込みしてください。
-        </p>
-      )}
-
-      {members.data && (
-        <div className="space-y-3">
-          <h3 className="font-medium">メンバー</h3>
-          <ul className="divide-y border-y">
-            {members.data.members.map((member) => (
-              <AdminMemberCard key={member.id} member={member} />
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {linkRequests.data && (
-        <div className="space-y-3">
-          <h3 className="font-medium">
-            アカウント連携申請
-            <span className="ml-2 text-xs text-muted-foreground">
-              {linkRequests.data.requests.length}件
-            </span>
-          </h3>
-          {linkRequests.data.requests.length === 0 ? (
-            <EmptyState>申請はありません</EmptyState>
-          ) : (
-            <ul className="divide-y border-y">
-              {linkRequests.data.requests.map((request) => (
-                <RecoveryRequestCard key={request.id} request={request} />
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {auditLogs.data && <AuditLogList logs={auditLogs.data.auditLogs} />}
-    </section>
-  )
+  if (logs.isPending) return <LoadingState />
+  if (logs.isError)
+    return (
+      <p className="text-sm text-destructive">
+        操作履歴を読み込めませんでした。
+      </p>
+    )
+  return <AuditLogList logs={logs.data.auditLogs} />
 }

@@ -7,20 +7,29 @@ import {
   ChevronRight,
   CircleAlert,
   ClipboardCheck,
+  History,
   KeyRound,
+  Link,
+  Tags,
   Users,
 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
 import { getYears } from "@/api/years"
-import { AdminPanel } from "@/components/admin-panel"
+import {
+  AccountManager,
+  AuditLogManager,
+  RecoveryRequestManager,
+} from "@/components/admin-panel"
 import { fieldClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { ReportManager } from "@/components/manage/report-manager"
 import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
+import { YearMembershipManager } from "@/components/system/year-membership-manager"
+import { YearRoleManager } from "@/components/system/year-role-manager"
 
 const routeApi = getRouteApi("/_app")
 
@@ -29,15 +38,23 @@ type ManageView =
   | "shifts"
   | "reports"
   | "availability"
-  | "organization"
+  | "years"
+  | "members"
+  | "roles"
   | "accounts"
+  | "recovery"
+  | "audit"
 
 const viewTitles: Record<Exclude<ManageView, "home">, string> = {
   shifts: "シフト",
   reports: "遅刻・欠勤連絡",
   availability: "シフト希望状況",
-  organization: "年度・メンバー・権限",
+  years: "年度",
+  members: "メンバー",
+  roles: "ロール",
   accounts: "アカウント管理",
+  recovery: "連携申請",
+  audit: "操作履歴",
 }
 
 export function ManagePage() {
@@ -49,8 +66,12 @@ export function ManagePage() {
     [years.data]
   )
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [selectedSystemYear, setSelectedSystemYear] = useState<number | null>(
+    null
+  )
   const [view, setView] = useState<ManageView>("home")
   const year = selectedYear ?? manageableYears[0]?.year ?? null
+  const systemYear = selectedSystemYear ?? years.data?.years[0]?.year ?? null
 
   if (years.isPending) return <LoadingState />
   if (year === null && !systemAdmin) {
@@ -63,7 +84,7 @@ export function ManagePage() {
   }
 
   if (view === "home") {
-    const items = [
+    const shiftItems = [
       {
         view: "shifts" as const,
         label: "シフト",
@@ -85,19 +106,43 @@ export function ManagePage() {
         icon: ClipboardCheck,
         visible: year !== null,
       },
+    ]
+    const systemItems = [
       {
-        view: "organization" as const,
-        label: "年度・メンバー・権限",
-        description: "年度の運用と権限を管理",
+        view: "years" as const,
+        label: "年度",
+        description: "年度の作成と運用状態",
+        icon: CalendarClock,
+      },
+      {
+        view: "members" as const,
+        label: "メンバー",
+        description: "年度に参加するメンバー",
         icon: Users,
-        visible: systemAdmin,
+      },
+      {
+        view: "roles" as const,
+        label: "ロール",
+        description: "年度ロールと権限",
+        icon: Tags,
       },
       {
         view: "accounts" as const,
         label: "アカウント管理",
-        description: "利用者と連携申請を管理",
+        description: "利用者と全体権限を管理",
         icon: KeyRound,
-        visible: systemAdmin,
+      },
+      {
+        view: "recovery" as const,
+        label: "連携申請",
+        description: "Discord連携申請を確認",
+        icon: Link,
+      },
+      {
+        view: "audit" as const,
+        label: "操作履歴",
+        description: "管理操作の履歴",
+        icon: History,
       },
     ]
 
@@ -119,34 +164,71 @@ export function ManagePage() {
             </select>
           )}
         </PageHeader>
-        <ul className="divide-y border-y">
-          {items
-            .filter((item) => item.visible)
-            .map(({ view: nextView, label, description, icon: Icon }) => (
-              <li key={nextView}>
-                <button
-                  type="button"
-                  className="flex min-h-17 w-full items-center gap-3 py-3 text-left"
-                  onClick={() => setView(nextView)}
-                >
-                  <Icon className="size-5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{label}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {description}
-                    </span>
-                  </span>
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                </button>
-              </li>
-            ))}
-        </ul>
+        {year !== null && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium text-muted-foreground">
+              シフト管理
+            </h2>
+            <ul className="divide-y border-y">
+              {shiftItems
+                .filter((item) => item.visible)
+                .map(({ view: nextView, label, description, icon: Icon }) => (
+                  <li key={nextView}>
+                    <button
+                      type="button"
+                      className="flex min-h-17 w-full items-center gap-3 py-3 text-left"
+                      onClick={() => setView(nextView)}
+                    >
+                      <Icon className="size-5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{label}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {description}
+                        </span>
+                      </span>
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
+        {systemAdmin && (
+          <div>
+            <h2 className="mb-2 text-xs font-medium text-muted-foreground">
+              システム管理
+            </h2>
+            <ul className="divide-y border-y">
+              {systemItems.map(
+                ({ view: nextView, label, description, icon: Icon }) => (
+                  <li key={nextView}>
+                    <button
+                      type="button"
+                      className="flex min-h-17 w-full items-center gap-3 py-3 text-left"
+                      onClick={() => setView(nextView)}
+                    >
+                      <Icon className="size-5 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{label}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {description}
+                        </span>
+                      </span>
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    </button>
+                  </li>
+                )
+              )}
+            </ul>
+          </div>
+        )}
       </section>
     )
   }
 
   const yearScoped =
     view === "shifts" || view === "reports" || view === "availability"
+  const systemYearScoped = view === "members" || view === "roles"
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
@@ -159,6 +241,22 @@ export function ManagePage() {
             onChange={(event) => setSelectedYear(Number(event.target.value))}
           >
             {manageableYears.map((item) => (
+              <option key={item.year} value={item.year}>
+                {item.year}年度
+              </option>
+            ))}
+          </select>
+        )}
+        {systemYearScoped && years.data && years.data.years.length > 1 && (
+          <select
+            aria-label="年度"
+            className={`${fieldClassName} w-auto`}
+            value={systemYear ?? ""}
+            onChange={(event) =>
+              setSelectedSystemYear(Number(event.target.value))
+            }
+          >
+            {years.data.years.map((item) => (
               <option key={item.year} value={item.year}>
                 {item.year}年度
               </option>
@@ -178,8 +276,16 @@ export function ManagePage() {
       {view === "availability" && year !== null && (
         <AvailabilitySummary year={year} />
       )}
-      {view === "organization" && <YearSettingsPanel />}
-      {view === "accounts" && <AdminPanel />}
+      {view === "years" && <YearSettingsPanel />}
+      {view === "members" && systemYear !== null && (
+        <YearMembershipManager key={systemYear} year={systemYear} />
+      )}
+      {view === "roles" && systemYear !== null && (
+        <YearRoleManager key={systemYear} year={systemYear} />
+      )}
+      {view === "accounts" && <AccountManager />}
+      {view === "recovery" && <RecoveryRequestManager />}
+      {view === "audit" && <AuditLogManager />}
     </section>
   )
 }
