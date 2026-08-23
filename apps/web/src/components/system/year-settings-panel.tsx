@@ -75,7 +75,9 @@ export function YearSettingsPanel() {
           value={yearNumber}
           onChange={(event) => setYearNumber(Number(event.target.value))}
         />
-        <Button disabled={pending}>年度を追加</Button>
+        <Button type="submit" disabled={pending}>
+          年度を追加
+        </Button>
       </form>
 
       {years.isPending ? (
