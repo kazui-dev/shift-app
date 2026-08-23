@@ -13,6 +13,7 @@ import { Button } from "@workspace/ui/components/button"
 
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
+import { useCalendarPager } from "@/components/calendar/use-calendar-pager"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -575,11 +576,6 @@ export function CalendarPage() {
     null
   )
   const calendarRef = useRef<HTMLDivElement>(null)
-  const calendarPagerRef = useRef<HTMLDivElement>(null)
-  const calendarScrollTimerRef = useRef<number | null>(null)
-  const calendarAnimationFrameRef = useRef<number | null>(null)
-  const calendarGestureActiveRef = useRef(false)
-  const calendarGestureCommittedRef = useRef(false)
   const railTransitionIdRef = useRef(0)
   const initializedCalendarRef = useRef(false)
   const now = useCurrentTime()
@@ -619,10 +615,15 @@ export function CalendarPage() {
     setRailTransition((current) => (current?.id === id ? null : current))
   }, [])
 
+  const calendarPager = useCalendarPager({
+    pageKey: date,
+    onPrevious: () => changeDate(previousDate),
+    onNext: () => changeDate(nextDate),
+    onProgress: setCalendarSwipeProgress,
+  })
+
   useLayoutEffect(() => {
     const calendarElement = calendarRef.current
-    const pager = calendarPagerRef.current
-    if (pager) pager.scrollLeft = pager.clientWidth
     if (calendarElement && !initializedCalendarRef.current) {
       const scrollTop =
         scrollTopRef.current ?? initialCalendarScrollTop(new Date())
@@ -631,75 +632,6 @@ export function CalendarPage() {
       initializedCalendarRef.current = true
     }
   }, [date, scrollTopRef])
-
-  useEffect(
-    () => () => {
-      if (calendarScrollTimerRef.current !== null) {
-        window.clearTimeout(calendarScrollTimerRef.current)
-      }
-      if (calendarAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(calendarAnimationFrameRef.current)
-      }
-    },
-    []
-  )
-
-  function settleCalendarScroll() {
-    if (calendarScrollTimerRef.current !== null) {
-      window.clearTimeout(calendarScrollTimerRef.current)
-      calendarScrollTimerRef.current = null
-    }
-    if (calendarGestureActiveRef.current) {
-      calendarScrollTimerRef.current = window.setTimeout(
-        settleCalendarScroll,
-        fallbackScrollEndDelay
-      )
-      return
-    }
-    const pager = calendarPagerRef.current
-    if (!pager || pager.clientWidth === 0) return
-    const page = Math.round(pager.scrollLeft / pager.clientWidth)
-    if (calendarAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
-      calendarAnimationFrameRef.current = null
-    }
-    setCalendarSwipeProgress(0)
-    if (page === 0) {
-      if (calendarGestureCommittedRef.current) return
-      calendarGestureCommittedRef.current = true
-      changeDate(previousDate)
-    }
-    if (page === 2) {
-      if (calendarGestureCommittedRef.current) return
-      calendarGestureCommittedRef.current = true
-      changeDate(nextDate)
-    }
-  }
-
-  function handleCalendarScroll() {
-    if (calendarAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
-    }
-    calendarAnimationFrameRef.current = window.requestAnimationFrame(() => {
-      const pager = calendarPagerRef.current
-      if (pager && pager.clientWidth > 0) {
-        setCalendarSwipeProgress(
-          Math.max(-1, Math.min(1, pager.scrollLeft / pager.clientWidth - 1))
-        )
-      }
-      calendarAnimationFrameRef.current = null
-    })
-    const pager = calendarPagerRef.current
-    if (pager && !("onscrollend" in pager)) {
-      if (calendarScrollTimerRef.current !== null) {
-        window.clearTimeout(calendarScrollTimerRef.current)
-      }
-      calendarScrollTimerRef.current = window.setTimeout(
-        settleCalendarScroll,
-        fallbackScrollEndDelay
-      )
-    }
-  }
 
   function changeMonth(months: number) {
     changeDate(moveMonth(date, months, preferredDayRef.current), {
@@ -792,25 +724,18 @@ export function CalendarPage() {
           }}
         >
           <div
-            ref={calendarPagerRef}
+            ref={calendarPager.pagerRef}
             aria-label="日付を切り替え"
             className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: 24 * hourHeight + calendarInset * 2 }}
-            onScroll={handleCalendarScroll}
-            onScrollEnd={settleCalendarScroll}
-            onPointerDown={() => {
-              calendarGestureCommittedRef.current = false
-            }}
-            onTouchCancel={() => {
-              calendarGestureActiveRef.current = false
-            }}
-            onTouchEnd={() => {
-              calendarGestureActiveRef.current = false
-            }}
-            onTouchStart={() => {
-              calendarGestureActiveRef.current = true
-              calendarGestureCommittedRef.current = false
-            }}
+            onScroll={calendarPager.handleScroll}
+            onScrollEnd={calendarPager.handleScrollEnd}
+            onPointerCancel={calendarPager.handlePointerCancel}
+            onPointerDown={calendarPager.handlePointerDown}
+            onPointerUp={calendarPager.handlePointerUp}
+            onTouchCancel={calendarPager.handleTouchCancel}
+            onTouchEnd={calendarPager.handleTouchEnd}
+            onTouchStart={calendarPager.handleTouchStart}
           >
             {[
               { date: previousDate, query: previousCalendar },
