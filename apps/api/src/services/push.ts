@@ -92,7 +92,7 @@ async function claimAndSend(
       title,
       body: `${startTime(assignment.startsAt)} ${assignment.activityName}・${assignment.place}`,
       tag: `${kind}-${assignment.assignmentId}`,
-      data: { url: "/timeline" },
+      data: { url: "/calendar" },
     })
   )
   if (result === "sent") {

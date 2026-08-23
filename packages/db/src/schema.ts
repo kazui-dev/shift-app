@@ -254,6 +254,26 @@ export const availabilitySubmissions = sqliteTable(
   ]
 )
 
+export const availabilityDates = sqliteTable(
+  "availability_dates",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("availability_dates_year_date_uidx").on(table.year, table.date),
+    check(
+      "availability_dates_format_check",
+      sql`${table.date} = date(${table.date})`
+    ),
+  ]
+)
+
 export const availabilityWindows = sqliteTable(
   "availability_windows",
   {
@@ -261,6 +281,9 @@ export const availabilityWindows = sqliteTable(
     submissionId: text("submission_id")
       .notNull()
       .references(() => availabilitySubmissions.id, { onDelete: "cascade" }),
+    availabilityDateId: text("availability_date_id")
+      .notNull()
+      .references(() => availabilityDates.id, { onDelete: "cascade" }),
     startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
     endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
@@ -270,6 +293,7 @@ export const availabilityWindows = sqliteTable(
       table.submissionId,
       table.startsAt
     ),
+    index("availability_windows_date_idx").on(table.availabilityDateId),
     check(
       "availability_windows_time_order_check",
       sql`${table.startsAt} < ${table.endsAt}`

@@ -207,7 +207,7 @@ describe("offline account snapshot", () => {
 
 describe("persisted query allowlist", () => {
   it("keeps offline reads and excludes administrative data", () => {
-    expect(shouldPersistQueryKey(["timeline", "2026-11-01"])).toBe(true)
+    expect(shouldPersistQueryKey(["assignments", "2026-11-01"])).toBe(true)
     expect(shouldPersistQueryKey(["chat-rooms"])).toBe(true)
     expect(shouldPersistQueryKey(["chat-messages", "room-id"])).toBe(true)
     expect(shouldPersistQueryKey(["admin", "members"])).toBe(false)

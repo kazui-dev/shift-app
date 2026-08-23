@@ -5,9 +5,9 @@ import { timeWindowSchema } from "@workspace/shared/shifts"
 
 import { apiError, type ApiEnv, toIso } from "../../lib/http"
 
-const MAX_TIMELINE_RANGE_MS = 31 * 24 * 60 * 60 * 1000
+const MAX_ASSIGNMENT_RANGE_MS = 31 * 24 * 60 * 60 * 1000
 
-type TimelineRow = {
+type AssignmentRow = {
   id: string
   activityId: string
   memberId: string
@@ -22,9 +22,9 @@ type TimelineRow = {
   checkedInAt: number | null
 }
 
-export const timelineApp = new Hono<ApiEnv>()
+export const meAssignmentsApp = new Hono<ApiEnv>()
 
-timelineApp.get("/timeline", async (c) => {
+meAssignmentsApp.get("/assignments", async (c) => {
   const range = v.safeParse(timeWindowSchema, {
     startsAt: c.req.query("from"),
     endsAt: c.req.query("to"),
@@ -40,12 +40,12 @@ timelineApp.get("/timeline", async (c) => {
 
   const startsAt = Date.parse(range.output.startsAt)
   const endsAt = Date.parse(range.output.endsAt)
-  if (endsAt - startsAt > MAX_TIMELINE_RANGE_MS) {
+  if (endsAt - startsAt > MAX_ASSIGNMENT_RANGE_MS) {
     return apiError(
       c,
       422,
       "TIME_RANGE_TOO_LARGE",
-      "Timeline range must not exceed 31 days"
+      "Assignment range must not exceed 31 days"
     )
   }
 
@@ -81,7 +81,7 @@ timelineApp.get("/timeline", async (c) => {
        LIMIT 500`
     )
     .bind(member.id, endsAt, startsAt)
-    .all<TimelineRow>()
+    .all<AssignmentRow>()
 
   return c.json({
     assignments: assignments.results.map((assignment) => ({

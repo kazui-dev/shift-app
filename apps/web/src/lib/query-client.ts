@@ -9,7 +9,11 @@ import { sendChatMessage } from "@/api/chat"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"
-const persistedQueryRoots = new Set(["timeline", "chat-rooms", "chat-messages"])
+const persistedQueryRoots = new Set([
+  "assignments",
+  "chat-rooms",
+  "chat-messages",
+])
 
 export function shouldPersistQueryKey(queryKey: readonly unknown[]): boolean {
   return typeof queryKey[0] === "string" && persistedQueryRoots.has(queryKey[0])

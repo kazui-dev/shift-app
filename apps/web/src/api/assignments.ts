@@ -3,9 +3,15 @@ import {
   assignmentMutationResponseSchema,
   assignmentReportEnvelopeSchema,
   assignmentReportsResponseSchema,
+  myAssignmentsResponseSchema,
 } from "@workspace/shared/shifts"
 
 import { apiJson, apiVoid } from "./client"
+
+export const getMyAssignments = (from: string, to: string) => {
+  const query = new URLSearchParams({ from, to })
+  return apiJson(`/api/me/assignments?${query}`, myAssignmentsResponseSchema)
+}
 
 export const createAssignment = (
   activityId: string,

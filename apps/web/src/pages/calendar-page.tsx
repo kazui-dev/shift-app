@@ -23,7 +23,7 @@ import { fieldClassName, textareaClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
-import { getTimeline } from "@/api/timeline"
+import { getMyAssignments } from "@/api/assignments"
 
 function dayRange(date: string): { from: string; to: string } {
   const from = new Date(`${date}T00:00:00`)
@@ -40,14 +40,14 @@ function time(value: string): string {
 }
 
 const hourHeight = 64
-const timelineInset = 12
+const calendarInset = 12
 const fallbackScrollEndDelay = 160
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-type TimelineAssignment = Awaited<
-  ReturnType<typeof getTimeline>
+type CalendarAssignment = Awaited<
+  ReturnType<typeof getMyAssignments>
 >["assignments"][number]
-const noAssignments: TimelineAssignment[] = []
+const noAssignments: CalendarAssignment[] = []
 type RailTransition = {
   id: number
   fromDate: string
@@ -123,17 +123,17 @@ function longDate(value: string): string {
   return `${formattedDate}（${weekdays[date.getDay()]}）`
 }
 
-function timelineQuery(date: string) {
+function calendarQuery(date: string) {
   const range = dayRange(date)
   return {
-    queryKey: ["timeline", date] as const,
-    queryFn: () => getTimeline(range.from, range.to),
+    queryKey: ["assignments", date] as const,
+    queryFn: () => getMyAssignments(range.from, range.to),
   }
 }
 
-function initialTimelineScrollTop(now: Date): number {
+function initialCalendarScrollTop(now: Date): number {
   const minute = now.getHours() * 60 + now.getMinutes()
-  return Math.max(0, (minute / 60 - 2.5) * hourHeight + timelineInset)
+  return Math.max(0, (minute / 60 - 2.5) * hourHeight + calendarInset)
 }
 
 function useCurrentTime(): Date {
@@ -157,13 +157,13 @@ function WeekRail({
   date,
   onDateChange,
   onRailTransitionEnd,
-  timelineSwipeProgress,
+  calendarSwipeProgress,
   railTransition,
 }: {
   date: string
   onDateChange: (date: string) => void
   onRailTransitionEnd: (id: number) => void
-  timelineSwipeProgress: number
+  calendarSwipeProgress: number
   railTransition: RailTransition | null
 }) {
   const railRef = useRef<HTMLDivElement>(null)
@@ -178,12 +178,12 @@ function WeekRail({
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
   const selectedWeekday = localDate(date).getDay()
   const crossesWeek =
-    (selectedWeekday === 0 && timelineSwipeProgress < 0) ||
-    (selectedWeekday === 6 && timelineSwipeProgress > 0)
-  const boundaryDirection: -1 | 1 = timelineSwipeProgress < 0 ? -1 : 1
-  const boundaryProgress = crossesWeek ? Math.abs(timelineSwipeProgress) : 0
+    (selectedWeekday === 0 && calendarSwipeProgress < 0) ||
+    (selectedWeekday === 6 && calendarSwipeProgress > 0)
+  const boundaryDirection: -1 | 1 = calendarSwipeProgress < 0 ? -1 : 1
+  const boundaryProgress = crossesWeek ? Math.abs(calendarSwipeProgress) : 0
   const boundaryDate = crossesWeek ? moveDate(date, boundaryDirection) : null
-  const timelineIsSwiping = Math.abs(timelineSwipeProgress) > 0.01
+  const calendarIsSwiping = Math.abs(calendarSwipeProgress) > 0.01
   const railIsSwiping = Math.abs(railPagePosition - 1) > 0.01
 
   useLayoutEffect(() => {
@@ -372,8 +372,8 @@ function WeekRail({
                 className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
                 style={{
                   opacity: indicatorOpacity,
-                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? timelineSwipeProgress : 0)) * 100}%)`,
-                  ...(timelineIsSwiping ||
+                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? calendarSwipeProgress : 0)) * 100}%)`,
+                  ...(calendarIsSwiping ||
                   railIsSwiping ||
                   resettingRail ||
                   railTransition
@@ -478,14 +478,14 @@ function WeekRail({
   )
 }
 
-function TimelineDay({
+function CalendarDay({
   date,
   assignments,
   now,
   onSelectAssignment,
 }: {
   date: string
-  assignments: TimelineAssignment[]
+  assignments: CalendarAssignment[]
   now: Date
   onSelectAssignment: (assignmentId: string) => void
 }) {
@@ -496,13 +496,13 @@ function TimelineDay({
     <div
       className="relative w-full shrink-0 snap-center"
       aria-label={longDate(date)}
-      style={{ height: 24 * hourHeight + timelineInset * 2 }}
+      style={{ height: 24 * hourHeight + calendarInset * 2 }}
     >
       {hours.map((hour, index) => (
         <div
           key={hour}
           className="absolute inset-x-0 border-t border-border/70"
-          style={{ top: timelineInset + index * hourHeight }}
+          style={{ top: calendarInset + index * hourHeight }}
         >
           <span className="absolute -top-2.5 left-0 w-12 bg-background pr-2 text-right text-[0.6875rem] text-muted-foreground tabular-nums">
             {hour % 24}:00
@@ -519,7 +519,7 @@ function TimelineDay({
           24 * 60,
           minuteFromDay(assignment.endsAt, date)
         )
-        const top = timelineInset + (startMinute / 60) * hourHeight
+        const top = calendarInset + (startMinute / 60) * hourHeight
         const height = Math.max(
           30,
           ((endMinute - startMinute) / 60) * hourHeight
@@ -552,7 +552,7 @@ function TimelineDay({
       {showNow && (
         <div
           className="pointer-events-none absolute right-0 left-11 z-10 border-t border-blue-500"
-          style={{ top: timelineInset + (nowMinute / 60) * hourHeight }}
+          style={{ top: calendarInset + (nowMinute / 60) * hourHeight }}
         >
           <span className="absolute top-0 left-0 -translate-x-full -translate-y-1/2 rounded-full bg-blue-500 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums">
             {now.getHours()}:{String(now.getMinutes()).padStart(2, "0")}
@@ -563,7 +563,7 @@ function TimelineDay({
   )
 }
 
-export function TimelinePage() {
+export function CalendarPage() {
   const queryClient = useQueryClient()
   const offline = useOfflineMode()
   const { date, setDate, preferredDayRef, scrollTopRef } =
@@ -576,25 +576,25 @@ export function TimelinePage() {
   >(null)
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
-  const [timelineSwipeProgress, setTimelineSwipeProgress] = useState(0)
+  const [calendarSwipeProgress, setCalendarSwipeProgress] = useState(0)
   const [railTransition, setRailTransition] = useState<RailTransition | null>(
     null
   )
-  const timelineRef = useRef<HTMLDivElement>(null)
-  const timelinePagerRef = useRef<HTMLDivElement>(null)
-  const timelineScrollTimerRef = useRef<number | null>(null)
-  const timelineAnimationFrameRef = useRef<number | null>(null)
-  const timelineGestureActiveRef = useRef(false)
-  const timelineGestureCommittedRef = useRef(false)
+  const calendarRef = useRef<HTMLDivElement>(null)
+  const calendarPagerRef = useRef<HTMLDivElement>(null)
+  const calendarScrollTimerRef = useRef<number | null>(null)
+  const calendarAnimationFrameRef = useRef<number | null>(null)
+  const calendarGestureActiveRef = useRef(false)
+  const calendarGestureCommittedRef = useRef(false)
   const railTransitionIdRef = useRef(0)
-  const initializedTimelineRef = useRef(false)
+  const initializedCalendarRef = useRef(false)
   const now = useCurrentTime()
   const previousDate = moveDate(date, -1)
   const nextDate = moveDate(date, 1)
-  const previousTimeline = useQuery(timelineQuery(previousDate))
-  const timeline = useQuery(timelineQuery(date))
-  const nextTimeline = useQuery(timelineQuery(nextDate))
-  const assignments = timeline.data?.assignments ?? noAssignments
+  const previousCalendar = useQuery(calendarQuery(previousDate))
+  const calendar = useQuery(calendarQuery(date))
+  const nextCalendar = useQuery(calendarQuery(nextDate))
+  const assignments = calendar.data?.assignments ?? noAssignments
   const selectedAssignment = assignments.find(
     (assignment) => assignment.id === selectedAssignmentId
   )
@@ -626,82 +626,82 @@ export function TimelinePage() {
   }, [])
 
   useLayoutEffect(() => {
-    const timelineElement = timelineRef.current
-    const pager = timelinePagerRef.current
+    const calendarElement = calendarRef.current
+    const pager = calendarPagerRef.current
     if (pager) pager.scrollLeft = pager.clientWidth
-    if (timelineElement && !initializedTimelineRef.current) {
+    if (calendarElement && !initializedCalendarRef.current) {
       const scrollTop =
-        scrollTopRef.current ?? initialTimelineScrollTop(new Date())
-      timelineElement.scrollTop = scrollTop
+        scrollTopRef.current ?? initialCalendarScrollTop(new Date())
+      calendarElement.scrollTop = scrollTop
       scrollTopRef.current = scrollTop
-      initializedTimelineRef.current = true
+      initializedCalendarRef.current = true
     }
   }, [date, scrollTopRef])
 
   useEffect(
     () => () => {
-      if (timelineScrollTimerRef.current !== null) {
-        window.clearTimeout(timelineScrollTimerRef.current)
+      if (calendarScrollTimerRef.current !== null) {
+        window.clearTimeout(calendarScrollTimerRef.current)
       }
-      if (timelineAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(timelineAnimationFrameRef.current)
+      if (calendarAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       }
     },
     []
   )
 
-  function settleTimelineScroll() {
-    if (timelineScrollTimerRef.current !== null) {
-      window.clearTimeout(timelineScrollTimerRef.current)
-      timelineScrollTimerRef.current = null
+  function settleCalendarScroll() {
+    if (calendarScrollTimerRef.current !== null) {
+      window.clearTimeout(calendarScrollTimerRef.current)
+      calendarScrollTimerRef.current = null
     }
-    if (timelineGestureActiveRef.current) {
-      timelineScrollTimerRef.current = window.setTimeout(
-        settleTimelineScroll,
+    if (calendarGestureActiveRef.current) {
+      calendarScrollTimerRef.current = window.setTimeout(
+        settleCalendarScroll,
         fallbackScrollEndDelay
       )
       return
     }
-    const pager = timelinePagerRef.current
+    const pager = calendarPagerRef.current
     if (!pager || pager.clientWidth === 0) return
     const page = Math.round(pager.scrollLeft / pager.clientWidth)
-    if (timelineAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(timelineAnimationFrameRef.current)
-      timelineAnimationFrameRef.current = null
+    if (calendarAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+      calendarAnimationFrameRef.current = null
     }
-    setTimelineSwipeProgress(0)
+    setCalendarSwipeProgress(0)
     if (page === 0) {
-      if (timelineGestureCommittedRef.current) return
-      timelineGestureCommittedRef.current = true
+      if (calendarGestureCommittedRef.current) return
+      calendarGestureCommittedRef.current = true
       changeDate(previousDate)
     }
     if (page === 2) {
-      if (timelineGestureCommittedRef.current) return
-      timelineGestureCommittedRef.current = true
+      if (calendarGestureCommittedRef.current) return
+      calendarGestureCommittedRef.current = true
       changeDate(nextDate)
     }
   }
 
-  function handleTimelineScroll() {
-    if (timelineAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(timelineAnimationFrameRef.current)
+  function handleCalendarScroll() {
+    if (calendarAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
     }
-    timelineAnimationFrameRef.current = window.requestAnimationFrame(() => {
-      const pager = timelinePagerRef.current
+    calendarAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      const pager = calendarPagerRef.current
       if (pager && pager.clientWidth > 0) {
-        setTimelineSwipeProgress(
+        setCalendarSwipeProgress(
           Math.max(-1, Math.min(1, pager.scrollLeft / pager.clientWidth - 1))
         )
       }
-      timelineAnimationFrameRef.current = null
+      calendarAnimationFrameRef.current = null
     })
-    const pager = timelinePagerRef.current
+    const pager = calendarPagerRef.current
     if (pager && !("onscrollend" in pager)) {
-      if (timelineScrollTimerRef.current !== null) {
-        window.clearTimeout(timelineScrollTimerRef.current)
+      if (calendarScrollTimerRef.current !== null) {
+        window.clearTimeout(calendarScrollTimerRef.current)
       }
-      timelineScrollTimerRef.current = window.setTimeout(
-        settleTimelineScroll,
+      calendarScrollTimerRef.current = window.setTimeout(
+        settleCalendarScroll,
         fallbackScrollEndDelay
       )
     }
@@ -728,7 +728,7 @@ export function TimelinePage() {
     setMessage(null)
     try {
       await checkIn(assignmentId)
-      await queryClient.invalidateQueries({ queryKey: ["timeline", date] })
+      await queryClient.invalidateQueries({ queryKey: ["assignments", date] })
       setMessage("出勤を記録しました。")
     } catch (error) {
       setMessage(errorMessage(error))
@@ -767,7 +767,7 @@ export function TimelinePage() {
           >
             <ChevronLeft />
           </Button>
-          <label className="relative grid min-h-8 min-w-16 place-items-center px-2 text-center font-semibold">
+          <label className="relative grid min-h-10 min-w-16 place-items-center px-2 text-center font-semibold">
             <span aria-hidden>{localDate(date).getMonth() + 1}月</span>
             <input
               aria-label="日付を選択"
@@ -790,7 +790,7 @@ export function TimelinePage() {
           <div className="flex items-center gap-1">
             <Button
               render={<Link to="/availability" />}
-              size="sm"
+              nativeButton={false}
               variant="ghost"
             >
               <SquarePen />
@@ -804,7 +804,7 @@ export function TimelinePage() {
         date={date}
         onDateChange={changeDate}
         onRailTransitionEnd={finishRailTransition}
-        timelineSwipeProgress={timelineSwipeProgress}
+        calendarSwipeProgress={calendarSwipeProgress}
         railTransition={railTransition}
       />
 
@@ -814,39 +814,39 @@ export function TimelinePage() {
 
       <div className="relative min-h-0 flex-1">
         <div
-          ref={timelineRef}
+          ref={calendarRef}
           className="size-full overflow-x-hidden overflow-y-auto overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           onScroll={(event) => {
             scrollTopRef.current = event.currentTarget.scrollTop
           }}
         >
           <div
-            ref={timelinePagerRef}
+            ref={calendarPagerRef}
             aria-label="日付を切り替え"
             className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            style={{ height: 24 * hourHeight + timelineInset * 2 }}
-            onScroll={handleTimelineScroll}
-            onScrollEnd={settleTimelineScroll}
+            style={{ height: 24 * hourHeight + calendarInset * 2 }}
+            onScroll={handleCalendarScroll}
+            onScrollEnd={settleCalendarScroll}
             onPointerDown={() => {
-              timelineGestureCommittedRef.current = false
+              calendarGestureCommittedRef.current = false
             }}
             onTouchCancel={() => {
-              timelineGestureActiveRef.current = false
+              calendarGestureActiveRef.current = false
             }}
             onTouchEnd={() => {
-              timelineGestureActiveRef.current = false
+              calendarGestureActiveRef.current = false
             }}
             onTouchStart={() => {
-              timelineGestureActiveRef.current = true
-              timelineGestureCommittedRef.current = false
+              calendarGestureActiveRef.current = true
+              calendarGestureCommittedRef.current = false
             }}
           >
             {[
-              { date: previousDate, query: previousTimeline },
-              { date, query: timeline },
-              { date: nextDate, query: nextTimeline },
+              { date: previousDate, query: previousCalendar },
+              { date, query: calendar },
+              { date: nextDate, query: nextCalendar },
             ].map((page) => (
-              <TimelineDay
+              <CalendarDay
                 key={page.date}
                 date={page.date}
                 assignments={page.query.data?.assignments ?? noAssignments}
@@ -859,13 +859,13 @@ export function TimelinePage() {
             ))}
           </div>
         </div>
-        {timeline.isError && !offline && (
+        {calendar.isError && !offline && (
           <Button
             className="absolute top-2 right-2"
             size="sm"
             variant="outline"
-            title={errorMessage(timeline.error)}
-            onClick={() => timeline.refetch()}
+            title={errorMessage(calendar.error)}
+            onClick={() => calendar.refetch()}
           >
             予定を再読み込み
           </Button>
@@ -907,9 +907,9 @@ export function TimelinePage() {
                   size="sm"
                   disabled={
                     checkInPending !== null ||
-                    timeline.dataUpdatedAt <
+                    calendar.dataUpdatedAt <
                       new Date(selectedAssignment.startsAt).getTime() ||
-                    timeline.dataUpdatedAt >
+                    calendar.dataUpdatedAt >
                       new Date(selectedAssignment.endsAt).getTime()
                   }
                   onClick={() => void recordCheckIn(selectedAssignment.id)}

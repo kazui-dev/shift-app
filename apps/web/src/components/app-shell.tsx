@@ -13,7 +13,7 @@ import { CalendarViewStateProvider } from "./calendar-view-state"
 import { OfflineModeContext } from "./offline-mode-context"
 
 const navigation = [
-  { to: "/timeline", label: "カレンダー", icon: CalendarDays },
+  { to: "/calendar", label: "カレンダー", icon: CalendarDays },
   { to: "/chat", label: "連絡", icon: MessageCircle },
   { to: "/manage", label: "管理", icon: Users },
   { to: "/settings", label: "設定", icon: Settings },
@@ -25,10 +25,10 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { isTimeline, pathname } = useRouterState({
+  const { isCalendar, pathname } = useRouterState({
     select: (routerState) => ({
-      isTimeline: routerState.matches.some(
-        (match) => match.routeId === "/_app/timeline"
+      isCalendar: routerState.matches.some(
+        (match) => match.routeId === "/_app/calendar"
       ),
       pathname: routerState.location.pathname,
     }),
@@ -72,7 +72,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
 
   useEffect(() => {
     if (unsafeOfflineRoute) {
-      void navigate({ to: "/timeline", replace: true })
+      void navigate({ to: "/calendar", replace: true })
     }
   }, [navigate, unsafeOfflineRoute])
 
@@ -84,13 +84,13 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
   return (
     <div
       className={
-        isTimeline
+        isCalendar
           ? "mx-auto flex h-dvh max-w-6xl flex-col overflow-hidden overscroll-none px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-4"
           : "mx-auto min-h-svh max-w-6xl px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-8"
       }
     >
       <nav
-        className={`fixed inset-x-0 bottom-0 z-40 shrink-0 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none ${isTimeline ? "md:mb-4" : "md:mb-6"}`}
+        className={`fixed inset-x-0 bottom-0 z-40 shrink-0 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none ${isCalendar ? "md:mb-4" : "md:mb-6"}`}
       >
         <div
           className="mx-auto grid max-w-2xl px-1 md:max-w-none md:px-0"

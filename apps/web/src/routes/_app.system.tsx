@@ -6,7 +6,7 @@ export const Route = createFileRoute("/_app/system")({
       context.offline ||
       context.state.member.accessLevel !== "system_admin"
     ) {
-      throw redirect({ to: "/timeline" })
+      throw redirect({ to: "/calendar" })
     }
     throw redirect({ to: "/manage" })
   },

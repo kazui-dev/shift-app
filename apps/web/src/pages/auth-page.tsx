@@ -50,7 +50,7 @@ function LoginView({ enabled }: { enabled: boolean }) {
     try {
       const result = await authClient.signIn.social({
         provider: "discord",
-        callbackURL: "/timeline",
+        callbackURL: "/calendar",
         newUserCallbackURL: "/",
         errorCallbackURL: "/",
       })
@@ -133,7 +133,7 @@ function OnboardingView() {
     try {
       await createAccount(parsed.output)
       await queryClient.invalidateQueries({ queryKey: ["account"] })
-      window.location.assign("/timeline")
+      window.location.assign("/calendar")
     } catch (caught) {
       setError(
         caught instanceof ApiError && caught.status === 409

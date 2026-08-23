@@ -147,9 +147,13 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 年度・member ごとの希望提出を一件保持し、`draft` または `submitted` とする。希望の具体的な時間帯は子 table に分離する。
 
+### `availability_dates`
+
+シフト管理者が年度ごとに設定した、希望を入力できる日付を保持する。年度と日付の組を一意にし、日付を削除した場合はその日の希望時間帯も削除する。
+
 ### `availability_windows`
 
-希望時間帯を任意の開始・終了時刻で保持する。固定の時間粒度は DB に埋め込まない。同一提出内の重複は共有 schema と API で拒否し、各行は DB の check constraint でも `starts_at < ends_at` を保証する。
+希望時間帯を設定済みの `availability_dates` に紐付け、任意の開始・終了時刻で保持する。固定の時間粒度は DB に埋め込まない。開始と終了が同じ日本日付に属すること、および同一提出内で重複しないことを共有 schema と API で拒否し、各行は DB の check constraint でも `starts_at < ends_at` を保証する。
 
 ### `shift_assignments`
 
@@ -260,11 +264,13 @@ erDiagram
     operating_years ||--o{ year_roles : defines
     operating_years ||--o{ activities : contains
     operating_years ||--o{ availability_submissions : collects
+    operating_years ||--o{ availability_dates : defines
     year_roles ||--o{ year_role_permissions : grants
     year_roles ||--o{ member_year_roles : assigned_to
     members ||--o{ member_year_roles : has
     members ||--o{ availability_submissions : submits
     availability_submissions ||--o{ availability_windows : contains
+    availability_dates ||--o{ availability_windows : permits
     activities ||--o{ shift_assignments : has
     members ||--o{ shift_assignments : assigned_to
     shift_assignments ||--o| attendance_records : records

@@ -1,5 +1,13 @@
 import { cn } from "@workspace/ui/lib/utils"
 
+export function PageBreadcrumb({ children }: { children: React.ReactNode }) {
+  return (
+    <nav className="flex min-h-9 items-center" aria-label="パンくず">
+      {children}
+    </nav>
+  )
+}
+
 export function PageHeader({
   title,
   children,

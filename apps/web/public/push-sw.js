@@ -14,7 +14,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close()
-  const requestedPath = event.notification.data?.url || "/timeline"
+  const requestedPath = event.notification.data?.url || "/calendar"
   const target = new URL(requestedPath, self.location.origin)
   if (target.origin !== self.location.origin) return
   event.waitUntil(

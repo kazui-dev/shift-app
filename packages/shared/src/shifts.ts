@@ -38,6 +38,18 @@ function isOrdered(start: string, end: string): boolean {
   return Date.parse(start) < Date.parse(end)
 }
 
+function dateInJapan(value: string): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value))
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? ""
+  return `${part("year")}-${part("month")}-${part("day")}`
+}
+
 const timeWindowEntries = {
   startsAt: instantSchema,
   endsAt: instantSchema,
@@ -56,6 +68,48 @@ export const timeWindowSchema = v.pipe(
   v.object(timeWindowEntries),
   orderedWindowCheck
 )
+
+const availabilityWindowEntries = {
+  date: dateOnlySchema,
+  ...timeWindowEntries,
+}
+
+type AvailabilityWindowValue = {
+  date: string
+  startsAt: string
+  endsAt: string
+}
+
+export const availabilityWindowSchema = v.pipe(
+  v.object(availabilityWindowEntries),
+  v.forward(
+    v.check(
+      (value: AvailabilityWindowValue) =>
+        isOrdered(value.startsAt, value.endsAt),
+      "終了日時は開始日時より後にしてください"
+    ),
+    ["endsAt"]
+  ),
+  v.forward(
+    v.check(
+      (value: AvailabilityWindowValue) =>
+        dateInJapan(value.startsAt) === value.date &&
+        dateInJapan(value.endsAt) === value.date,
+      "希望時間帯は同じ日付の中で入力してください"
+    ),
+    ["date"]
+  )
+)
+
+const availabilityWindowResponseSchema = v.intersect([
+  availabilityWindowSchema,
+  v.object({ id: v.optional(v.pipe(v.string(), v.uuid())) }),
+])
+
+const availabilityWindowWithIdResponseSchema = v.intersect([
+  availabilityWindowSchema,
+  v.object({ id: v.pipe(v.string(), v.uuid()) }),
+])
 
 export const createOperatingYearInputSchema = v.object({
   year: operatingYearSchema,
@@ -126,7 +180,7 @@ export const updateActivityInputSchema = v.pipe(
 export const replaceAvailabilityInputSchema = v.pipe(
   v.object({
     status: v.picklist(["draft", "submitted"]),
-    windows: v.pipe(v.array(timeWindowSchema), v.maxLength(64)),
+    windows: v.pipe(v.array(availabilityWindowSchema), v.maxLength(64)),
   }),
   v.forward(
     v.check((value) => {
@@ -273,15 +327,8 @@ export const availabilityResponseSchema = v.object({
   status: v.picklist(["draft", "submitted"]),
   submittedAt: v.nullable(instantSchema),
   updatedAt: v.optional(instantSchema),
-  windows: v.array(
-    v.pipe(
-      v.object({
-        ...timeWindowEntries,
-        id: v.optional(v.pipe(v.string(), v.uuid())),
-      }),
-      orderedWindowCheck
-    )
-  ),
+  dates: v.array(dateOnlySchema),
+  windows: v.array(availabilityWindowResponseSchema),
 })
 
 export const availabilitySubmissionResponseSchema = v.object({
@@ -293,24 +340,10 @@ export const availabilitySubmissionResponseSchema = v.object({
   }),
   status: v.picklist(["draft", "submitted"]),
   submittedAt: v.nullable(instantSchema),
-  windows: v.array(
-    v.pipe(
-      v.object({
-        ...timeWindowEntries,
-        id: v.pipe(v.string(), v.uuid()),
-      }),
-      v.forward(
-        v.check(
-          (value) => isOrdered(value.startsAt, value.endsAt),
-          "終了日時は開始日時より後にしてください"
-        ),
-        ["endsAt"]
-      )
-    )
-  ),
+  windows: v.array(availabilityWindowWithIdResponseSchema),
 })
 
-export const timelineItemResponseSchema = v.object({
+export const myAssignmentResponseSchema = v.object({
   ...assignmentResponseSchema.entries,
   activityName: v.string(),
   place: v.string(),
@@ -410,13 +443,25 @@ export const availabilitySubmissionsResponseSchema = v.object({
   submissions: v.array(availabilitySubmissionResponseSchema),
 })
 
+export const createAvailabilityDateInputSchema = v.object({
+  date: dateOnlySchema,
+})
+
+export const availabilityDatesResponseSchema = v.object({
+  dates: v.array(dateOnlySchema),
+})
+
+export const availabilityDateEnvelopeSchema = v.object({
+  date: dateOnlySchema,
+})
+
 export const assignmentMutationResponseSchema = v.object({
   assignment: assignmentResponseSchema,
   warnings: v.array(v.picklist(["OUTSIDE_SUBMITTED_AVAILABILITY"])),
 })
 
-export const timelineResponseSchema = v.object({
-  assignments: v.array(timelineItemResponseSchema),
+export const myAssignmentsResponseSchema = v.object({
+  assignments: v.array(myAssignmentResponseSchema),
 })
 
 export const apiErrorSchema = v.object({

@@ -12,11 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppAvailabilityRouteImport } from './routes/_app.availability'
+import { Route as AppCalendarRouteImport } from './routes/_app.calendar'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppManageRouteImport } from './routes/_app.manage'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppSystemRouteImport } from './routes/_app.system'
-import { Route as AppTimelineRouteImport } from './routes/_app.timeline'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,6 +30,11 @@ const AppRoute = AppRouteImport.update({
 const AppAvailabilityRoute = AppAvailabilityRouteImport.update({
   id: '/availability',
   path: '/availability',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarRoute = AppCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChatRoute = AppChatRouteImport.update({
@@ -52,70 +57,65 @@ const AppSystemRoute = AppSystemRouteImport.update({
   path: '/system',
   getParentRoute: () => AppRoute,
 } as any)
-const AppTimelineRoute = AppTimelineRouteImport.update({
-  id: '/timeline',
-  path: '/timeline',
-  getParentRoute: () => AppRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/availability': typeof AppAvailabilityRoute
+  '/calendar': typeof AppCalendarRoute
   '/chat': typeof AppChatRoute
   '/manage': typeof AppManageRoute
   '/settings': typeof AppSettingsRoute
   '/system': typeof AppSystemRoute
-  '/timeline': typeof AppTimelineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/availability': typeof AppAvailabilityRoute
+  '/calendar': typeof AppCalendarRoute
   '/chat': typeof AppChatRoute
   '/manage': typeof AppManageRoute
   '/settings': typeof AppSettingsRoute
   '/system': typeof AppSystemRoute
-  '/timeline': typeof AppTimelineRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_app/availability': typeof AppAvailabilityRoute
+  '/_app/calendar': typeof AppCalendarRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/manage': typeof AppManageRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/system': typeof AppSystemRoute
-  '/_app/timeline': typeof AppTimelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/availability'
+    | '/calendar'
     | '/chat'
     | '/manage'
     | '/settings'
     | '/system'
-    | '/timeline'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/availability'
+    | '/calendar'
     | '/chat'
     | '/manage'
     | '/settings'
     | '/system'
-    | '/timeline'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/_app/availability'
+    | '/_app/calendar'
     | '/_app/chat'
     | '/_app/manage'
     | '/_app/settings'
     | '/_app/system'
-    | '/_app/timeline'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -146,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAvailabilityRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/calendar': {
+      id: '/_app/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AppCalendarRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/chat': {
       id: '/_app/chat'
       path: '/chat'
@@ -174,32 +181,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSystemRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/timeline': {
-      id: '/_app/timeline'
-      path: '/timeline'
-      fullPath: '/timeline'
-      preLoaderRoute: typeof AppTimelineRouteImport
-      parentRoute: typeof AppRoute
-    }
   }
 }
 
 interface AppRouteChildren {
   AppAvailabilityRoute: typeof AppAvailabilityRoute
+  AppCalendarRoute: typeof AppCalendarRoute
   AppChatRoute: typeof AppChatRoute
   AppManageRoute: typeof AppManageRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSystemRoute: typeof AppSystemRoute
-  AppTimelineRoute: typeof AppTimelineRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAvailabilityRoute: AppAvailabilityRoute,
+  AppCalendarRoute: AppCalendarRoute,
   AppChatRoute: AppChatRoute,
   AppManageRoute: AppManageRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSystemRoute: AppSystemRoute,
-  AppTimelineRoute: AppTimelineRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
   beforeLoad: async ({ context }) => {
     const { state } = await resolveAccountState(context.queryClient)
     if (state.status === "active") {
-      throw redirect({ to: "/timeline" })
+      throw redirect({ to: "/calendar" })
     }
   },
   component: AuthPage,

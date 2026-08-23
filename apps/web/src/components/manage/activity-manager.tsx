@@ -150,7 +150,7 @@ export function ActivityManager({ year }: { year: number }) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["activity", activityId] }),
         queryClient.invalidateQueries({ queryKey: ["activities", year] }),
-        queryClient.invalidateQueries({ queryKey: ["timeline"] }),
+        queryClient.invalidateQueries({ queryKey: ["assignments"] }),
       ])
       setMessage("割当を取り消しました。")
     } catch (error) {

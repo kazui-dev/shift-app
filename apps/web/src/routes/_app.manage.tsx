@@ -4,7 +4,7 @@ import { ManagePage } from "@/pages/manage-page"
 
 export const Route = createFileRoute("/_app/manage")({
   beforeLoad: ({ context }) => {
-    if (context.offline) throw redirect({ to: "/timeline" })
+    if (context.offline) throw redirect({ to: "/calendar" })
   },
   component: ManagePage,
 })

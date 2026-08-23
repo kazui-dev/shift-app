@@ -37,7 +37,7 @@
 
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。
 
-オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutationを破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のtimeline、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
+オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutationを破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
 
 optimistic updateは現時点では未実装とし、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
@@ -74,13 +74,14 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/auth/*`                               | Better Auth handler              |
 | `/api/account`                              | 認証状態取得・onboarding         |
 | `/api/admin/*`                              | system admin専用の管理・監査     |
-| `/api/me/timeline`                          | ログイン中 member の割当一覧     |
+| `/api/me/assignments`                       | ログイン中 member の割当一覧     |
 | `/api/me/availability/:year`                | 本人の希望時間帯                 |
 | `/api/years`                                | 年度の一覧・作成                 |
 | `/api/years/:year/roles`                    | 年度別 role と機能権限           |
 | `/api/years/:year/roster`                   | 割当候補 member と年度別 role    |
 | `/api/years/:year/memberships`              | 年度参加者の一覧・有効化・無効化 |
 | `/api/years/:year/availability-submissions` | 管理者向け希望一覧               |
+| `/api/years/:year/availability-dates`       | 希望を入力できる日付の管理       |
 | `/api/years/:year/activities`               | 年度内 activity                  |
 | `/api/activities/:activityId`               | activity と割当                  |
 | `/api/assignments/:assignmentId`            | 個別割当の取消                   |
@@ -103,7 +104,7 @@ route名は複数形のresource名を使い、年度がcanonical parentである
 
 年度参加と年度 role は別の責務とする。通常利用者の年度データ閲覧、本人の希望提出、チャット利用には active な `year_memberships` を必須とし、`member_year_roles` は参加中の利用者へ追加権限を与える。`system_admin` は年度管理を参加状態に依存せず実行できるが、個人として希望提出や private chat を利用する場合は明示的な年度参加を必要とする。
 
-認証後の画面は TanStack Router の pathless layout で保護し、`/timeline`、`/availability`、`/chat`、`/manage`、`/system` に責務を分ける。利用者向けの連絡は個人・役割・活動を対象にできるチャットへ統一する。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
+認証後の画面は TanStack Router の pathless layout で保護し、`/calendar`、`/availability`、`/chat`、`/manage`、`/system` に責務を分ける。利用者向けの連絡は個人・役割・活動を対象にできるチャットへ統一する。`/system` は `system_admin`、シフト管理操作はAPIが返す年度別 `canManage` を表示制御に使う。ただし最終的な認可は常にWorker側で再確認する。
 
 個人のチャット対象候補はactiveな年度参加者にだけ公開し、memberのUUIDと表示名に限定する。`shift.manage`を持つ利用者には役割と活動も対象候補として返す。学籍番号を含む管理用`roster`はチャット対象の検索には流用しない。チャットではD1にルームmetadataと対象member・role・activityを置き、各requestで現在の所属からアクセスを再計算する。メッセージ本文と単調増加するsequenceはルームごとのDurable Object SQLiteに置く。送信は認証・認可済みHTTP POST、リアルタイム受信は同一originを検証したHibernation WebSocketとし、client生成UUIDで再送を冪等化する。
 

@@ -38,6 +38,7 @@ describe("year route transformations", () => {
         status: "submitted",
         submittedAt: Date.parse("2026-10-01T00:00:00.000Z"),
         windowId: "window-1",
+        date: "2026-11-01",
         startsAt: Date.parse("2026-11-01T00:00:00.000Z"),
         endsAt: Date.parse("2026-11-01T03:00:00.000Z"),
       },
@@ -49,6 +50,7 @@ describe("year route transformations", () => {
         status: "draft",
         submittedAt: null,
         windowId: null,
+        date: null,
         startsAt: null,
         endsAt: null,
       },
@@ -57,7 +59,9 @@ describe("year route transformations", () => {
     expect(groupAvailabilitySubmissions(rows)).toEqual([
       expect.objectContaining({
         id: "submission-1",
-        windows: [expect.objectContaining({ id: "window-1" })],
+        windows: [
+          expect.objectContaining({ id: "window-1", date: "2026-11-01" }),
+        ],
       }),
       expect.objectContaining({ id: "submission-2", windows: [] }),
     ])

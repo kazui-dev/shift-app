@@ -24,7 +24,12 @@ import { fieldClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { ReportManager } from "@/components/manage/report-manager"
-import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
+import {
+  EmptyState,
+  LoadingState,
+  PageBreadcrumb,
+  PageHeader,
+} from "@/components/page-layout"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
 import { MemberManager } from "@/components/system/member-manager"
 import { YearRoleManager } from "@/components/system/year-role-manager"
@@ -45,7 +50,7 @@ type ManageView =
 const viewTitles: Record<Exclude<ManageView, "home">, string> = {
   shifts: "シフト",
   reports: "遅刻・欠勤連絡",
-  availability: "シフト希望状況",
+  availability: "シフト希望",
   years: "年度",
   members: "メンバー",
   roles: "ロール",
@@ -97,8 +102,8 @@ export function ManagePage() {
       },
       {
         view: "availability" as const,
-        label: "シフト希望状況",
-        description: "提出状況を確認",
+        label: "シフト希望",
+        description: "入力日と提出状況を管理",
         icon: ClipboardCheck,
         visible: year !== null,
       },
@@ -222,6 +227,12 @@ export function ManagePage() {
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
+      <PageBreadcrumb>
+        <Button variant="ghost" size="sm" onClick={() => setView("home")}>
+          <ArrowLeft />
+          管理
+        </Button>
+      </PageBreadcrumb>
       <PageHeader title={viewTitles[view]}>
         {yearScoped && manageableYears.length > 1 && (
           <select
@@ -254,10 +265,6 @@ export function ManagePage() {
           </select>
         )}
       </PageHeader>
-      <Button variant="ghost" size="sm" onClick={() => setView("home")}>
-        <ArrowLeft />
-        管理に戻る
-      </Button>
 
       {view === "shifts" && year !== null && (
         <ActivityManager key={year} year={year} />

@@ -1,22 +1,54 @@
 import { useMemo, useState, type FormEvent } from "react"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { LoaderCircle, Plus, Trash2 } from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { ChevronLeft, LoaderCircle, Plus, Trash2 } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { errorMessage } from "@/api/client"
 import { getAvailability, replaceAvailability } from "@/api/availability"
+import { errorMessage } from "@/api/client"
 import { getYears } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
-import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
+import {
+  EmptyState,
+  LoadingState,
+  PageBreadcrumb,
+  PageHeader,
+} from "@/components/page-layout"
+import {
+  validateAvailabilityWindows,
+  type AvailabilityWindowInput,
+} from "@/lib/availability-windows"
 
-type WindowInput = { id: string; startsAt: string; endsAt: string }
+type WindowInput = AvailabilityWindowInput
 
-function toLocalInput(value: string): string {
-  const date = new Date(value)
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+function timeInJapan(value: string): string {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Tokyo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(value))
+  const part = (type: "hour" | "minute") =>
+    parts.find((item) => item.type === type)?.value ?? ""
+  return `${part("hour")}:${part("minute")}`
+}
+
+function dateLabel(value: string): string {
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(`${value}T12:00:00+09:00`))
+}
+
+function timePart(value: string): string {
+  return value.length >= 16 ? value.slice(11, 16) : ""
+}
+
+function instant(date: string, time: string): string {
+  return new Date(`${date}T${time}:00+09:00`).toISOString()
 }
 
 export function AvailabilityPage() {
@@ -31,8 +63,20 @@ export function AvailabilityPage() {
     queryKey: ["availability", year],
     queryFn: year === null ? skipToken : () => getAvailability(year),
   })
+
   return (
-    <section className="mx-auto max-w-2xl space-y-6">
+    <section className="mx-auto max-w-2xl space-y-5">
+      <PageBreadcrumb>
+        <Button
+          render={<Link to="/calendar" />}
+          nativeButton={false}
+          size="sm"
+          variant="ghost"
+        >
+          <ChevronLeft />
+          カレンダー
+        </Button>
+      </PageBreadcrumb>
       <PageHeader title="シフト希望">
         {activeYears.length > 1 && (
           <select
@@ -54,12 +98,16 @@ export function AvailabilityPage() {
       ) : activeYears.length === 0 ? (
         <EmptyState>現在、希望は受け付けていません</EmptyState>
       ) : availability.data && year !== null ? (
-        <AvailabilityForm
-          key={`${year}-${availability.data.availability.updatedAt ?? "new"}`}
-          year={year}
-          initialStatus={availability.data.availability.status}
-          initialWindows={availability.data.availability.windows}
-        />
+        availability.data.availability.dates.length === 0 ? (
+          <EmptyState>入力日はまだ設定されていません</EmptyState>
+        ) : (
+          <AvailabilityForm
+            key={`${year}-${availability.data.availability.updatedAt ?? "new"}`}
+            year={year}
+            dates={availability.data.availability.dates}
+            initialWindows={availability.data.availability.windows}
+          />
+        )
       ) : null}
     </section>
   )
@@ -67,50 +115,107 @@ export function AvailabilityPage() {
 
 function AvailabilityForm({
   year,
-  initialStatus,
+  dates,
   initialWindows,
 }: {
   year: number
-  initialStatus: "draft" | "submitted"
-  initialWindows: Array<{ id?: string; startsAt: string; endsAt: string }>
+  dates: string[]
+  initialWindows: Array<{
+    id?: string | undefined
+    date: string
+    startsAt: string
+    endsAt: string
+  }>
 }) {
   const queryClient = useQueryClient()
   const [windows, setWindows] = useState<WindowInput[]>(() =>
     initialWindows.map((window) => ({
       id: window.id ?? crypto.randomUUID(),
-      startsAt: toLocalInput(window.startsAt),
-      endsAt: toLocalInput(window.endsAt),
+      date: window.date,
+      startsAt: `${window.date}T${timeInJapan(window.startsAt)}`,
+      endsAt: `${window.date}T${timeInJapan(window.endsAt)}`,
     }))
   )
   const [pending, setPending] = useState<"draft" | "submitted" | null>(null)
-  const [message, setMessage] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{
+    message: string
+    tone: "default" | "error"
+  } | null>(null)
+  const validation = validateAvailabilityWindows(windows)
+  const groups = useMemo(
+    () =>
+      dates.map(
+        (date) =>
+          [
+            date,
+            windows
+              .filter((window) => window.date === date)
+              .toSorted((left, right) =>
+                left.startsAt.localeCompare(right.startsAt)
+              ),
+          ] as const
+      ),
+    [dates, windows]
+  )
 
-  function addWindow() {
+  function updateWindow(id: string, update: Partial<WindowInput>) {
+    setWindows((current) =>
+      current.map((window) =>
+        window.id === id ? { ...window, ...update } : window
+      )
+    )
+  }
+
+  function addWindow(date: string) {
+    const previous = windows
+      .filter((window) => window.date === date)
+      .toSorted((left, right) => left.endsAt.localeCompare(right.endsAt))
+      .at(-1)
+    const start = previous ? timePart(previous.endsAt) : "09:00"
+    const [hour = 9, minute = 0] = start.split(":").map(Number)
+    const endTotal = hour * 60 + minute + 60
+    const end =
+      endTotal < 24 * 60
+        ? `${String(Math.floor(endTotal / 60)).padStart(2, "0")}:${String(endTotal % 60).padStart(2, "0")}`
+        : "23:59"
+
     setWindows((current) => [
       ...current,
-      { id: crypto.randomUUID(), startsAt: "", endsAt: "" },
+      {
+        id: crypto.randomUUID(),
+        date,
+        startsAt: `${date}T${start}`,
+        endsAt: `${date}T${end}`,
+      },
     ])
   }
 
   async function save(status: "draft" | "submitted") {
+    if (validation) {
+      setFeedback({ message: validation, tone: "error" })
+      return
+    }
     setPending(status)
-    setMessage(null)
+    setFeedback(null)
     try {
       await replaceAvailability(year, {
         status,
         windows: windows.map((window) => ({
-          startsAt: new Date(window.startsAt).toISOString(),
-          endsAt: new Date(window.endsAt).toISOString(),
+          date: window.date,
+          startsAt: instant(window.date, timePart(window.startsAt)),
+          endsAt: instant(window.date, timePart(window.endsAt)),
         })),
       })
       await queryClient.invalidateQueries({ queryKey: ["availability", year] })
-      setMessage(
-        status === "submitted"
-          ? "希望を提出しました。"
-          : "下書きを保存しました。"
-      )
+      setFeedback({
+        message:
+          status === "submitted"
+            ? "希望を提出しました。"
+            : "下書きを保存しました。",
+        tone: "default",
+      })
     } catch (error) {
-      setMessage(errorMessage(error))
+      setFeedback({ message: errorMessage(error), tone: "error" })
     } finally {
       setPending(null)
     }
@@ -123,88 +228,73 @@ function AvailabilityForm({
 
   return (
     <form className="space-y-6" onSubmit={submit}>
-      <div className="flex min-h-12 items-center justify-between border-y">
-        <p className="text-sm font-medium">勤務できる時間帯</p>
-        <span className="text-xs font-medium text-muted-foreground">
-          {initialStatus === "submitted" ? "提出済み" : "下書き"}
-        </span>
-      </div>
-      <div className="divide-y border-y">
-        {windows.map((window, index) => (
-          <div
-            key={window.id}
-            className="grid gap-3 py-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-          >
-            <p className="text-sm font-medium sm:col-span-3">
-              時間帯 {index + 1}
-            </p>
-            <label className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">開始</span>
-              <input
-                aria-label={`希望${index + 1}の開始`}
-                type="datetime-local"
-                className={fieldClassName}
-                required
-                value={window.startsAt}
-                onChange={(event) =>
-                  setWindows((current) =>
-                    current.map((item) =>
-                      item.id === window.id
-                        ? { ...item, startsAt: event.target.value }
-                        : item
+      {groups.map(([date, group]) => (
+        <section key={date}>
+          <h2 className="flex min-h-11 items-center border-b font-medium">
+            {dateLabel(date)}
+          </h2>
+          <div className="divide-y">
+            {group.map((window) => (
+              <div
+                key={window.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 py-3"
+              >
+                <input
+                  type="time"
+                  aria-label={`${dateLabel(date)}の開始時刻`}
+                  className={fieldClassName}
+                  required
+                  value={timePart(window.startsAt)}
+                  onChange={(event) =>
+                    updateWindow(window.id, {
+                      startsAt: `${date}T${event.target.value}`,
+                    })
+                  }
+                />
+                <span className="text-muted-foreground">–</span>
+                <input
+                  type="time"
+                  aria-label={`${dateLabel(date)}の終了時刻`}
+                  className={fieldClassName}
+                  required
+                  value={timePart(window.endsAt)}
+                  onChange={(event) =>
+                    updateWindow(window.id, {
+                      endsAt: `${date}T${event.target.value}`,
+                    })
+                  }
+                />
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-destructive"
+                  aria-label="時間帯を削除"
+                  onClick={() =>
+                    setWindows((current) =>
+                      current.filter((item) => item.id !== window.id)
                     )
-                  )
-                }
-              />
-            </label>
-            <label className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">終了</span>
-              <input
-                aria-label={`希望${index + 1}の終了`}
-                type="datetime-local"
-                className={fieldClassName}
-                required
-                value={window.endsAt}
-                onChange={(event) =>
-                  setWindows((current) =>
-                    current.map((item) =>
-                      item.id === window.id
-                        ? { ...item, endsAt: event.target.value }
-                        : item
-                    )
-                  )
-                }
-              />
-            </label>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="justify-self-end text-muted-foreground hover:text-destructive"
-              onClick={() =>
-                setWindows((current) =>
-                  current.filter((item) => item.id !== window.id)
-                )
-              }
-            >
-              <Trash2 />
-              <span className="sr-only">削除</span>
-            </Button>
+                  }
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      {windows.length === 0 && (
-        <EmptyState>時間帯がまだ追加されていません</EmptyState>
-      )}
-      <Button
-        className="w-full sm:w-auto"
-        type="button"
-        variant="outline"
-        onClick={addWindow}
-      >
-        <Plus />
-        時間帯を追加
-      </Button>
+          <Button
+            className="mt-2"
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={windows.length >= 64}
+            onClick={() => addWindow(date)}
+          >
+            <Plus />
+            時間帯を追加
+          </Button>
+        </section>
+      ))}
+
       <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] -mx-4 flex gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:justify-end sm:bg-transparent sm:px-0 sm:pb-0 sm:backdrop-blur-none md:bottom-0">
         <Button
           className="flex-1 sm:flex-none"
@@ -225,8 +315,12 @@ function AvailabilityForm({
           提出
         </Button>
       </div>
-      {message && (
-        <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
+      {feedback && (
+        <FeedbackNotice
+          message={feedback.message}
+          onDismiss={() => setFeedback(null)}
+          tone={feedback.tone}
+        />
       )}
     </form>
   )

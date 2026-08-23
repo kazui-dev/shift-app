@@ -73,7 +73,7 @@ vp run web#build
 Vite+、Vite Core alias、Vitest、Cloudflareを含むVite plugin群は、
 Dependabotの`vite-plus-toolchain` groupでまとめて更新する。更新PRでは上記の
 静的検証とcoverageに加え、CIがCloudflare previewを起動して`/`のHTML 200と
-`/api/me/timeline`のJSON 401を確認し、最後にdry-run deployまで通す。
+`/api/me/assignments`のJSON 401を確認し、最後にdry-run deployまで通す。
 Vite+更新時は`pnpm-workspace.yaml`の`vite` aliasと`vite-plus`を同じversionへ
 更新する。peer許可versionはYAML anchorで`vite-plus`と常に同期する。
 

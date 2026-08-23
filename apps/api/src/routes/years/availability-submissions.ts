@@ -40,11 +40,14 @@ availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
          submission.status,
          submission.submitted_at AS submittedAt,
          window.id AS windowId,
+         availability_date.date,
          window.starts_at AS startsAt,
          window.ends_at AS endsAt
        FROM availability_submissions submission
        JOIN members member ON member.id = submission.member_id
        LEFT JOIN availability_windows window ON window.submission_id = submission.id
+       LEFT JOIN availability_dates availability_date
+         ON availability_date.id = window.availability_date_id
        WHERE submission.year = ?
        ORDER BY lower(member.display_name), window.starts_at`
     )

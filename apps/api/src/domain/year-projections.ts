@@ -19,6 +19,7 @@ export type AvailabilityManagerRow = {
   status: "draft" | "submitted"
   submittedAt: number | null
   windowId: string | null
+  date: string | null
   startsAt: number | null
   endsAt: number | null
 }
@@ -41,7 +42,12 @@ export function groupAvailabilitySubmissions(rows: AvailabilityManagerRow[]) {
       member: { id: string; displayName: string; studentId: string }
       status: "draft" | "submitted"
       submittedAt: string | null
-      windows: Array<{ id: string; startsAt: string; endsAt: string }>
+      windows: Array<{
+        id: string
+        date: string
+        startsAt: string
+        endsAt: string
+      }>
     }
   >()
 
@@ -57,9 +63,15 @@ export function groupAvailabilitySubmissions(rows: AvailabilityManagerRow[]) {
       submittedAt: row.submittedAt === null ? null : toIso(row.submittedAt),
       windows: [],
     }
-    if (row.windowId && row.startsAt !== null && row.endsAt !== null) {
+    if (
+      row.windowId &&
+      row.date &&
+      row.startsAt !== null &&
+      row.endsAt !== null
+    ) {
       current.windows.push({
         id: row.windowId,
+        date: row.date,
         startsAt: toIso(row.startsAt),
         endsAt: toIso(row.endsAt),
       })

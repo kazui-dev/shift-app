@@ -28,16 +28,33 @@ describe("shift API schemas", () => {
         status: "submitted",
         windows: [
           {
+            date: "2026-11-01",
             startsAt: "2026-11-01T09:00:00+09:00",
             endsAt: "2026-11-01T12:00:00+09:00",
           },
           {
+            date: "2026-11-01",
             startsAt: "2026-11-01T11:00:00+09:00",
             endsAt: "2026-11-01T13:00:00+09:00",
           },
         ],
       })
     ).toThrow()
+  })
+
+  it("rejects availability that crosses into another date in Japan", () => {
+    expect(() =>
+      v.parse(replaceAvailabilityInputSchema, {
+        status: "draft",
+        windows: [
+          {
+            date: "2026-11-01",
+            startsAt: "2026-11-01T22:00:00+09:00",
+            endsAt: "2026-11-02T01:00:00+09:00",
+          },
+        ],
+      })
+    ).toThrow("希望時間帯は同じ日付の中で入力してください")
   })
 
   it("requires both assignment boundaries or neither", () => {
