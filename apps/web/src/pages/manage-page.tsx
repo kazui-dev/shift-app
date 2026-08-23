@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, Link } from "@tanstack/react-router"
-import { ArrowLeft, ChevronRight } from "lucide-react"
+import {
+  ArrowLeft,
+  CalendarClock,
+  ChevronRight,
+  CircleAlert,
+  ClipboardCheck,
+  History,
+  Link as LinkIcon,
+  Tags,
+  Users,
+} from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
@@ -75,45 +85,46 @@ export function ManagePage({ view }: { view: ManageView }) {
     const shiftItems = [
       {
         to: "/manage/shifts" as const,
-        label: "シフト",
-        visible: year !== null,
+        name: "シフト",
+        icon: CalendarClock,
       },
       {
         to: "/manage/reports" as const,
-        label: "遅刻・欠勤連絡",
-        visible: year !== null,
+        name: "遅刻・欠勤連絡",
+        icon: CircleAlert,
       },
       {
         to: "/manage/availability" as const,
-        label: "シフト希望",
-        visible: year !== null,
+        name: "シフト希望",
+        icon: ClipboardCheck,
       },
     ]
     const systemItems = [
       {
         to: "/manage/years" as const,
-        label: "年度",
+        name: "年度",
+        icon: CalendarClock,
       },
       {
         to: "/manage/members" as const,
-        label: "メンバー",
+        name: "メンバー",
+        icon: Users,
       },
       {
         to: "/manage/roles" as const,
-        label: "ロール",
+        name: "ロール",
+        icon: Tags,
       },
       {
         to: "/manage/discord-link-requests" as const,
-        label: "Discord連携申請",
+        name: "Discord連携申請",
+        icon: LinkIcon,
       },
       {
         to: "/manage/audit" as const,
-        label: "操作履歴",
+        name: "操作履歴",
+        icon: History,
       },
-    ]
-    const items = [
-      ...shiftItems.filter((item) => item.visible),
-      ...(systemAdmin ? systemItems : []),
     ]
 
     return (
@@ -135,19 +146,50 @@ export function ManagePage({ view }: { view: ManageView }) {
           )}
         </PageHeader>
         {!years.isPending && (
-          <ul className="divide-y border-y">
-            {items.map(({ to, label }) => (
-              <li key={to}>
-                <Link
-                  to={to}
-                  className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium"
-                >
-                  {label}
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-6">
+            {year !== null && (
+              <section>
+                <h2 className="mb-2 text-xs font-medium text-muted-foreground">
+                  シフト管理
+                </h2>
+                <ul className="divide-y border-y">
+                  {shiftItems.map(({ to, name, icon: Icon }) => (
+                    <li key={to}>
+                      <Link
+                        to={to}
+                        className="flex min-h-14 items-center gap-3 py-3 font-medium"
+                      >
+                        <Icon className="size-5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">{name}</span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {systemAdmin && (
+              <section>
+                <h2 className="mb-2 text-xs font-medium text-muted-foreground">
+                  システム管理
+                </h2>
+                <ul className="divide-y border-y">
+                  {systemItems.map(({ to, name, icon: Icon }) => (
+                    <li key={to}>
+                      <Link
+                        to={to}
+                        className="flex min-h-14 items-center gap-3 py-3 font-medium"
+                      >
+                        <Icon className="size-5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">{name}</span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
         )}
       </section>
     )

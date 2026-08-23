@@ -14,7 +14,7 @@ import { OfflineModeContext } from "./offline-mode-context"
 
 const navigation = [
   { to: "/calendar", label: "カレンダー", icon: CalendarDays },
-  { to: "/chat", label: "連絡", icon: MessageCircle },
+  { to: "/chat", label: "チャット", icon: MessageCircle },
   { to: "/manage", label: "管理", icon: Users },
   { to: "/settings", label: "設定", icon: Settings },
 ] as const

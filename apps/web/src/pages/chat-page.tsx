@@ -26,7 +26,7 @@ import { getYears } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
-import { EmptyState } from "@/components/page-layout"
+import { EmptyState, PageHeader } from "@/components/page-layout"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -197,24 +197,23 @@ export function ChatPage() {
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-5xl flex-col md:min-h-[70dvh]">
+    <section className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-5xl flex-col gap-6 md:min-h-[70dvh]">
+      <PageHeader title="チャット">
+        {!offline && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="ルームを作成"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus />
+          </Button>
+        )}
+      </PageHeader>
       <div className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] md:border-y">
         <aside
           className={`${selectedRoomId === null ? "flex" : "hidden"} min-h-0 flex-col md:flex md:border-r`}
         >
-          <header className="flex min-h-12 items-center justify-between border-b">
-            <h1 className="text-xl font-semibold tracking-tight">連絡</h1>
-            {!offline && (
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                aria-label="ルームを作成"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus />
-              </Button>
-            )}
-          </header>
           <div className="min-h-0 flex-1 overflow-y-auto">
             <ul className="divide-y">
               {rooms.data?.rooms.map((room) => (
@@ -230,10 +229,10 @@ export function ChatPage() {
               ))}
             </ul>
             {rooms.data?.rooms.length === 0 && (
-              <EmptyState>連絡はありません</EmptyState>
+              <EmptyState>チャットはありません</EmptyState>
             )}
             {offline && !rooms.data && (
-              <EmptyState>保存された連絡はありません</EmptyState>
+              <EmptyState>保存されたチャットはありません</EmptyState>
             )}
           </div>
         </aside>
@@ -246,13 +245,13 @@ export function ChatPage() {
               className="md:hidden"
               size="icon-sm"
               variant="ghost"
-              aria-label="連絡一覧に戻る"
+              aria-label="チャット一覧に戻る"
               onClick={() => setRoomId(null)}
             >
               <ArrowLeft />
             </Button>
             <h2 className="min-w-0 truncate font-semibold">
-              {selectedRoom?.name ?? "連絡"}
+              {selectedRoom?.name ?? "チャット"}
             </h2>
           </header>
           <ul className="min-h-0 flex-1 overflow-y-auto px-1 md:px-4">
