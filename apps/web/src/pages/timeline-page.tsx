@@ -20,6 +20,7 @@ import { Button } from "@workspace/ui/components/button"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
+import { useOfflineMode } from "@/components/offline-mode-context"
 import { errorMessage } from "@/api/client"
 import { checkIn, submitAssignmentReport } from "@/api/assignments"
 import { getTimeline } from "@/api/timeline"
@@ -564,6 +565,7 @@ function TimelineDay({
 
 export function TimelinePage() {
   const queryClient = useQueryClient()
+  const offline = useOfflineMode()
   const { date, setDate, preferredDayRef, scrollTopRef } =
     useCalendarViewState()
   const [checkInPending, setCheckInPending] = useState<string | null>(null)
@@ -784,16 +786,18 @@ export function TimelinePage() {
             <ChevronRight />
           </Button>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            render={<Link to="/availability" />}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <CalendarRange />
-            <span className="sr-only">シフト希望</span>
-          </Button>
-        </div>
+        {!offline && (
+          <div className="flex items-center gap-1">
+            <Button
+              render={<Link to="/availability" />}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <CalendarRange />
+              <span className="sr-only">シフト希望</span>
+            </Button>
+          </div>
+        )}
       </header>
 
       <WeekRail
@@ -855,7 +859,7 @@ export function TimelinePage() {
             ))}
           </div>
         </div>
-        {timeline.isError && (
+        {timeline.isError && !offline && (
           <Button
             className="absolute top-2 right-2"
             size="sm"
@@ -898,7 +902,7 @@ export function TimelinePage() {
                 <p className="self-center text-xs text-muted-foreground">
                   {time(selectedAssignment.checkedInAt)}に出勤記録済み
                 </p>
-              ) : (
+              ) : !offline ? (
                 <Button
                   size="sm"
                   disabled={
@@ -915,22 +919,24 @@ export function TimelinePage() {
                   )}
                   出勤
                 </Button>
+              ) : null}
+              {!offline && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setReportTarget((current) =>
+                      current === selectedAssignment.id
+                        ? null
+                        : selectedAssignment.id
+                    )
+                  }
+                >
+                  遅刻・欠勤連絡
+                </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setReportTarget((current) =>
-                    current === selectedAssignment.id
-                      ? null
-                      : selectedAssignment.id
-                  )
-                }
-              >
-                遅刻・欠勤連絡
-              </Button>
             </div>
-            {reportTarget === selectedAssignment.id && (
+            {!offline && reportTarget === selectedAssignment.id && (
               <div className="space-y-3 border-t pt-4">
                 <select
                   aria-label="連絡種別"

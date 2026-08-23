@@ -37,6 +37,8 @@
 
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。
 
+オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutationを破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のtimeline、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
+
 optimistic updateは現時点では未実装とし、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
 ## Backend

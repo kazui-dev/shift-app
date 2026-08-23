@@ -12,6 +12,21 @@ export class ApiError extends Error {
   }
 }
 
+export class ApiNetworkError extends Error {
+  constructor(cause: unknown) {
+    super("通信に失敗しました。", { cause })
+    this.name = "ApiNetworkError"
+  }
+}
+
+async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, { cache: "no-store", ...init })
+  } catch (error) {
+    throw new ApiNetworkError(error)
+  }
+}
+
 async function responseError(response: Response): Promise<ApiError> {
   try {
     const value: unknown = await response.json()
@@ -50,11 +65,7 @@ export async function apiJson<TSchema extends v.GenericSchema>(
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json")
   }
-  const response = await fetch(url, {
-    cache: "no-store",
-    ...init,
-    headers,
-  })
+  const response = await apiFetch(url, { ...init, headers })
   if (!response.ok) {
     throw await responseError(response)
   }
@@ -62,14 +73,14 @@ export async function apiJson<TSchema extends v.GenericSchema>(
 }
 
 export async function apiVoid(url: string, init: RequestInit): Promise<void> {
-  const response = await fetch(url, { cache: "no-store", ...init })
+  const response = await apiFetch(url, init)
   if (!response.ok) {
     throw await responseError(response)
   }
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof ApiError
+  return error instanceof ApiError || error instanceof ApiNetworkError
     ? error.message
     : "予期しないエラーが発生しました。"
 }

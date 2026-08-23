@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vp dev",
     "build": "vp run --cache typecheck && vp build",
+    "coverage": "vp test run --coverage",
     "deploy": "vp run build && wrangler deploy",
     "deploy:check": "vp run build && wrangler deploy --dry-run",
+    "test": "vp test run",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vp run build && vp preview"
   },

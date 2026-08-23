@@ -9,6 +9,11 @@ import { sendChatMessage } from "@/api/chat"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"
+const persistedQueryRoots = new Set(["timeline", "chat-rooms", "chat-messages"])
+
+export function shouldPersistQueryKey(queryKey: readonly unknown[]): boolean {
+  return typeof queryKey[0] === "string" && persistedQueryRoots.has(queryKey[0])
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -29,4 +34,14 @@ export const persister: Persister = {
   persistClient: (client: PersistedClient) => set(PERSISTED_QUERY_KEY, client),
   restoreClient: () => get<PersistedClient>(PERSISTED_QUERY_KEY),
   removeClient: () => del(PERSISTED_QUERY_KEY),
+}
+
+export async function clearPersistedUserData(
+  client: QueryClient
+): Promise<void> {
+  client.removeQueries({
+    predicate: (query) => query.queryKey[0] !== "account",
+  })
+  client.getMutationCache().clear()
+  await persister.removeClient()
 }

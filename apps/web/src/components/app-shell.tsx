@@ -1,4 +1,12 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
+import { onlineManager, useQueryClient } from "@tanstack/react-query"
+import {
+  Link,
+  Outlet,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router"
 import {
   CalendarDays,
   MessageCircle,
@@ -10,6 +18,7 @@ import {
 import type { AuthState } from "@workspace/shared/auth"
 
 import { CalendarViewStateProvider } from "./calendar-view-state"
+import { OfflineModeContext } from "./offline-mode-context"
 
 const navigation = [
   { to: "/timeline", label: "カレンダー", icon: CalendarDays },
@@ -18,26 +27,83 @@ const navigation = [
   { to: "/settings", label: "設定", icon: Settings },
 ] as const
 
+const unsafeOfflineRoutes = new Set(["/availability", "/manage", "/system"])
+
 export function AppShell({
   state,
+  accountOffline,
 }: {
   state: Extract<AuthState, { status: "active" }>
+  accountOffline: boolean
 }) {
-  const isTimeline = useRouterState({
-    select: (routerState) =>
-      routerState.matches.some((match) => match.routeId === "/_app/timeline"),
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const { isTimeline, pathname } = useRouterState({
+    select: (routerState) => ({
+      isTimeline: routerState.matches.some(
+        (match) => match.routeId === "/_app/timeline"
+      ),
+      pathname: routerState.location.pathname,
+    }),
   })
+  const [browserOffline, setBrowserOffline] = useState(() => !navigator.onLine)
+  const offline = accountOffline || browserOffline
+  const unsafeOfflineRoute = offline && unsafeOfflineRoutes.has(pathname)
+
+  useEffect(() => {
+    const revalidateAccount = () => {
+      if (!navigator.onLine) return
+      void queryClient
+        .invalidateQueries({ queryKey: ["account"], refetchType: "none" })
+        .then(() => router.invalidate())
+    }
+    const handleOffline = () => setBrowserOffline(true)
+    const handleOnline = () => {
+      setBrowserOffline(false)
+      revalidateAccount()
+    }
+    const handleFocus = () => {
+      if (accountOffline) revalidateAccount()
+    }
+    const timer = accountOffline
+      ? window.setInterval(revalidateAccount, 30_000)
+      : null
+    window.addEventListener("offline", handleOffline)
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("focus", handleFocus)
+    return () => {
+      if (timer !== null) window.clearInterval(timer)
+      window.removeEventListener("offline", handleOffline)
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [accountOffline, queryClient, router])
+
+  useEffect(() => {
+    onlineManager.setOnline(!offline)
+  }, [offline])
+
+  useEffect(() => {
+    if (unsafeOfflineRoute) {
+      void navigate({ to: "/timeline", replace: true })
+    }
+  }, [navigate, unsafeOfflineRoute])
+
+  const visibleNavigation = offline
+    ? navigation.filter((item) => item.to !== "/manage")
+    : navigation
   const items =
-    state.member.accessLevel === "system_admin"
+    state.member.accessLevel === "system_admin" && !offline
       ? [
-          ...navigation,
+          ...visibleNavigation,
           {
             to: "/system",
             label: "管理",
             icon: ShieldCheck,
           } as const,
         ]
-      : navigation
+      : visibleNavigation
 
   return (
     <div
@@ -73,9 +139,14 @@ export function AppShell({
         </div>
       </nav>
 
-      <CalendarViewStateProvider>
-        <Outlet />
-      </CalendarViewStateProvider>
+      <output className="sr-only" aria-live="polite">
+        {offline ? "オフラインです" : ""}
+      </output>
+      <OfflineModeContext value={offline}>
+        <CalendarViewStateProvider>
+          {unsafeOfflineRoute ? null : <Outlet />}
+        </CalendarViewStateProvider>
+      </OfflineModeContext>
     </div>
   )
 }

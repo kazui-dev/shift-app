@@ -7,7 +7,11 @@ import { createRouter, RouterProvider } from "@tanstack/react-router"
 import "@workspace/ui/globals.css"
 import { PwaUpdateNotice } from "@/components/pwa-update-notice.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
-import { persister, queryClient } from "@/lib/query-client.ts"
+import {
+  persister,
+  queryClient,
+  shouldPersistQueryKey,
+} from "@/lib/query-client.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
 const router = createRouter({
@@ -32,10 +36,12 @@ createRoot(rootElement).render(
       client={queryClient}
       persistOptions={{
         persister,
-        buster: "shift-app-cache-2026-08",
+        buster: "shift-app-cache-2026-08-offline-v2",
         dehydrateOptions: {
           shouldDehydrateQuery: (query) =>
-            query.meta?.persist !== false && defaultShouldDehydrateQuery(query),
+            query.meta?.persist !== false &&
+            shouldPersistQueryKey(query.queryKey) &&
+            defaultShouldDehydrateQuery(query),
         },
       }}
       onSuccess={() => queryClient.resumePausedMutations()}

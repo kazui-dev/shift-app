@@ -1,17 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { AuthenticatedLayout } from "@/components/authenticated-layout"
-import { accountStateQueryOptions } from "@/lib/account-state"
+import { resolveAccountState } from "@/lib/account-state"
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context }) => {
-    const state = await context.queryClient.ensureQueryData(
-      accountStateQueryOptions
-    )
+    const { state, offline } = await resolveAccountState(context.queryClient)
     if (state.status !== "active") {
       throw redirect({ to: "/" })
     }
-    return { state }
+    return { state, offline }
   },
   component: AuthenticatedLayout,
 })

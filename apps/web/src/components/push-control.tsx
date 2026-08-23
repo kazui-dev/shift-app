@@ -11,8 +11,10 @@ import {
   savePushSubscription,
 } from "@/api/push"
 import { FeedbackNotice } from "@/components/feedback-notice"
+import { useOfflineMode } from "@/components/offline-mode-context"
 
 export function PushControl() {
+  const offline = useOfflineMode()
   const supported =
     "serviceWorker" in navigator &&
     "PushManager" in window &&
@@ -70,7 +72,13 @@ export function PushControl() {
 
   return (
     <>
-      <Button size="sm" variant="outline" disabled={pending} onClick={toggle}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={pending || offline}
+        title={offline ? "オンライン時に変更できます" : undefined}
+        onClick={toggle}
+      >
         {pending ? (
           <LoaderCircle className="animate-spin" />
         ) : enabled ? (
