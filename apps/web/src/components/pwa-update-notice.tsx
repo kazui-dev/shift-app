@@ -73,7 +73,7 @@ export function PwaUpdateNotice() {
         新しいバージョンがあります
       </p>
       <Button size="sm" disabled={updating} onClick={() => void applyUpdate()}>
-        {updating ? "再読み込み中" : "再読み込み"}
+        {updating ? "更新中" : "更新"}
       </Button>
       <button
         className="shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
