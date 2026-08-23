@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { valibotResolver } from "@hookform/resolvers/valibot"
-import { LoaderCircle, Trash2 } from "lucide-react"
+import { LoaderCircle, Plus, Trash2, X } from "lucide-react"
 import { useForm } from "react-hook-form"
 import * as v from "valibot"
 
@@ -84,6 +84,7 @@ export function ActivityManager({ year }: { year: number }) {
     },
   })
   const [memberId, setMemberId] = useState("")
+  const [createOpen, setCreateOpen] = useState(false)
   const [pending, setPending] = useState<
     "activity" | "assignment" | "cancel" | null
   >(null)
@@ -100,6 +101,7 @@ export function ActivityManager({ year }: { year: number }) {
         notes: values.notes || null,
       })
       activityForm.reset()
+      setCreateOpen(false)
       await queryClient.invalidateQueries({ queryKey: ["activities", year] })
       setMessage("活動を作成しました。")
     } catch (error) {
@@ -162,75 +164,92 @@ export function ActivityManager({ year }: { year: number }) {
 
   return (
     <section className="space-y-5">
-      <SectionHeader title="活動と割当" />
-      <details className="rounded-xl border bg-card p-4 shadow-xs">
-        <summary className="cursor-pointer font-medium">新しい活動</summary>
-        <form
-          className="mt-4 grid gap-3 sm:grid-cols-2"
-          onSubmit={activityForm.handleSubmit(addActivity)}
-        >
-          <input
-            className={fieldClassName}
-            placeholder="活動名"
-            required
-            {...activityForm.register("name")}
-          />
-          <input
-            className={fieldClassName}
-            placeholder="場所"
-            required
-            {...activityForm.register("place")}
-          />
-          <input
-            className={fieldClassName}
-            placeholder="種別"
-            required
-            {...activityForm.register("activityType")}
-          />
-          <input
-            type="color"
-            aria-label="活動の色"
-            className={`${fieldClassName} p-1`}
-            {...activityForm.register("color")}
-          />
-          <label className="text-xs">
-            開始
+      <SectionHeader title="活動と割当">
+        <Button size="sm" variant="ghost" onClick={() => setCreateOpen(true)}>
+          <Plus />
+          活動を追加
+        </Button>
+      </SectionHeader>
+      {createOpen && (
+        <section className="border-y py-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-medium">新しい活動</h3>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="閉じる"
+              onClick={() => setCreateOpen(false)}
+            >
+              <X />
+            </Button>
+          </div>
+          <form
+            className="grid gap-3 sm:grid-cols-2"
+            onSubmit={activityForm.handleSubmit(addActivity)}
+          >
             <input
-              type="datetime-local"
-              className={`${fieldClassName} mt-1`}
+              className={fieldClassName}
+              placeholder="活動名"
               required
-              {...activityForm.register("startsAt")}
+              {...activityForm.register("name")}
             />
-          </label>
-          <label className="text-xs">
-            終了
             <input
-              type="datetime-local"
-              className={`${fieldClassName} mt-1`}
+              className={fieldClassName}
+              placeholder="場所"
               required
-              {...activityForm.register("endsAt")}
+              {...activityForm.register("place")}
             />
-          </label>
-          <textarea
-            className={`${textareaClassName} sm:col-span-2`}
-            placeholder="備考（任意）"
-            {...activityForm.register("notes")}
-          />
-          {activityForm.formState.errors.endsAt?.message && (
-            <p className="text-sm text-destructive sm:col-span-2">
-              {activityForm.formState.errors.endsAt.message}
-            </p>
-          )}
-          <Button className="sm:col-span-2" disabled={pending !== null}>
-            {pending === "activity" && (
-              <LoaderCircle className="animate-spin" />
+            <input
+              className={fieldClassName}
+              placeholder="種別"
+              required
+              {...activityForm.register("activityType")}
+            />
+            <input
+              type="color"
+              aria-label="活動の色"
+              className={`${fieldClassName} p-1`}
+              {...activityForm.register("color")}
+            />
+            <label className="text-xs">
+              開始
+              <input
+                type="datetime-local"
+                className={`${fieldClassName} mt-1`}
+                required
+                {...activityForm.register("startsAt")}
+              />
+            </label>
+            <label className="text-xs">
+              終了
+              <input
+                type="datetime-local"
+                className={`${fieldClassName} mt-1`}
+                required
+                {...activityForm.register("endsAt")}
+              />
+            </label>
+            <textarea
+              className={`${textareaClassName} sm:col-span-2`}
+              placeholder="備考（任意）"
+              {...activityForm.register("notes")}
+            />
+            {activityForm.formState.errors.endsAt?.message && (
+              <p className="text-sm text-destructive sm:col-span-2">
+                {activityForm.formState.errors.endsAt.message}
+              </p>
             )}
-            作成
-          </Button>
-        </form>
-      </details>
+            <Button className="sm:col-span-2" disabled={pending !== null}>
+              {pending === "activity" && (
+                <LoaderCircle className="animate-spin" />
+              )}
+              作成
+            </Button>
+          </form>
+        </section>
+      )}
 
-      <div className="grid overflow-hidden rounded-xl border md:grid-cols-2">
+      <div className="grid border-y md:grid-cols-2">
         <div className="space-y-3">
           <h3 className="border-b px-4 py-3 font-medium">活動</h3>
           {activities.isPending && <LoadingState />}

@@ -36,7 +36,7 @@ export function AdminPanel() {
   const isError = members.isError || linkRequests.isError || auditLogs.isError
 
   return (
-    <section className="space-y-6 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
+    <section className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">アカウント管理</h2>
         <Button

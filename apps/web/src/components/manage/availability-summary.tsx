@@ -9,14 +9,14 @@ export function AvailabilitySummary({ year }: { year: number }) {
   })
 
   return (
-    <details className="rounded-xl border bg-card p-4 shadow-xs">
-      <summary className="cursor-pointer font-medium">
+    <section>
+      <h2 className="flex min-h-11 items-center border-b font-medium">
         シフト希望状況
         <span className="ml-2 text-xs font-normal text-muted-foreground">
           {submissions.data?.submissions.length ?? 0}件
         </span>
-      </summary>
-      <ul className="mt-4 divide-y border-t text-sm">
+      </h2>
+      <ul className="divide-y border-b text-sm">
         {submissions.data?.submissions.map((submission) => (
           <li
             key={submission.id}
@@ -30,6 +30,6 @@ export function AvailabilitySummary({ year }: { year: number }) {
           </li>
         ))}
       </ul>
-    </details>
+    </section>
   )
 }

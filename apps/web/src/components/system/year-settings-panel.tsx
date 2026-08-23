@@ -65,7 +65,7 @@ export function YearSettingsPanel() {
   }
 
   return (
-    <section className="space-y-5 rounded-xl border bg-card p-4 shadow-xs sm:p-5">
+    <section className="space-y-5">
       <SectionHeader title="年度と権限" />
       <form className="flex flex-col gap-2 sm:flex-row" onSubmit={addYear}>
         <input

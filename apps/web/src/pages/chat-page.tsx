@@ -5,7 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { LoaderCircle, Plus, Send } from "lucide-react"
+import { ArrowLeft, LoaderCircle, Plus, Send, X } from "lucide-react"
 import * as v from "valibot"
 
 import {
@@ -26,7 +26,7 @@ import { getYears } from "@/api/years"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
-import { EmptyState, LoadingState, PageHeader } from "@/components/page-layout"
+import { EmptyState, LoadingState } from "@/components/page-layout"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -47,10 +47,22 @@ export function ChatPage() {
     [years.data]
   )
   const [roomId, setRoomId] = useState<string | null>(null)
+  const [desktop, setDesktop] = useState(
+    () => window.matchMedia("(min-width: 768px)").matches
+  )
+  const [createOpen, setCreateOpen] = useState(false)
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)")
+    const update = () => setDesktop(media.matches)
+    media.addEventListener("change", update)
+    return () => media.removeEventListener("change", update)
+  }, [])
   const selectedRoomId =
     roomId && rooms.data?.rooms.some((room) => room.id === roomId)
       ? roomId
-      : (rooms.data?.rooms[0]?.id ?? null)
+      : desktop
+        ? (rooms.data?.rooms[0]?.id ?? null)
+        : null
   const selectedRoom = rooms.data?.rooms.find(
     (room) => room.id === selectedRoomId
   )
@@ -134,6 +146,7 @@ export function ChatPage() {
       setName("")
       setTargetKey("")
       setRoomId(room.id)
+      setCreateOpen(false)
       setFeedback(null)
       await queryClient.invalidateQueries({ queryKey: ["chat-rooms"] })
     },
@@ -184,131 +197,95 @@ export function ChatPage() {
   }
 
   return (
-    <section className="space-y-6">
-      <PageHeader title="連絡" />
-
-      {!offline && (
-        <details className="group rounded-xl border bg-card p-4 shadow-xs">
-          <summary className="flex cursor-pointer list-none items-center gap-2 font-medium marker:hidden">
-            <Plus className="size-4" />
-            ルームを作成
-          </summary>
-          <form
-            className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-3"
-            onSubmit={handleCreate}
-          >
-            <select
-              aria-label="年度"
-              className={fieldClassName}
-              value={selectedYear ?? ""}
-              onChange={(event) => setYear(Number(event.target.value))}
-            >
-              {activeYears.map((item) => (
-                <option key={item.year} value={item.year}>
-                  {item.year}
-                </option>
+    <section className="mx-auto flex min-h-[calc(100dvh-9rem)] max-w-5xl flex-col md:min-h-[70dvh]">
+      <div className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] md:border-y">
+        <aside
+          className={`${selectedRoomId === null ? "flex" : "hidden"} min-h-0 flex-col md:flex md:border-r`}
+        >
+          <header className="flex min-h-12 items-center justify-between border-b">
+            <h1 className="text-xl font-semibold tracking-tight">連絡</h1>
+            {!offline && (
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="ルームを作成"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus />
+              </Button>
+            )}
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {rooms.isPending && !offline && <LoadingState />}
+            <ul className="divide-y">
+              {rooms.data?.rooms.map((room) => (
+                <li key={room.id}>
+                  <button
+                    type="button"
+                    className={`flex min-h-14 w-full items-center px-1 text-left text-sm transition-colors md:px-3 ${selectedRoomId === room.id ? "font-medium text-foreground md:bg-muted/60" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setRoomId(room.id)}
+                  >
+                    <span className="truncate">{room.name}</span>
+                  </button>
+                </li>
               ))}
-            </select>
-            <input
-              className={fieldClassName}
-              placeholder="ルーム名"
-              required
-              maxLength={120}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            <select
-              className={fieldClassName}
-              required
-              value={targetKey}
-              onChange={(event) => setTargetKey(event.target.value)}
-            >
-              <option value="">宛先を選択</option>
-              {(["member", "role", "activity"] as const).map((type) => {
-                const options = targets.data?.targets.filter(
-                  (target) => target.targetType === type
-                )
-                if (!options?.length) return null
-                const label =
-                  type === "member"
-                    ? "メンバー"
-                    : type === "role"
-                      ? "役割"
-                      : "活動"
-                return (
-                  <optgroup key={type} label={label}>
-                    {options.map((target) => (
-                      <option
-                        key={`${target.targetType}:${target.targetId}`}
-                        value={`${target.targetType}:${target.targetId}`}
-                      >
-                        {target.displayName}
-                      </option>
-                    ))}
-                  </optgroup>
-                )
-              })}
-            </select>
-            <Button className="sm:col-span-3" disabled={createRoom.isPending}>
-              {createRoom.isPending && (
-                <LoaderCircle className="animate-spin" />
-              )}
-              作成
-            </Button>
-          </form>
-        </details>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-[15rem_minmax(0,1fr)]">
-        <div className="flex gap-2 overflow-x-auto pb-1 md:block md:space-y-1 md:overflow-visible">
-          {rooms.isPending && !offline && <LoadingState />}
-          {rooms.data?.rooms.map((room) => (
-            <button
-              key={room.id}
-              type="button"
-              className={`shrink-0 rounded-lg px-3 py-2.5 text-left text-sm transition-colors md:w-full ${selectedRoomId === room.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-              onClick={() => setRoomId(room.id)}
-            >
-              {room.name}
-            </button>
-          ))}
-          {rooms.data?.rooms.length === 0 && (
-            <EmptyState>ルームはありません</EmptyState>
-          )}
-          {offline && !rooms.data && (
-            <EmptyState>保存された連絡はありません</EmptyState>
-          )}
-        </div>
-
-        <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-xl border bg-card shadow-xs md:h-[65svh]">
-          <div className="border-b px-4 py-3">
-            <h2 className="font-semibold">
-              {selectedRoom?.name ?? "ルームを選択"}
-            </h2>
+            </ul>
+            {rooms.data?.rooms.length === 0 && (
+              <EmptyState>連絡はありません</EmptyState>
+            )}
+            {offline && !rooms.data && (
+              <EmptyState>保存された連絡はありません</EmptyState>
+            )}
           </div>
+        </aside>
+
+        <div
+          className={`${selectedRoomId === null ? "hidden" : "flex"} min-h-0 flex-col md:flex`}
+        >
+          <header className="flex min-h-12 items-center gap-2 border-b md:px-4">
+            <Button
+              className="md:hidden"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="連絡一覧に戻る"
+              onClick={() => setRoomId(null)}
+            >
+              <ArrowLeft />
+            </Button>
+            <h2 className="min-w-0 truncate font-semibold">
+              {selectedRoom?.name ?? "連絡"}
+            </h2>
+          </header>
           {messages.isPending && !offline && <LoadingState />}
-          <ul className="min-h-0 flex-1 divide-y overflow-y-auto px-4">
-            {messages.data?.messages.map((message) => (
-              <li key={message.id} className="py-3">
-                <p className="text-xs font-medium text-muted-foreground">
-                  {message.memberDisplayName}
-                  <span className="ml-2 font-normal">
-                    {time(message.createdAt)}
-                  </span>
-                </p>
-                <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">
-                  {message.content}
-                </p>
-              </li>
-            ))}
+          <ul className="min-h-0 flex-1 overflow-y-auto px-1 md:px-4">
+            {messages.data?.messages.map((message, index) => {
+              const previous = messages.data.messages[index - 1]
+              const grouped =
+                previous?.memberDisplayName === message.memberDisplayName
+              return (
+                <li key={message.id} className={grouped ? "pt-1" : "pt-5"}>
+                  {!grouped && (
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {message.memberDisplayName}
+                      <span className="ml-2 font-normal">
+                        {time(message.createdAt)}
+                      </span>
+                    </p>
+                  )}
+                  <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">
+                    {message.content}
+                  </p>
+                </li>
+              )
+            })}
           </ul>
-          {selectedRoomId ? (
+          {selectedRoomId && (
             <form
-              className="flex gap-2 border-t bg-background p-3"
+              className="flex gap-2 border-t bg-background py-3 md:px-4"
               onSubmit={handleSend}
             >
               <input
-                className={`${fieldClassName} min-w-0 flex-1`}
+                className={`${fieldClassName} min-w-0 flex-1 rounded-full px-4`}
                 placeholder="メッセージ"
                 maxLength={2000}
                 value={content}
@@ -316,6 +293,7 @@ export function ChatPage() {
               />
               <Button
                 size="icon-lg"
+                className="rounded-full"
                 disabled={send.isPending || !content.trim()}
                 aria-label="送信"
               >
@@ -326,13 +304,96 @@ export function ChatPage() {
                 )}
               </Button>
             </form>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              ルームを選択してください。
-            </p>
           )}
         </div>
       </div>
+
+      {createOpen && !offline && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/30 md:items-center md:justify-center">
+          <button
+            type="button"
+            className="absolute inset-0"
+            aria-label="閉じる"
+            onClick={() => setCreateOpen(false)}
+          />
+          <section
+            className="relative z-10 w-full rounded-t-2xl bg-background px-5 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:max-w-md md:rounded-2xl md:border md:p-6"
+            aria-label="ルームを作成"
+          >
+            <header className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">ルームを作成</h2>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="閉じる"
+                onClick={() => setCreateOpen(false)}
+              >
+                <X />
+              </Button>
+            </header>
+            <form className="grid gap-3" onSubmit={handleCreate}>
+              <select
+                aria-label="年度"
+                className={fieldClassName}
+                value={selectedYear ?? ""}
+                onChange={(event) => setYear(Number(event.target.value))}
+              >
+                {activeYears.map((item) => (
+                  <option key={item.year} value={item.year}>
+                    {item.year}
+                  </option>
+                ))}
+              </select>
+              <input
+                className={fieldClassName}
+                placeholder="ルーム名"
+                required
+                maxLength={120}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+              <select
+                className={fieldClassName}
+                required
+                value={targetKey}
+                onChange={(event) => setTargetKey(event.target.value)}
+              >
+                <option value="">宛先を選択</option>
+                {(["member", "role", "activity"] as const).map((type) => {
+                  const options = targets.data?.targets.filter(
+                    (target) => target.targetType === type
+                  )
+                  if (!options?.length) return null
+                  const label =
+                    type === "member"
+                      ? "メンバー"
+                      : type === "role"
+                        ? "役割"
+                        : "活動"
+                  return (
+                    <optgroup key={type} label={label}>
+                      {options.map((target) => (
+                        <option
+                          key={`${target.targetType}:${target.targetId}`}
+                          value={`${target.targetType}:${target.targetId}`}
+                        >
+                          {target.displayName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
+              </select>
+              <Button disabled={createRoom.isPending}>
+                {createRoom.isPending && (
+                  <LoaderCircle className="animate-spin" />
+                )}
+                作成
+              </Button>
+            </form>
+          </section>
+        </div>
+      )}
       {feedback && (
         <FeedbackNotice
           message={feedback}

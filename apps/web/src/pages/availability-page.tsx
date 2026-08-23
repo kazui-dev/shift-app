@@ -32,7 +32,7 @@ export function AvailabilityPage() {
     queryFn: year === null ? skipToken : () => getAvailability(year),
   })
   return (
-    <section className="space-y-6">
+    <section className="mx-auto max-w-2xl space-y-6">
       <PageHeader title="シフト希望">
         {activeYears.length > 1 && (
           <select
@@ -122,75 +122,77 @@ function AvailabilityForm({
   }
 
   return (
-    <form className="space-y-5" onSubmit={submit}>
-      <div className="flex items-center justify-between border-b pb-3">
-        <p className="text-sm text-muted-foreground">勤務できる時間帯</p>
-        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+    <form className="space-y-6" onSubmit={submit}>
+      <div className="flex min-h-12 items-center justify-between border-y">
+        <p className="text-sm font-medium">勤務できる時間帯</p>
+        <span className="text-xs font-medium text-muted-foreground">
           {initialStatus === "submitted" ? "提出済み" : "下書き"}
         </span>
       </div>
-      {windows.map((window, index) => (
-        <div
-          key={window.id}
-          className="grid gap-3 rounded-xl border bg-card p-4 shadow-xs sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-        >
-          <p className="text-sm font-medium sm:col-span-3">
-            時間帯 {index + 1}
-          </p>
-          <label className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">開始</span>
-            <input
-              aria-label={`希望${index + 1}の開始`}
-              type="datetime-local"
-              className={fieldClassName}
-              required
-              value={window.startsAt}
-              onChange={(event) =>
-                setWindows((current) =>
-                  current.map((item) =>
-                    item.id === window.id
-                      ? { ...item, startsAt: event.target.value }
-                      : item
-                  )
-                )
-              }
-            />
-          </label>
-          <label className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">終了</span>
-            <input
-              aria-label={`希望${index + 1}の終了`}
-              type="datetime-local"
-              className={fieldClassName}
-              required
-              value={window.endsAt}
-              onChange={(event) =>
-                setWindows((current) =>
-                  current.map((item) =>
-                    item.id === window.id
-                      ? { ...item, endsAt: event.target.value }
-                      : item
-                  )
-                )
-              }
-            />
-          </label>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="justify-self-end text-muted-foreground hover:text-destructive"
-            onClick={() =>
-              setWindows((current) =>
-                current.filter((item) => item.id !== window.id)
-              )
-            }
+      <div className="divide-y border-y">
+        {windows.map((window, index) => (
+          <div
+            key={window.id}
+            className="grid gap-3 py-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
           >
-            <Trash2 />
-            <span className="sr-only">削除</span>
-          </Button>
-        </div>
-      ))}
+            <p className="text-sm font-medium sm:col-span-3">
+              時間帯 {index + 1}
+            </p>
+            <label className="space-y-1.5">
+              <span className="text-xs text-muted-foreground">開始</span>
+              <input
+                aria-label={`希望${index + 1}の開始`}
+                type="datetime-local"
+                className={fieldClassName}
+                required
+                value={window.startsAt}
+                onChange={(event) =>
+                  setWindows((current) =>
+                    current.map((item) =>
+                      item.id === window.id
+                        ? { ...item, startsAt: event.target.value }
+                        : item
+                    )
+                  )
+                }
+              />
+            </label>
+            <label className="space-y-1.5">
+              <span className="text-xs text-muted-foreground">終了</span>
+              <input
+                aria-label={`希望${index + 1}の終了`}
+                type="datetime-local"
+                className={fieldClassName}
+                required
+                value={window.endsAt}
+                onChange={(event) =>
+                  setWindows((current) =>
+                    current.map((item) =>
+                      item.id === window.id
+                        ? { ...item, endsAt: event.target.value }
+                        : item
+                    )
+                  )
+                }
+              />
+            </label>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="justify-self-end text-muted-foreground hover:text-destructive"
+              onClick={() =>
+                setWindows((current) =>
+                  current.filter((item) => item.id !== window.id)
+                )
+              }
+            >
+              <Trash2 />
+              <span className="sr-only">削除</span>
+            </Button>
+          </div>
+        ))}
+      </div>
       {windows.length === 0 && (
         <EmptyState>時間帯がまだ追加されていません</EmptyState>
       )}
@@ -203,7 +205,7 @@ function AvailabilityForm({
         <Plus />
         時間帯を追加
       </Button>
-      <div className="flex gap-2 border-t pt-5 sm:justify-end">
+      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] -mx-4 flex gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:justify-end sm:bg-transparent sm:px-0 sm:pb-0 sm:backdrop-blur-none md:bottom-0">
         <Button
           className="flex-1 sm:flex-none"
           type="button"

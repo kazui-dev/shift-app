@@ -1,42 +1,42 @@
 import { PushControl } from "@/components/push-control"
 import { PageHeader } from "@/components/page-layout"
 import { useTheme } from "@/components/theme-context"
-import { fieldClassName } from "@/components/form-styles"
-
 export function SettingsPage() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <section className="space-y-8">
+    <section className="mx-auto max-w-2xl space-y-6">
       <PageHeader title="設定" />
 
-      <div className="divide-y border-y">
-        <div className="flex min-h-16 items-center justify-between gap-4 py-3">
-          <label htmlFor="theme" className="shrink-0 font-medium">
-            テーマ
-          </label>
-          <select
-            id="theme"
-            className={`${fieldClassName} max-w-48`}
-            value={theme}
-            onChange={(event) => {
-              const nextTheme = event.target.value
-              if (
-                nextTheme === "system" ||
-                nextTheme === "light" ||
-                nextTheme === "dark"
-              ) {
-                setTheme(nextTheme)
-              }
-            }}
-          >
-            <option value="system">端末の設定</option>
-            <option value="light">ライト</option>
-            <option value="dark">ダーク</option>
-          </select>
+      <div>
+        <h2 className="mb-2 text-xs font-medium text-muted-foreground">外観</h2>
+        <div className="flex min-h-16 items-center justify-between gap-4 border-y py-3">
+          <span className="shrink-0 font-medium">テーマ</span>
+          <div className="flex rounded-lg bg-muted p-0.5" aria-label="テーマ">
+            {(
+              [
+                ["system", "自動"],
+                ["light", "ライト"],
+                ["dark", "ダーク"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`min-h-9 rounded-md px-3 text-sm transition-colors ${theme === value ? "bg-background font-medium text-foreground shadow-xs" : "text-muted-foreground"}`}
+                aria-pressed={theme === value}
+                onClick={() => setTheme(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
+      </div>
 
-        <div className="flex min-h-16 items-center justify-between gap-4 py-3">
+      <div>
+        <h2 className="mb-2 text-xs font-medium text-muted-foreground">通知</h2>
+        <div className="flex min-h-16 items-center justify-between gap-4 border-y py-3">
           <span className="font-medium">シフト通知</span>
           <PushControl />
         </div>

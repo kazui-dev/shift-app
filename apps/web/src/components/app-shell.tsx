@@ -7,15 +7,7 @@ import {
   useRouter,
   useRouterState,
 } from "@tanstack/react-router"
-import {
-  CalendarDays,
-  MessageCircle,
-  Settings,
-  ShieldCheck,
-  Users,
-} from "lucide-react"
-
-import type { AuthState } from "@workspace/shared/auth"
+import { CalendarDays, MessageCircle, Settings, Users } from "lucide-react"
 
 import { CalendarViewStateProvider } from "./calendar-view-state"
 import { OfflineModeContext } from "./offline-mode-context"
@@ -23,19 +15,13 @@ import { OfflineModeContext } from "./offline-mode-context"
 const navigation = [
   { to: "/timeline", label: "カレンダー", icon: CalendarDays },
   { to: "/chat", label: "連絡", icon: MessageCircle },
-  { to: "/manage", label: "シフト管理", icon: Users },
+  { to: "/manage", label: "管理", icon: Users },
   { to: "/settings", label: "設定", icon: Settings },
 ] as const
 
 const unsafeOfflineRoutes = new Set(["/availability", "/manage", "/system"])
 
-export function AppShell({
-  state,
-  accountOffline,
-}: {
-  state: Extract<AuthState, { status: "active" }>
-  accountOffline: boolean
-}) {
+export function AppShell({ accountOffline }: { accountOffline: boolean }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -93,28 +79,18 @@ export function AppShell({
   const visibleNavigation = offline
     ? navigation.filter((item) => item.to !== "/manage")
     : navigation
-  const items =
-    state.member.accessLevel === "system_admin" && !offline
-      ? [
-          ...visibleNavigation,
-          {
-            to: "/system",
-            label: "管理",
-            icon: ShieldCheck,
-          } as const,
-        ]
-      : visibleNavigation
+  const items = visibleNavigation
 
   return (
     <div
       className={
         isTimeline
           ? "mx-auto flex h-dvh max-w-6xl flex-col overflow-hidden overscroll-none px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-4"
-          : "mx-auto min-h-svh max-w-6xl px-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-[calc(6rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-10"
+          : "mx-auto min-h-svh max-w-6xl px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-8"
       }
     >
       <nav
-        className={`fixed inset-x-0 bottom-0 z-40 shrink-0 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none ${isTimeline ? "md:mb-4" : "md:mb-8"}`}
+        className={`fixed inset-x-0 bottom-0 z-40 shrink-0 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none ${isTimeline ? "md:mb-4" : "md:mb-6"}`}
       >
         <div
           className="mx-auto grid max-w-2xl px-1 md:max-w-none md:px-0"

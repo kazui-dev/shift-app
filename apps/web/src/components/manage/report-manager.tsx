@@ -45,16 +45,16 @@ export function ReportManager({ year }: { year: number }) {
   }
 
   return (
-    <details className="rounded-xl border bg-card p-4 shadow-xs" open>
-      <summary className="cursor-pointer font-medium">
+    <section>
+      <h2 className="flex min-h-11 items-center border-b font-medium">
         遅刻・欠勤連絡
         <span className="ml-2 text-xs font-normal text-muted-foreground">
           {reports.data?.reports.filter((report) => report.status === "open")
             .length ?? 0}
           件未対応
         </span>
-      </summary>
-      <ul className="mt-4 divide-y border-t text-sm">
+      </h2>
+      <ul className="divide-y border-b text-sm">
         {reports.data?.reports.map((report) => (
           <li key={report.id} className="py-4">
             <div className="flex items-start justify-between gap-3">
@@ -87,6 +87,6 @@ export function ReportManager({ year }: { year: number }) {
       {message && (
         <FeedbackNotice message={message} onDismiss={() => setMessage(null)} />
       )}
-    </details>
+    </section>
   )
 }

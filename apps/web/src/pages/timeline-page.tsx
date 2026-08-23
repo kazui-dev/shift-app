@@ -8,10 +8,10 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
-  CalendarRange,
   ChevronLeft,
   ChevronRight,
   LoaderCircle,
+  SquarePen,
   X,
 } from "lucide-react"
 
@@ -790,11 +790,11 @@ export function TimelinePage() {
           <div className="flex items-center gap-1">
             <Button
               render={<Link to="/availability" />}
-              size="icon-sm"
+              size="sm"
               variant="ghost"
             >
-              <CalendarRange />
-              <span className="sr-only">シフト希望</span>
+              <SquarePen />
+              シフト希望
             </Button>
           </div>
         )}

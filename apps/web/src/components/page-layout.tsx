@@ -1,5 +1,3 @@
-import { LoaderCircle } from "lucide-react"
-
 import { cn } from "@workspace/ui/lib/utils"
 
 export function PageHeader({
@@ -14,11 +12,11 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex min-h-11 flex-wrap items-center justify-between gap-3",
+        "flex min-h-10 flex-wrap items-center justify-between gap-3",
         className
       )}
     >
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
       {children}
     </header>
   )
@@ -41,7 +39,7 @@ export function SectionHeader({
 
 export function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <p className="py-12 text-center text-sm text-muted-foreground">
+    <p className="py-10 text-center text-sm text-muted-foreground">
       {children}
     </p>
   )
@@ -49,8 +47,13 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
 
 export function LoadingState() {
   return (
-    <div className="flex justify-center py-12" aria-label="読み込み中">
-      <LoaderCircle className="size-5 animate-spin text-muted-foreground" />
+    <div className="divide-y border-y" aria-label="読み込み中">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="flex h-14 animate-pulse items-center gap-3">
+          <span className="size-8 rounded-full bg-muted" />
+          <span className="h-3 w-2/5 rounded-full bg-muted" />
+        </div>
+      ))}
     </div>
   )
 }
