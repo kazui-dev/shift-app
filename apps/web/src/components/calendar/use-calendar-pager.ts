@@ -7,10 +7,7 @@ import {
   type UIEventHandler,
 } from "react"
 
-import {
-  pagerPositionIsStable,
-  pagerSettleDelay,
-} from "./calendar-pager-settle"
+const settleDelay = 160
 
 type PagerPhase = "idle" | "dragging" | "settling" | "recentering"
 
@@ -33,7 +30,6 @@ export function useCalendarPager({
   const gestureIdRef = useRef(0)
   const committedGestureIdRef = useRef<number | null>(null)
   const settleTimerRef = useRef<number | null>(null)
-  const settlePositionRef = useRef<number | null>(null)
   const progressFrameRef = useRef<number | null>(null)
   const recenterFrameRef = useRef<number | null>(null)
   const finishRecenterFrameRef = useRef<number | null>(null)
@@ -44,7 +40,6 @@ export function useCalendarPager({
     if (settleTimerRef.current === null) return
     window.clearTimeout(settleTimerRef.current)
     settleTimerRef.current = null
-    settlePositionRef.current = null
   }
 
   function clearRecenterFrames() {
@@ -89,32 +84,9 @@ export function useCalendarPager({
     })
   }
 
-  function scheduleSettle(delay: number) {
-    const pager = pagerRef.current
-    if (!pager) return
+  function scheduleSettle() {
     clearSettleTimer()
-    settlePositionRef.current = pager.scrollLeft
-    settleTimerRef.current = window.setTimeout(() => {
-      settleTimerRef.current = null
-      const latestPager = pagerRef.current
-      const previousPosition = settlePositionRef.current
-      settlePositionRef.current = null
-      if (
-        latestPager &&
-        previousPosition !== null &&
-        !pagerPositionIsStable(previousPosition, latestPager.scrollLeft)
-      ) {
-        scheduleSettle(delay)
-        return
-      }
-      settlePager()
-    }, delay)
-  }
-
-  function scheduleSafetySettle() {
-    const pager = pagerRef.current
-    if (!pager) return
-    scheduleSettle(pagerSettleDelay("onscrollend" in pager))
+    settleTimerRef.current = window.setTimeout(settlePager, settleDelay)
   }
 
   function settlePager() {
@@ -133,10 +105,7 @@ export function useCalendarPager({
       return
     }
     const gestureId = gestureIdRef.current
-    if (committedGestureIdRef.current === gestureId) {
-      centerPager(false)
-      return
-    }
+    if (committedGestureIdRef.current === gestureId) return
     committedGestureIdRef.current = gestureId
     phaseRef.current = "recentering"
     if (page === 0) callbacksRef.current.onPrevious()
@@ -175,7 +144,7 @@ export function useCalendarPager({
         Math.max(-1, Math.min(1, pager.scrollLeft / pager.clientWidth - 1))
       )
     })
-    scheduleSafetySettle()
+    scheduleSettle()
   }
 
   function beginGesture() {
@@ -196,9 +165,8 @@ export function useCalendarPager({
   const handlePointerEnd: PointerEventHandler<HTMLDivElement> = (event) => {
     if (activePointerRef.current !== event.pointerId) return
     activePointerRef.current = null
-    if (phaseRef.current === "recentering") return
     phaseRef.current = "settling"
-    scheduleSafetySettle()
+    scheduleSettle()
   }
 
   const handleTouchStart: TouchEventHandler<HTMLDivElement> = (event) => {
@@ -210,16 +178,8 @@ export function useCalendarPager({
   const handleTouchEnd: TouchEventHandler<HTMLDivElement> = (event) => {
     if (event.touches.length > 0) return
     touchActiveRef.current = false
-    if (phaseRef.current === "recentering") return
     phaseRef.current = "settling"
-    scheduleSafetySettle()
-  }
-
-  const handleTouchCancel: TouchEventHandler<HTMLDivElement> = () => {
-    touchActiveRef.current = false
-    if (phaseRef.current === "recentering") return
-    phaseRef.current = "settling"
-    scheduleSafetySettle()
+    scheduleSettle()
   }
 
   return {
@@ -229,7 +189,7 @@ export function useCalendarPager({
     handlePointerUp: handlePointerEnd,
     handleScroll,
     handleScrollEnd: settlePager,
-    handleTouchCancel,
+    handleTouchCancel: handleTouchEnd,
     handleTouchEnd,
     handleTouchStart,
   }
