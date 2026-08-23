@@ -7,17 +7,12 @@ import {
 } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import {
-  ChevronLeft,
-  ChevronRight,
-  LoaderCircle,
-  SquarePen,
-  X,
-} from "lucide-react"
+import { LoaderCircle, SquarePen, X } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
 import { useCalendarViewState } from "@/components/calendar-view-context"
+import { MonthSwitcher } from "@/components/calendar/month-switcher"
 import { FeedbackNotice } from "@/components/feedback-notice"
 import { fieldClassName, textareaClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -56,7 +51,6 @@ type DateChangeOptions = {
   preservePreferredDay?: boolean
   railTransition?: Omit<RailTransition, "id">
 }
-
 function localDate(value: string): Date {
   return new Date(`${value}T12:00:00`)
 }
@@ -758,34 +752,11 @@ export function CalendarPage() {
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3">
       <header className="flex shrink-0 items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="前の月"
-            onClick={() => changeMonth(-1)}
-          >
-            <ChevronLeft />
-          </Button>
-          <label className="relative grid min-h-10 min-w-16 place-items-center px-2 text-center font-semibold">
-            <span aria-hidden>{localDate(date).getMonth() + 1}月</span>
-            <input
-              aria-label="日付を選択"
-              className="absolute inset-0 size-full cursor-pointer opacity-0 outline-none"
-              type="date"
-              value={date}
-              onChange={(event) => chooseDate(event.target.value)}
-            />
-          </label>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="次の月"
-            onClick={() => changeMonth(1)}
-          >
-            <ChevronRight />
-          </Button>
-        </div>
+        <MonthSwitcher
+          date={date}
+          onDateChange={chooseDate}
+          onMonthChange={changeMonth}
+        />
         {!offline && (
           <div className="flex items-center gap-1">
             <Button
