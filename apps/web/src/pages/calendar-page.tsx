@@ -15,7 +15,6 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
-import { useSwipePager } from "@/components/calendar/use-swipe-pager"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -39,6 +38,7 @@ function time(value: string): string {
 
 const hourHeight = 64
 const calendarInset = 12
+const fallbackScrollEndDelay = 160
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 type CalendarAssignment = Awaited<
@@ -162,8 +162,15 @@ function WeekRail({
   calendarSwipeProgress: number
   railTransition: RailTransition | null
 }) {
+  const railRef = useRef<HTMLDivElement>(null)
   const previousRailRef = useRef<HTMLDivElement>(null)
-  const [railSwipeProgress, setRailSwipeProgress] = useState(0)
+  const previousDateRef = useRef(date)
+  const scrollTimerRef = useRef<number | null>(null)
+  const scrollAnimationFrameRef = useRef<number | null>(null)
+  const gestureActiveRef = useRef(false)
+  const gestureCommittedRef = useRef(false)
+  const [railPagePosition, setRailPagePosition] = useState(1)
+  const [resettingRail, setResettingRail] = useState(false)
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
   const selectedWeekday = localDate(date).getDay()
   const crossesWeek =
@@ -173,17 +180,36 @@ function WeekRail({
   const boundaryProgress = crossesWeek ? Math.abs(calendarSwipeProgress) : 0
   const boundaryDate = crossesWeek ? moveDate(date, boundaryDirection) : null
   const calendarIsSwiping = Math.abs(calendarSwipeProgress) > 0.01
-  const railIsSwiping = Math.abs(railSwipeProgress) > 0.01
-  const railPagePosition = 1 + railSwipeProgress
-  const railPager = useSwipePager({
-    pageKey: date,
-    onNavigate: (direction) => onDateChange(moveDate(date, direction * 7)),
-    onProgress: setRailSwipeProgress,
-  })
+  const railIsSwiping = Math.abs(railPagePosition - 1) > 0.01
+
+  useLayoutEffect(() => {
+    const rail = railRef.current
+    if (!rail) return undefined
+    const previousWeek = week(previousDateRef.current)[0]
+    const currentWeek = week(date)[0]
+    if (
+      previousWeek &&
+      currentWeek &&
+      dateValue(previousWeek) !== dateValue(currentWeek)
+    ) {
+      setResettingRail(true)
+    }
+    previousDateRef.current = date
+    if (scrollAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current)
+      scrollAnimationFrameRef.current = null
+    }
+    rail.scrollLeft = rail.clientWidth
+    setRailPagePosition(1)
+    const resetTimer = window.setTimeout(() => {
+      setResettingRail(false)
+    }, 50)
+    return () => window.clearTimeout(resetTimer)
+  }, [date])
 
   useLayoutEffect(() => {
     if (!railTransition) return undefined
-    const rail = railPager.viewportRef.current
+    const rail = railRef.current
     const previousRail = previousRailRef.current
     if (!rail || !previousRail) return undefined
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -217,7 +243,73 @@ function WeekRail({
       incomingAnimation.cancel()
       previousRailAnimation.cancel()
     }
-  }, [railTransition, onRailTransitionEnd, railPager.viewportRef])
+  }, [railTransition, onRailTransitionEnd])
+
+  useEffect(
+    () => () => {
+      if (scrollTimerRef.current !== null) {
+        window.clearTimeout(scrollTimerRef.current)
+      }
+      if (scrollAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollAnimationFrameRef.current)
+      }
+    },
+    []
+  )
+
+  function settleScroll() {
+    if (scrollTimerRef.current !== null) {
+      window.clearTimeout(scrollTimerRef.current)
+      scrollTimerRef.current = null
+    }
+    if (gestureActiveRef.current) {
+      scrollTimerRef.current = window.setTimeout(
+        settleScroll,
+        fallbackScrollEndDelay
+      )
+      return
+    }
+    const currentRail = railRef.current
+    if (!currentRail || currentRail.clientWidth === 0) return
+    const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
+    if (page === 0) {
+      if (gestureCommittedRef.current) return
+      gestureCommittedRef.current = true
+      setResettingRail(true)
+      onDateChange(moveDate(date, -7))
+    }
+    if (page === 2) {
+      if (gestureCommittedRef.current) return
+      gestureCommittedRef.current = true
+      setResettingRail(true)
+      onDateChange(moveDate(date, 7))
+    }
+  }
+
+  function handleScroll() {
+    const rail = railRef.current
+    if (rail && rail.clientWidth > 0) {
+      if (scrollAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollAnimationFrameRef.current)
+      }
+      scrollAnimationFrameRef.current = window.requestAnimationFrame(() => {
+        const currentRail = railRef.current
+        if (currentRail && currentRail.clientWidth > 0) {
+          setRailPagePosition(currentRail.scrollLeft / currentRail.clientWidth)
+        }
+        scrollAnimationFrameRef.current = null
+      })
+    }
+    if (rail && !("onscrollend" in rail)) {
+      if (scrollTimerRef.current !== null) {
+        window.clearTimeout(scrollTimerRef.current)
+      }
+      scrollTimerRef.current = window.setTimeout(
+        settleScroll,
+        fallbackScrollEndDelay
+      )
+    }
+  }
 
   return (
     <div className="relative overflow-hidden">
@@ -235,76 +327,82 @@ function WeekRail({
         ))}
       </div>
       <div
-        ref={railPager.viewportRef}
+        ref={railRef}
         aria-label="週を切り替え"
-        className="touch-pan-y overflow-hidden border-b select-none"
-        onClickCapture={railPager.handleClickCapture}
-        onLostPointerCapture={railPager.handleLostPointerCapture}
-        onPointerCancel={railPager.handlePointerCancel}
-        onPointerDown={railPager.handlePointerDown}
-        onPointerMove={railPager.handlePointerMove}
-        onPointerUp={railPager.handlePointerUp}
+        className="flex snap-x snap-mandatory overflow-x-auto border-b [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        onScroll={handleScroll}
+        onScrollEnd={settleScroll}
+        onPointerDown={() => {
+          gestureCommittedRef.current = false
+        }}
+        onTouchCancel={() => {
+          gestureActiveRef.current = false
+        }}
+        onTouchEnd={() => {
+          gestureActiveRef.current = false
+        }}
+        onTouchStart={() => {
+          gestureActiveRef.current = true
+          gestureCommittedRef.current = false
+        }}
       >
-        <div
-          ref={railPager.trackRef}
-          className="flex w-full"
-          style={railPager.trackStyle}
-        >
-          {pageDates.map((pageDate, pageIndex) => {
-            const pageDays = week(pageDate)
-            const firstDay = pageDays[0] ?? localDate(pageDate)
-            const indicatorOpacity = Math.max(
-              0,
-              1 - Math.abs(railPagePosition - pageIndex)
-            )
-            return (
-              <div
-                key={dateValue(firstDay)}
-                className="relative grid w-full shrink-0 grid-cols-7 pb-3"
-                style={
-                  crossesWeek && pageIndex === 1
-                    ? { opacity: 1 - boundaryProgress }
-                    : undefined
-                }
+        {pageDates.map((pageDate, pageIndex) => {
+          const pageDays = week(pageDate)
+          const firstDay = pageDays[0] ?? localDate(pageDate)
+          const indicatorOpacity = Math.max(
+            0,
+            1 - Math.abs(railPagePosition - pageIndex)
+          )
+          return (
+            <div
+              key={dateValue(firstDay)}
+              className="relative grid w-full shrink-0 snap-center grid-cols-7 pb-3"
+              style={
+                crossesWeek && pageIndex === 1
+                  ? { opacity: 1 - boundaryProgress }
+                  : undefined
+              }
+            >
+              <span
+                aria-hidden
+                className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+                style={{
+                  opacity: indicatorOpacity,
+                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? calendarSwipeProgress : 0)) * 100}%)`,
+                  ...(calendarIsSwiping ||
+                  railIsSwiping ||
+                  resettingRail ||
+                  railTransition
+                    ? { transition: "none" }
+                    : {}),
+                }}
               >
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
-                  style={{
-                    opacity: indicatorOpacity,
-                    transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? calendarSwipeProgress : 0)) * 100}%)`,
-                    ...(calendarIsSwiping || railIsSwiping || railTransition
-                      ? { transition: "none" }
-                      : {}),
-                  }}
-                >
-                  <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-                </span>
-                {pageDays.map((day) => {
-                  const value = dateValue(day)
-                  const selected = value === date
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
-                      aria-label={longDate(value)}
-                      aria-current={selected ? "date" : undefined}
-                      onClick={() => onDateChange(value)}
+                <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+              </span>
+              {pageDays.map((day) => {
+                const value = dateValue(day)
+                const selected = value === date
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
+                    aria-label={longDate(value)}
+                    aria-current={selected ? "date" : undefined}
+                    onClick={() => onDateChange(value)}
+                  >
+                    <span aria-hidden className="h-4" />
+                    <span
+                      className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                     >
-                      <span aria-hidden className="h-4" />
-                      <span
-                        className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
-                      >
-                        {day.getDate()}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </div>
+                      {day.getDate()}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })}
       </div>
 
       {boundaryDate && (
@@ -392,7 +490,7 @@ function CalendarDay({
 
   return (
     <div
-      className="relative w-full shrink-0"
+      className="relative w-full shrink-0 snap-center"
       aria-label={longDate(date)}
       style={{ height: 24 * hourHeight + calendarInset * 2 }}
     >
@@ -478,6 +576,11 @@ export function CalendarPage() {
     null
   )
   const calendarRef = useRef<HTMLDivElement>(null)
+  const calendarPagerRef = useRef<HTMLDivElement>(null)
+  const calendarScrollTimerRef = useRef<number | null>(null)
+  const calendarAnimationFrameRef = useRef<number | null>(null)
+  const calendarGestureActiveRef = useRef(false)
+  const calendarGestureCommittedRef = useRef(false)
   const railTransitionIdRef = useRef(0)
   const initializedCalendarRef = useRef(false)
   const now = useCurrentTime()
@@ -517,14 +620,10 @@ export function CalendarPage() {
     setRailTransition((current) => (current?.id === id ? null : current))
   }, [])
 
-  const calendarPager = useSwipePager({
-    pageKey: date,
-    onNavigate: (direction) => changeDate(moveDate(date, direction)),
-    onProgress: setCalendarSwipeProgress,
-  })
-
   useLayoutEffect(() => {
     const calendarElement = calendarRef.current
+    const pager = calendarPagerRef.current
+    if (pager) pager.scrollLeft = pager.clientWidth
     if (calendarElement && !initializedCalendarRef.current) {
       const scrollTop =
         scrollTopRef.current ?? initialCalendarScrollTop(new Date())
@@ -533,6 +632,75 @@ export function CalendarPage() {
       initializedCalendarRef.current = true
     }
   }, [date, scrollTopRef])
+
+  useEffect(
+    () => () => {
+      if (calendarScrollTimerRef.current !== null) {
+        window.clearTimeout(calendarScrollTimerRef.current)
+      }
+      if (calendarAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+      }
+    },
+    []
+  )
+
+  function settleCalendarScroll() {
+    if (calendarScrollTimerRef.current !== null) {
+      window.clearTimeout(calendarScrollTimerRef.current)
+      calendarScrollTimerRef.current = null
+    }
+    if (calendarGestureActiveRef.current) {
+      calendarScrollTimerRef.current = window.setTimeout(
+        settleCalendarScroll,
+        fallbackScrollEndDelay
+      )
+      return
+    }
+    const pager = calendarPagerRef.current
+    if (!pager || pager.clientWidth === 0) return
+    const page = Math.round(pager.scrollLeft / pager.clientWidth)
+    if (calendarAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+      calendarAnimationFrameRef.current = null
+    }
+    setCalendarSwipeProgress(0)
+    if (page === 0) {
+      if (calendarGestureCommittedRef.current) return
+      calendarGestureCommittedRef.current = true
+      changeDate(previousDate)
+    }
+    if (page === 2) {
+      if (calendarGestureCommittedRef.current) return
+      calendarGestureCommittedRef.current = true
+      changeDate(nextDate)
+    }
+  }
+
+  function handleCalendarScroll() {
+    if (calendarAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+    }
+    calendarAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      const pager = calendarPagerRef.current
+      if (pager && pager.clientWidth > 0) {
+        setCalendarSwipeProgress(
+          Math.max(-1, Math.min(1, pager.scrollLeft / pager.clientWidth - 1))
+        )
+      }
+      calendarAnimationFrameRef.current = null
+    })
+    const pager = calendarPagerRef.current
+    if (pager && !("onscrollend" in pager)) {
+      if (calendarScrollTimerRef.current !== null) {
+        window.clearTimeout(calendarScrollTimerRef.current)
+      }
+      calendarScrollTimerRef.current = window.setTimeout(
+        settleCalendarScroll,
+        fallbackScrollEndDelay
+      )
+    }
+  }
 
   function changeMonth(months: number) {
     changeDate(moveMonth(date, months, preferredDayRef.current), {
@@ -623,42 +791,42 @@ export function CalendarPage() {
           }}
         >
           <div
-            ref={calendarPager.viewportRef}
+            ref={calendarPagerRef}
             aria-label="日付を切り替え"
-            className="w-full touch-pan-y overflow-hidden select-none"
+            className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: 24 * hourHeight + calendarInset * 2 }}
-            onClickCapture={calendarPager.handleClickCapture}
-            onLostPointerCapture={calendarPager.handleLostPointerCapture}
-            onPointerCancel={calendarPager.handlePointerCancel}
-            onPointerDown={calendarPager.handlePointerDown}
-            onPointerMove={calendarPager.handlePointerMove}
-            onPointerUp={calendarPager.handlePointerUp}
+            onScroll={handleCalendarScroll}
+            onScrollEnd={settleCalendarScroll}
+            onPointerDown={() => {
+              calendarGestureCommittedRef.current = false
+            }}
+            onTouchCancel={() => {
+              calendarGestureActiveRef.current = false
+            }}
+            onTouchEnd={() => {
+              calendarGestureActiveRef.current = false
+            }}
+            onTouchStart={() => {
+              calendarGestureActiveRef.current = true
+              calendarGestureCommittedRef.current = false
+            }}
           >
-            <div
-              ref={calendarPager.trackRef}
-              className="flex w-full"
-              style={{
-                ...calendarPager.trackStyle,
-                height: 24 * hourHeight + calendarInset * 2,
-              }}
-            >
-              {[
-                { date: previousDate, query: previousCalendar },
-                { date, query: calendar },
-                { date: nextDate, query: nextCalendar },
-              ].map((page) => (
-                <CalendarDay
-                  key={page.date}
-                  date={page.date}
-                  assignments={page.query.data?.assignments ?? noAssignments}
-                  now={now}
-                  onSelectAssignment={(assignmentId) => {
-                    if (page.date !== date) changeDate(page.date)
-                    setSelectedAssignmentId(assignmentId)
-                  }}
-                />
-              ))}
-            </div>
+            {[
+              { date: previousDate, query: previousCalendar },
+              { date, query: calendar },
+              { date: nextDate, query: nextCalendar },
+            ].map((page) => (
+              <CalendarDay
+                key={page.date}
+                date={page.date}
+                assignments={page.query.data?.assignments ?? noAssignments}
+                now={now}
+                onSelectAssignment={(assignmentId) => {
+                  if (page.date !== date) changeDate(page.date)
+                  setSelectedAssignmentId(assignmentId)
+                }}
+              />
+            ))}
           </div>
         </div>
         {calendar.isError && !offline && (
