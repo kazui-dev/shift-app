@@ -1,11 +1,13 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { LoaderCircle, SquarePen } from "lucide-react"
 
@@ -19,15 +21,27 @@ import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { errorMessage } from "@/api/client"
-import { checkIn, submitAssignmentReport } from "@/api/assignments"
-import { getMyAssignments } from "@/api/assignments"
-
-function dayRange(date: string): { from: string; to: string } {
-  const from = new Date(`${date}T00:00:00`)
-  const to = new Date(from)
-  to.setDate(to.getDate() + 1)
-  return { from: from.toISOString(), to: to.toISOString() }
-}
+import {
+  assignmentMonthQuery,
+  assignmentsByDate,
+  checkIn,
+  submitAssignmentReport,
+  type CalendarAssignment,
+} from "@/api/assignments"
+import {
+  createDateWindow,
+  dateValue,
+  extendDateWindow,
+  localDate,
+  monthDistance,
+  monthValue,
+  monthValuesForDates,
+  moveDate,
+  moveMonth,
+  moveMonthValue,
+  snappedDate,
+  windowForDate,
+} from "@/lib/calendar-dates"
 
 function time(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
@@ -39,11 +53,13 @@ function time(value: string): string {
 const hourHeight = 64
 const calendarInset = 12
 const fallbackScrollEndDelay = 160
+const calendarWindowRadius = 14
+const calendarWindowExtension = 14
+const calendarWindowEdgeThreshold = 4
+const calendarWindowMaxPages = 43
+const assignmentPrefetchRadius = 6
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-type CalendarAssignment = Awaited<
-  ReturnType<typeof getMyAssignments>
->["assignments"][number]
 const noAssignments: CalendarAssignment[] = []
 type RailTransition = {
   id: number
@@ -53,37 +69,6 @@ type DateChangeOptions = {
   preservePreferredDay?: boolean
   railTransition?: Omit<RailTransition, "id">
 }
-function localDate(value: string): Date {
-  return new Date(`${value}T12:00:00`)
-}
-
-function dateValue(value: Date): string {
-  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`
-}
-
-function moveDate(value: string, days: number): string {
-  const next = localDate(value)
-  next.setDate(next.getDate() + days)
-  return dateValue(next)
-}
-
-function moveMonth(
-  value: string,
-  months: number,
-  preferredDay: number
-): string {
-  const current = localDate(value)
-  current.setDate(1)
-  current.setMonth(current.getMonth() + months)
-  const lastDay = new Date(
-    current.getFullYear(),
-    current.getMonth() + 1,
-    0
-  ).getDate()
-  current.setDate(Math.min(preferredDay, lastDay))
-  return dateValue(current)
-}
-
 function week(value: string): Date[] {
   const selected = localDate(value)
   selected.setDate(selected.getDate() - selected.getDay())
@@ -119,17 +104,13 @@ function longDate(value: string): string {
   return `${formattedDate}（${weekdays[date.getDay()]}）`
 }
 
-function calendarQuery(date: string) {
-  const range = dayRange(date)
-  return {
-    queryKey: ["assignments", date] as const,
-    queryFn: () => getMyAssignments(range.from, range.to),
-  }
-}
-
 function initialCalendarScrollTop(now: Date): number {
   const minute = now.getHours() * 60 + now.getMinutes()
   return Math.max(0, (minute / 60 - 2.5) * hourHeight + calendarInset)
+}
+
+function calendarPageWidth(pager: HTMLDivElement, pageCount: number): number {
+  return pageCount > 0 ? pager.scrollWidth / pageCount : pager.clientWidth
 }
 
 function useCurrentTime(): Date {
@@ -262,13 +243,6 @@ function WeekRail({
       window.clearTimeout(scrollTimerRef.current)
       scrollTimerRef.current = null
     }
-    if (gestureActiveRef.current) {
-      scrollTimerRef.current = window.setTimeout(
-        settleScroll,
-        fallbackScrollEndDelay
-      )
-      return
-    }
     const currentRail = railRef.current
     if (!currentRail || currentRail.clientWidth === 0) return
     const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
@@ -284,6 +258,17 @@ function WeekRail({
       setResettingRail(true)
       onDateChange(moveDate(date, 7))
     }
+  }
+
+  function settleScrollFallback() {
+    if (gestureActiveRef.current) {
+      scrollTimerRef.current = window.setTimeout(
+        settleScrollFallback,
+        fallbackScrollEndDelay
+      )
+      return
+    }
+    settleScroll()
   }
 
   function handleScroll() {
@@ -305,7 +290,7 @@ function WeekRail({
         window.clearTimeout(scrollTimerRef.current)
       }
       scrollTimerRef.current = window.setTimeout(
-        settleScroll,
+        settleScrollFallback,
         fallbackScrollEndDelay
       )
     }
@@ -474,7 +459,7 @@ function WeekRail({
   )
 }
 
-function CalendarDay({
+const CalendarDay = memo(function CalendarDay({
   date,
   assignments,
   now,
@@ -483,7 +468,7 @@ function CalendarDay({
   date: string
   assignments: CalendarAssignment[]
   now: Date
-  onSelectAssignment: (assignmentId: string) => void
+  onSelectAssignment: (date: string, assignmentId: string) => void
 }) {
   const nowMinute = now.getHours() * 60 + now.getMinutes()
   const showNow = date === dateValue(now)
@@ -524,14 +509,14 @@ function CalendarDay({
           <button
             key={assignment.id}
             type="button"
-            className="absolute right-0 left-14 animate-in overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left duration-300 fade-in hover:opacity-90"
+            className="absolute right-0 left-14 overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left hover:opacity-90"
             style={{
               top,
               height,
               borderLeftColor: assignment.color,
               backgroundColor: `color-mix(in oklab, ${assignment.color} 22%, var(--background))`,
             }}
-            onClick={() => onSelectAssignment(assignment.id)}
+            onClick={() => onSelectAssignment(date, assignment.id)}
           >
             <span className="block truncate text-sm font-semibold">
               {assignment.activityName}
@@ -557,7 +542,7 @@ function CalendarDay({
       )}
     </div>
   )
-}
+})
 
 export function CalendarPage() {
   const queryClient = useQueryClient()
@@ -575,21 +560,42 @@ export function CalendarPage() {
   const [railTransition, setRailTransition] = useState<RailTransition | null>(
     null
   )
+  const [calendarDates, setCalendarDates] = useState(() =>
+    createDateWindow(date, calendarWindowRadius)
+  )
   const calendarRef = useRef<HTMLDivElement>(null)
   const calendarPagerRef = useRef<HTMLDivElement>(null)
   const calendarScrollTimerRef = useRef<number | null>(null)
   const calendarAnimationFrameRef = useRef<number | null>(null)
   const calendarGestureActiveRef = useRef(false)
-  const calendarGestureCommittedRef = useRef(false)
+  const calendarDatesRef = useRef(calendarDates)
+  const previousPrefetchMonthRef = useRef(monthValue(date))
   const railTransitionIdRef = useRef(0)
   const initializedCalendarRef = useRef(false)
   const now = useCurrentTime()
-  const previousDate = moveDate(date, -1)
-  const nextDate = moveDate(date, 1)
-  const previousCalendar = useQuery(calendarQuery(previousDate))
-  const calendar = useQuery(calendarQuery(date))
-  const nextCalendar = useQuery(calendarQuery(nextDate))
-  const assignments = calendar.data?.assignments ?? noAssignments
+  calendarDatesRef.current = calendarDates
+  const selectedMonth = monthValue(date)
+  const selectedMonthQuery = useQuery(assignmentMonthQuery(selectedMonth))
+  const windowMonths = useMemo(
+    () => monthValuesForDates(calendarDates),
+    [calendarDates]
+  )
+  const otherWindowMonths = useMemo(
+    () => windowMonths.filter((month) => month !== selectedMonth),
+    [selectedMonth, windowMonths]
+  )
+  const windowMonthQueries = useQueries({
+    queries: otherWindowMonths.map(assignmentMonthQuery),
+  })
+  const assignmentDataByDate = useMemo(
+    () =>
+      assignmentsByDate(calendarDates, [
+        selectedMonthQuery.data,
+        ...windowMonthQueries.map((query) => query.data),
+      ]),
+    [calendarDates, selectedMonthQuery.data, windowMonthQueries]
+  )
+  const assignments = assignmentDataByDate.get(date) ?? noAssignments
   const selectedAssignment = assignments.find(
     (assignment) => assignment.id === selectedAssignmentId
   )
@@ -611,6 +617,16 @@ export function CalendarPage() {
       setSelectedAssignmentId(null)
       setReportTarget(null)
       setReportMessage("")
+      const currentDates = calendarDatesRef.current
+      const nextDates = windowForDate(
+        currentDates,
+        nextDateValue,
+        calendarWindowRadius
+      )
+      if (nextDates !== currentDates) {
+        calendarDatesRef.current = nextDates
+        setCalendarDates(nextDates)
+      }
       setDate(nextDateValue)
     },
     [preferredDayRef, setDate]
@@ -623,7 +639,20 @@ export function CalendarPage() {
   useLayoutEffect(() => {
     const calendarElement = calendarRef.current
     const pager = calendarPagerRef.current
-    if (pager) pager.scrollLeft = pager.clientWidth
+    if (pager && pager.clientWidth > 0) {
+      const pageWidth = calendarPageWidth(pager, calendarDates.length)
+      if (calendarAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+        calendarAnimationFrameRef.current = null
+      }
+      const index = calendarDates.indexOf(date)
+      if (index >= 0) {
+        const target = index * pageWidth
+        if (Math.abs(pager.scrollLeft - target) > 1) {
+          pager.scrollLeft = target
+        }
+      }
+    }
     if (calendarElement && !initializedCalendarRef.current) {
       const scrollTop =
         scrollTopRef.current ?? initialCalendarScrollTop(new Date())
@@ -631,7 +660,50 @@ export function CalendarPage() {
       scrollTopRef.current = scrollTop
       initializedCalendarRef.current = true
     }
-  }, [date, scrollTopRef])
+  }, [calendarDates, date, scrollTopRef])
+
+  useEffect(() => {
+    const pager = calendarPagerRef.current
+    if (!pager) return undefined
+    const handleResize = () => {
+      const index = calendarDatesRef.current.indexOf(date)
+      if (index >= 0 && pager.clientWidth > 0) {
+        const pageWidth = calendarPageWidth(
+          pager,
+          calendarDatesRef.current.length
+        )
+        pager.scrollLeft = index * pageWidth
+      }
+    }
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [date])
+
+  useEffect(() => {
+    if (!selectedMonthQuery.isSuccess) return undefined
+    const previousMonth = previousPrefetchMonthRef.current
+    previousPrefetchMonthRef.current = selectedMonth
+    const direction = Math.sign(monthDistance(previousMonth, selectedMonth))
+    const directionOrder = direction < 0 ? [-1, 1] : [1, -1]
+    let cancelled = false
+    const prefetchNearbyMonths = async (distance: number): Promise<void> => {
+      if (cancelled || distance > assignmentPrefetchRadius) return
+      await Promise.all(
+        directionOrder.map((offset) =>
+          queryClient.prefetchQuery(
+            assignmentMonthQuery(
+              moveMonthValue(selectedMonth, offset * distance)
+            )
+          )
+        )
+      )
+      await prefetchNearbyMonths(distance + 1)
+    }
+    void prefetchNearbyMonths(1)
+    return () => {
+      cancelled = true
+    }
+  }, [queryClient, selectedMonth, selectedMonthQuery.isSuccess])
 
   useEffect(
     () => () => {
@@ -645,36 +717,68 @@ export function CalendarPage() {
     []
   )
 
-  function settleCalendarScroll() {
+  const extendCalendarWindow = useCallback((index: number) => {
+    const currentDates = calendarDatesRef.current
+    if (index <= calendarWindowEdgeThreshold) {
+      const extension = extendDateWindow(
+        currentDates,
+        "before",
+        calendarWindowExtension,
+        calendarWindowMaxPages
+      )
+      calendarDatesRef.current = extension.dates
+      setCalendarDates(extension.dates)
+      return
+    }
+    if (index >= currentDates.length - 1 - calendarWindowEdgeThreshold) {
+      const extension = extendDateWindow(
+        currentDates,
+        "after",
+        calendarWindowExtension,
+        calendarWindowMaxPages
+      )
+      calendarDatesRef.current = extension.dates
+      setCalendarDates(extension.dates)
+    }
+  }, [])
+
+  const settleCalendarScroll = useCallback(() => {
     if (calendarScrollTimerRef.current !== null) {
       window.clearTimeout(calendarScrollTimerRef.current)
       calendarScrollTimerRef.current = null
     }
-    if (calendarGestureActiveRef.current) {
-      calendarScrollTimerRef.current = window.setTimeout(
-        settleCalendarScroll,
-        fallbackScrollEndDelay
-      )
-      return
-    }
     const pager = calendarPagerRef.current
     if (!pager || pager.clientWidth === 0) return
-    const page = Math.round(pager.scrollLeft / pager.clientWidth)
+    const currentDates = calendarDatesRef.current
+    const pageWidth = calendarPageWidth(pager, currentDates.length)
+    const snapped = snappedDate(currentDates, pager.scrollLeft, pageWidth)
+    if (!snapped) return
+    const page = currentDates.indexOf(snapped)
     if (calendarAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
     setCalendarSwipeProgress(0)
-    if (page === 0) {
-      if (calendarGestureCommittedRef.current) return
-      calendarGestureCommittedRef.current = true
-      changeDate(previousDate)
+    if (snapped !== date) changeDate(snapped)
+    extendCalendarWindow(page)
+  }, [changeDate, date, extendCalendarWindow])
+
+  useEffect(() => {
+    const pager = calendarPagerRef.current
+    if (!pager || !("onscrollend" in pager)) return undefined
+    pager.addEventListener("scrollend", settleCalendarScroll)
+    return () => pager.removeEventListener("scrollend", settleCalendarScroll)
+  }, [settleCalendarScroll])
+
+  function settleCalendarScrollFallback() {
+    if (calendarGestureActiveRef.current) {
+      calendarScrollTimerRef.current = window.setTimeout(
+        settleCalendarScrollFallback,
+        fallbackScrollEndDelay
+      )
+      return
     }
-    if (page === 2) {
-      if (calendarGestureCommittedRef.current) return
-      calendarGestureCommittedRef.current = true
-      changeDate(nextDate)
-    }
+    settleCalendarScroll()
   }
 
   function handleCalendarScroll() {
@@ -684,8 +788,18 @@ export function CalendarPage() {
     calendarAnimationFrameRef.current = window.requestAnimationFrame(() => {
       const pager = calendarPagerRef.current
       if (pager && pager.clientWidth > 0) {
+        const currentDates = calendarDatesRef.current
+        const selectedIndex = currentDates.indexOf(date)
+        if (selectedIndex < 0) {
+          calendarAnimationFrameRef.current = null
+          return
+        }
+        const pageWidth = calendarPageWidth(pager, currentDates.length)
         setCalendarSwipeProgress(
-          Math.max(-1, Math.min(1, pager.scrollLeft / pager.clientWidth - 1))
+          Math.max(
+            -1,
+            Math.min(1, pager.scrollLeft / pageWidth - selectedIndex)
+          )
         )
       }
       calendarAnimationFrameRef.current = null
@@ -696,7 +810,7 @@ export function CalendarPage() {
         window.clearTimeout(calendarScrollTimerRef.current)
       }
       calendarScrollTimerRef.current = window.setTimeout(
-        settleCalendarScroll,
+        settleCalendarScrollFallback,
         fallbackScrollEndDelay
       )
     }
@@ -718,11 +832,21 @@ export function CalendarPage() {
     })
   }
 
+  const selectAssignment = useCallback(
+    (pageDate: string, assignmentId: string) => {
+      if (pageDate !== date) changeDate(pageDate)
+      setSelectedAssignmentId(assignmentId)
+    },
+    [changeDate, date]
+  )
+
   async function recordCheckIn(assignmentId: string) {
     setCheckInPending(assignmentId)
     try {
       await checkIn(assignmentId)
-      await queryClient.invalidateQueries({ queryKey: ["assignments", date] })
+      await queryClient.invalidateQueries({
+        queryKey: ["assignments", "month"],
+      })
       toast.success("出勤を記録しました。")
     } catch (error) {
       toast.error(errorMessage(error))
@@ -793,13 +917,9 @@ export function CalendarPage() {
           <div
             ref={calendarPagerRef}
             aria-label="日付を切り替え"
-            className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: 24 * hourHeight + calendarInset * 2 }}
             onScroll={handleCalendarScroll}
-            onScrollEnd={settleCalendarScroll}
-            onPointerDown={() => {
-              calendarGestureCommittedRef.current = false
-            }}
             onTouchCancel={() => {
               calendarGestureActiveRef.current = false
             }}
@@ -808,34 +928,28 @@ export function CalendarPage() {
             }}
             onTouchStart={() => {
               calendarGestureActiveRef.current = true
-              calendarGestureCommittedRef.current = false
             }}
           >
-            {[
-              { date: previousDate, query: previousCalendar },
-              { date, query: calendar },
-              { date: nextDate, query: nextCalendar },
-            ].map((page) => (
+            {calendarDates.map((pageDate) => (
               <CalendarDay
-                key={page.date}
-                date={page.date}
-                assignments={page.query.data?.assignments ?? noAssignments}
+                key={pageDate}
+                date={pageDate}
+                assignments={
+                  assignmentDataByDate.get(pageDate) ?? noAssignments
+                }
                 now={now}
-                onSelectAssignment={(assignmentId) => {
-                  if (page.date !== date) changeDate(page.date)
-                  setSelectedAssignmentId(assignmentId)
-                }}
+                onSelectAssignment={selectAssignment}
               />
             ))}
           </div>
         </div>
-        {calendar.isError && !offline && (
+        {selectedMonthQuery.isError && !offline && (
           <Button
             className="absolute top-2 right-2"
             size="sm"
             variant="outline"
-            title={errorMessage(calendar.error)}
-            onClick={() => calendar.refetch()}
+            title={errorMessage(selectedMonthQuery.error)}
+            onClick={() => selectedMonthQuery.refetch()}
           >
             予定を再読み込み
           </Button>
@@ -866,9 +980,9 @@ export function CalendarPage() {
                     size="sm"
                     disabled={
                       checkInPending !== null ||
-                      calendar.dataUpdatedAt <
+                      selectedMonthQuery.dataUpdatedAt <
                         new Date(selectedAssignment.startsAt).getTime() ||
-                      calendar.dataUpdatedAt >
+                      selectedMonthQuery.dataUpdatedAt >
                         new Date(selectedAssignment.endsAt).getTime()
                     }
                     onClick={() => void recordCheckIn(selectedAssignment.id)}
