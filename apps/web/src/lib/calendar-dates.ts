@@ -3,6 +3,11 @@ export type DateWindowExtension = {
   pageShift: number
 }
 
+export type WeekWindowExtension = {
+  weeks: string[]
+  pageShift: number
+}
+
 export type WeekRailVisualPosition = {
   fromDate: string
   toDate: string
@@ -23,6 +28,15 @@ export function moveDate(value: string, days: number): string {
   const next = localDate(value)
   next.setDate(next.getDate() + days)
   return dateValue(next)
+}
+
+export function weekStart(value: string): string {
+  return moveDate(value, -localDate(value).getDay())
+}
+
+export function weekDates(value: string): string[] {
+  const start = weekStart(value)
+  return Array.from({ length: 7 }, (_, weekday) => moveDate(start, weekday))
 }
 
 export function moveMonth(
@@ -66,6 +80,33 @@ export function createDateWindow(center: string, radius: number): string[] {
   )
 }
 
+export function createWeekWindow(center: string, radius: number): string[] {
+  const centerWeek = weekStart(center)
+  return Array.from({ length: radius * 2 + 1 }, (_, index) =>
+    moveDate(centerWeek, (index - radius) * 7)
+  )
+}
+
+export function weekWindowForDate(
+  weeks: string[],
+  target: string,
+  radius: number
+): string[] {
+  return weeks.includes(weekStart(target))
+    ? weeks
+    : createWeekWindow(target, radius)
+}
+
+export function weekWindowExtensionDirection(
+  index: number,
+  length: number,
+  threshold: number
+): "before" | "after" | null {
+  if (index <= threshold) return "before"
+  if (index >= length - 1 - threshold) return "after"
+  return null
+}
+
 export function windowForDate(
   dates: string[],
   target: string,
@@ -105,6 +146,37 @@ export function extendDateWindow(
   }
 }
 
+export function extendWeekWindow(
+  weeks: string[],
+  direction: "before" | "after",
+  count: number,
+  maxLength = Number.POSITIVE_INFINITY
+): WeekWindowExtension {
+  const first = weeks[0]
+  const last = weeks.at(-1)
+  if (!first || !last || count <= 0) return { weeks, pageShift: 0 }
+
+  if (direction === "before") {
+    const added = Array.from({ length: count }, (_, index) =>
+      moveDate(first, (index - count) * 7)
+    )
+    return {
+      weeks: [...added, ...weeks].slice(0, maxLength),
+      pageShift: added.length,
+    }
+  }
+
+  const added = Array.from({ length: count }, (_, index) =>
+    moveDate(last, (index + 1) * 7)
+  )
+  const extended = [...weeks, ...added]
+  const removed = Math.max(0, extended.length - maxLength)
+  return {
+    weeks: extended.slice(removed),
+    pageShift: removed === 0 ? 0 : -removed,
+  }
+}
+
 export function snappedDate(
   dates: string[],
   scrollLeft: number,
@@ -123,6 +195,37 @@ export function calendarDatePosition(
 ): number | null {
   if (dates.length === 0 || pageWidth <= 0) return null
   return Math.max(0, Math.min(dates.length - 1, scrollLeft / pageWidth))
+}
+
+export function weekScrollPosition(
+  weeks: string[],
+  scrollLeft: number,
+  pageWidth: number
+): number | null {
+  return calendarDatePosition(weeks, scrollLeft, pageWidth)
+}
+
+export function snappedWeekDate(
+  weeks: string[],
+  scrollLeft: number,
+  pageWidth: number,
+  weekday: number
+): string | null {
+  const position = weekScrollPosition(weeks, scrollLeft, pageWidth)
+  if (position === null) return null
+  const start = weeks[Math.round(position)]
+  return start ? moveDate(start, weekday) : null
+}
+
+export function weekRailScrollIndicatorPosition(
+  selectedWeekIndex: number,
+  weekday: number,
+  scrollPosition: number
+): number {
+  let position = weekday + (selectedWeekIndex - scrollPosition) * 7
+  while (position < -1) position += 7
+  while (position > 7) position -= 7
+  return position
 }
 
 function weekRailIndicatorPosition(

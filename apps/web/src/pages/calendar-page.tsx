@@ -30,18 +30,26 @@ import {
 } from "@/api/assignments"
 import {
   createDateWindow,
+  createWeekWindow,
   calendarDatePosition,
   dateValue,
   extendDateWindow,
+  extendWeekWindow,
   localDate,
   monthDistance,
   monthValue,
   monthValuesForDates,
-  moveDate,
   moveMonth,
   moveMonthValue,
   snappedDate,
+  snappedWeekDate,
+  weekDates,
+  weekRailScrollIndicatorPosition,
   weekRailVisualPosition,
+  weekScrollPosition,
+  weekStart,
+  weekWindowExtensionDirection,
+  weekWindowForDate,
   windowForDate,
   type WeekRailVisualPosition,
 } from "@/lib/calendar-dates"
@@ -60,30 +68,16 @@ const calendarWindowRadius = 14
 const calendarWindowExtension = 14
 const calendarWindowEdgeThreshold = 4
 const calendarWindowMaxPages = 43
+const weekWindowRadius = 6
+const weekWindowExtension = 6
+const weekWindowEdgeThreshold = 2
+const weekWindowMaxPages = 25
 const assignmentPrefetchRadius = 6
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 const noAssignments: CalendarAssignment[] = []
-type RailTransition = {
-  id: number
-  fromDate: string
-}
 type DateChangeOptions = {
   preservePreferredDay?: boolean
-  railTransition?: Omit<RailTransition, "id">
-}
-function week(value: string): Date[] {
-  const selected = localDate(value)
-  selected.setDate(selected.getDate() - selected.getDay())
-  return Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(selected)
-    day.setDate(day.getDate() + index)
-    return day
-  })
-}
-
-function weekStart(value: string): string {
-  return dateValue(week(value)[0] ?? localDate(value))
 }
 
 function weekdayTextColor(weekday: number): string {
@@ -148,8 +142,7 @@ function WeekRailWeekLayer({
       className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-7 border-b bg-background pb-3"
       style={{ opacity }}
     >
-      {week(weekDate).map((day) => {
-        const value = dateValue(day)
+      {weekDates(weekDate).map((value) => {
         return (
           <div
             key={value}
@@ -159,7 +152,7 @@ function WeekRailWeekLayer({
             <span
               className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${value === selectedDate ? "font-semibold" : ""}`}
             >
-              {day.getDate()}
+              {localDate(value).getDate()}
             </span>
           </div>
         )
@@ -171,105 +164,150 @@ function WeekRailWeekLayer({
 function WeekRail({
   date,
   onDateChange,
-  onRailTransitionEnd,
   calendarVisualPosition,
-  railTransition,
 }: {
   date: string
   onDateChange: (date: string) => void
-  onRailTransitionEnd: (id: number) => void
   calendarVisualPosition: WeekRailVisualPosition | null
-  railTransition: RailTransition | null
 }) {
   const railRef = useRef<HTMLDivElement>(null)
-  const previousRailRef = useRef<HTMLDivElement>(null)
   const scrollTimerRef = useRef<number | null>(null)
-  const gestureActiveRef = useRef(false)
-  const gestureCommittedRef = useRef(false)
-  const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
+  const animationFrameRef = useRef<number | null>(null)
+  const touchActiveRef = useRef(false)
+  const [weekStarts, setWeekStarts] = useState(() =>
+    createWeekWindow(date, weekWindowRadius)
+  )
+  const weekStartsRef = useRef(weekStarts)
+  const pendingPageShiftRef = useRef(0)
+  const [scrollPosition, setScrollPosition] = useState(weekWindowRadius)
+  weekStartsRef.current = weekStarts
   const selectedWeekday = localDate(date).getDay()
+  const selectedWeekIndex = weekStarts.indexOf(weekStart(date))
   const calendarIsSwiping =
     calendarVisualPosition !== null &&
     (calendarVisualPosition.fromDate !== date ||
       calendarVisualPosition.toDate !== date)
-  const indicatorPosition = calendarVisualPosition?.indicator ?? selectedWeekday
+  const indicatorPosition =
+    calendarVisualPosition?.indicator ??
+    weekRailScrollIndicatorPosition(
+      selectedWeekIndex,
+      selectedWeekday,
+      scrollPosition
+    )
 
   useLayoutEffect(() => {
     const rail = railRef.current
     if (!rail) return undefined
-    rail.scrollLeft = rail.clientWidth
-    return undefined
-  }, [date])
+    const currentWeeks = weekStartsRef.current
+    const nextWeeks = weekWindowForDate(currentWeeks, date, weekWindowRadius)
+    if (nextWeeks !== currentWeeks) {
+      pendingPageShiftRef.current = 0
+      weekStartsRef.current = nextWeeks
+      setWeekStarts(nextWeeks)
+      return undefined
+    }
 
-  useLayoutEffect(() => {
-    if (!railTransition) return undefined
+    const pageWidth = calendarPageWidth(rail, currentWeeks.length)
+    if (pageWidth <= 0) return undefined
+    const pageShift = pendingPageShiftRef.current
+    if (pageShift !== 0) {
+      rail.scrollLeft += pageShift * pageWidth
+      pendingPageShiftRef.current = 0
+    }
+
+    const targetIndex = currentWeeks.indexOf(weekStart(date))
+    if (targetIndex >= 0) {
+      const target = targetIndex * pageWidth
+      if (Math.abs(rail.scrollLeft - target) > 1) {
+        rail.scrollLeft = target
+      }
+      setScrollPosition(targetIndex)
+    }
+    return undefined
+  }, [date, weekStarts])
+
+  useEffect(() => {
     const rail = railRef.current
-    const previousRail = previousRailRef.current
-    if (!rail || !previousRail) return undefined
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      previousRail.style.visibility = "hidden"
-      const finishTimer = window.setTimeout(
-        () => onRailTransitionEnd(railTransition.id),
-        0
-      )
-      return () => window.clearTimeout(finishTimer)
+    if (!rail) return undefined
+    const handleResize = () => {
+      const currentWeeks = weekStartsRef.current
+      const targetIndex = currentWeeks.indexOf(weekStart(date))
+      if (targetIndex < 0 || rail.clientWidth <= 0) return
+      const pageWidth = calendarPageWidth(rail, currentWeeks.length)
+      rail.scrollLeft = targetIndex * pageWidth
+      setScrollPosition(targetIndex)
     }
-    previousRail.style.visibility = "visible"
-    const options = {
-      duration: 300,
-      easing: "cubic-bezier(0.4, 0, 0.2, 1)",
-    }
-    const incomingAnimation = rail.animate(
-      [{ opacity: 0 }, { opacity: 1 }],
-      options
-    )
-    const previousRailAnimation = previousRail.animate(
-      [{ opacity: 1 }, { opacity: 0 }],
-      { ...options, fill: "forwards" }
-    )
-    void previousRailAnimation.finished
-      .then(() => {
-        previousRail.style.visibility = "hidden"
-        onRailTransitionEnd(railTransition.id)
-      })
-      .catch(() => undefined)
-    return () => {
-      incomingAnimation.cancel()
-      previousRailAnimation.cancel()
-    }
-  }, [railTransition, onRailTransitionEnd])
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [date])
 
   useEffect(
     () => () => {
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current)
       }
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current)
+      }
     },
     []
   )
 
-  function settleScroll() {
+  const extendWindow = useCallback((index: number) => {
+    const currentWeeks = weekStartsRef.current
+    const direction = weekWindowExtensionDirection(
+      index,
+      currentWeeks.length,
+      weekWindowEdgeThreshold
+    )
+    if (!direction) return
+    const extension = extendWeekWindow(
+      currentWeeks,
+      direction,
+      weekWindowExtension,
+      weekWindowMaxPages
+    )
+    pendingPageShiftRef.current += extension.pageShift
+    weekStartsRef.current = extension.weeks
+    setWeekStarts(extension.weeks)
+  }, [])
+
+  const settleScroll = useCallback(() => {
     if (scrollTimerRef.current !== null) {
       window.clearTimeout(scrollTimerRef.current)
       scrollTimerRef.current = null
     }
-    const currentRail = railRef.current
-    if (!currentRail || currentRail.clientWidth === 0) return
-    const page = Math.round(currentRail.scrollLeft / currentRail.clientWidth)
-    if (page === 0) {
-      if (gestureCommittedRef.current) return
-      gestureCommittedRef.current = true
-      onDateChange(moveDate(date, -7))
-    }
-    if (page === 2) {
-      if (gestureCommittedRef.current) return
-      gestureCommittedRef.current = true
-      onDateChange(moveDate(date, 7))
-    }
-  }
+    const rail = railRef.current
+    if (!rail || rail.clientWidth === 0) return
+    const currentWeeks = weekStartsRef.current
+    const pageWidth = calendarPageWidth(rail, currentWeeks.length)
+    const position = weekScrollPosition(
+      currentWeeks,
+      rail.scrollLeft,
+      pageWidth
+    )
+    const snapped = snappedWeekDate(
+      currentWeeks,
+      rail.scrollLeft,
+      pageWidth,
+      selectedWeekday
+    )
+    if (position === null || !snapped) return
+    const page = Math.round(position)
+    setScrollPosition(page)
+    if (snapped !== date) onDateChange(snapped)
+    extendWindow(page)
+  }, [date, extendWindow, onDateChange, selectedWeekday])
+
+  useEffect(() => {
+    const rail = railRef.current
+    if (!rail || !("onscrollend" in rail)) return undefined
+    rail.addEventListener("scrollend", settleScroll)
+    return () => rail.removeEventListener("scrollend", settleScroll)
+  }, [settleScroll])
 
   function settleScrollFallback() {
-    if (gestureActiveRef.current) {
+    if (touchActiveRef.current) {
       scrollTimerRef.current = window.setTimeout(
         settleScrollFallback,
         fallbackScrollEndDelay
@@ -280,6 +318,23 @@ function WeekRail({
   }
 
   function handleScroll() {
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current)
+    }
+    animationFrameRef.current = window.requestAnimationFrame(() => {
+      const rail = railRef.current
+      if (rail && rail.clientWidth > 0) {
+        const currentWeeks = weekStartsRef.current
+        const pageWidth = calendarPageWidth(rail, currentWeeks.length)
+        const position = weekScrollPosition(
+          currentWeeks,
+          rail.scrollLeft,
+          pageWidth
+        )
+        if (position !== null) setScrollPosition(position)
+      }
+      animationFrameRef.current = null
+    })
     const rail = railRef.current
     if (rail && !("onscrollend" in rail)) {
       if (scrollTimerRef.current !== null) {
@@ -312,31 +367,24 @@ function WeekRail({
         aria-label="週を切り替え"
         className="flex snap-x snap-mandatory overflow-x-auto border-b [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={handleScroll}
-        onScrollEnd={settleScroll}
-        onPointerDown={() => {
-          gestureCommittedRef.current = false
-        }}
         onTouchCancel={() => {
-          gestureActiveRef.current = false
+          touchActiveRef.current = false
         }}
         onTouchEnd={() => {
-          gestureActiveRef.current = false
+          touchActiveRef.current = false
         }}
         onTouchStart={() => {
-          gestureActiveRef.current = true
-          gestureCommittedRef.current = false
+          touchActiveRef.current = true
         }}
       >
-        {pageDates.map((pageDate) => {
-          const pageDays = week(pageDate)
-          const firstDay = pageDays[0] ?? localDate(pageDate)
+        {weekStarts.map((pageDate) => {
+          const pageDays = weekDates(pageDate)
           return (
             <div
-              key={dateValue(firstDay)}
+              key={pageDate}
               className="relative grid w-full shrink-0 snap-center grid-cols-7 pb-3"
             >
-              {pageDays.map((day) => {
-                const value = dateValue(day)
+              {pageDays.map((value) => {
                 const selected = value === date
                 return (
                   <button
@@ -351,7 +399,7 @@ function WeekRail({
                     <span
                       className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
                     >
-                      {day.getDate()}
+                      {localDate(value).getDate()}
                     </span>
                   </button>
                 )
@@ -389,31 +437,6 @@ function WeekRail({
             />
           </>
         )}
-
-      {railTransition && (
-        <div
-          ref={previousRailRef}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-10 grid grid-cols-7 border-b pb-3"
-        >
-          {week(railTransition.fromDate).map((day) => {
-            const selected = dateValue(day) === railTransition.fromDate
-            return (
-              <div
-                key={dateValue(day)}
-                className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
-              >
-                <span className="h-4" />
-                <span
-                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
-                >
-                  {day.getDate()}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
       <span
         aria-hidden
@@ -525,9 +548,6 @@ export function CalendarPage() {
   const [reportMessage, setReportMessage] = useState("")
   const [calendarVisualPosition, setCalendarVisualPosition] =
     useState<WeekRailVisualPosition | null>(null)
-  const [railTransition, setRailTransition] = useState<RailTransition | null>(
-    null
-  )
   const [calendarDates, setCalendarDates] = useState(() =>
     createDateWindow(date, calendarWindowRadius)
   )
@@ -538,7 +558,6 @@ export function CalendarPage() {
   const calendarGestureActiveRef = useRef(false)
   const calendarDatesRef = useRef(calendarDates)
   const previousPrefetchMonthRef = useRef(monthValue(date))
-  const railTransitionIdRef = useRef(0)
   const initializedCalendarRef = useRef(false)
   const now = useCurrentTime()
   calendarDatesRef.current = calendarDates
@@ -573,15 +592,6 @@ export function CalendarPage() {
       if (!options.preservePreferredDay) {
         preferredDayRef.current = localDate(nextDateValue).getDate()
       }
-      if (options.railTransition) {
-        railTransitionIdRef.current += 1
-        setRailTransition({
-          ...options.railTransition,
-          id: railTransitionIdRef.current,
-        })
-      } else {
-        setRailTransition(null)
-      }
       setSelectedAssignmentId(null)
       setReportTarget(null)
       setReportMessage("")
@@ -599,10 +609,6 @@ export function CalendarPage() {
     },
     [preferredDayRef, setDate]
   )
-
-  const finishRailTransition = useCallback((id: number) => {
-    setRailTransition((current) => (current?.id === id ? null : current))
-  }, [])
 
   useLayoutEffect(() => {
     const calendarElement = calendarRef.current
@@ -786,17 +792,12 @@ export function CalendarPage() {
   function changeMonth(months: number) {
     changeDate(moveMonth(date, months, preferredDayRef.current), {
       preservePreferredDay: true,
-      railTransition: { fromDate: date },
     })
   }
 
   function chooseDate(nextDateValue: string) {
     if (!nextDateValue || nextDateValue === date) return
-    changeDate(nextDateValue, {
-      ...(weekStart(nextDateValue) === weekStart(date)
-        ? {}
-        : { railTransition: { fromDate: date } }),
-    })
+    changeDate(nextDateValue)
   }
 
   const selectAssignment = useCallback(
@@ -864,9 +865,7 @@ export function CalendarPage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
-        onRailTransitionEnd={finishRailTransition}
         calendarVisualPosition={calendarVisualPosition}
-        railTransition={railTransition}
       />
 
       <p className="shrink-0 py-0.5 text-center text-sm font-semibold">

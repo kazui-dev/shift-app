@@ -3,12 +3,20 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   calendarDatePosition,
   createDateWindow,
+  createWeekWindow,
   extendDateWindow,
+  extendWeekWindow,
   localDate,
   monthValuesForDates,
   moveDate,
   snappedDate,
+  snappedWeekDate,
+  weekDates,
+  weekRailScrollIndicatorPosition,
   weekRailVisualPosition,
+  weekScrollPosition,
+  weekWindowExtensionDirection,
+  weekWindowForDate,
   windowForDate,
 } from "./calendar-dates"
 
@@ -210,5 +218,148 @@ describe("calendar date window", () => {
     )
 
     expect(monthValuesForDates(dates)).toEqual(["2026-12", "2027-01"])
+  })
+})
+
+describe("week rail window", () => {
+  it("creates consecutive week pages around the selected week", () => {
+    expect(createWeekWindow("2026-08-26", 2)).toEqual([
+      "2026-08-09",
+      "2026-08-16",
+      "2026-08-23",
+      "2026-08-30",
+      "2026-09-06",
+    ])
+  })
+
+  it("prepends and appends week pages without replacing existing weeks", () => {
+    const weeks = createWeekWindow("2026-08-26", 1)
+    const prepended = extendWeekWindow(weeks, "before", 2)
+    const appended = extendWeekWindow(prepended.weeks, "after", 2)
+
+    expect(prepended.pageShift).toBe(2)
+    expect(prepended.weeks.slice(2, 5)).toEqual(weeks)
+    expect(appended.pageShift).toBe(0)
+    expect(appended.weeks).toEqual([
+      "2026-08-02",
+      "2026-08-09",
+      "2026-08-16",
+      "2026-08-23",
+      "2026-08-30",
+      "2026-09-06",
+      "2026-09-13",
+    ])
+  })
+
+  it("does not extend an empty window or a zero-sized request", () => {
+    const weeks = createWeekWindow("2026-08-26", 1)
+
+    expect(extendWeekWindow([], "before", 2)).toEqual({
+      weeks: [],
+      pageShift: 0,
+    })
+    expect(extendWeekWindow(weeks, "after", 0)).toEqual({
+      weeks,
+      pageShift: 0,
+    })
+  })
+
+  it("keeps the visible week index stable when a bounded window shifts", () => {
+    const weeks = createWeekWindow("2026-08-26", 2)
+    const visibleWeek = weeks[3]
+    const appended = extendWeekWindow(weeks, "after", 2, 5)
+    const oldPosition = 3
+    const correctedPosition = oldPosition + appended.pageShift
+
+    expect(appended.pageShift).toBe(-2)
+    expect(appended.weeks[correctedPosition]).toBe(visibleWeek)
+  })
+
+  it("extends only near the leading or trailing window edge", () => {
+    expect(weekWindowExtensionDirection(2, 25, 2)).toBe("before")
+    expect(weekWindowExtensionDirection(3, 25, 2)).toBeNull()
+    expect(weekWindowExtensionDirection(21, 25, 2)).toBeNull()
+    expect(weekWindowExtensionDirection(22, 25, 2)).toBe("after")
+  })
+
+  it("reuses the window for a nearby date and rebuilds around a far date", () => {
+    const weeks = createWeekWindow("2026-08-26", 2)
+
+    expect(weekWindowForDate(weeks, "2026-08-30", 2)).toBe(weeks)
+    expect(weekWindowForDate(weeks, "2027-01-01", 2)).toEqual([
+      "2026-12-13",
+      "2026-12-20",
+      "2026-12-27",
+      "2027-01-03",
+      "2027-01-10",
+    ])
+  })
+
+  it("keeps the selected weekday across previous, next, and multiple weeks", () => {
+    const weeks = createWeekWindow("2026-08-26", 3)
+    const selectedIndex = 3
+    const width = 390
+
+    expect(snappedWeekDate(weeks, (selectedIndex - 1) * width, width, 3)).toBe(
+      "2026-08-19"
+    )
+    expect(snappedWeekDate(weeks, (selectedIndex + 1) * width, width, 3)).toBe(
+      "2026-09-02"
+    )
+    expect(snappedWeekDate(weeks, (selectedIndex + 3) * width, width, 3)).toBe(
+      "2026-09-16"
+    )
+  })
+
+  it("uses each page's exact date when a date button is selected", () => {
+    const dates = weekDates("2026-08-26")
+
+    expect(dates[0]).toBe("2026-08-23")
+    expect(dates[5]).toBe("2026-08-28")
+    expect(dates[6]).toBe("2026-08-29")
+  })
+
+  it("calculates continuous positions across multiple week pages", () => {
+    const weeks = createWeekWindow("2026-08-26", 3)
+
+    expect(weekScrollPosition(weeks, 3 * 390, 390)).toBe(3)
+    expect(weekScrollPosition(weeks, 5.5 * 390, 390)).toBe(5.5)
+    expect(weekScrollPosition(weeks, -390, 390)).toBe(0)
+    expect(weekScrollPosition(weeks, 0, 0)).toBeNull()
+    expect(snappedWeekDate([], 0, 390, 3)).toBeNull()
+  })
+
+  it("moves the single indicator with week content and wraps at clipped edges", () => {
+    const positions = [0, 0.25, 4 / 7, 0.75, 1, 2.25]
+
+    expect(
+      positions.map((position) =>
+        weekRailScrollIndicatorPosition(0, 3, position)
+      )
+    ).toEqual([3, 1.25, -1, 4.75, 3, 1.25])
+  })
+
+  it("wraps in the opposite direction when scrolling to previous weeks", () => {
+    expect(
+      [0, -0.25, -4 / 7, -0.75, -1].map((position) =>
+        weekRailScrollIndicatorPosition(0, 3, position)
+      )
+    ).toEqual([3, 4.75, 7, 1.25, 3])
+  })
+
+  it("keeps the indicator position when scrollend commits the snapped week", () => {
+    const beforeCommit = weekRailScrollIndicatorPosition(0, 3, 1)
+    const afterCommit = weekRailScrollIndicatorPosition(1, 3, 1)
+
+    expect(beforeCommit).toBe(3)
+    expect(afterCommit).toBe(beforeCommit)
+  })
+
+  it("keeps month and year boundaries in the selected weekday", () => {
+    const monthWeeks = createWeekWindow("2026-08-26", 2)
+    const yearWeeks = createWeekWindow("2026-12-30", 2)
+
+    expect(snappedWeekDate(monthWeeks, 3 * 390, 390, 3)).toBe("2026-09-02")
+    expect(snappedWeekDate(yearWeeks, 3 * 390, 390, 3)).toBe("2027-01-06")
   })
 })
