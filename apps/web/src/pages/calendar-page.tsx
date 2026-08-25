@@ -133,15 +133,13 @@ function useCurrentTime(): Date {
   return now
 }
 
-function WeekRailVisualLayer({
+function WeekRailWeekLayer({
   weekDate,
   selectedDate,
-  highlight,
   opacity,
 }: {
   weekDate: string
   selectedDate: string
-  highlight: number
   opacity: number
 }) {
   return (
@@ -150,12 +148,6 @@ function WeekRailVisualLayer({
       className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-7 border-b bg-background pb-3"
       style={{ opacity }}
     >
-      <span
-        className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
-        style={{ transform: `translateX(${highlight * 100}%)` }}
-      >
-        <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-      </span>
       {week(weekDate).map((day) => {
         const value = dateValue(day)
         return (
@@ -191,44 +183,22 @@ function WeekRail({
 }) {
   const railRef = useRef<HTMLDivElement>(null)
   const previousRailRef = useRef<HTMLDivElement>(null)
-  const previousDateRef = useRef(date)
   const scrollTimerRef = useRef<number | null>(null)
-  const scrollAnimationFrameRef = useRef<number | null>(null)
   const gestureActiveRef = useRef(false)
   const gestureCommittedRef = useRef(false)
-  const [railPagePosition, setRailPagePosition] = useState(1)
-  const [resettingRail, setResettingRail] = useState(false)
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
   const selectedWeekday = localDate(date).getDay()
   const calendarIsSwiping =
     calendarVisualPosition !== null &&
     (calendarVisualPosition.fromDate !== date ||
       calendarVisualPosition.toDate !== date)
-  const railIsSwiping = Math.abs(railPagePosition - 1) > 0.01
+  const indicatorPosition = calendarVisualPosition?.indicator ?? selectedWeekday
 
   useLayoutEffect(() => {
     const rail = railRef.current
     if (!rail) return undefined
-    const previousWeek = week(previousDateRef.current)[0]
-    const currentWeek = week(date)[0]
-    if (
-      previousWeek &&
-      currentWeek &&
-      dateValue(previousWeek) !== dateValue(currentWeek)
-    ) {
-      setResettingRail(true)
-    }
-    previousDateRef.current = date
-    if (scrollAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(scrollAnimationFrameRef.current)
-      scrollAnimationFrameRef.current = null
-    }
     rail.scrollLeft = rail.clientWidth
-    setRailPagePosition(1)
-    const resetTimer = window.setTimeout(() => {
-      setResettingRail(false)
-    }, 50)
-    return () => window.clearTimeout(resetTimer)
+    return undefined
   }, [date])
 
   useLayoutEffect(() => {
@@ -274,9 +244,6 @@ function WeekRail({
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current)
       }
-      if (scrollAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(scrollAnimationFrameRef.current)
-      }
     },
     []
   )
@@ -292,13 +259,11 @@ function WeekRail({
     if (page === 0) {
       if (gestureCommittedRef.current) return
       gestureCommittedRef.current = true
-      setResettingRail(true)
       onDateChange(moveDate(date, -7))
     }
     if (page === 2) {
       if (gestureCommittedRef.current) return
       gestureCommittedRef.current = true
-      setResettingRail(true)
       onDateChange(moveDate(date, 7))
     }
   }
@@ -316,18 +281,6 @@ function WeekRail({
 
   function handleScroll() {
     const rail = railRef.current
-    if (rail && rail.clientWidth > 0) {
-      if (scrollAnimationFrameRef.current !== null) {
-        window.cancelAnimationFrame(scrollAnimationFrameRef.current)
-      }
-      scrollAnimationFrameRef.current = window.requestAnimationFrame(() => {
-        const currentRail = railRef.current
-        if (currentRail && currentRail.clientWidth > 0) {
-          setRailPagePosition(currentRail.scrollLeft / currentRail.clientWidth)
-        }
-        scrollAnimationFrameRef.current = null
-      })
-    }
     if (rail && !("onscrollend" in rail)) {
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current)
@@ -374,34 +327,14 @@ function WeekRail({
           gestureCommittedRef.current = false
         }}
       >
-        {pageDates.map((pageDate, pageIndex) => {
+        {pageDates.map((pageDate) => {
           const pageDays = week(pageDate)
           const firstDay = pageDays[0] ?? localDate(pageDate)
-          const indicatorOpacity = Math.max(
-            0,
-            1 - Math.abs(railPagePosition - pageIndex)
-          )
           return (
             <div
               key={dateValue(firstDay)}
               className="relative grid w-full shrink-0 snap-center grid-cols-7 pb-3"
             >
-              <span
-                aria-hidden
-                className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
-                style={{
-                  opacity: calendarIsSwiping ? 0 : indicatorOpacity,
-                  transform: `translateX(${selectedWeekday * 100}%)`,
-                  ...(calendarIsSwiping ||
-                  railIsSwiping ||
-                  resettingRail ||
-                  railTransition
-                    ? { transition: "none" }
-                    : {}),
-                }}
-              >
-                <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-              </span>
               {pageDays.map((day) => {
                 const value = dateValue(day)
                 const selected = value === date
@@ -429,14 +362,13 @@ function WeekRail({
       </div>
 
       {calendarIsSwiping && calendarVisualPosition?.sameWeek && (
-        <WeekRailVisualLayer
+        <WeekRailWeekLayer
           weekDate={calendarVisualPosition.fromDate}
           selectedDate={
             calendarVisualPosition.progress < 0.5
               ? calendarVisualPosition.fromDate
               : calendarVisualPosition.toDate
           }
-          highlight={calendarVisualPosition.fromHighlight}
           opacity={1}
         />
       )}
@@ -445,16 +377,14 @@ function WeekRail({
         calendarVisualPosition &&
         !calendarVisualPosition.sameWeek && (
           <>
-            <WeekRailVisualLayer
+            <WeekRailWeekLayer
               weekDate={calendarVisualPosition.fromDate}
               selectedDate={calendarVisualPosition.fromDate}
-              highlight={calendarVisualPosition.fromHighlight}
               opacity={1 - calendarVisualPosition.progress}
             />
-            <WeekRailVisualLayer
+            <WeekRailWeekLayer
               weekDate={calendarVisualPosition.toDate}
               selectedDate={calendarVisualPosition.toDate}
-              highlight={calendarVisualPosition.toHighlight ?? 0}
               opacity={calendarVisualPosition.progress}
             />
           </>
@@ -466,14 +396,6 @@ function WeekRail({
           aria-hidden
           className="pointer-events-none absolute inset-0 z-10 grid grid-cols-7 border-b pb-3"
         >
-          <span
-            className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
-            style={{
-              transform: `translateX(${localDate(railTransition.fromDate).getDay() * 100}%)`,
-            }}
-          >
-            <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-          </span>
           {week(railTransition.fromDate).map((day) => {
             const selected = dateValue(day) === railTransition.fromDate
             return (
@@ -492,6 +414,14 @@ function WeekRail({
           })}
         </div>
       )}
+
+      <span
+        aria-hidden
+        className="pointer-events-none absolute bottom-4 left-0 z-[15] grid h-8 w-[calc(100%/7)] place-items-center"
+        style={{ transform: `translateX(${indicatorPosition * 100}%)` }}
+      >
+        <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+      </span>
     </div>
   )
 }

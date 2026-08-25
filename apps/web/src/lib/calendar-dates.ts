@@ -8,8 +8,7 @@ export type WeekRailVisualPosition = {
   toDate: string
   progress: number
   sameWeek: boolean
-  fromHighlight: number
-  toHighlight: number | null
+  indicator: number
 }
 
 export function localDate(value: string): Date {
@@ -148,8 +147,7 @@ export function weekRailVisualPosition(
     toDate,
     progress,
     sameWeek,
-    fromHighlight: fromWeekday + progress,
-    toHighlight: sameWeek ? null : toWeekday - (1 - progress),
+    indicator: fromWeekday + (toWeekday - fromWeekday) * progress,
   }
 }
 

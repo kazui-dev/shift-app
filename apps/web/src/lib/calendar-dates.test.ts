@@ -4,6 +4,7 @@ import {
   calendarDatePosition,
   createDateWindow,
   extendDateWindow,
+  localDate,
   monthValuesForDates,
   moveDate,
   snappedDate,
@@ -95,43 +96,38 @@ describe("calendar date window", () => {
       dates: ["2026-08-29", "2026-08-30"],
       position: 0.25,
       sameWeek: false,
-      fromHighlight: 6.25,
-      toHighlight: -0.75,
+      indicator: 4.5,
     },
     {
       name: "Sunday to Saturday while moving backward",
       dates: ["2026-08-29", "2026-08-30"],
       position: 0.75,
       sameWeek: false,
-      fromHighlight: 6.75,
-      toHighlight: -0.25,
+      indicator: 1.5,
     },
     {
       name: "month end to next month",
       dates: ["2026-08-31", "2026-09-01"],
       position: 0.5,
       sameWeek: true,
-      fromHighlight: 1.5,
-      toHighlight: null,
+      indicator: 1.5,
     },
     {
       name: "year end to next year",
       dates: ["2026-12-31", "2027-01-01"],
       position: 0.5,
       sameWeek: true,
-      fromHighlight: 4.5,
-      toHighlight: null,
+      indicator: 4.5,
     },
   ])(
     "maps $name continuously onto the WeekRail",
-    ({ dates, position, sameWeek, fromHighlight, toHighlight }) => {
+    ({ dates, position, sameWeek, indicator }) => {
       expect(weekRailVisualPosition(dates, position)).toEqual({
         fromDate: dates[0],
         toDate: dates[1],
         progress: position,
         sameWeek,
-        fromHighlight,
-        toHighlight,
+        indicator,
       })
     }
   )
@@ -143,17 +139,31 @@ describe("calendar date window", () => {
       fromDate: "2026-08-26",
       toDate: "2026-08-26",
       progress: 0,
+      indicator: 3,
     })
     expect(weekRailVisualPosition(dates, 6)).toMatchObject({
       fromDate: "2026-08-28",
       toDate: "2026-08-28",
       progress: 0,
+      indicator: 5,
     })
     expect(weekRailVisualPosition(dates, 1)).toMatchObject({
       fromDate: "2026-08-23",
       toDate: "2026-08-23",
       progress: 0,
+      indicator: 0,
     })
+  })
+
+  it("keeps the indicator coordinate when the snapped date becomes selected", () => {
+    const saturday = "2026-08-29"
+    const sunday = "2026-08-30"
+    const dates = [saturday, sunday]
+
+    expect(weekRailVisualPosition(dates, 0)?.indicator).toBe(6)
+    expect(weekRailVisualPosition(dates, 1)?.indicator).toBe(0)
+    expect(localDate(saturday).getDay()).toBe(6)
+    expect(localDate(sunday).getDay()).toBe(0)
   })
 
   it("keeps the window for a nearby external date and rebuilds for a far date", () => {
