@@ -92,18 +92,16 @@ describe("calendar date window", () => {
 
   it.each([
     {
-      name: "Saturday to Sunday",
-      dates: ["2026-08-29", "2026-08-30"],
+      name: "Friday to Saturday",
+      dates: ["2026-08-28", "2026-08-29"],
       position: 0.25,
-      sameWeek: false,
-      indicator: 4.5,
+      indicator: 5.25,
     },
     {
-      name: "Sunday to Saturday while moving backward",
-      dates: ["2026-08-29", "2026-08-30"],
+      name: "Sunday to Monday",
+      dates: ["2026-08-30", "2026-08-31"],
       position: 0.75,
-      sameWeek: false,
-      indicator: 1.5,
+      indicator: 0.75,
     },
     {
       name: "month end to next month",
@@ -121,16 +119,43 @@ describe("calendar date window", () => {
     },
   ])(
     "maps $name continuously onto the WeekRail",
-    ({ dates, position, sameWeek, indicator }) => {
+    ({ dates, position, indicator }) => {
       expect(weekRailVisualPosition(dates, position)).toEqual({
         fromDate: dates[0],
         toDate: dates[1],
         progress: position,
-        sameWeek,
+        sameWeek: true,
         indicator,
       })
     }
   )
+
+  it.each([
+    { progress: 0.25, indicator: 6.5 },
+    { progress: 0.5, indicator: -1 },
+    { progress: 0.75, indicator: -0.5 },
+  ])(
+    "wraps Saturday to Sunday at the clipped edges at $progress progress",
+    ({ progress, indicator }) => {
+      expect(
+        weekRailVisualPosition(["2026-08-29", "2026-08-30"], progress)
+      ).toMatchObject({
+        progress,
+        sameWeek: false,
+        indicator,
+      })
+    }
+  )
+
+  it("keeps the indicator moving left when scrolling backward from Sunday to Saturday", () => {
+    const dates = ["2026-08-29", "2026-08-30"]
+
+    expect(
+      [1, 0.75, 0.5, 0.25, 0].map(
+        (position) => weekRailVisualPosition(dates, position)?.indicator
+      )
+    ).toEqual([0, -0.5, -1, 6.5, 6])
+  })
 
   it("tracks exact dates after scrolling across multiple days", () => {
     const dates = createDateWindow("2026-08-26", 4)

@@ -125,6 +125,23 @@ export function calendarDatePosition(
   return Math.max(0, Math.min(dates.length - 1, scrollLeft / pageWidth))
 }
 
+function weekRailIndicatorPosition(
+  fromWeekday: number,
+  toWeekday: number,
+  progress: number,
+  sameWeek: boolean
+): number {
+  if (sameWeek) {
+    return fromWeekday + (toWeekday - fromWeekday) * progress
+  }
+
+  if (progress < 0.5) {
+    return fromWeekday + progress * 2
+  }
+
+  return toWeekday - (1 - progress) * 2
+}
+
 export function weekRailVisualPosition(
   dates: string[],
   position: number
@@ -147,7 +164,12 @@ export function weekRailVisualPosition(
     toDate,
     progress,
     sameWeek,
-    indicator: fromWeekday + (toWeekday - fromWeekday) * progress,
+    indicator: weekRailIndicatorPosition(
+      fromWeekday,
+      toWeekday,
+      progress,
+      sameWeek
+    ),
   }
 }
 
