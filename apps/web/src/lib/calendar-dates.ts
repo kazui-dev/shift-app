@@ -3,6 +3,15 @@ export type DateWindowExtension = {
   pageShift: number
 }
 
+export type WeekRailVisualPosition = {
+  fromDate: string
+  toDate: string
+  progress: number
+  sameWeek: boolean
+  fromHighlight: number
+  toHighlight: number | null
+}
+
 export function localDate(value: string): Date {
   return new Date(`${value}T12:00:00`)
 }
@@ -102,12 +111,46 @@ export function snappedDate(
   scrollLeft: number,
   pageWidth: number
 ): string | null {
-  if (dates.length === 0 || pageWidth <= 0) return null
-  const index = Math.max(
-    0,
-    Math.min(dates.length - 1, Math.round(scrollLeft / pageWidth))
-  )
+  const position = calendarDatePosition(dates, scrollLeft, pageWidth)
+  if (position === null) return null
+  const index = Math.round(position)
   return dates[index] ?? null
+}
+
+export function calendarDatePosition(
+  dates: string[],
+  scrollLeft: number,
+  pageWidth: number
+): number | null {
+  if (dates.length === 0 || pageWidth <= 0) return null
+  return Math.max(0, Math.min(dates.length - 1, scrollLeft / pageWidth))
+}
+
+export function weekRailVisualPosition(
+  dates: string[],
+  position: number
+): WeekRailVisualPosition | null {
+  if (dates.length === 0) return null
+  const boundedPosition = Math.max(0, Math.min(dates.length - 1, position))
+  const fromIndex = Math.floor(boundedPosition)
+  const toIndex = Math.ceil(boundedPosition)
+  const fromDate = dates[fromIndex]
+  const toDate = dates[toIndex]
+  if (!fromDate || !toDate) return null
+  const progress = boundedPosition - fromIndex
+  const fromWeekday = localDate(fromDate).getDay()
+  const toWeekday = localDate(toDate).getDay()
+  const sameWeek =
+    moveDate(fromDate, -fromWeekday) === moveDate(toDate, -toWeekday)
+
+  return {
+    fromDate,
+    toDate,
+    progress,
+    sameWeek,
+    fromHighlight: fromWeekday + progress,
+    toHighlight: sameWeek ? null : toWeekday - (1 - progress),
+  }
 }
 
 export function monthValuesForDates(dates: string[]): string[] {

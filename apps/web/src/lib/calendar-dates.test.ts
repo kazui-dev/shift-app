@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  calendarDatePosition,
   createDateWindow,
   extendDateWindow,
   monthValuesForDates,
   moveDate,
   snappedDate,
+  weekRailVisualPosition,
   windowForDate,
 } from "./calendar-dates"
 
@@ -64,6 +66,94 @@ describe("calendar date window", () => {
     expect(snappedDate(dates, 0, 390)).toBe("2026-08-24")
     expect(snappedDate(dates, 2.6 * 390, 390)).toBe("2026-08-27")
     expect(snappedDate(dates, 100 * 390, 390)).toBe("2026-08-28")
+  })
+
+  it("calculates continuous date positions beyond one-day offsets", () => {
+    const dates = createDateWindow("2026-08-26", 3)
+    const selectedIndex = dates.indexOf("2026-08-26")
+
+    expect(calendarDatePosition(dates, selectedIndex * 390, 390)).toBe(
+      selectedIndex
+    )
+    expect(calendarDatePosition(dates, (selectedIndex - 1) * 390, 390)).toBe(
+      selectedIndex - 1
+    )
+    expect(calendarDatePosition(dates, (selectedIndex + 1) * 390, 390)).toBe(
+      selectedIndex + 1
+    )
+    expect(calendarDatePosition(dates, (selectedIndex - 2.25) * 390, 390)).toBe(
+      selectedIndex - 2.25
+    )
+    expect(calendarDatePosition(dates, (selectedIndex + 2.5) * 390, 390)).toBe(
+      selectedIndex + 2.5
+    )
+  })
+
+  it.each([
+    {
+      name: "Saturday to Sunday",
+      dates: ["2026-08-29", "2026-08-30"],
+      position: 0.25,
+      sameWeek: false,
+      fromHighlight: 6.25,
+      toHighlight: -0.75,
+    },
+    {
+      name: "Sunday to Saturday while moving backward",
+      dates: ["2026-08-29", "2026-08-30"],
+      position: 0.75,
+      sameWeek: false,
+      fromHighlight: 6.75,
+      toHighlight: -0.25,
+    },
+    {
+      name: "month end to next month",
+      dates: ["2026-08-31", "2026-09-01"],
+      position: 0.5,
+      sameWeek: true,
+      fromHighlight: 1.5,
+      toHighlight: null,
+    },
+    {
+      name: "year end to next year",
+      dates: ["2026-12-31", "2027-01-01"],
+      position: 0.5,
+      sameWeek: true,
+      fromHighlight: 4.5,
+      toHighlight: null,
+    },
+  ])(
+    "maps $name continuously onto the WeekRail",
+    ({ dates, position, sameWeek, fromHighlight, toHighlight }) => {
+      expect(weekRailVisualPosition(dates, position)).toEqual({
+        fromDate: dates[0],
+        toDate: dates[1],
+        progress: position,
+        sameWeek,
+        fromHighlight,
+        toHighlight,
+      })
+    }
+  )
+
+  it("tracks exact dates after scrolling across multiple days", () => {
+    const dates = createDateWindow("2026-08-26", 4)
+
+    expect(weekRailVisualPosition(dates, 4)).toMatchObject({
+      fromDate: "2026-08-26",
+      toDate: "2026-08-26",
+      progress: 0,
+    })
+    expect(weekRailVisualPosition(dates, 6)).toMatchObject({
+      fromDate: "2026-08-28",
+      toDate: "2026-08-28",
+      progress: 0,
+    })
+    expect(weekRailVisualPosition(dates, 1)).toMatchObject({
+      fromDate: "2026-08-23",
+      toDate: "2026-08-23",
+      progress: 0,
+    })
   })
 
   it("keeps the window for a nearby external date and rebuilds for a far date", () => {

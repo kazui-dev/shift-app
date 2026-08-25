@@ -30,6 +30,7 @@ import {
 } from "@/api/assignments"
 import {
   createDateWindow,
+  calendarDatePosition,
   dateValue,
   extendDateWindow,
   localDate,
@@ -40,7 +41,9 @@ import {
   moveMonth,
   moveMonthValue,
   snappedDate,
+  weekRailVisualPosition,
   windowForDate,
+  type WeekRailVisualPosition,
 } from "@/lib/calendar-dates"
 
 function time(value: string): string {
@@ -130,17 +133,60 @@ function useCurrentTime(): Date {
   return now
 }
 
+function WeekRailVisualLayer({
+  weekDate,
+  selectedDate,
+  highlight,
+  opacity,
+}: {
+  weekDate: string
+  selectedDate: string
+  highlight: number
+  opacity: number
+}) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-7 border-b bg-background pb-3"
+      style={{ opacity }}
+    >
+      <span
+        className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
+        style={{ transform: `translateX(${highlight * 100}%)` }}
+      >
+        <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+      </span>
+      {week(weekDate).map((day) => {
+        const value = dateValue(day)
+        return (
+          <div
+            key={value}
+            className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
+          >
+            <span className="h-4" />
+            <span
+              className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${value === selectedDate ? "font-semibold" : ""}`}
+            >
+              {day.getDate()}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function WeekRail({
   date,
   onDateChange,
   onRailTransitionEnd,
-  calendarSwipeProgress,
+  calendarVisualPosition,
   railTransition,
 }: {
   date: string
   onDateChange: (date: string) => void
   onRailTransitionEnd: (id: number) => void
-  calendarSwipeProgress: number
+  calendarVisualPosition: WeekRailVisualPosition | null
   railTransition: RailTransition | null
 }) {
   const railRef = useRef<HTMLDivElement>(null)
@@ -154,13 +200,10 @@ function WeekRail({
   const [resettingRail, setResettingRail] = useState(false)
   const pageDates = [moveDate(date, -7), date, moveDate(date, 7)]
   const selectedWeekday = localDate(date).getDay()
-  const crossesWeek =
-    (selectedWeekday === 0 && calendarSwipeProgress < 0) ||
-    (selectedWeekday === 6 && calendarSwipeProgress > 0)
-  const boundaryDirection: -1 | 1 = calendarSwipeProgress < 0 ? -1 : 1
-  const boundaryProgress = crossesWeek ? Math.abs(calendarSwipeProgress) : 0
-  const boundaryDate = crossesWeek ? moveDate(date, boundaryDirection) : null
-  const calendarIsSwiping = Math.abs(calendarSwipeProgress) > 0.01
+  const calendarIsSwiping =
+    calendarVisualPosition !== null &&
+    (calendarVisualPosition.fromDate !== date ||
+      calendarVisualPosition.toDate !== date)
   const railIsSwiping = Math.abs(railPagePosition - 1) > 0.01
 
   useLayoutEffect(() => {
@@ -342,18 +385,13 @@ function WeekRail({
             <div
               key={dateValue(firstDay)}
               className="relative grid w-full shrink-0 snap-center grid-cols-7 pb-3"
-              style={
-                crossesWeek && pageIndex === 1
-                  ? { opacity: 1 - boundaryProgress }
-                  : undefined
-              }
             >
               <span
                 aria-hidden
                 className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center transition-[transform,opacity] [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
                 style={{
-                  opacity: indicatorOpacity,
-                  transform: `translateX(${(selectedWeekday + (pageIndex === 1 ? calendarSwipeProgress : 0)) * 100}%)`,
+                  opacity: calendarIsSwiping ? 0 : indicatorOpacity,
+                  transform: `translateX(${selectedWeekday * 100}%)`,
                   ...(calendarIsSwiping ||
                   railIsSwiping ||
                   resettingRail ||
@@ -390,38 +428,37 @@ function WeekRail({
         })}
       </div>
 
-      {boundaryDate && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-7 border-b pb-3"
-          style={{ opacity: boundaryProgress }}
-        >
-          <span
-            className="pointer-events-none absolute bottom-4 left-0 grid h-8 w-[calc(100%/7)] place-items-center"
-            style={{
-              transform: `translateX(${(localDate(boundaryDate).getDay() - boundaryDirection * (1 - boundaryProgress)) * 100}%)`,
-            }}
-          >
-            <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-          </span>
-          {week(boundaryDate).map((day) => {
-            const selected = dateValue(day) === boundaryDate
-            return (
-              <div
-                key={dateValue(day)}
-                className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
-              >
-                <span className="h-4" />
-                <span
-                  className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
-                >
-                  {day.getDate()}
-                </span>
-              </div>
-            )
-          })}
-        </div>
+      {calendarIsSwiping && calendarVisualPosition?.sameWeek && (
+        <WeekRailVisualLayer
+          weekDate={calendarVisualPosition.fromDate}
+          selectedDate={
+            calendarVisualPosition.progress < 0.5
+              ? calendarVisualPosition.fromDate
+              : calendarVisualPosition.toDate
+          }
+          highlight={calendarVisualPosition.fromHighlight}
+          opacity={1}
+        />
       )}
+
+      {calendarIsSwiping &&
+        calendarVisualPosition &&
+        !calendarVisualPosition.sameWeek && (
+          <>
+            <WeekRailVisualLayer
+              weekDate={calendarVisualPosition.fromDate}
+              selectedDate={calendarVisualPosition.fromDate}
+              highlight={calendarVisualPosition.fromHighlight}
+              opacity={1 - calendarVisualPosition.progress}
+            />
+            <WeekRailVisualLayer
+              weekDate={calendarVisualPosition.toDate}
+              selectedDate={calendarVisualPosition.toDate}
+              highlight={calendarVisualPosition.toHighlight ?? 0}
+              opacity={calendarVisualPosition.progress}
+            />
+          </>
+        )}
 
       {railTransition && (
         <div
@@ -475,7 +512,7 @@ const CalendarDay = memo(function CalendarDay({
 
   return (
     <div
-      className="relative w-full shrink-0 snap-center"
+      className="relative w-full shrink-0 snap-center [scroll-snap-stop:always]"
       aria-label={longDate(date)}
       style={{ height: 24 * hourHeight + calendarInset * 2 }}
     >
@@ -556,7 +593,8 @@ export function CalendarPage() {
   >(null)
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
-  const [calendarSwipeProgress, setCalendarSwipeProgress] = useState(0)
+  const [calendarVisualPosition, setCalendarVisualPosition] =
+    useState<WeekRailVisualPosition | null>(null)
   const [railTransition, setRailTransition] = useState<RailTransition | null>(
     null
   )
@@ -758,7 +796,7 @@ export function CalendarPage() {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
-    setCalendarSwipeProgress(0)
+    setCalendarVisualPosition(null)
     if (snapped !== date) changeDate(snapped)
     extendCalendarWindow(page)
   }, [changeDate, date, extendCalendarWindow])
@@ -789,17 +827,16 @@ export function CalendarPage() {
       const pager = calendarPagerRef.current
       if (pager && pager.clientWidth > 0) {
         const currentDates = calendarDatesRef.current
-        const selectedIndex = currentDates.indexOf(date)
-        if (selectedIndex < 0) {
-          calendarAnimationFrameRef.current = null
-          return
-        }
         const pageWidth = calendarPageWidth(pager, currentDates.length)
-        setCalendarSwipeProgress(
-          Math.max(
-            -1,
-            Math.min(1, pager.scrollLeft / pageWidth - selectedIndex)
-          )
+        const position = calendarDatePosition(
+          currentDates,
+          pager.scrollLeft,
+          pageWidth
+        )
+        setCalendarVisualPosition(
+          position === null
+            ? null
+            : weekRailVisualPosition(currentDates, position)
         )
       }
       calendarAnimationFrameRef.current = null
@@ -898,7 +935,7 @@ export function CalendarPage() {
         date={date}
         onDateChange={changeDate}
         onRailTransitionEnd={finishRailTransition}
-        calendarSwipeProgress={calendarSwipeProgress}
+        calendarVisualPosition={calendarVisualPosition}
         railTransition={railTransition}
       />
 
