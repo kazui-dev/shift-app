@@ -44,7 +44,6 @@ import {
   snappedDate,
   snappedWeekDate,
   weekDates,
-  weekRailScrollIndicatorPosition,
   weekRailVisualPosition,
   weekScrollPosition,
   weekStart,
@@ -172,28 +171,18 @@ function WeekRail({
 }) {
   const railRef = useRef<HTMLDivElement>(null)
   const scrollTimerRef = useRef<number | null>(null)
-  const animationFrameRef = useRef<number | null>(null)
   const touchActiveRef = useRef(false)
   const [weekStarts, setWeekStarts] = useState(() =>
     createWeekWindow(date, weekWindowRadius)
   )
   const weekStartsRef = useRef(weekStarts)
   const pendingPageShiftRef = useRef(0)
-  const [scrollPosition, setScrollPosition] = useState(weekWindowRadius)
   weekStartsRef.current = weekStarts
   const selectedWeekday = localDate(date).getDay()
-  const selectedWeekIndex = weekStarts.indexOf(weekStart(date))
   const calendarIsSwiping =
     calendarVisualPosition !== null &&
     (calendarVisualPosition.fromDate !== date ||
       calendarVisualPosition.toDate !== date)
-  const indicatorPosition =
-    calendarVisualPosition?.indicator ??
-    weekRailScrollIndicatorPosition(
-      selectedWeekIndex,
-      selectedWeekday,
-      scrollPosition
-    )
 
   useLayoutEffect(() => {
     const rail = railRef.current
@@ -221,7 +210,6 @@ function WeekRail({
       if (Math.abs(rail.scrollLeft - target) > 1) {
         rail.scrollLeft = target
       }
-      setScrollPosition(targetIndex)
     }
     return undefined
   }, [date, weekStarts])
@@ -235,7 +223,6 @@ function WeekRail({
       if (targetIndex < 0 || rail.clientWidth <= 0) return
       const pageWidth = calendarPageWidth(rail, currentWeeks.length)
       rail.scrollLeft = targetIndex * pageWidth
-      setScrollPosition(targetIndex)
     }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
@@ -245,9 +232,6 @@ function WeekRail({
     () => () => {
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current)
-      }
-      if (animationFrameRef.current !== null) {
-        window.cancelAnimationFrame(animationFrameRef.current)
       }
     },
     []
@@ -294,7 +278,6 @@ function WeekRail({
     )
     if (position === null || !snapped) return
     const page = Math.round(position)
-    setScrollPosition(page)
     if (snapped !== date) onDateChange(snapped)
     extendWindow(page)
   }, [date, extendWindow, onDateChange, selectedWeekday])
@@ -318,23 +301,6 @@ function WeekRail({
   }
 
   function handleScroll() {
-    if (animationFrameRef.current !== null) {
-      window.cancelAnimationFrame(animationFrameRef.current)
-    }
-    animationFrameRef.current = window.requestAnimationFrame(() => {
-      const rail = railRef.current
-      if (rail && rail.clientWidth > 0) {
-        const currentWeeks = weekStartsRef.current
-        const pageWidth = calendarPageWidth(rail, currentWeeks.length)
-        const position = weekScrollPosition(
-          currentWeeks,
-          rail.scrollLeft,
-          pageWidth
-        )
-        if (position !== null) setScrollPosition(position)
-      }
-      animationFrameRef.current = null
-    })
     const rail = railRef.current
     if (rail && !("onscrollend" in rail)) {
       if (scrollTimerRef.current !== null) {
@@ -404,6 +370,17 @@ function WeekRail({
                   </button>
                 )
               })}
+              {!calendarIsSwiping && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute bottom-4 left-0 z-[15] grid h-8 w-[calc(100%/7)] place-items-center"
+                  style={{
+                    transform: `translateX(${selectedWeekday * 100}%)`,
+                  }}
+                >
+                  <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+                </span>
+              )}
             </div>
           )
         })}
@@ -438,13 +415,17 @@ function WeekRail({
           </>
         )}
 
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-4 left-0 z-[15] grid h-8 w-[calc(100%/7)] place-items-center"
-        style={{ transform: `translateX(${indicatorPosition * 100}%)` }}
-      >
-        <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-      </span>
+      {calendarIsSwiping && calendarVisualPosition && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-4 left-0 z-[15] grid h-8 w-[calc(100%/7)] place-items-center"
+          style={{
+            transform: `translateX(${calendarVisualPosition.indicator * 100}%)`,
+          }}
+        >
+          <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+        </span>
+      )}
     </div>
   )
 }

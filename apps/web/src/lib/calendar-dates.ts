@@ -217,17 +217,6 @@ export function snappedWeekDate(
   return start ? moveDate(start, weekday) : null
 }
 
-export function weekRailScrollIndicatorPosition(
-  selectedWeekIndex: number,
-  weekday: number,
-  scrollPosition: number
-): number {
-  let position = weekday + (selectedWeekIndex - scrollPosition) * 7
-  while (position < -1) position += 7
-  while (position > 7) position -= 7
-  return position
-}
-
 function weekRailIndicatorPosition(
   fromWeekday: number,
   toWeekday: number,

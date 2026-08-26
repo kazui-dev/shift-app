@@ -12,7 +12,6 @@ import {
   snappedDate,
   snappedWeekDate,
   weekDates,
-  weekRailScrollIndicatorPosition,
   weekRailVisualPosition,
   weekScrollPosition,
   weekWindowExtensionDirection,
@@ -327,32 +326,6 @@ describe("week rail window", () => {
     expect(weekScrollPosition(weeks, -390, 390)).toBe(0)
     expect(weekScrollPosition(weeks, 0, 0)).toBeNull()
     expect(snappedWeekDate([], 0, 390, 3)).toBeNull()
-  })
-
-  it("moves the single indicator with week content and wraps at clipped edges", () => {
-    const positions = [0, 0.25, 4 / 7, 0.75, 1, 2.25]
-
-    expect(
-      positions.map((position) =>
-        weekRailScrollIndicatorPosition(0, 3, position)
-      )
-    ).toEqual([3, 1.25, -1, 4.75, 3, 1.25])
-  })
-
-  it("wraps in the opposite direction when scrolling to previous weeks", () => {
-    expect(
-      [0, -0.25, -4 / 7, -0.75, -1].map((position) =>
-        weekRailScrollIndicatorPosition(0, 3, position)
-      )
-    ).toEqual([3, 4.75, 7, 1.25, 3])
-  })
-
-  it("keeps the indicator position when scrollend commits the snapped week", () => {
-    const beforeCommit = weekRailScrollIndicatorPosition(0, 3, 1)
-    const afterCommit = weekRailScrollIndicatorPosition(1, 3, 1)
-
-    expect(beforeCommit).toBe(3)
-    expect(afterCommit).toBe(beforeCommit)
   })
 
   it("keeps month and year boundaries in the selected weekday", () => {
