@@ -17,7 +17,10 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
-import { WeekRail } from "@/components/calendar/week-rail"
+import {
+  WeekRail,
+  type WeekRailPreviewController,
+} from "@/components/calendar/week-rail"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -32,6 +35,7 @@ import {
 import {
   createDateWindow,
   calendarDatePosition,
+  dayPagerPreview,
   extendDateWindow,
   localDate,
   monthDistance,
@@ -40,9 +44,7 @@ import {
   moveMonth,
   moveMonthValue,
   snappedDate,
-  weekRailPreviewPosition,
   windowForDate,
-  type WeekRailPreviewPair,
 } from "@/lib/calendar-dates"
 import {
   japanDateTime,
@@ -72,6 +74,7 @@ const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 const noAssignments: CalendarAssignment[] = []
 type DateChangeOptions = {
   preservePreferredDay?: boolean
+  preserveWeekRailPreview?: boolean
 }
 
 function longDate(value: string): string {
@@ -208,8 +211,6 @@ export function CalendarPage() {
   >(null)
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
-  const [weekRailPreviewPair, setWeekRailPreviewPair] =
-    useState<WeekRailPreviewPair | null>(null)
   const [calendarDates, setCalendarDates] = useState(() =>
     createDateWindow(date, calendarWindowRadius)
   )
@@ -218,15 +219,16 @@ export function CalendarPage() {
   const calendarScrollTimerRef = useRef<number | null>(null)
   const calendarAnimationFrameRef = useRef<number | null>(null)
   const calendarGestureActiveRef = useRef(false)
+  const dayPagerPreviewActiveRef = useRef(false)
   const calendarDatesRef = useRef(calendarDates)
-  const weekRailPreviewPairRef = useRef<WeekRailPreviewPair | null>(null)
-  const weekRailPreviewProgressRef = useRef(0)
-  const weekRailPreviewRootRef = useRef<HTMLDivElement>(null)
+  const currentDateRef = useRef(date)
+  const weekRailPreviewControllerRef = useRef<WeekRailPreviewController>(null)
   const previousPrefetchMonthRef = useRef(monthValue(date))
   const initializedCalendarRef = useRef(false)
   const currentTime = useCurrentTime()
   const now = japanDateTime(currentTime)
   calendarDatesRef.current = calendarDates
+  currentDateRef.current = date
   const selectedMonth = monthValue(date)
   const selectedMonthQuery = useQuery(assignmentMonthQuery(selectedMonth))
   const windowMonths = useMemo(
@@ -253,24 +255,14 @@ export function CalendarPage() {
     (assignment) => assignment.id === selectedAssignmentId
   )
 
-  const clearWeekRailPreview = useCallback(() => {
+  const dismissDayPagerPreview = useCallback(() => {
     if (calendarAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
-    weekRailPreviewProgressRef.current = 0
-    weekRailPreviewRootRef.current?.style.setProperty("--preview-progress", "0")
-    weekRailPreviewPairRef.current = null
-    setWeekRailPreviewPair(null)
+    dayPagerPreviewActiveRef.current = false
+    weekRailPreviewControllerRef.current?.dismiss()
   }, [])
-
-  useLayoutEffect(() => {
-    if (!weekRailPreviewPair) return
-    weekRailPreviewRootRef.current?.style.setProperty(
-      "--preview-progress",
-      String(weekRailPreviewProgressRef.current)
-    )
-  }, [weekRailPreviewPair])
 
   const changeDate = useCallback(
     (nextDateValue: string, options: DateChangeOptions = {}) => {
@@ -280,7 +272,7 @@ export function CalendarPage() {
       setSelectedAssignmentId(null)
       setReportTarget(null)
       setReportMessage("")
-      clearWeekRailPreview()
+      if (!options.preserveWeekRailPreview) dismissDayPagerPreview()
       const currentDates = calendarDatesRef.current
       const nextDates = windowForDate(
         currentDates,
@@ -291,9 +283,10 @@ export function CalendarPage() {
         calendarDatesRef.current = nextDates
         setCalendarDates(nextDates)
       }
+      currentDateRef.current = nextDateValue
       setDate(nextDateValue)
     },
-    [clearWeekRailPreview, preferredDayRef, setDate]
+    [dismissDayPagerPreview, preferredDayRef, setDate]
   )
 
   useLayoutEffect(() => {
@@ -414,10 +407,21 @@ export function CalendarPage() {
     const snapped = snappedDate(currentDates, pager.scrollLeft, pageWidth)
     if (!snapped) return
     const page = currentDates.indexOf(snapped)
-    clearWeekRailPreview()
-    if (snapped !== date) changeDate(snapped)
+    if (calendarAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+      calendarAnimationFrameRef.current = null
+    }
+    const previewWasActive = dayPagerPreviewActiveRef.current
+    dayPagerPreviewActiveRef.current = false
+    const dateChanged = snapped !== currentDateRef.current
+    if (previewWasActive || dateChanged) {
+      weekRailPreviewControllerRef.current?.commit(snapped)
+    }
+    if (dateChanged) {
+      changeDate(snapped, { preserveWeekRailPreview: true })
+    }
     extendCalendarWindow(page)
-  }, [changeDate, clearWeekRailPreview, date, extendCalendarWindow])
+  }, [changeDate, extendCalendarWindow])
 
   useEffect(() => {
     const pager = calendarPagerRef.current
@@ -452,30 +456,12 @@ export function CalendarPage() {
           pageWidth
         )
         const preview =
-          position === null
-            ? null
-            : weekRailPreviewPosition(currentDates, position)
-        if (preview) {
-          weekRailPreviewProgressRef.current = preview.progress
-          const currentPair = weekRailPreviewPairRef.current
-          const pairChanged =
-            !currentPair ||
-            currentPair.fromDate !== preview.pair.fromDate ||
-            currentPair.toDate !== preview.pair.toDate
-          const restingWithoutPreview =
-            !currentPair && (preview.progress === 0 || preview.progress === 1)
-          if (pairChanged && !restingWithoutPreview) {
-            weekRailPreviewPairRef.current = preview.pair
-            setWeekRailPreviewPair(preview.pair)
-          } else if (
-            weekRailPreviewPair?.fromDate === preview.pair.fromDate &&
-            weekRailPreviewPair.toDate === preview.pair.toDate
-          ) {
-            weekRailPreviewRootRef.current?.style.setProperty(
-              "--preview-progress",
-              String(preview.progress)
-            )
-          }
+          position === null ? null : dayPagerPreview(currentDates, position)
+        const betweenPages =
+          preview && preview.progress > 0 && preview.progress < 1
+        if (preview && (dayPagerPreviewActiveRef.current || betweenPages)) {
+          dayPagerPreviewActiveRef.current = true
+          weekRailPreviewControllerRef.current?.update(preview)
         }
       }
       calendarAnimationFrameRef.current = null
@@ -568,8 +554,7 @@ export function CalendarPage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
-        previewPair={weekRailPreviewPair}
-        previewRootRef={weekRailPreviewRootRef}
+        previewControllerRef={weekRailPreviewControllerRef}
       />
 
       <p className="shrink-0 py-0.5 text-center text-sm font-semibold">

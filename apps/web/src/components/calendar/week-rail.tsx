@@ -1,10 +1,10 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type RefObject,
 } from "react"
 
@@ -17,7 +17,7 @@ import {
   weekStart,
   weekWindowExtensionDirection,
   weekWindowForDate,
-  type WeekRailPreviewPair,
+  type DayPagerPreview,
 } from "@/lib/calendar-dates"
 
 const fallbackScrollEndDelay = 160
@@ -27,11 +27,17 @@ const weekWindowEdgeThreshold = 2
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 const weekCellClassName =
   "grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
-type WeekContentPage = {
-  weekStart: string
-  selectedDate: string
-  indicatorPosition: number | string
-  opacity: CSSProperties["opacity"]
+const indicatorTransitionClasses = [
+  "transition-transform",
+  "[transition-duration:160ms]",
+  "[transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)]",
+  "motion-reduce:transition-none",
+]
+
+export type WeekRailPreviewController = {
+  update: (preview: DayPagerPreview) => void
+  commit: (date: string) => void
+  dismiss: () => void
 }
 
 function weekdayTextColor(weekday: number): string {
@@ -51,53 +57,40 @@ function longDate(value: string): string {
 }
 
 function WeekContent({
-  page,
-  interactive,
-  animateIndicator,
+  week,
+  selectedDate,
   onDateChange,
+  onIndicatorTransitionEnd,
 }: {
-  page: WeekContentPage
-  interactive: boolean
-  animateIndicator: boolean
-  onDateChange?: (date: string) => void
+  week: string
+  selectedDate: string
+  onDateChange: (date: string) => void
+  onIndicatorTransitionEnd: () => void
 }) {
-  const dates = weekDates(page.weekStart)
+  const dates = weekDates(week)
+  const selectedWeekday = localDate(selectedDate).getDay()
 
   return (
-    <div
-      aria-hidden={interactive ? undefined : true}
-      className="relative grid w-full shrink-0 grid-cols-7 bg-background pb-3"
-      style={{ opacity: page.opacity }}
-    >
+    <div className="relative grid w-full shrink-0 grid-cols-7 bg-background pb-3">
       <div className="relative z-[1] col-span-7 col-start-1 row-start-1 grid grid-cols-7">
         {dates.map((value) => {
-          const selected = value === page.selectedDate
-          const number = (
-            <>
-              <span aria-hidden className="h-4" />
-              <span
-                className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
-              >
-                {localDate(value).getDate()}
-              </span>
-            </>
-          )
-
-          return interactive ? (
+          const selected = value === selectedDate
+          return (
             <button
               key={value}
               type="button"
               className={weekCellClassName}
               aria-label={longDate(value)}
               aria-current={selected ? "date" : undefined}
-              onClick={() => onDateChange?.(value)}
+              onClick={() => onDateChange(value)}
             >
-              {number}
+              <span aria-hidden className="h-4" />
+              <span
+                className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
+              >
+                {localDate(value).getDate()}
+              </span>
             </button>
-          ) : (
-            <span key={value} className={weekCellClassName}>
-              {number}
-            </span>
           )
         })}
       </div>
@@ -107,13 +100,13 @@ function WeekContent({
         className="pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7"
       >
         <span
-          className={`${weekCellClassName} ${animateIndicator ? "transition-transform [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none" : ""}`}
-          style={{
-            transform: `translateX(${
-              typeof page.indicatorPosition === "number"
-                ? `${page.indicatorPosition * 100}%`
-                : page.indicatorPosition
-            })`,
+          data-week-indicator
+          className={weekCellClassName}
+          style={{ transform: `translateX(${selectedWeekday * 100}%)` }}
+          onTransitionEnd={(event) => {
+            if (event.propertyName === "transform") {
+              onIndicatorTransitionEnd()
+            }
           }}
         >
           <span aria-hidden className="h-4" />
@@ -124,62 +117,55 @@ function WeekContent({
   )
 }
 
-function WeekPreview({
-  date,
-  pair,
+function PreviewWeek({
+  layerRef,
 }: {
-  date: string
-  pair: WeekRailPreviewPair
+  layerRef: RefObject<HTMLDivElement | null>
 }) {
-  const fromWeekday = localDate(pair.fromDate).getDay()
-  const toWeekday = localDate(pair.toDate).getDay()
-  const progress = "var(--preview-progress, 0)"
-
-  if (pair.sameWeek) {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden border-b bg-background">
-        <WeekContent
-          page={{
-            weekStart: weekStart(pair.fromDate),
-            selectedDate: date,
-            indicatorPosition: `calc(${fromWeekday * 100}% + ${(toWeekday - fromWeekday) * 100}% * ${progress})`,
-            opacity: 1,
-          }}
-          interactive={false}
-          animateIndicator={false}
-        />
-      </div>
-    )
-  }
-
   return (
-    <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden border-b bg-background">
-      <div className="absolute inset-0">
-        <WeekContent
-          page={{
-            weekStart: weekStart(pair.fromDate),
-            selectedDate: date,
-            indicatorPosition: `calc(${fromWeekday * 100}% + 200% * ${progress})`,
-            opacity: `calc(1 - ${progress})`,
-          }}
-          interactive={false}
-          animateIndicator={false}
-        />
-      </div>
-      <div className="absolute inset-0">
-        <WeekContent
-          page={{
-            weekStart: weekStart(pair.toDate),
-            selectedDate: date,
-            indicatorPosition: `calc(${(toWeekday - 2) * 100}% + 200% * ${progress})`,
-            opacity: progress,
-          }}
-          interactive={false}
-          animateIndicator={false}
-        />
+    <div ref={layerRef} className="absolute inset-0 opacity-0">
+      <div className="relative grid w-full shrink-0 grid-cols-7 bg-background pb-3">
+        <div className="relative z-[1] col-span-7 col-start-1 row-start-1 grid grid-cols-7">
+          {weekdays.map((weekday) => (
+            <span key={weekday} className={weekCellClassName}>
+              <span aria-hidden className="h-4" />
+              <span
+                data-preview-number
+                className="relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums"
+              />
+            </span>
+          ))}
+        </div>
+
+        <span
+          aria-hidden
+          className="pointer-events-none col-span-7 col-start-1 row-start-1 grid grid-cols-7"
+        >
+          <span data-preview-indicator className={weekCellClassName}>
+            <span aria-hidden className="h-4" />
+            <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
+          </span>
+        </span>
       </div>
     </div>
   )
+}
+
+function setPreviewWeek(
+  layer: HTMLDivElement,
+  date: string,
+  selectedDate: string
+): void {
+  const numbers = layer.querySelectorAll<HTMLElement>("[data-preview-number]")
+  for (const [index, value] of weekDates(date).entries()) {
+    const number = numbers.item(index)
+    number.textContent = String(localDate(value).getDate())
+    number.classList.toggle("font-semibold", value === selectedDate)
+  }
+}
+
+function previewIndicator(layer: HTMLDivElement): HTMLElement | null {
+  return layer.querySelector<HTMLElement>("[data-preview-indicator]")
 }
 
 function pageWidth(rail: HTMLDivElement, pageCount: number): number {
@@ -189,19 +175,27 @@ function pageWidth(rail: HTMLDivElement, pageCount: number): number {
 export function WeekRail({
   date,
   onDateChange,
-  previewPair,
-  previewRootRef,
+  previewControllerRef,
 }: {
   date: string
   onDateChange: (date: string) => void
-  previewPair: WeekRailPreviewPair | null
-  previewRootRef: RefObject<HTMLDivElement | null>
+  previewControllerRef: RefObject<WeekRailPreviewController | null>
 }) {
   const railRef = useRef<HTMLDivElement>(null)
+  const previewRootRef = useRef<HTMLDivElement>(null)
+  const previewLayerARef = useRef<HTMLDivElement>(null)
+  const previewLayerBRef = useRef<HTMLDivElement>(null)
   const scrollTimerRef = useRef<number | null>(null)
+  const transitionTimerRef = useRef<number | null>(null)
   const touchActiveRef = useRef(false)
   const pendingPrependRef = useRef(0)
-  const animateIndicatorRef = useRef(false)
+  const pendingHandoffRef = useRef<string | null>(null)
+  const renderedPreviewRef = useRef<{
+    fromDate: string
+    toDate: string
+    selectedDate: string
+  } | null>(null)
+  const tapTargetRef = useRef<string | null>(null)
   const currentDateRef = useRef(date)
   const [weekStarts, setWeekStarts] = useState(() =>
     createWeekWindow(date, weekWindowRadius)
@@ -209,14 +203,120 @@ export function WeekRail({
   const weekStartsRef = useRef(weekStarts)
   weekStartsRef.current = weekStarts
   currentDateRef.current = date
-  const selectedWeekday = localDate(date).getDay()
-  const showPreview =
-    previewPair !== null &&
-    (previewPair.fromDate !== date || previewPair.toDate !== date)
+
+  const disableIndicatorTransition = useCallback(() => {
+    if (transitionTimerRef.current !== null) {
+      window.clearTimeout(transitionTimerRef.current)
+      transitionTimerRef.current = null
+    }
+    tapTargetRef.current = null
+    railRef.current
+      ?.querySelectorAll<HTMLElement>("[data-week-indicator]")
+      .forEach((indicator) => {
+        indicator.classList.remove(...indicatorTransitionClasses)
+      })
+  }, [])
+
+  const hidePreview = useCallback(() => {
+    const root = previewRootRef.current
+    if (!root) return
+    // Reset only after the committed rail is visible; a visible reset exposes
+    // the gesture's old position for one frame.
+    root.style.visibility = "hidden"
+    root.dataset.visible = "false"
+    root.style.setProperty("--preview-progress", "0")
+    pendingHandoffRef.current = null
+    renderedPreviewRef.current = null
+  }, [])
+
+  useImperativeHandle(
+    previewControllerRef,
+    () => ({
+      update(preview) {
+        const root = previewRootRef.current
+        const layerA = previewLayerARef.current
+        const layerB = previewLayerBRef.current
+        if (!root || !layerA || !layerB) return
+        const startingPreview = !renderedPreviewRef.current
+        if (startingPreview) disableIndicatorTransition()
+        pendingHandoffRef.current = null
+
+        const committedDate = currentDateRef.current
+        const selectedDate =
+          committedDate === preview.fromDate || committedDate === preview.toDate
+            ? committedDate
+            : preview.progress === 1
+              ? preview.toDate
+              : preview.fromDate
+        const rendered = renderedPreviewRef.current
+        if (
+          !rendered ||
+          rendered.fromDate !== preview.fromDate ||
+          rendered.toDate !== preview.toDate ||
+          rendered.selectedDate !== selectedDate
+        ) {
+          const indicatorA = previewIndicator(layerA)
+          const indicatorB = previewIndicator(layerB)
+          if (!indicatorA || !indicatorB) return
+          const fromWeekday = localDate(preview.fromDate).getDay()
+          const toWeekday = localDate(preview.toDate).getDay()
+          setPreviewWeek(layerA, preview.fromDate, selectedDate)
+
+          if (preview.sameWeek) {
+            layerA.style.opacity = "1"
+            indicatorA.style.transform = `translateX(calc(${fromWeekday * 100}% + ${(toWeekday - fromWeekday) * 100}% * var(--preview-progress)))`
+            layerB.style.opacity = "0"
+          } else {
+            setPreviewWeek(layerB, preview.toDate, selectedDate)
+            layerA.style.opacity = "calc(1 - var(--preview-progress))"
+            indicatorA.style.transform = `translateX(calc(${fromWeekday * 100}% + 200% * var(--preview-progress)))`
+            layerB.style.opacity = "var(--preview-progress)"
+            indicatorB.style.transform = `translateX(calc(${(toWeekday - 2) * 100}% + 200% * var(--preview-progress)))`
+          }
+          renderedPreviewRef.current = {
+            fromDate: preview.fromDate,
+            toDate: preview.toDate,
+            selectedDate,
+          }
+        }
+
+        // Between adjacent-date boundaries this is the only DOM write.
+        root.style.setProperty("--preview-progress", String(preview.progress))
+        if (startingPreview) {
+          root.dataset.visible = "true"
+          root.style.visibility = "visible"
+        }
+      },
+      commit(nextDate) {
+        const root = previewRootRef.current
+        const layerA = previewLayerARef.current
+        const layerB = previewLayerBRef.current
+        const indicatorA = layerA && previewIndicator(layerA)
+        if (!root || !layerA || !layerB || !indicatorA) return
+        disableIndicatorTransition()
+
+        setPreviewWeek(layerA, nextDate, nextDate)
+        layerA.style.opacity = "1"
+        indicatorA.style.transform = `translateX(${localDate(nextDate).getDay() * 100}%)`
+        layerB.style.opacity = "0"
+        root.dataset.visible = "true"
+        root.style.visibility = "visible"
+        pendingHandoffRef.current = nextDate
+
+        // A cancelled gesture already matches the normal rail. A changed date
+        // remains covered until the layout effect synchronizes that rail.
+        if (nextDate === currentDateRef.current) hidePreview()
+      },
+      dismiss: hidePreview,
+    }),
+    [disableIndicatorTransition, hidePreview]
+  )
 
   useLayoutEffect(() => {
     const rail = railRef.current
     if (!rail) return
+    if (tapTargetRef.current !== date) disableIndicatorTransition()
+
     const currentWeeks = weekStartsRef.current
     const nextWeeks = weekWindowForDate(currentWeeks, date, weekWindowRadius)
     if (nextWeeks !== currentWeeks) {
@@ -239,32 +339,33 @@ export function WeekRail({
     if (Math.abs(rail.scrollLeft - target) > 1) {
       rail.scrollLeft = target
     }
-  }, [date, weekStarts])
+    if (pendingHandoffRef.current === date) hidePreview()
+  }, [date, disableIndicatorTransition, hidePreview, weekStarts])
 
   useEffect(() => {
     const rail = railRef.current
     if (!rail) return undefined
     const handleResize = () => {
+      disableIndicatorTransition()
       const currentWeeks = weekStartsRef.current
-      const targetIndex = currentWeeks.indexOf(weekStart(date))
+      const targetIndex = currentWeeks.indexOf(
+        weekStart(currentDateRef.current)
+      )
       if (targetIndex < 0 || rail.clientWidth <= 0) return
       rail.scrollLeft = targetIndex * pageWidth(rail, currentWeeks.length)
     }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [date])
-
-  useEffect(() => {
-    animateIndicatorRef.current = false
-  }, [date])
+  }, [disableIndicatorTransition])
 
   useEffect(
     () => () => {
       if (scrollTimerRef.current !== null) {
         window.clearTimeout(scrollTimerRef.current)
       }
+      disableIndicatorTransition()
     },
-    []
+    [disableIndicatorTransition]
   )
 
   const extendWindow = useCallback((index: number) => {
@@ -290,6 +391,7 @@ export function WeekRail({
       window.clearTimeout(scrollTimerRef.current)
       scrollTimerRef.current = null
     }
+    disableIndicatorTransition()
     const rail = railRef.current
     if (!rail || rail.clientWidth === 0) return
     const currentWeeks = weekStartsRef.current
@@ -305,7 +407,7 @@ export function WeekRail({
     const page = currentWeeks.indexOf(weekStart(snapped))
     if (snapped !== currentDateRef.current) onDateChange(snapped)
     extendWindow(page)
-  }, [extendWindow, onDateChange])
+  }, [disableIndicatorTransition, extendWindow, onDateChange])
 
   useEffect(() => {
     const rail = railRef.current
@@ -326,6 +428,7 @@ export function WeekRail({
   }
 
   function handleScroll() {
+    disableIndicatorTransition()
     const rail = railRef.current
     if (!rail || "onscrollend" in rail) return
     if (scrollTimerRef.current !== null) {
@@ -338,12 +441,25 @@ export function WeekRail({
   }
 
   function handleDateClick(value: string) {
-    animateIndicatorRef.current = weekStart(value) === weekStart(date)
+    if (value === currentDateRef.current) return
+    disableIndicatorTransition()
+    if (weekStart(value) === weekStart(currentDateRef.current)) {
+      tapTargetRef.current = value
+      railRef.current
+        ?.querySelectorAll<HTMLElement>("[data-week-indicator]")
+        .forEach((indicator) => {
+          indicator.classList.add(...indicatorTransitionClasses)
+        })
+      transitionTimerRef.current = window.setTimeout(
+        disableIndicatorTransition,
+        200
+      )
+    }
     onDateChange(value)
   }
 
   return (
-    <div ref={previewRootRef} className="relative overflow-hidden">
+    <div className="relative overflow-hidden">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-1 z-20 grid grid-cols-7 text-xs"
@@ -376,23 +492,25 @@ export function WeekRail({
         {weekStarts.map((pageDate) => (
           <div key={pageDate} className="w-full shrink-0 snap-center">
             <WeekContent
-              page={{
-                weekStart: pageDate,
-                selectedDate: date,
-                indicatorPosition: selectedWeekday,
-                opacity: 1,
-              }}
-              interactive
-              animateIndicator={animateIndicatorRef.current}
+              week={pageDate}
+              selectedDate={date}
               onDateChange={handleDateClick}
+              onIndicatorTransitionEnd={disableIndicatorTransition}
             />
           </div>
         ))}
       </div>
 
-      {showPreview && previewPair && (
-        <WeekPreview date={date} pair={previewPair} />
-      )}
+      <div
+        ref={previewRootRef}
+        aria-hidden
+        data-visible="false"
+        className="pointer-events-none absolute inset-0 z-[5] overflow-hidden border-b bg-background"
+        style={{ visibility: "hidden" }}
+      >
+        <PreviewWeek layerRef={previewLayerARef} />
+        <PreviewWeek layerRef={previewLayerBRef} />
+      </div>
     </div>
   )
 }

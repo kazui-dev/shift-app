@@ -4,6 +4,7 @@ import {
   calendarDatePosition,
   createDateWindow,
   createWeekWindow,
+  dayPagerPreview,
   extendDateWindow,
   extendWeekWindow,
   monthValuesForDates,
@@ -11,7 +12,6 @@ import {
   snappedDate,
   snappedWeekDate,
   weekDates,
-  weekRailPreviewPosition,
   weekScrollPosition,
   weekWindowExtensionDirection,
   weekWindowForDate,
@@ -99,20 +99,16 @@ describe("calendar date window", () => {
   it("keeps one same-week pair while progress changes", () => {
     const dates = ["2026-08-31", "2026-09-01"]
 
-    expect(weekRailPreviewPosition(dates, 0.25)).toEqual({
-      pair: {
-        fromDate: "2026-08-31",
-        toDate: "2026-09-01",
-        sameWeek: true,
-      },
+    expect(dayPagerPreview(dates, 0.25)).toEqual({
+      fromDate: "2026-08-31",
+      toDate: "2026-09-01",
+      sameWeek: true,
       progress: 0.25,
     })
-    expect(weekRailPreviewPosition(dates, 0.75)).toEqual({
-      pair: {
-        fromDate: "2026-08-31",
-        toDate: "2026-09-01",
-        sameWeek: true,
-      },
+    expect(dayPagerPreview(dates, 0.75)).toEqual({
+      fromDate: "2026-08-31",
+      toDate: "2026-09-01",
+      sameWeek: true,
       progress: 0.75,
     })
   })
@@ -120,50 +116,44 @@ describe("calendar date window", () => {
   it("keeps one cross-week pair while progress changes", () => {
     const dates = ["2026-08-29", "2026-08-30"]
 
-    expect(weekRailPreviewPosition(dates, 0.25)).toEqual({
-      pair: {
-        fromDate: "2026-08-29",
-        toDate: "2026-08-30",
-        sameWeek: false,
-      },
+    expect(dayPagerPreview(dates, 0.25)).toEqual({
+      fromDate: "2026-08-29",
+      toDate: "2026-08-30",
+      sameWeek: false,
       progress: 0.25,
     })
-    expect(weekRailPreviewPosition(dates, 0.75)).toEqual({
-      pair: {
-        fromDate: "2026-08-29",
-        toDate: "2026-08-30",
-        sameWeek: false,
-      },
+    expect(dayPagerPreview(dates, 0.75)).toEqual({
+      fromDate: "2026-08-29",
+      toDate: "2026-08-30",
+      sameWeek: false,
       progress: 0.75,
     })
   })
 
   it("does not derive selected state at the preview midpoint", () => {
-    expect(weekRailPreviewPosition(["2026-08-31", "2026-09-01"], 0.5)).toEqual({
-      pair: {
-        fromDate: "2026-08-31",
-        toDate: "2026-09-01",
-        sameWeek: true,
-      },
+    expect(dayPagerPreview(["2026-08-31", "2026-09-01"], 0.5)).toEqual({
+      fromDate: "2026-08-31",
+      toDate: "2026-09-01",
+      sameWeek: true,
       progress: 0.5,
     })
   })
 
-  it("changes React-owned pairs only when crossing a day boundary", () => {
+  it("changes adjacent dates only when crossing a day boundary", () => {
     const dates = createDateWindow("2026-08-26", 4)
 
-    expect(weekRailPreviewPosition(dates, 4.25)).toEqual({
-      pair: {
-        fromDate: "2026-08-26",
-        toDate: "2026-08-27",
-        sameWeek: true,
-      },
+    expect(dayPagerPreview(dates, 4.25)).toEqual({
+      fromDate: "2026-08-26",
+      toDate: "2026-08-27",
+      sameWeek: true,
       progress: 0.25,
     })
-    expect(weekRailPreviewPosition(dates, 4.75)?.pair).toEqual(
-      weekRailPreviewPosition(dates, 4.25)?.pair
-    )
-    expect(weekRailPreviewPosition(dates, 5.25)?.pair).toEqual({
+    expect(dayPagerPreview(dates, 4.75)).toMatchObject({
+      fromDate: "2026-08-26",
+      toDate: "2026-08-27",
+      sameWeek: true,
+    })
+    expect(dayPagerPreview(dates, 5.25)).toMatchObject({
       fromDate: "2026-08-27",
       toDate: "2026-08-28",
       sameWeek: true,
@@ -173,21 +163,17 @@ describe("calendar date window", () => {
   it("handles empty, single-page, and final-page positions", () => {
     const dates = createDateWindow("2026-08-26", 1)
 
-    expect(weekRailPreviewPosition([], 0)).toBeNull()
-    expect(weekRailPreviewPosition(["2026-08-26"], 0)).toEqual({
-      pair: {
-        fromDate: "2026-08-26",
-        toDate: "2026-08-26",
-        sameWeek: true,
-      },
+    expect(dayPagerPreview([], 0)).toBeNull()
+    expect(dayPagerPreview(["2026-08-26"], 0)).toEqual({
+      fromDate: "2026-08-26",
+      toDate: "2026-08-26",
+      sameWeek: true,
       progress: 0,
     })
-    expect(weekRailPreviewPosition(dates, 2)).toEqual({
-      pair: {
-        fromDate: "2026-08-26",
-        toDate: "2026-08-27",
-        sameWeek: true,
-      },
+    expect(dayPagerPreview(dates, 2)).toEqual({
+      fromDate: "2026-08-26",
+      toDate: "2026-08-27",
+      sameWeek: true,
       progress: 1,
     })
   })
@@ -195,16 +181,47 @@ describe("calendar date window", () => {
   it("keeps visual preview independent from the snapped date commit", () => {
     const dates = createDateWindow("2026-08-29", 1)
 
-    expect(weekRailPreviewPosition(dates, 1.75)).toEqual({
-      pair: {
-        fromDate: "2026-08-29",
-        toDate: "2026-08-30",
-        sameWeek: false,
-      },
+    expect(dayPagerPreview(dates, 1.75)).toEqual({
+      fromDate: "2026-08-29",
+      toDate: "2026-08-30",
+      sameWeek: false,
       progress: 0.75,
     })
     expect(snappedDate(dates, 2 * 390, 390)).toBe("2026-08-30")
     expect(dates).toEqual(["2026-08-28", "2026-08-29", "2026-08-30"])
+  })
+
+  it("uses the same cross-week coordinates from Saturday to Sunday and back", () => {
+    const dates = ["2026-08-29", "2026-08-30"]
+
+    expect(dayPagerPreview(dates, 0.2)).toEqual({
+      fromDate: "2026-08-29",
+      toDate: "2026-08-30",
+      sameWeek: false,
+      progress: 0.2,
+    })
+    expect(dayPagerPreview(dates, 0.8)).toEqual({
+      fromDate: "2026-08-29",
+      toDate: "2026-08-30",
+      sameWeek: false,
+      progress: 0.8,
+    })
+  })
+
+  it("tracks each adjacent pair across consecutive day movement", () => {
+    const dates = createDateWindow("2026-08-23", 5)
+
+    expect(
+      [5.25, 6.25, 7.25, 8.25, 9.25].map(
+        (position) => dayPagerPreview(dates, position)?.fromDate
+      )
+    ).toEqual([
+      "2026-08-23",
+      "2026-08-24",
+      "2026-08-25",
+      "2026-08-26",
+      "2026-08-27",
+    ])
   })
 
   it("keeps the window for a nearby external date and rebuilds for a far date", () => {

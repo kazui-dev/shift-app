@@ -8,14 +8,10 @@ export type WeekWindowExtension = {
   prepended: number
 }
 
-export type WeekRailPreviewPair = {
+export type DayPagerPreview = {
   fromDate: string
   toDate: string
   sameWeek: boolean
-}
-
-export type WeekRailPreviewPosition = {
-  pair: WeekRailPreviewPair
   progress: number
 }
 
@@ -217,10 +213,10 @@ export function snappedWeekDate(
   return start ? moveDate(start, localDate(selectedDate).getDay()) : null
 }
 
-export function weekRailPreviewPosition(
+export function dayPagerPreview(
   dates: string[],
   position: number
-): WeekRailPreviewPosition | null {
+): DayPagerPreview | null {
   if (dates.length === 0) return null
   const boundedPosition = Math.max(0, Math.min(dates.length - 1, position))
   const lastIndex = dates.length - 1
@@ -234,11 +230,9 @@ export function weekRailPreviewPosition(
   if (!fromDate || !toDate) return null
   const progress = boundedPosition - fromIndex
   return {
-    pair: {
-      fromDate,
-      toDate,
-      sameWeek: weekStart(fromDate) === weekStart(toDate),
-    },
+    fromDate,
+    toDate,
+    sameWeek: weekStart(fromDate) === weekStart(toDate),
     progress,
   }
 }
