@@ -149,13 +149,25 @@ export function dayPagerPosition(
   return scrollPosition(3, scrollLeft, pageWidth)
 }
 
+export function dayPagerSettleDirection(
+  scrollLeft: number,
+  pageWidth: number
+): -1 | 0 | 1 | null {
+  const position = dayPagerPosition(scrollLeft, pageWidth)
+  if (position === null) return null
+  const page = Math.round(position)
+  if (page === 0) return -1
+  if (page === 2) return 1
+  return 0
+}
+
 export function snappedDayPagerDate(
   date: string,
   scrollLeft: number,
   pageWidth: number
 ): string | null {
-  const position = dayPagerPosition(scrollLeft, pageWidth)
-  return position === null ? null : moveDate(date, Math.round(position) - 1)
+  const direction = dayPagerSettleDirection(scrollLeft, pageWidth)
+  return direction === null ? null : moveDate(date, direction)
 }
 
 export function weekScrollPosition(

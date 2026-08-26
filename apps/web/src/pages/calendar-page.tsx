@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { flushSync } from "react-dom"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { LoaderCircle, SquarePen } from "lucide-react"
@@ -36,13 +37,14 @@ import {
   dayPagerDates,
   dayPagerPosition,
   dayPagerPreview,
+  dayPagerSettleDirection,
   localDate,
   monthDistance,
   monthValue,
+  moveDate,
   monthValuesForDates,
   moveMonth,
   moveMonthValue,
-  snappedDayPagerDate,
 } from "@/lib/calendar-dates"
 import {
   japanDateTime,
@@ -206,7 +208,6 @@ export function CalendarPage() {
   const calendarScrollTimerRef = useRef<number | null>(null)
   const calendarAnimationFrameRef = useRef<number | null>(null)
   const calendarGestureActiveRef = useRef(false)
-  const calendarSettleLockedRef = useRef(false)
   const dayPagerPreviewActiveRef = useRef(false)
   const dayPagerPreviewDirectionRef = useRef<-1 | 1 | null>(null)
   const currentDateRef = useRef(date)
@@ -244,10 +245,15 @@ export function CalendarPage() {
   )
 
   const dismissDayPagerPreview = useCallback(() => {
+    if (calendarScrollTimerRef.current !== null) {
+      window.clearTimeout(calendarScrollTimerRef.current)
+      calendarScrollTimerRef.current = null
+    }
     if (calendarAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
+    calendarGestureActiveRef.current = false
     dayPagerPreviewActiveRef.current = false
     dayPagerPreviewDirectionRef.current = null
     dayPagerWeekPreviewRef.current?.dismiss()
@@ -337,51 +343,56 @@ export function CalendarPage() {
     []
   )
 
-  const settleCalendarScroll = useCallback(() => {
-    if (calendarScrollTimerRef.current !== null) {
-      window.clearTimeout(calendarScrollTimerRef.current)
-      calendarScrollTimerRef.current = null
-    }
-    if (calendarSettleLockedRef.current) return
-    const pager = calendarPagerRef.current
-    if (!pager || pager.clientWidth === 0) return
-    calendarSettleLockedRef.current = true
-    const page = Math.max(
-      0,
-      Math.min(2, Math.round(pager.scrollLeft / pager.clientWidth))
-    )
-    const pageBoundary = page * pager.clientWidth
-    const direction: -1 | 0 | 1 = page === 0 ? -1 : page === 2 ? 1 : 0
-    if (Math.abs(pager.scrollLeft - pageBoundary) > 1) {
-      pager.scrollLeft = pageBoundary
-    }
-    const snapped = snappedDayPagerDate(
-      currentDateRef.current,
-      pageBoundary,
-      pager.clientWidth
-    )
-    if (!snapped) return
-    if (calendarAnimationFrameRef.current !== null) {
-      window.cancelAnimationFrame(calendarAnimationFrameRef.current)
-      calendarAnimationFrameRef.current = null
-    }
-    const previewWasActive = dayPagerPreviewActiveRef.current
-    dayPagerPreviewActiveRef.current = false
-    dayPagerPreviewDirectionRef.current = null
-    const dateChanged = snapped !== currentDateRef.current
-    if (previewWasActive || dateChanged) {
-      dayPagerWeekPreviewRef.current?.commit(direction)
-    }
-    if (dateChanged) {
-      changeDate(snapped, { preserveWeekRailPreview: true })
-    }
-  }, [changeDate])
+  const settleCalendarScroll = useCallback(
+    (atPageBoundary = false) => {
+      const pager = calendarPagerRef.current
+      if (!pager || pager.clientWidth === 0) return
+      const direction = dayPagerSettleDirection(
+        pager.scrollLeft,
+        pager.clientWidth
+      )
+      if (direction === null) return
+      const pageBoundary = (direction + 1) * pager.clientWidth
+      if (atPageBoundary && Math.abs(pager.scrollLeft - pageBoundary) > 1) {
+        return
+      }
+      if (calendarScrollTimerRef.current !== null) {
+        window.clearTimeout(calendarScrollTimerRef.current)
+        calendarScrollTimerRef.current = null
+      }
+      if (Math.abs(pager.scrollLeft - pageBoundary) > 1) {
+        pager.scrollLeft = pageBoundary
+      }
+      if (calendarAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(calendarAnimationFrameRef.current)
+        calendarAnimationFrameRef.current = null
+      }
+      const previewWasActive = dayPagerPreviewActiveRef.current
+      dayPagerPreviewActiveRef.current = false
+      dayPagerPreviewDirectionRef.current = null
+      if (previewWasActive || direction !== 0) {
+        dayPagerWeekPreviewRef.current?.commit(direction)
+      }
+      if (direction === 0) return
+
+      const nextDate = moveDate(currentDateRef.current, direction)
+      // A three-page pager cannot accept another gesture while it remains at a
+      // physical edge. Flush only this settled date change so React replaces the
+      // pages before the synchronous rebase to the center page.
+      flushSync(() => {
+        changeDate(nextDate, { preserveWeekRailPreview: true })
+      })
+      pager.scrollLeft = pager.clientWidth
+    },
+    [changeDate]
+  )
 
   useEffect(() => {
     const pager = calendarPagerRef.current
     if (!pager || !("onscrollend" in pager)) return undefined
-    pager.addEventListener("scrollend", settleCalendarScroll)
-    return () => pager.removeEventListener("scrollend", settleCalendarScroll)
+    const handleScrollEnd = () => settleCalendarScroll()
+    pager.addEventListener("scrollend", handleScrollEnd)
+    return () => pager.removeEventListener("scrollend", handleScrollEnd)
   }, [settleCalendarScroll])
 
   function settleCalendarScrollFallback() {
@@ -419,6 +430,7 @@ export function CalendarPage() {
         }
       }
       calendarAnimationFrameRef.current = null
+      if (!calendarGestureActiveRef.current) settleCalendarScroll(true)
     })
     const pager = calendarPagerRef.current
     if (pager && !("onscrollend" in pager)) {
@@ -529,21 +541,16 @@ export function CalendarPage() {
             className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: 24 * hourHeight + calendarInset * 2 }}
             onScroll={handleCalendarScroll}
-            onPointerDown={() => {
-              calendarSettleLockedRef.current = false
-            }}
             onTouchCancel={() => {
               calendarGestureActiveRef.current = false
+              settleCalendarScroll(true)
             }}
             onTouchEnd={() => {
               calendarGestureActiveRef.current = false
+              settleCalendarScroll(true)
             }}
             onTouchStart={() => {
               calendarGestureActiveRef.current = true
-              calendarSettleLockedRef.current = false
-            }}
-            onWheel={() => {
-              calendarSettleLockedRef.current = false
             }}
           >
             {calendarDates.map((pageDate) => (

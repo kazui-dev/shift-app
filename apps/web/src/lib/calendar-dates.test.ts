@@ -5,6 +5,7 @@ import {
   dayPagerDates,
   dayPagerPosition,
   dayPagerPreview,
+  dayPagerSettleDirection,
   dayPagerWeekPreview,
   extendWeekWindow,
   monthValuesForDates,
@@ -26,6 +27,9 @@ describe("three-page day pager", () => {
   })
 
   it("settles to previous, current, or next only", () => {
+    expect(dayPagerSettleDirection(0, 390)).toBe(-1)
+    expect(dayPagerSettleDirection(390, 390)).toBe(0)
+    expect(dayPagerSettleDirection(2 * 390, 390)).toBe(1)
     expect(snappedDayPagerDate("2026-08-26", 0.49 * 390, 390)).toBe(
       "2026-08-25"
     )
@@ -50,12 +54,31 @@ describe("three-page day pager", () => {
   })
 
   it("advances exactly five days across five next-page settles", () => {
-    let date = "2026-08-26"
+    let date = "2026-08-27"
     for (let gesture = 0; gesture < 5; gesture += 1) {
       date = snappedDayPagerDate(date, 2 * 390, 390) ?? date
     }
 
-    expect(date).toBe("2026-08-31")
+    expect(date).toBe("2026-09-01")
+  })
+
+  it("moves back exactly five days across five previous-page settles", () => {
+    let date = "2026-08-27"
+    for (let gesture = 0; gesture < 5; gesture += 1) {
+      date = snappedDayPagerDate(date, 0, 390) ?? date
+    }
+
+    expect(date).toBe("2026-08-22")
+  })
+
+  it("treats programmatic center confirmations and duplicates as no-ops", () => {
+    const committed = snappedDayPagerDate("2026-08-27", 2 * 390, 390)
+    const recentered = snappedDayPagerDate(committed ?? "", 390, 390)
+    const duplicate = snappedDayPagerDate(recentered ?? "", 390, 390)
+
+    expect(committed).toBe("2026-08-28")
+    expect(recentered).toBe(committed)
+    expect(duplicate).toBe(committed)
   })
 
   it("crosses month and year boundaries with adjacent pages", () => {
@@ -69,6 +92,8 @@ describe("three-page day pager", () => {
       "2027-01-01",
       "2027-01-02",
     ])
+    expect(snappedDayPagerDate("2026-08-31", 2 * 390, 390)).toBe("2026-09-01")
+    expect(snappedDayPagerDate("2026-12-31", 2 * 390, 390)).toBe("2027-01-01")
   })
 
   it("tracks finger movement one-to-one from the center", () => {
@@ -128,6 +153,7 @@ describe("three-page day pager", () => {
 
   it("rejects a zero-width viewport", () => {
     expect(dayPagerPosition(0, 0)).toBeNull()
+    expect(dayPagerSettleDirection(0, 0)).toBeNull()
     expect(snappedDayPagerDate("2026-08-26", 0, 0)).toBeNull()
   })
 })
