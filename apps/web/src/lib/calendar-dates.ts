@@ -8,18 +8,15 @@ export type WeekWindowExtension = {
   prepended: number
 }
 
-export type WeekRailPreviewPage = {
-  weekStart: string
-  selectedDate: string
-  indicatorPosition: number
-  opacity: number
-}
-
-export type WeekRailPreview = {
+export type WeekRailPreviewPair = {
   fromDate: string
   toDate: string
+  sameWeek: boolean
+}
+
+export type WeekRailPreviewPosition = {
+  pair: WeekRailPreviewPair
   progress: number
-  pages: WeekRailPreviewPage[]
 }
 
 export function localDate(value: string): Date {
@@ -212,66 +209,37 @@ export function snappedWeekDate(
   weeks: string[],
   scrollLeft: number,
   pageWidth: number,
-  weekday: number
+  selectedDate: string
 ): string | null {
   const position = weekScrollPosition(weeks, scrollLeft, pageWidth)
   if (position === null) return null
   const start = weeks[Math.round(position)]
-  return start ? moveDate(start, weekday) : null
+  return start ? moveDate(start, localDate(selectedDate).getDay()) : null
 }
 
-export function createWeekRailPreview(
+export function weekRailPreviewPosition(
   dates: string[],
   position: number
-): WeekRailPreview | null {
+): WeekRailPreviewPosition | null {
   if (dates.length === 0) return null
   const boundedPosition = Math.max(0, Math.min(dates.length - 1, position))
-  const fromIndex = Math.floor(boundedPosition)
-  const toIndex = Math.ceil(boundedPosition)
+  const lastIndex = dates.length - 1
+  const fromIndex =
+    boundedPosition === lastIndex
+      ? Math.max(0, lastIndex - 1)
+      : Math.floor(boundedPosition)
+  const toIndex = Math.min(lastIndex, fromIndex + 1)
   const fromDate = dates[fromIndex]
   const toDate = dates[toIndex]
   if (!fromDate || !toDate) return null
   const progress = boundedPosition - fromIndex
-  const fromWeekday = localDate(fromDate).getDay()
-  const toWeekday = localDate(toDate).getDay()
-  const fromWeek = weekStart(fromDate)
-  const toWeek = weekStart(toDate)
-  const sameWeek = fromWeek === toWeek
-
-  if (sameWeek) {
-    return {
+  return {
+    pair: {
       fromDate,
       toDate,
-      progress,
-      pages: [
-        {
-          weekStart: fromWeek,
-          selectedDate: progress < 0.5 ? fromDate : toDate,
-          indicatorPosition: fromWeekday + (toWeekday - fromWeekday) * progress,
-          opacity: 1,
-        },
-      ],
-    }
-  }
-
-  return {
-    fromDate,
-    toDate,
+      sameWeek: weekStart(fromDate) === weekStart(toDate),
+    },
     progress,
-    pages: [
-      {
-        weekStart: fromWeek,
-        selectedDate: fromDate,
-        indicatorPosition: fromWeekday + progress * 2,
-        opacity: 1 - progress,
-      },
-      {
-        weekStart: toWeek,
-        selectedDate: toDate,
-        indicatorPosition: toWeekday - (1 - progress) * 2,
-        opacity: progress,
-      },
-    ],
   }
 }
 

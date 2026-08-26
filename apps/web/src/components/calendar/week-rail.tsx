@@ -4,6 +4,8 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
+  type RefObject,
 } from "react"
 
 import {
@@ -15,8 +17,7 @@ import {
   weekStart,
   weekWindowExtensionDirection,
   weekWindowForDate,
-  type WeekRailPreview,
-  type WeekRailPreviewPage,
+  type WeekRailPreviewPair,
 } from "@/lib/calendar-dates"
 
 const fallbackScrollEndDelay = 160
@@ -26,6 +27,12 @@ const weekWindowEdgeThreshold = 2
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 const weekCellClassName =
   "grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
+type WeekContentPage = {
+  weekStart: string
+  selectedDate: string
+  indicatorPosition: number | string
+  opacity: CSSProperties["opacity"]
+}
 
 function weekdayTextColor(weekday: number): string {
   if (weekday === 0) return "text-red-600 dark:text-red-400"
@@ -49,7 +56,7 @@ function WeekContent({
   animateIndicator,
   onDateChange,
 }: {
-  page: WeekRailPreviewPage
+  page: WeekContentPage
   interactive: boolean
   animateIndicator: boolean
   onDateChange?: (date: string) => void
@@ -102,7 +109,11 @@ function WeekContent({
         <span
           className={`${weekCellClassName} ${animateIndicator ? "transition-transform [transition-duration:160ms] [transition-timing-function:cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none" : ""}`}
           style={{
-            transform: `translateX(${page.indicatorPosition * 100}%)`,
+            transform: `translateX(${
+              typeof page.indicatorPosition === "number"
+                ? `${page.indicatorPosition * 100}%`
+                : page.indicatorPosition
+            })`,
           }}
         >
           <span aria-hidden className="h-4" />
@@ -113,18 +124,60 @@ function WeekContent({
   )
 }
 
-function WeekPreview({ preview }: { preview: WeekRailPreview }) {
+function WeekPreview({
+  date,
+  pair,
+}: {
+  date: string
+  pair: WeekRailPreviewPair
+}) {
+  const fromWeekday = localDate(pair.fromDate).getDay()
+  const toWeekday = localDate(pair.toDate).getDay()
+  const progress = "var(--preview-progress, 0)"
+
+  if (pair.sameWeek) {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden border-b bg-background">
+        <WeekContent
+          page={{
+            weekStart: weekStart(pair.fromDate),
+            selectedDate: date,
+            indicatorPosition: `calc(${fromWeekday * 100}% + ${(toWeekday - fromWeekday) * 100}% * ${progress})`,
+            opacity: 1,
+          }}
+          interactive={false}
+          animateIndicator={false}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden border-b bg-background">
-      {preview.pages.map((page) => (
-        <div key={page.weekStart} className="absolute inset-0">
-          <WeekContent
-            page={page}
-            interactive={false}
-            animateIndicator={false}
-          />
-        </div>
-      ))}
+      <div className="absolute inset-0">
+        <WeekContent
+          page={{
+            weekStart: weekStart(pair.fromDate),
+            selectedDate: date,
+            indicatorPosition: `calc(${fromWeekday * 100}% + 200% * ${progress})`,
+            opacity: `calc(1 - ${progress})`,
+          }}
+          interactive={false}
+          animateIndicator={false}
+        />
+      </div>
+      <div className="absolute inset-0">
+        <WeekContent
+          page={{
+            weekStart: weekStart(pair.toDate),
+            selectedDate: date,
+            indicatorPosition: `calc(${(toWeekday - 2) * 100}% + 200% * ${progress})`,
+            opacity: progress,
+          }}
+          interactive={false}
+          animateIndicator={false}
+        />
+      </div>
     </div>
   )
 }
@@ -136,25 +189,30 @@ function pageWidth(rail: HTMLDivElement, pageCount: number): number {
 export function WeekRail({
   date,
   onDateChange,
-  preview,
+  previewPair,
+  previewRootRef,
 }: {
   date: string
   onDateChange: (date: string) => void
-  preview: WeekRailPreview | null
+  previewPair: WeekRailPreviewPair | null
+  previewRootRef: RefObject<HTMLDivElement | null>
 }) {
   const railRef = useRef<HTMLDivElement>(null)
   const scrollTimerRef = useRef<number | null>(null)
   const touchActiveRef = useRef(false)
   const pendingPrependRef = useRef(0)
   const animateIndicatorRef = useRef(false)
+  const currentDateRef = useRef(date)
   const [weekStarts, setWeekStarts] = useState(() =>
     createWeekWindow(date, weekWindowRadius)
   )
   const weekStartsRef = useRef(weekStarts)
   weekStartsRef.current = weekStarts
+  currentDateRef.current = date
   const selectedWeekday = localDate(date).getDay()
   const showPreview =
-    preview !== null && (preview.fromDate !== date || preview.toDate !== date)
+    previewPair !== null &&
+    (previewPair.fromDate !== date || previewPair.toDate !== date)
 
   useLayoutEffect(() => {
     const rail = railRef.current
@@ -236,17 +294,18 @@ export function WeekRail({
     if (!rail || rail.clientWidth === 0) return
     const currentWeeks = weekStartsRef.current
     const width = pageWidth(rail, currentWeeks.length)
+    const selectedDate = currentDateRef.current
     const snapped = snappedWeekDate(
       currentWeeks,
       rail.scrollLeft,
       width,
-      selectedWeekday
+      selectedDate
     )
     if (!snapped) return
     const page = currentWeeks.indexOf(weekStart(snapped))
-    if (snapped !== date) onDateChange(snapped)
+    if (snapped !== currentDateRef.current) onDateChange(snapped)
     extendWindow(page)
-  }, [date, extendWindow, onDateChange, selectedWeekday])
+  }, [extendWindow, onDateChange])
 
   useEffect(() => {
     const rail = railRef.current
@@ -284,7 +343,7 @@ export function WeekRail({
   }
 
   return (
-    <div className="relative overflow-hidden">
+    <div ref={previewRootRef} className="relative overflow-hidden">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-1 z-20 grid grid-cols-7 text-xs"
@@ -331,7 +390,9 @@ export function WeekRail({
         ))}
       </div>
 
-      {showPreview && preview && <WeekPreview preview={preview} />}
+      {showPreview && previewPair && (
+        <WeekPreview date={date} pair={previewPair} />
+      )}
     </div>
   )
 }
