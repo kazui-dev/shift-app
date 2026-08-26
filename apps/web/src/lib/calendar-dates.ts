@@ -1,18 +1,19 @@
-export type DateWindowExtension = {
-  dates: string[]
-  pageShift: number
-}
-
 export type WeekWindowExtension = {
   weeks: string[]
   prepended: number
 }
 
 export type DayPagerPreview = {
-  fromDate: string
-  toDate: string
-  sameWeek: boolean
+  direction: -1 | 1
   progress: number
+}
+
+export type DayPagerWeekPreview = {
+  selectedDate: string
+  targetDate: string
+  sameWeek: boolean
+  selectedWeekday: number
+  targetWeekday: number
 }
 
 export function localDate(value: string): Date {
@@ -73,10 +74,8 @@ export function monthDistance(from: string, to: string): number {
   )
 }
 
-export function createDateWindow(center: string, radius: number): string[] {
-  return Array.from({ length: radius * 2 + 1 }, (_, index) =>
-    moveDate(center, index - radius)
-  )
+export function dayPagerDates(date: string): [string, string, string] {
+  return [moveDate(date, -1), date, moveDate(date, 1)]
 }
 
 export function createWeekWindow(center: string, radius: number): string[] {
@@ -104,45 +103,6 @@ export function weekWindowExtensionDirection(
   if (index <= threshold) return "before"
   if (index >= length - 1 - threshold) return "after"
   return null
-}
-
-export function windowForDate(
-  dates: string[],
-  target: string,
-  radius: number
-): string[] {
-  return dates.includes(target) ? dates : createDateWindow(target, radius)
-}
-
-export function extendDateWindow(
-  dates: string[],
-  direction: "before" | "after",
-  count: number,
-  maxLength = Number.POSITIVE_INFINITY
-): DateWindowExtension {
-  const first = dates[0]
-  const last = dates.at(-1)
-  if (!first || !last || count <= 0) return { dates, pageShift: 0 }
-
-  if (direction === "before") {
-    const added = Array.from({ length: count }, (_, index) =>
-      moveDate(first, index - count)
-    )
-    return {
-      dates: [...added, ...dates].slice(0, maxLength),
-      pageShift: added.length,
-    }
-  }
-
-  const added = Array.from({ length: count }, (_, index) =>
-    moveDate(last, index + 1)
-  )
-  const extended = [...dates, ...added]
-  const removed = Math.max(0, extended.length - maxLength)
-  return {
-    dates: extended.slice(removed),
-    pageShift: removed === 0 ? 0 : -removed,
-  }
 }
 
 export function extendWeekWindow(
@@ -173,24 +133,29 @@ export function extendWeekWindow(
   }
 }
 
-export function snappedDate(
-  dates: string[],
-  scrollLeft: number,
-  pageWidth: number
-): string | null {
-  const position = calendarDatePosition(dates, scrollLeft, pageWidth)
-  if (position === null) return null
-  const index = Math.round(position)
-  return dates[index] ?? null
-}
-
-export function calendarDatePosition(
-  dates: string[],
+function scrollPosition(
+  pageCount: number,
   scrollLeft: number,
   pageWidth: number
 ): number | null {
-  if (dates.length === 0 || pageWidth <= 0) return null
-  return Math.max(0, Math.min(dates.length - 1, scrollLeft / pageWidth))
+  if (pageCount === 0 || pageWidth <= 0) return null
+  return Math.max(0, Math.min(pageCount - 1, scrollLeft / pageWidth))
+}
+
+export function dayPagerPosition(
+  scrollLeft: number,
+  pageWidth: number
+): number | null {
+  return scrollPosition(3, scrollLeft, pageWidth)
+}
+
+export function snappedDayPagerDate(
+  date: string,
+  scrollLeft: number,
+  pageWidth: number
+): string | null {
+  const position = dayPagerPosition(scrollLeft, pageWidth)
+  return position === null ? null : moveDate(date, Math.round(position) - 1)
 }
 
 export function weekScrollPosition(
@@ -198,7 +163,7 @@ export function weekScrollPosition(
   scrollLeft: number,
   pageWidth: number
 ): number | null {
-  return calendarDatePosition(weeks, scrollLeft, pageWidth)
+  return scrollPosition(weeks.length, scrollLeft, pageWidth)
 }
 
 export function snappedWeekDate(
@@ -213,27 +178,27 @@ export function snappedWeekDate(
   return start ? moveDate(start, localDate(selectedDate).getDay()) : null
 }
 
-export function dayPagerPreview(
-  dates: string[],
-  position: number
-): DayPagerPreview | null {
-  if (dates.length === 0) return null
-  const boundedPosition = Math.max(0, Math.min(dates.length - 1, position))
-  const lastIndex = dates.length - 1
-  const fromIndex =
-    boundedPosition === lastIndex
-      ? Math.max(0, lastIndex - 1)
-      : Math.floor(boundedPosition)
-  const toIndex = Math.min(lastIndex, fromIndex + 1)
-  const fromDate = dates[fromIndex]
-  const toDate = dates[toIndex]
-  if (!fromDate || !toDate) return null
-  const progress = boundedPosition - fromIndex
+export function dayPagerPreview(position: number): DayPagerPreview | null {
+  const boundedPosition = Math.max(0, Math.min(2, position))
+  const offset = boundedPosition - 1
+  if (offset === 0) return null
   return {
-    fromDate,
-    toDate,
-    sameWeek: weekStart(fromDate) === weekStart(toDate),
-    progress,
+    direction: offset < 0 ? -1 : 1,
+    progress: Math.abs(offset),
+  }
+}
+
+export function dayPagerWeekPreview(
+  date: string,
+  direction: -1 | 1
+): DayPagerWeekPreview {
+  const targetDate = moveDate(date, direction)
+  return {
+    selectedDate: date,
+    targetDate,
+    sameWeek: weekStart(date) === weekStart(targetDate),
+    selectedWeekday: localDate(date).getDay(),
+    targetWeekday: localDate(targetDate).getDay(),
   }
 }
 

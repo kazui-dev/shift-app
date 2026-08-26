@@ -18,8 +18,8 @@ import { toast } from "@workspace/ui/lib/toast"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
 import {
+  type DayPagerWeekPreviewController,
   WeekRail,
-  type WeekRailPreviewController,
 } from "@/components/calendar/week-rail"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -33,18 +33,16 @@ import {
   type CalendarAssignment,
 } from "@/api/assignments"
 import {
-  createDateWindow,
-  calendarDatePosition,
+  dayPagerDates,
+  dayPagerPosition,
   dayPagerPreview,
-  extendDateWindow,
   localDate,
   monthDistance,
   monthValue,
   monthValuesForDates,
   moveMonth,
   moveMonthValue,
-  snappedDate,
-  windowForDate,
+  snappedDayPagerDate,
 } from "@/lib/calendar-dates"
 import {
   japanDateTime,
@@ -64,10 +62,6 @@ function time(value: string): string {
 const hourHeight = 64
 const calendarInset = 12
 const fallbackScrollEndDelay = 160
-const calendarWindowRadius = 14
-const calendarWindowExtension = 14
-const calendarWindowEdgeThreshold = 4
-const calendarWindowMaxPages = 43
 const assignmentPrefetchRadius = 6
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
@@ -91,10 +85,6 @@ function initialCalendarScrollTop(now: Date): number {
   const japanNow = japanDateTime(now)
   const minute = japanNow.hour * 60 + japanNow.minute
   return Math.max(0, (minute / 60 - 2.5) * hourHeight + calendarInset)
-}
-
-function calendarPageWidth(pager: HTMLDivElement, pageCount: number): number {
-  return pageCount > 0 ? pager.scrollWidth / pageCount : pager.clientWidth
 }
 
 function useCurrentTime(): Date {
@@ -211,24 +201,22 @@ export function CalendarPage() {
   >(null)
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
-  const [calendarDates, setCalendarDates] = useState(() =>
-    createDateWindow(date, calendarWindowRadius)
-  )
   const calendarRef = useRef<HTMLDivElement>(null)
   const calendarPagerRef = useRef<HTMLDivElement>(null)
   const calendarScrollTimerRef = useRef<number | null>(null)
   const calendarAnimationFrameRef = useRef<number | null>(null)
   const calendarGestureActiveRef = useRef(false)
+  const calendarSettleLockedRef = useRef(false)
   const dayPagerPreviewActiveRef = useRef(false)
-  const calendarDatesRef = useRef(calendarDates)
+  const dayPagerPreviewDirectionRef = useRef<-1 | 1 | null>(null)
   const currentDateRef = useRef(date)
-  const weekRailPreviewControllerRef = useRef<WeekRailPreviewController>(null)
+  const dayPagerWeekPreviewRef = useRef<DayPagerWeekPreviewController>(null)
   const previousPrefetchMonthRef = useRef(monthValue(date))
   const initializedCalendarRef = useRef(false)
   const currentTime = useCurrentTime()
   const now = japanDateTime(currentTime)
-  calendarDatesRef.current = calendarDates
   currentDateRef.current = date
+  const calendarDates = useMemo(() => dayPagerDates(date), [date])
   const selectedMonth = monthValue(date)
   const selectedMonthQuery = useQuery(assignmentMonthQuery(selectedMonth))
   const windowMonths = useMemo(
@@ -261,7 +249,8 @@ export function CalendarPage() {
       calendarAnimationFrameRef.current = null
     }
     dayPagerPreviewActiveRef.current = false
-    weekRailPreviewControllerRef.current?.dismiss()
+    dayPagerPreviewDirectionRef.current = null
+    dayPagerWeekPreviewRef.current?.dismiss()
   }, [])
 
   const changeDate = useCallback(
@@ -273,16 +262,6 @@ export function CalendarPage() {
       setReportTarget(null)
       setReportMessage("")
       if (!options.preserveWeekRailPreview) dismissDayPagerPreview()
-      const currentDates = calendarDatesRef.current
-      const nextDates = windowForDate(
-        currentDates,
-        nextDateValue,
-        calendarWindowRadius
-      )
-      if (nextDates !== currentDates) {
-        calendarDatesRef.current = nextDates
-        setCalendarDates(nextDates)
-      }
       currentDateRef.current = nextDateValue
       setDate(nextDateValue)
     },
@@ -293,17 +272,12 @@ export function CalendarPage() {
     const calendarElement = calendarRef.current
     const pager = calendarPagerRef.current
     if (pager && pager.clientWidth > 0) {
-      const pageWidth = calendarPageWidth(pager, calendarDates.length)
       if (calendarAnimationFrameRef.current !== null) {
         window.cancelAnimationFrame(calendarAnimationFrameRef.current)
         calendarAnimationFrameRef.current = null
       }
-      const index = calendarDates.indexOf(date)
-      if (index >= 0) {
-        const target = index * pageWidth
-        if (Math.abs(pager.scrollLeft - target) > 1) {
-          pager.scrollLeft = target
-        }
+      if (Math.abs(pager.scrollLeft - pager.clientWidth) > 1) {
+        pager.scrollLeft = pager.clientWidth
       }
     }
     if (calendarElement && !initializedCalendarRef.current) {
@@ -313,24 +287,17 @@ export function CalendarPage() {
       scrollTopRef.current = scrollTop
       initializedCalendarRef.current = true
     }
-  }, [calendarDates, date, scrollTopRef])
+  }, [date, scrollTopRef])
 
   useEffect(() => {
     const pager = calendarPagerRef.current
     if (!pager) return undefined
     const handleResize = () => {
-      const index = calendarDatesRef.current.indexOf(date)
-      if (index >= 0 && pager.clientWidth > 0) {
-        const pageWidth = calendarPageWidth(
-          pager,
-          calendarDatesRef.current.length
-        )
-        pager.scrollLeft = index * pageWidth
-      }
+      if (pager.clientWidth > 0) pager.scrollLeft = pager.clientWidth
     }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [date])
+  }, [])
 
   useEffect(() => {
     if (!selectedMonthQuery.isSuccess) return undefined
@@ -370,58 +337,45 @@ export function CalendarPage() {
     []
   )
 
-  const extendCalendarWindow = useCallback((index: number) => {
-    const currentDates = calendarDatesRef.current
-    if (index <= calendarWindowEdgeThreshold) {
-      const extension = extendDateWindow(
-        currentDates,
-        "before",
-        calendarWindowExtension,
-        calendarWindowMaxPages
-      )
-      calendarDatesRef.current = extension.dates
-      setCalendarDates(extension.dates)
-      return
-    }
-    if (index >= currentDates.length - 1 - calendarWindowEdgeThreshold) {
-      const extension = extendDateWindow(
-        currentDates,
-        "after",
-        calendarWindowExtension,
-        calendarWindowMaxPages
-      )
-      calendarDatesRef.current = extension.dates
-      setCalendarDates(extension.dates)
-    }
-  }, [])
-
   const settleCalendarScroll = useCallback(() => {
     if (calendarScrollTimerRef.current !== null) {
       window.clearTimeout(calendarScrollTimerRef.current)
       calendarScrollTimerRef.current = null
     }
+    if (calendarSettleLockedRef.current) return
     const pager = calendarPagerRef.current
     if (!pager || pager.clientWidth === 0) return
-    const currentDates = calendarDatesRef.current
-    const pageWidth = calendarPageWidth(pager, currentDates.length)
-    const snapped = snappedDate(currentDates, pager.scrollLeft, pageWidth)
+    calendarSettleLockedRef.current = true
+    const page = Math.max(
+      0,
+      Math.min(2, Math.round(pager.scrollLeft / pager.clientWidth))
+    )
+    const pageBoundary = page * pager.clientWidth
+    const direction: -1 | 0 | 1 = page === 0 ? -1 : page === 2 ? 1 : 0
+    if (Math.abs(pager.scrollLeft - pageBoundary) > 1) {
+      pager.scrollLeft = pageBoundary
+    }
+    const snapped = snappedDayPagerDate(
+      currentDateRef.current,
+      pageBoundary,
+      pager.clientWidth
+    )
     if (!snapped) return
-    const page = currentDates.indexOf(snapped)
     if (calendarAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
     const previewWasActive = dayPagerPreviewActiveRef.current
     dayPagerPreviewActiveRef.current = false
+    dayPagerPreviewDirectionRef.current = null
     const dateChanged = snapped !== currentDateRef.current
     if (previewWasActive || dateChanged) {
-      weekRailPreviewControllerRef.current?.commit(snapped)
+      dayPagerWeekPreviewRef.current?.commit(direction)
     }
     if (dateChanged) {
       changeDate(snapped, { preserveWeekRailPreview: true })
     }
-    extendCalendarWindow(page)
-  }, [changeDate, extendCalendarWindow])
+  }, [changeDate])
 
   useEffect(() => {
     const pager = calendarPagerRef.current
@@ -448,20 +402,20 @@ export function CalendarPage() {
     calendarAnimationFrameRef.current = window.requestAnimationFrame(() => {
       const pager = calendarPagerRef.current
       if (pager && pager.clientWidth > 0) {
-        const currentDates = calendarDatesRef.current
-        const pageWidth = calendarPageWidth(pager, currentDates.length)
-        const position = calendarDatePosition(
-          currentDates,
-          pager.scrollLeft,
-          pageWidth
-        )
-        const preview =
-          position === null ? null : dayPagerPreview(currentDates, position)
-        const betweenPages =
-          preview && preview.progress > 0 && preview.progress < 1
-        if (preview && (dayPagerPreviewActiveRef.current || betweenPages)) {
+        const position = dayPagerPosition(pager.scrollLeft, pager.clientWidth)
+        const preview = position === null ? null : dayPagerPreview(position)
+        if (preview) {
           dayPagerPreviewActiveRef.current = true
-          weekRailPreviewControllerRef.current?.update(preview)
+          dayPagerPreviewDirectionRef.current = preview.direction
+          dayPagerWeekPreviewRef.current?.update(preview)
+        } else if (
+          dayPagerPreviewActiveRef.current &&
+          dayPagerPreviewDirectionRef.current
+        ) {
+          dayPagerWeekPreviewRef.current?.update({
+            direction: dayPagerPreviewDirectionRef.current,
+            progress: 0,
+          })
         }
       }
       calendarAnimationFrameRef.current = null
@@ -554,7 +508,7 @@ export function CalendarPage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
-        previewControllerRef={weekRailPreviewControllerRef}
+        dayPagerPreviewRef={dayPagerWeekPreviewRef}
       />
 
       <p className="shrink-0 py-0.5 text-center text-sm font-semibold">
@@ -575,6 +529,9 @@ export function CalendarPage() {
             className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             style={{ height: 24 * hourHeight + calendarInset * 2 }}
             onScroll={handleCalendarScroll}
+            onPointerDown={() => {
+              calendarSettleLockedRef.current = false
+            }}
             onTouchCancel={() => {
               calendarGestureActiveRef.current = false
             }}
@@ -583,6 +540,10 @@ export function CalendarPage() {
             }}
             onTouchStart={() => {
               calendarGestureActiveRef.current = true
+              calendarSettleLockedRef.current = false
+            }}
+            onWheel={() => {
+              calendarSettleLockedRef.current = false
             }}
           >
             {calendarDates.map((pageDate) => (

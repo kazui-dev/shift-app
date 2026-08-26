@@ -1,248 +1,134 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
-  calendarDatePosition,
-  createDateWindow,
   createWeekWindow,
+  dayPagerDates,
+  dayPagerPosition,
   dayPagerPreview,
-  extendDateWindow,
+  dayPagerWeekPreview,
   extendWeekWindow,
   monthValuesForDates,
-  moveDate,
-  snappedDate,
+  snappedDayPagerDate,
   snappedWeekDate,
   weekDates,
   weekScrollPosition,
   weekWindowExtensionDirection,
   weekWindowForDate,
-  windowForDate,
 } from "./calendar-dates"
 
-describe("calendar date window", () => {
-  it("creates stable consecutive pages around the selected date", () => {
-    const dates = createDateWindow("2026-08-26", 2)
-
-    expect(dates).toEqual([
-      "2026-08-24",
-      "2026-08-25",
-      "2026-08-26",
-      "2026-08-27",
-      "2026-08-28",
-    ])
-  })
-
-  it("prepends and appends without replacing existing date pages", () => {
-    const dates = createDateWindow("2026-01-01", 1)
-    const prepended = extendDateWindow(dates, "before", 2)
-    const appended = extendDateWindow(prepended.dates, "after", 2)
-
-    expect(prepended.pageShift).toBe(2)
-    expect(prepended.dates.slice(2, 5)).toEqual(dates)
-    expect(appended.pageShift).toBe(0)
-    expect(appended.dates).toEqual([
-      "2025-12-29",
-      "2025-12-30",
-      "2025-12-31",
-      "2026-01-01",
-      "2026-01-02",
-      "2026-01-03",
-      "2026-01-04",
-    ])
-  })
-
-  it("bounds long-running windows while preserving the visible page position", () => {
-    const initial = createDateWindow("2026-08-26", 2)
-    const appended = extendDateWindow(initial, "after", 2, 5)
-    const prepended = extendDateWindow(appended.dates, "before", 2, 5)
-
-    expect(appended.dates).toEqual([
-      "2026-08-26",
-      "2026-08-27",
-      "2026-08-28",
-      "2026-08-29",
-      "2026-08-30",
-    ])
-    expect(appended.pageShift).toBe(-2)
-    expect(prepended.dates).toEqual(initial)
-    expect(prepended.pageShift).toBe(2)
-  })
-
-  it("uses the final snapped page as the selected date", () => {
-    const dates = createDateWindow("2026-08-26", 2)
-
-    expect(snappedDate(dates, 0, 390)).toBe("2026-08-24")
-    expect(snappedDate(dates, 2.6 * 390, 390)).toBe("2026-08-27")
-    expect(snappedDate(dates, 100 * 390, 390)).toBe("2026-08-28")
-  })
-
-  it("calculates continuous date positions beyond one-day offsets", () => {
-    const dates = createDateWindow("2026-08-26", 3)
-    const selectedIndex = dates.indexOf("2026-08-26")
-
-    expect(calendarDatePosition(dates, selectedIndex * 390, 390)).toBe(
-      selectedIndex
-    )
-    expect(calendarDatePosition(dates, (selectedIndex - 1) * 390, 390)).toBe(
-      selectedIndex - 1
-    )
-    expect(calendarDatePosition(dates, (selectedIndex + 1) * 390, 390)).toBe(
-      selectedIndex + 1
-    )
-    expect(calendarDatePosition(dates, (selectedIndex - 2.25) * 390, 390)).toBe(
-      selectedIndex - 2.25
-    )
-    expect(calendarDatePosition(dates, (selectedIndex + 2.5) * 390, 390)).toBe(
-      selectedIndex + 2.5
-    )
-  })
-
-  it("keeps one same-week pair while progress changes", () => {
-    const dates = ["2026-08-31", "2026-09-01"]
-
-    expect(dayPagerPreview(dates, 0.25)).toEqual({
-      fromDate: "2026-08-31",
-      toDate: "2026-09-01",
-      sameWeek: true,
-      progress: 0.25,
-    })
-    expect(dayPagerPreview(dates, 0.75)).toEqual({
-      fromDate: "2026-08-31",
-      toDate: "2026-09-01",
-      sameWeek: true,
-      progress: 0.75,
-    })
-  })
-
-  it("keeps one cross-week pair while progress changes", () => {
-    const dates = ["2026-08-29", "2026-08-30"]
-
-    expect(dayPagerPreview(dates, 0.25)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
-      sameWeek: false,
-      progress: 0.25,
-    })
-    expect(dayPagerPreview(dates, 0.75)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
-      sameWeek: false,
-      progress: 0.75,
-    })
-  })
-
-  it("does not derive selected state at the preview midpoint", () => {
-    expect(dayPagerPreview(["2026-08-31", "2026-09-01"], 0.5)).toEqual({
-      fromDate: "2026-08-31",
-      toDate: "2026-09-01",
-      sameWeek: true,
-      progress: 0.5,
-    })
-  })
-
-  it("changes adjacent dates only when crossing a day boundary", () => {
-    const dates = createDateWindow("2026-08-26", 4)
-
-    expect(dayPagerPreview(dates, 4.25)).toEqual({
-      fromDate: "2026-08-26",
-      toDate: "2026-08-27",
-      sameWeek: true,
-      progress: 0.25,
-    })
-    expect(dayPagerPreview(dates, 4.75)).toMatchObject({
-      fromDate: "2026-08-26",
-      toDate: "2026-08-27",
-      sameWeek: true,
-    })
-    expect(dayPagerPreview(dates, 5.25)).toMatchObject({
-      fromDate: "2026-08-27",
-      toDate: "2026-08-28",
-      sameWeek: true,
-    })
-  })
-
-  it("handles empty, single-page, and final-page positions", () => {
-    const dates = createDateWindow("2026-08-26", 1)
-
-    expect(dayPagerPreview([], 0)).toBeNull()
-    expect(dayPagerPreview(["2026-08-26"], 0)).toEqual({
-      fromDate: "2026-08-26",
-      toDate: "2026-08-26",
-      sameWeek: true,
-      progress: 0,
-    })
-    expect(dayPagerPreview(dates, 2)).toEqual({
-      fromDate: "2026-08-26",
-      toDate: "2026-08-27",
-      sameWeek: true,
-      progress: 1,
-    })
-  })
-
-  it("keeps visual preview independent from the snapped date commit", () => {
-    const dates = createDateWindow("2026-08-29", 1)
-
-    expect(dayPagerPreview(dates, 1.75)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
-      sameWeek: false,
-      progress: 0.75,
-    })
-    expect(snappedDate(dates, 2 * 390, 390)).toBe("2026-08-30")
-    expect(dates).toEqual(["2026-08-28", "2026-08-29", "2026-08-30"])
-  })
-
-  it("uses the same cross-week coordinates from Saturday to Sunday and back", () => {
-    const dates = ["2026-08-29", "2026-08-30"]
-
-    expect(dayPagerPreview(dates, 0.2)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
-      sameWeek: false,
-      progress: 0.2,
-    })
-    expect(dayPagerPreview(dates, 0.8)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
-      sameWeek: false,
-      progress: 0.8,
-    })
-  })
-
-  it("tracks each adjacent pair across consecutive day movement", () => {
-    const dates = createDateWindow("2026-08-23", 5)
-
-    expect(
-      [5.25, 6.25, 7.25, 8.25, 9.25].map(
-        (position) => dayPagerPreview(dates, position)?.fromDate
-      )
-    ).toEqual([
-      "2026-08-23",
-      "2026-08-24",
+describe("three-page day pager", () => {
+  it("always renders previous, current, and next with current centered", () => {
+    expect(dayPagerDates("2026-08-26")).toEqual([
       "2026-08-25",
       "2026-08-26",
       "2026-08-27",
     ])
   })
 
-  it("keeps the window for a nearby external date and rebuilds for a far date", () => {
-    const dates = createDateWindow("2026-08-26", 2)
+  it("settles to previous, current, or next only", () => {
+    expect(snappedDayPagerDate("2026-08-26", 0.49 * 390, 390)).toBe(
+      "2026-08-25"
+    )
+    expect(snappedDayPagerDate("2026-08-26", 1.49 * 390, 390)).toBe(
+      "2026-08-26"
+    )
+    expect(snappedDayPagerDate("2026-08-26", 1.51 * 390, 390)).toBe(
+      "2026-08-27"
+    )
+  })
 
-    expect(windowForDate(dates, "2026-08-28", 2)).toBe(dates)
-    expect(windowForDate(dates, "2027-01-01", 2)).toEqual([
-      "2026-12-30",
+  it("cannot commit more than one day from one settle", () => {
+    expect(snappedDayPagerDate("2026-08-26", -10_000, 390)).toBe("2026-08-25")
+    expect(snappedDayPagerDate("2026-08-26", 10_000, 390)).toBe("2026-08-27")
+  })
+
+  it("recycles the committed date back into the center page", () => {
+    const committed = snappedDayPagerDate("2026-08-26", 2 * 390, 390)
+
+    expect(committed).toBe("2026-08-27")
+    expect(dayPagerDates(committed ?? "")[1]).toBe(committed)
+  })
+
+  it("advances exactly five days across five next-page settles", () => {
+    let date = "2026-08-26"
+    for (let gesture = 0; gesture < 5; gesture += 1) {
+      date = snappedDayPagerDate(date, 2 * 390, 390) ?? date
+    }
+
+    expect(date).toBe("2026-08-31")
+  })
+
+  it("crosses month and year boundaries with adjacent pages", () => {
+    expect(dayPagerDates("2026-09-01")).toEqual([
+      "2026-08-31",
+      "2026-09-01",
+      "2026-09-02",
+    ])
+    expect(dayPagerDates("2027-01-01")).toEqual([
       "2026-12-31",
       "2027-01-01",
       "2027-01-02",
-      "2027-01-03",
     ])
   })
 
-  it("finds every assignment month covered by the DOM window", () => {
-    const dates = Array.from({ length: 4 }, (_, index) =>
-      moveDate("2026-12-30", index)
-    )
+  it("tracks finger movement one-to-one from the center", () => {
+    expect(dayPagerPosition(0.25 * 390, 390)).toBe(0.25)
+    expect(dayPagerPreview(0.25)).toEqual({
+      direction: -1,
+      progress: 0.75,
+    })
+    expect(dayPagerPreview(1)).toBeNull()
+    expect(dayPagerPreview(1.75)).toEqual({
+      direction: 1,
+      progress: 0.75,
+    })
+  })
 
-    expect(monthValuesForDates(dates)).toEqual(["2026-12", "2027-01"])
+  it("keeps preview directional without deriving intermediate selection", () => {
+    expect(dayPagerPreview(0.5)).toEqual({ direction: -1, progress: 0.5 })
+    expect(dayPagerPreview(1.5)).toEqual({ direction: 1, progress: 0.5 })
+  })
+
+  it("previews one indicator cell within the same week", () => {
+    expect(dayPagerWeekPreview("2026-08-26", 1)).toEqual({
+      selectedDate: "2026-08-26",
+      targetDate: "2026-08-27",
+      sameWeek: true,
+      selectedWeekday: 3,
+      targetWeekday: 4,
+    })
+  })
+
+  it("prepares the adjacent weeks for Saturday to Sunday", () => {
+    expect(dayPagerWeekPreview("2026-08-29", 1)).toEqual({
+      selectedDate: "2026-08-29",
+      targetDate: "2026-08-30",
+      sameWeek: false,
+      selectedWeekday: 6,
+      targetWeekday: 0,
+    })
+  })
+
+  it("prepares the adjacent weeks for Sunday to Saturday", () => {
+    expect(dayPagerWeekPreview("2026-08-30", -1)).toEqual({
+      selectedDate: "2026-08-30",
+      targetDate: "2026-08-29",
+      sameWeek: false,
+      selectedWeekday: 0,
+      targetWeekday: 6,
+    })
+  })
+
+  it("finds every assignment month required by the three pages", () => {
+    expect(monthValuesForDates(dayPagerDates("2027-01-01"))).toEqual([
+      "2026-12",
+      "2027-01",
+    ])
+  })
+
+  it("rejects a zero-width viewport", () => {
+    expect(dayPagerPosition(0, 0)).toBeNull()
+    expect(snappedDayPagerDate("2026-08-26", 0, 0)).toBeNull()
   })
 })
 

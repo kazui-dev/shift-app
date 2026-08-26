@@ -63,6 +63,30 @@ describe("assignment month queries", () => {
 })
 
 describe("assignment day classification", () => {
+  it("combines the month caches required by previous, current, and next", () => {
+    const august = assignment(
+      "00000000-0000-4000-8000-000000000005",
+      "2026-08-31T10:00:00+09:00",
+      "2026-08-31T12:00:00+09:00"
+    )
+    const september = assignment(
+      "00000000-0000-4000-8000-000000000006",
+      "2026-09-01T10:00:00+09:00",
+      "2026-09-01T12:00:00+09:00"
+    )
+
+    const result = assignmentsByDate(
+      ["2026-08-31", "2026-09-01", "2026-09-02"],
+      [{ assignments: [august] }, { assignments: [september] }]
+    )
+
+    expect(result.get("2026-08-31")?.map(({ id }) => id)).toEqual([august.id])
+    expect(result.get("2026-09-01")?.map(({ id }) => id)).toEqual([
+      september.id,
+    ])
+    expect(result.get("2026-09-02")).toEqual([])
+  })
+
   it("classifies cross-boundary assignments and removes month duplicates", () => {
     const overnight = assignment(
       "00000000-0000-4000-8000-000000000001",
