@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/react-query"
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
   assignmentMonthQuery,
@@ -8,7 +8,11 @@ import {
   type CalendarAssignment,
 } from "./assignments"
 
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => vi.stubEnv("TZ", "UTC"))
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+})
 
 function assignment(
   id: string,
@@ -37,13 +41,10 @@ describe("assignment month queries", () => {
     const range = assignmentMonthRange("2026-08")
 
     expect(query.queryKey).toEqual(["assignments", "month", "2026-08"])
-    expect(new Date(range.from).getDate()).toBe(1)
-    expect(new Date(range.from).getHours()).toBe(0)
-    expect(new Date(range.to).getMonth()).toBe(
-      (new Date(range.from).getMonth() + 1) % 12
-    )
-    expect(new Date(range.to).getDate()).toBe(1)
-    expect(new Date(range.to).getHours()).toBe(0)
+    expect(range).toEqual({
+      from: "2026-07-31T15:00:00.000Z",
+      to: "2026-08-31T15:00:00.000Z",
+    })
   })
 
   it("reuses a fresh cached month without another request", async () => {
@@ -85,6 +86,30 @@ describe("assignment day classification", () => {
     expect(result.get("2026-09-01")?.map(({ id }) => id)).toEqual([
       overnight.id,
       daytime.id,
+    ])
+  })
+
+  it("keeps midnight boundaries half-open", () => {
+    const endingAtMidnight = assignment(
+      "00000000-0000-4000-8000-000000000003",
+      "2026-08-31T22:00:00+09:00",
+      "2026-09-01T00:00:00+09:00"
+    )
+    const startingAtMidnight = assignment(
+      "00000000-0000-4000-8000-000000000004",
+      "2026-09-01T00:00:00+09:00",
+      "2026-09-01T02:00:00+09:00"
+    )
+    const result = assignmentsByDate(
+      ["2026-08-31", "2026-09-01"],
+      [{ assignments: [endingAtMidnight, startingAtMidnight] }]
+    )
+
+    expect(result.get("2026-08-31")?.map(({ id }) => id)).toEqual([
+      endingAtMidnight.id,
+    ])
+    expect(result.get("2026-09-01")?.map(({ id }) => id)).toEqual([
+      startingAtMidnight.id,
     ])
   })
 })

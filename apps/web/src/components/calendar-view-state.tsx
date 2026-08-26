@@ -1,10 +1,10 @@
 import { useMemo, useRef, useState, type ReactNode } from "react"
 
+import { japanDateTime } from "@/lib/japan-time"
 import { CalendarViewStateContext } from "./calendar-view-context"
 
 function currentDate(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  return japanDateTime(new Date()).date
 }
 
 export function CalendarViewStateProvider({
@@ -13,7 +13,7 @@ export function CalendarViewStateProvider({
   children: ReactNode
 }) {
   const [date, setDate] = useState(currentDate)
-  const preferredDayRef = useRef(new Date().getDate())
+  const preferredDayRef = useRef(Number(date.slice(8)))
   const scrollTopRef = useRef<number | null>(null)
   const value = useMemo(
     () => ({ date, setDate, preferredDayRef, scrollTopRef }),

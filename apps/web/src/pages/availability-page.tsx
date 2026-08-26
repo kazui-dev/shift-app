@@ -16,12 +16,17 @@ import {
   validateAvailabilityWindows,
   type AvailabilityWindowInput,
 } from "@/lib/availability-windows"
+import {
+  japanDateStart,
+  japanLocalDateTime,
+  japanTimeZone,
+} from "@/lib/japan-time"
 
 type WindowInput = AvailabilityWindowInput
 
 function timeInJapan(value: string): string {
   const parts = new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Tokyo",
+    timeZone: japanTimeZone,
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -33,10 +38,11 @@ function timeInJapan(value: string): string {
 
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: japanTimeZone,
     month: "long",
     day: "numeric",
     weekday: "short",
-  }).format(new Date(`${value}T12:00:00+09:00`))
+  }).format(new Date(japanDateStart(value)))
 }
 
 function timePart(value: string): string {
@@ -44,7 +50,7 @@ function timePart(value: string): string {
 }
 
 function instant(date: string, time: string): string {
-  return new Date(`${date}T${time}:00+09:00`).toISOString()
+  return new Date(japanLocalDateTime(`${date}T${time}`)).toISOString()
 }
 
 export function AvailabilityPage() {

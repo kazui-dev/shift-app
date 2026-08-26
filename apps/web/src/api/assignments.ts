@@ -7,6 +7,7 @@ import {
 } from "@workspace/shared/shifts"
 import { queryOptions } from "@tanstack/react-query"
 
+import { japanDateStart, japanMonthRange } from "@/lib/japan-time"
 import { apiJson, apiVoid } from "./client"
 
 const assignmentMonthStaleTime = 5 * 60 * 1000
@@ -28,10 +29,11 @@ export function assignmentMonthRange(month: string): {
   from: string
   to: string
 } {
-  const from = new Date(`${month}-01T00:00:00`)
-  const to = new Date(from)
-  to.setMonth(to.getMonth() + 1)
-  return { from: from.toISOString(), to: to.toISOString() }
+  const range = japanMonthRange(month)
+  return {
+    from: new Date(range.from).toISOString(),
+    to: new Date(range.to).toISOString(),
+  }
 }
 
 export function assignmentMonthQuery(month: string) {
@@ -61,10 +63,8 @@ export function assignmentsByDate(
   )
   const result = new Map<string, CalendarAssignment[]>()
   for (const date of dates) {
-    const from = new Date(`${date}T00:00:00`).getTime()
-    const toDate = new Date(`${date}T00:00:00`)
-    toDate.setDate(toDate.getDate() + 1)
-    const to = toDate.getTime()
+    const from = japanDateStart(date)
+    const to = from + 24 * 60 * 60 * 1000
     result.set(
       date,
       assignments.filter(

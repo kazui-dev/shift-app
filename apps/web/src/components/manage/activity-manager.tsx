@@ -17,13 +17,15 @@ import { getRoster } from "@/api/years"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { EmptyState, SectionHeader } from "@/components/page-layout"
+import { japanLocalDateTime, japanTimeZone } from "@/lib/japan-time"
 
 function iso(local: string): string {
-  return new Date(local).toISOString()
+  return new Date(japanLocalDateTime(local)).toISOString()
 }
 
 function dateTime(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: japanTimeZone,
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
@@ -43,7 +45,8 @@ const activityFormSchema = v.pipe(
   }),
   v.forward(
     v.check(
-      (value) => Date.parse(value.startsAt) < Date.parse(value.endsAt),
+      (value) =>
+        japanLocalDateTime(value.startsAt) < japanLocalDateTime(value.endsAt),
       "終了日時は開始日時より後にしてください"
     ),
     ["endsAt"]

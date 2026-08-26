@@ -33,7 +33,6 @@ import {
   createDateWindow,
   calendarDatePosition,
   createWeekRailPreview,
-  dateValue,
   extendDateWindow,
   localDate,
   monthDistance,
@@ -45,9 +44,16 @@ import {
   windowForDate,
   type WeekRailPreview,
 } from "@/lib/calendar-dates"
+import {
+  japanDateTime,
+  japanTimeZone,
+  minutesFromJapanDateStart,
+  type JapanDateTime,
+} from "@/lib/japan-time"
 
 function time(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: japanTimeZone,
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value))
@@ -68,11 +74,6 @@ type DateChangeOptions = {
   preservePreferredDay?: boolean
 }
 
-function minuteFromDay(value: string, date: string): number {
-  const start = new Date(`${date}T00:00:00`).getTime()
-  return (new Date(value).getTime() - start) / 60_000
-}
-
 function longDate(value: string): string {
   const date = localDate(value)
   const formattedDate = new Intl.DateTimeFormat("ja-JP", {
@@ -84,7 +85,8 @@ function longDate(value: string): string {
 }
 
 function initialCalendarScrollTop(now: Date): number {
-  const minute = now.getHours() * 60 + now.getMinutes()
+  const japanNow = japanDateTime(now)
+  const minute = japanNow.hour * 60 + japanNow.minute
   return Math.max(0, (minute / 60 - 2.5) * hourHeight + calendarInset)
 }
 
@@ -117,11 +119,11 @@ const CalendarDay = memo(function CalendarDay({
 }: {
   date: string
   assignments: CalendarAssignment[]
-  now: Date
+  now: JapanDateTime
   onSelectAssignment: (date: string, assignmentId: string) => void
 }) {
-  const nowMinute = now.getHours() * 60 + now.getMinutes()
-  const showNow = date === dateValue(now)
+  const nowMinute = now.hour * 60 + now.minute
+  const showNow = date === now.date
 
   return (
     <div
@@ -144,11 +146,11 @@ const CalendarDay = memo(function CalendarDay({
       {assignments.map((assignment) => {
         const startMinute = Math.max(
           0,
-          minuteFromDay(assignment.startsAt, date)
+          minutesFromJapanDateStart(assignment.startsAt, date)
         )
         const endMinute = Math.min(
           24 * 60,
-          minuteFromDay(assignment.endsAt, date)
+          minutesFromJapanDateStart(assignment.endsAt, date)
         )
         const top = calendarInset + (startMinute / 60) * hourHeight
         const height = Math.max(
@@ -186,7 +188,7 @@ const CalendarDay = memo(function CalendarDay({
           style={{ top: calendarInset + (nowMinute / 60) * hourHeight }}
         >
           <span className="absolute top-0 left-0 -translate-x-full -translate-y-1/2 rounded-full bg-blue-500 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums">
-            {now.getHours()}:{String(now.getMinutes()).padStart(2, "0")}
+            {now.hour}:{String(now.minute).padStart(2, "0")}
           </span>
         </div>
       )}
@@ -219,7 +221,8 @@ export function CalendarPage() {
   const calendarDatesRef = useRef(calendarDates)
   const previousPrefetchMonthRef = useRef(monthValue(date))
   const initializedCalendarRef = useRef(false)
-  const now = useCurrentTime()
+  const currentTime = useCurrentTime()
+  const now = japanDateTime(currentTime)
   calendarDatesRef.current = calendarDates
   const selectedMonth = monthValue(date)
   const selectedMonthQuery = useQuery(assignmentMonthQuery(selectedMonth))

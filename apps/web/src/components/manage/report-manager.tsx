@@ -9,9 +9,11 @@ import {
   resolveAssignmentReport,
 } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
+import { japanTimeZone } from "@/lib/japan-time"
 
 function dateTime(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: japanTimeZone,
     month: "numeric",
     day: "numeric",
     hour: "2-digit",

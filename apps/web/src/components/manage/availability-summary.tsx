@@ -15,14 +15,16 @@ import {
 import { errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { EmptyState } from "@/components/page-layout"
+import { japanDateStart, japanTimeZone } from "@/lib/japan-time"
 
 function dateLabel(value: string): string {
   return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: japanTimeZone,
     year: "numeric",
     month: "long",
     day: "numeric",
     weekday: "short",
-  }).format(new Date(`${value}T12:00:00+09:00`))
+  }).format(new Date(japanDateStart(value)))
 }
 
 export function AvailabilitySummary({ year }: { year: number }) {
