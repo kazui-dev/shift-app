@@ -5,15 +5,21 @@ export type DateWindowExtension = {
 
 export type WeekWindowExtension = {
   weeks: string[]
-  pageShift: number
+  prepended: number
 }
 
-export type WeekRailVisualPosition = {
+export type WeekRailPreviewPage = {
+  weekStart: string
+  selectedDate: string
+  indicatorPosition: number
+  opacity: number
+}
+
+export type WeekRailPreview = {
   fromDate: string
   toDate: string
   progress: number
-  sameWeek: boolean
-  indicator: number
+  pages: WeekRailPreviewPage[]
 }
 
 export function localDate(value: string): Date {
@@ -149,31 +155,28 @@ export function extendDateWindow(
 export function extendWeekWindow(
   weeks: string[],
   direction: "before" | "after",
-  count: number,
-  maxLength = Number.POSITIVE_INFINITY
+  count: number
 ): WeekWindowExtension {
   const first = weeks[0]
   const last = weeks.at(-1)
-  if (!first || !last || count <= 0) return { weeks, pageShift: 0 }
+  if (!first || !last || count <= 0) return { weeks, prepended: 0 }
 
   if (direction === "before") {
     const added = Array.from({ length: count }, (_, index) =>
       moveDate(first, (index - count) * 7)
     )
     return {
-      weeks: [...added, ...weeks].slice(0, maxLength),
-      pageShift: added.length,
+      weeks: [...added, ...weeks],
+      prepended: added.length,
     }
   }
 
   const added = Array.from({ length: count }, (_, index) =>
     moveDate(last, (index + 1) * 7)
   )
-  const extended = [...weeks, ...added]
-  const removed = Math.max(0, extended.length - maxLength)
   return {
-    weeks: extended.slice(removed),
-    pageShift: removed === 0 ? 0 : -removed,
+    weeks: [...weeks, ...added],
+    prepended: 0,
   }
 }
 
@@ -217,27 +220,10 @@ export function snappedWeekDate(
   return start ? moveDate(start, weekday) : null
 }
 
-function weekRailIndicatorPosition(
-  fromWeekday: number,
-  toWeekday: number,
-  progress: number,
-  sameWeek: boolean
-): number {
-  if (sameWeek) {
-    return fromWeekday + (toWeekday - fromWeekday) * progress
-  }
-
-  if (progress < 0.5) {
-    return fromWeekday + progress * 2
-  }
-
-  return toWeekday - (1 - progress) * 2
-}
-
-export function weekRailVisualPosition(
+export function createWeekRailPreview(
   dates: string[],
   position: number
-): WeekRailVisualPosition | null {
+): WeekRailPreview | null {
   if (dates.length === 0) return null
   const boundedPosition = Math.max(0, Math.min(dates.length - 1, position))
   const fromIndex = Math.floor(boundedPosition)
@@ -248,20 +234,44 @@ export function weekRailVisualPosition(
   const progress = boundedPosition - fromIndex
   const fromWeekday = localDate(fromDate).getDay()
   const toWeekday = localDate(toDate).getDay()
-  const sameWeek =
-    moveDate(fromDate, -fromWeekday) === moveDate(toDate, -toWeekday)
+  const fromWeek = weekStart(fromDate)
+  const toWeek = weekStart(toDate)
+  const sameWeek = fromWeek === toWeek
+
+  if (sameWeek) {
+    return {
+      fromDate,
+      toDate,
+      progress,
+      pages: [
+        {
+          weekStart: fromWeek,
+          selectedDate: progress < 0.5 ? fromDate : toDate,
+          indicatorPosition: fromWeekday + (toWeekday - fromWeekday) * progress,
+          opacity: 1,
+        },
+      ],
+    }
+  }
 
   return {
     fromDate,
     toDate,
     progress,
-    sameWeek,
-    indicator: weekRailIndicatorPosition(
-      fromWeekday,
-      toWeekday,
-      progress,
-      sameWeek
-    ),
+    pages: [
+      {
+        weekStart: fromWeek,
+        selectedDate: fromDate,
+        indicatorPosition: fromWeekday + progress * 2,
+        opacity: 1 - progress,
+      },
+      {
+        weekStart: toWeek,
+        selectedDate: toDate,
+        indicatorPosition: toWeekday - (1 - progress) * 2,
+        opacity: progress,
+      },
+    ],
   }
 }
 

@@ -17,6 +17,7 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
+import { WeekRail } from "@/components/calendar/week-rail"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -30,11 +31,10 @@ import {
 } from "@/api/assignments"
 import {
   createDateWindow,
-  createWeekWindow,
   calendarDatePosition,
+  createWeekRailPreview,
   dateValue,
   extendDateWindow,
-  extendWeekWindow,
   localDate,
   monthDistance,
   monthValue,
@@ -42,15 +42,8 @@ import {
   moveMonth,
   moveMonthValue,
   snappedDate,
-  snappedWeekDate,
-  weekDates,
-  weekRailVisualPosition,
-  weekScrollPosition,
-  weekStart,
-  weekWindowExtensionDirection,
-  weekWindowForDate,
   windowForDate,
-  type WeekRailVisualPosition,
+  type WeekRailPreview,
 } from "@/lib/calendar-dates"
 
 function time(value: string): string {
@@ -67,22 +60,12 @@ const calendarWindowRadius = 14
 const calendarWindowExtension = 14
 const calendarWindowEdgeThreshold = 4
 const calendarWindowMaxPages = 43
-const weekWindowRadius = 6
-const weekWindowExtension = 6
-const weekWindowEdgeThreshold = 2
-const weekWindowMaxPages = 25
 const assignmentPrefetchRadius = 6
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
 const noAssignments: CalendarAssignment[] = []
 type DateChangeOptions = {
   preservePreferredDay?: boolean
-}
-
-function weekdayTextColor(weekday: number): string {
-  if (weekday === 0) return "text-red-600 dark:text-red-400"
-  if (weekday === 6) return "text-blue-600 dark:text-blue-400"
-  return "text-foreground"
 }
 
 function minuteFromDay(value: string, date: string): number {
@@ -124,310 +107,6 @@ function useCurrentTime(): Date {
   }, [])
 
   return now
-}
-
-function WeekRailWeekLayer({
-  weekDate,
-  selectedDate,
-  opacity,
-}: {
-  weekDate: string
-  selectedDate: string
-  opacity: number
-}) {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 z-[5] grid grid-cols-7 border-b bg-background pb-3"
-      style={{ opacity }}
-    >
-      {weekDates(weekDate).map((value) => {
-        return (
-          <div
-            key={value}
-            className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
-          >
-            <span className="h-4" />
-            <span
-              className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${value === selectedDate ? "font-semibold" : ""}`}
-            >
-              {localDate(value).getDate()}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function WeekRail({
-  date,
-  onDateChange,
-  calendarVisualPosition,
-}: {
-  date: string
-  onDateChange: (date: string) => void
-  calendarVisualPosition: WeekRailVisualPosition | null
-}) {
-  const railRef = useRef<HTMLDivElement>(null)
-  const scrollTimerRef = useRef<number | null>(null)
-  const touchActiveRef = useRef(false)
-  const [weekStarts, setWeekStarts] = useState(() =>
-    createWeekWindow(date, weekWindowRadius)
-  )
-  const weekStartsRef = useRef(weekStarts)
-  const pendingPageShiftRef = useRef(0)
-  weekStartsRef.current = weekStarts
-  const selectedWeekday = localDate(date).getDay()
-  const calendarIsSwiping =
-    calendarVisualPosition !== null &&
-    (calendarVisualPosition.fromDate !== date ||
-      calendarVisualPosition.toDate !== date)
-
-  useLayoutEffect(() => {
-    const rail = railRef.current
-    if (!rail) return undefined
-    const currentWeeks = weekStartsRef.current
-    const nextWeeks = weekWindowForDate(currentWeeks, date, weekWindowRadius)
-    if (nextWeeks !== currentWeeks) {
-      pendingPageShiftRef.current = 0
-      weekStartsRef.current = nextWeeks
-      setWeekStarts(nextWeeks)
-      return undefined
-    }
-
-    const pageWidth = calendarPageWidth(rail, currentWeeks.length)
-    if (pageWidth <= 0) return undefined
-    const pageShift = pendingPageShiftRef.current
-    if (pageShift !== 0) {
-      rail.scrollLeft += pageShift * pageWidth
-      pendingPageShiftRef.current = 0
-    }
-
-    const targetIndex = currentWeeks.indexOf(weekStart(date))
-    if (targetIndex >= 0) {
-      const target = targetIndex * pageWidth
-      if (Math.abs(rail.scrollLeft - target) > 1) {
-        rail.scrollLeft = target
-      }
-    }
-    return undefined
-  }, [date, weekStarts])
-
-  useEffect(() => {
-    const rail = railRef.current
-    if (!rail) return undefined
-    const handleResize = () => {
-      const currentWeeks = weekStartsRef.current
-      const targetIndex = currentWeeks.indexOf(weekStart(date))
-      if (targetIndex < 0 || rail.clientWidth <= 0) return
-      const pageWidth = calendarPageWidth(rail, currentWeeks.length)
-      rail.scrollLeft = targetIndex * pageWidth
-    }
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [date])
-
-  useEffect(
-    () => () => {
-      if (scrollTimerRef.current !== null) {
-        window.clearTimeout(scrollTimerRef.current)
-      }
-    },
-    []
-  )
-
-  const extendWindow = useCallback((index: number) => {
-    const currentWeeks = weekStartsRef.current
-    const direction = weekWindowExtensionDirection(
-      index,
-      currentWeeks.length,
-      weekWindowEdgeThreshold
-    )
-    if (!direction) return
-    const extension = extendWeekWindow(
-      currentWeeks,
-      direction,
-      weekWindowExtension,
-      weekWindowMaxPages
-    )
-    pendingPageShiftRef.current += extension.pageShift
-    weekStartsRef.current = extension.weeks
-    setWeekStarts(extension.weeks)
-  }, [])
-
-  const settleScroll = useCallback(() => {
-    if (scrollTimerRef.current !== null) {
-      window.clearTimeout(scrollTimerRef.current)
-      scrollTimerRef.current = null
-    }
-    const rail = railRef.current
-    if (!rail || rail.clientWidth === 0) return
-    const currentWeeks = weekStartsRef.current
-    const pageWidth = calendarPageWidth(rail, currentWeeks.length)
-    const position = weekScrollPosition(
-      currentWeeks,
-      rail.scrollLeft,
-      pageWidth
-    )
-    const snapped = snappedWeekDate(
-      currentWeeks,
-      rail.scrollLeft,
-      pageWidth,
-      selectedWeekday
-    )
-    if (position === null || !snapped) return
-    const page = Math.round(position)
-    if (snapped !== date) onDateChange(snapped)
-    extendWindow(page)
-  }, [date, extendWindow, onDateChange, selectedWeekday])
-
-  useEffect(() => {
-    const rail = railRef.current
-    if (!rail || !("onscrollend" in rail)) return undefined
-    rail.addEventListener("scrollend", settleScroll)
-    return () => rail.removeEventListener("scrollend", settleScroll)
-  }, [settleScroll])
-
-  function settleScrollFallback() {
-    if (touchActiveRef.current) {
-      scrollTimerRef.current = window.setTimeout(
-        settleScrollFallback,
-        fallbackScrollEndDelay
-      )
-      return
-    }
-    settleScroll()
-  }
-
-  function handleScroll() {
-    const rail = railRef.current
-    if (rail && !("onscrollend" in rail)) {
-      if (scrollTimerRef.current !== null) {
-        window.clearTimeout(scrollTimerRef.current)
-      }
-      scrollTimerRef.current = window.setTimeout(
-        settleScrollFallback,
-        fallbackScrollEndDelay
-      )
-    }
-  }
-
-  return (
-    <div className="relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-1 z-20 grid grid-cols-7 text-xs"
-      >
-        {weekdays.map((weekday, index) => (
-          <span
-            key={weekday}
-            className={`text-center leading-4 ${weekdayTextColor(index)}`}
-          >
-            {weekday}
-          </span>
-        ))}
-      </div>
-      <div
-        ref={railRef}
-        aria-label="週を切り替え"
-        className="flex snap-x snap-mandatory overflow-x-auto border-b [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        onScroll={handleScroll}
-        onTouchCancel={() => {
-          touchActiveRef.current = false
-        }}
-        onTouchEnd={() => {
-          touchActiveRef.current = false
-        }}
-        onTouchStart={() => {
-          touchActiveRef.current = true
-        }}
-      >
-        {weekStarts.map((pageDate) => {
-          const pageDays = weekDates(pageDate)
-          return (
-            <div
-              key={pageDate}
-              className="relative grid w-full shrink-0 snap-center grid-cols-7 pb-3"
-            >
-              {pageDays.map((value) => {
-                const selected = value === date
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    className="grid min-h-16 grid-rows-[1rem_2rem] content-center justify-items-center gap-2 text-xs"
-                    aria-label={longDate(value)}
-                    aria-current={selected ? "date" : undefined}
-                    onClick={() => onDateChange(value)}
-                  >
-                    <span aria-hidden className="h-4" />
-                    <span
-                      className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${selected ? "font-semibold" : ""}`}
-                    >
-                      {localDate(value).getDate()}
-                    </span>
-                  </button>
-                )
-              })}
-              {!calendarIsSwiping && (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute bottom-4 left-0 z-[15] grid h-8 w-[calc(100%/7)] place-items-center"
-                  style={{
-                    transform: `translateX(${selectedWeekday * 100}%)`,
-                  }}
-                >
-                  <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-                </span>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      {calendarIsSwiping && calendarVisualPosition?.sameWeek && (
-        <WeekRailWeekLayer
-          weekDate={calendarVisualPosition.fromDate}
-          selectedDate={
-            calendarVisualPosition.progress < 0.5
-              ? calendarVisualPosition.fromDate
-              : calendarVisualPosition.toDate
-          }
-          opacity={1}
-        />
-      )}
-
-      {calendarIsSwiping &&
-        calendarVisualPosition &&
-        !calendarVisualPosition.sameWeek && (
-          <>
-            <WeekRailWeekLayer
-              weekDate={calendarVisualPosition.fromDate}
-              selectedDate={calendarVisualPosition.fromDate}
-              opacity={1 - calendarVisualPosition.progress}
-            />
-            <WeekRailWeekLayer
-              weekDate={calendarVisualPosition.toDate}
-              selectedDate={calendarVisualPosition.toDate}
-              opacity={calendarVisualPosition.progress}
-            />
-          </>
-        )}
-
-      {calendarIsSwiping && calendarVisualPosition && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute bottom-4 left-0 z-[15] grid h-8 w-[calc(100%/7)] place-items-center"
-          style={{
-            transform: `translateX(${calendarVisualPosition.indicator * 100}%)`,
-          }}
-        >
-          <span className="size-8 rounded-full bg-blue-500/15 dark:bg-blue-400/20" />
-        </span>
-      )}
-    </div>
-  )
 }
 
 const CalendarDay = memo(function CalendarDay({
@@ -527,8 +206,8 @@ export function CalendarPage() {
   >(null)
   const [reportKind, setReportKind] = useState<"late" | "absence">("late")
   const [reportMessage, setReportMessage] = useState("")
-  const [calendarVisualPosition, setCalendarVisualPosition] =
-    useState<WeekRailVisualPosition | null>(null)
+  const [weekRailPreview, setWeekRailPreview] =
+    useState<WeekRailPreview | null>(null)
   const [calendarDates, setCalendarDates] = useState(() =>
     createDateWindow(date, calendarWindowRadius)
   )
@@ -576,6 +255,7 @@ export function CalendarPage() {
       setSelectedAssignmentId(null)
       setReportTarget(null)
       setReportMessage("")
+      setWeekRailPreview(null)
       const currentDates = calendarDatesRef.current
       const nextDates = windowForDate(
         currentDates,
@@ -713,7 +393,7 @@ export function CalendarPage() {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
-    setCalendarVisualPosition(null)
+    setWeekRailPreview(null)
     if (snapped !== date) changeDate(snapped)
     extendCalendarWindow(page)
   }, [changeDate, date, extendCalendarWindow])
@@ -750,10 +430,10 @@ export function CalendarPage() {
           pager.scrollLeft,
           pageWidth
         )
-        setCalendarVisualPosition(
+        setWeekRailPreview(
           position === null
             ? null
-            : weekRailVisualPosition(currentDates, position)
+            : createWeekRailPreview(currentDates, position)
         )
       }
       calendarAnimationFrameRef.current = null
@@ -846,7 +526,7 @@ export function CalendarPage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
-        calendarVisualPosition={calendarVisualPosition}
+        preview={weekRailPreview}
       />
 
       <p className="shrink-0 py-0.5 text-center text-sm font-semibold">

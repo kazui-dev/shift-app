@@ -3,16 +3,15 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   calendarDatePosition,
   createDateWindow,
+  createWeekRailPreview,
   createWeekWindow,
   extendDateWindow,
   extendWeekWindow,
-  localDate,
   monthValuesForDates,
   moveDate,
   snappedDate,
   snappedWeekDate,
   weekDates,
-  weekRailVisualPosition,
   weekScrollPosition,
   weekWindowExtensionDirection,
   weekWindowForDate,
@@ -102,54 +101,90 @@ describe("calendar date window", () => {
       name: "Friday to Saturday",
       dates: ["2026-08-28", "2026-08-29"],
       position: 0.25,
+      week: "2026-08-23",
       indicator: 5.25,
     },
     {
       name: "Sunday to Monday",
       dates: ["2026-08-30", "2026-08-31"],
       position: 0.75,
+      week: "2026-08-30",
       indicator: 0.75,
     },
     {
       name: "month end to next month",
       dates: ["2026-08-31", "2026-09-01"],
       position: 0.5,
-      sameWeek: true,
+      week: "2026-08-30",
       indicator: 1.5,
     },
     {
       name: "year end to next year",
       dates: ["2026-12-31", "2027-01-01"],
       position: 0.5,
-      sameWeek: true,
+      week: "2026-12-27",
       indicator: 4.5,
     },
   ])(
     "maps $name continuously onto the WeekRail",
-    ({ dates, position, indicator }) => {
-      expect(weekRailVisualPosition(dates, position)).toEqual({
+    ({ dates, position, week, indicator }) => {
+      expect(createWeekRailPreview(dates, position)).toEqual({
         fromDate: dates[0],
         toDate: dates[1],
         progress: position,
-        sameWeek: true,
-        indicator,
+        pages: [
+          {
+            weekStart: week,
+            selectedDate: position < 0.5 ? dates[0] : dates[1],
+            indicatorPosition: indicator,
+            opacity: 1,
+          },
+        ],
       })
     }
   )
 
   it.each([
-    { progress: 0.25, indicator: 6.5 },
-    { progress: 0.5, indicator: -1 },
-    { progress: 0.75, indicator: -0.5 },
+    {
+      progress: 0.25,
+      fromIndicator: 6.5,
+      toIndicator: -1.5,
+      fromOpacity: 0.75,
+      toOpacity: 0.25,
+    },
+    {
+      progress: 0.5,
+      fromIndicator: 7,
+      toIndicator: -1,
+      fromOpacity: 0.5,
+      toOpacity: 0.5,
+    },
+    {
+      progress: 0.75,
+      fromIndicator: 7.5,
+      toIndicator: -0.5,
+      fromOpacity: 0.25,
+      toOpacity: 0.75,
+    },
   ])(
     "wraps Saturday to Sunday at the clipped edges at $progress progress",
-    ({ progress, indicator }) => {
+    ({ progress, fromIndicator, toIndicator, fromOpacity, toOpacity }) => {
       expect(
-        weekRailVisualPosition(["2026-08-29", "2026-08-30"], progress)
+        createWeekRailPreview(["2026-08-29", "2026-08-30"], progress)
       ).toMatchObject({
         progress,
-        sameWeek: false,
-        indicator,
+        pages: [
+          {
+            weekStart: "2026-08-23",
+            indicatorPosition: fromIndicator,
+            opacity: fromOpacity,
+          },
+          {
+            weekStart: "2026-08-30",
+            indicatorPosition: toIndicator,
+            opacity: toOpacity,
+          },
+        ],
       })
     }
   )
@@ -157,45 +192,53 @@ describe("calendar date window", () => {
   it("keeps the indicator moving left when scrolling backward from Sunday to Saturday", () => {
     const dates = ["2026-08-29", "2026-08-30"]
 
-    expect(
-      [1, 0.75, 0.5, 0.25, 0].map(
-        (position) => weekRailVisualPosition(dates, position)?.indicator
-      )
-    ).toEqual([0, -0.5, -1, 6.5, 6])
+    expect(createWeekRailPreview(dates, 0.75)?.pages[1]).toMatchObject({
+      indicatorPosition: -0.5,
+      opacity: 0.75,
+    })
+    expect(createWeekRailPreview(dates, 0.5)?.pages).toMatchObject([
+      { indicatorPosition: 7 },
+      { indicatorPosition: -1 },
+    ])
+    expect(createWeekRailPreview(dates, 0.25)?.pages[0]).toMatchObject({
+      indicatorPosition: 6.5,
+      opacity: 0.75,
+    })
   })
 
   it("tracks exact dates after scrolling across multiple days", () => {
     const dates = createDateWindow("2026-08-26", 4)
 
-    expect(weekRailVisualPosition(dates, 4)).toMatchObject({
+    expect(createWeekRailPreview(dates, 4)).toMatchObject({
       fromDate: "2026-08-26",
       toDate: "2026-08-26",
       progress: 0,
-      indicator: 3,
+      pages: [{ indicatorPosition: 3 }],
     })
-    expect(weekRailVisualPosition(dates, 6)).toMatchObject({
+    expect(createWeekRailPreview(dates, 6)).toMatchObject({
       fromDate: "2026-08-28",
       toDate: "2026-08-28",
       progress: 0,
-      indicator: 5,
+      pages: [{ indicatorPosition: 5 }],
     })
-    expect(weekRailVisualPosition(dates, 1)).toMatchObject({
+    expect(createWeekRailPreview(dates, 1)).toMatchObject({
       fromDate: "2026-08-23",
       toDate: "2026-08-23",
       progress: 0,
-      indicator: 0,
+      pages: [{ indicatorPosition: 0 }],
     })
   })
 
-  it("keeps the indicator coordinate when the snapped date becomes selected", () => {
-    const saturday = "2026-08-29"
-    const sunday = "2026-08-30"
-    const dates = [saturday, sunday]
+  it("keeps visual preview independent from the snapped date commit", () => {
+    const dates = createDateWindow("2026-08-29", 1)
 
-    expect(weekRailVisualPosition(dates, 0)?.indicator).toBe(6)
-    expect(weekRailVisualPosition(dates, 1)?.indicator).toBe(0)
-    expect(localDate(saturday).getDay()).toBe(6)
-    expect(localDate(sunday).getDay()).toBe(0)
+    expect(createWeekRailPreview(dates, 1.75)).toMatchObject({
+      fromDate: "2026-08-29",
+      toDate: "2026-08-30",
+      progress: 0.75,
+    })
+    expect(snappedDate(dates, 2 * 390, 390)).toBe("2026-08-30")
+    expect(dates).toEqual(["2026-08-28", "2026-08-29", "2026-08-30"])
   })
 
   it("keeps the window for a nearby external date and rebuilds for a far date", () => {
@@ -236,9 +279,9 @@ describe("week rail window", () => {
     const prepended = extendWeekWindow(weeks, "before", 2)
     const appended = extendWeekWindow(prepended.weeks, "after", 2)
 
-    expect(prepended.pageShift).toBe(2)
+    expect(prepended.prepended).toBe(2)
     expect(prepended.weeks.slice(2, 5)).toEqual(weeks)
-    expect(appended.pageShift).toBe(0)
+    expect(appended.prepended).toBe(0)
     expect(appended.weeks).toEqual([
       "2026-08-02",
       "2026-08-09",
@@ -255,23 +298,24 @@ describe("week rail window", () => {
 
     expect(extendWeekWindow([], "before", 2)).toEqual({
       weeks: [],
-      pageShift: 0,
+      prepended: 0,
     })
     expect(extendWeekWindow(weeks, "after", 0)).toEqual({
       weeks,
-      pageShift: 0,
+      prepended: 0,
     })
   })
 
-  it("keeps the visible week index stable when a bounded window shifts", () => {
+  it("keeps the visible week stable after prepending", () => {
     const weeks = createWeekWindow("2026-08-26", 2)
     const visibleWeek = weeks[3]
-    const appended = extendWeekWindow(weeks, "after", 2, 5)
+    const prepended = extendWeekWindow(weeks, "before", 2)
     const oldPosition = 3
-    const correctedPosition = oldPosition + appended.pageShift
+    const correctedPosition = oldPosition + prepended.prepended
 
-    expect(appended.pageShift).toBe(-2)
-    expect(appended.weeks[correctedPosition]).toBe(visibleWeek)
+    expect(prepended.prepended).toBe(2)
+    expect(prepended.weeks[correctedPosition]).toBe(visibleWeek)
+    expect(prepended.weeks).toHaveLength(weeks.length + 2)
   })
 
   it("extends only near the leading or trailing window edge", () => {
