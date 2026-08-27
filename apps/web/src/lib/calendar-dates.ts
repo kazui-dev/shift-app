@@ -4,15 +4,17 @@ export type WeekWindowExtension = {
 }
 
 export type DayPagerPreview = {
-  fromDate: string
-  toDate: string
-  sameWeek: boolean
+  direction: -1 | 1
   progress: number
 }
 
-export type DayPagerOffset = -2 | -1 | 0 | 1 | 2
-
-export const dayPagerCenterPage = 2
+export type DayPagerWeekPreview = {
+  selectedDate: string
+  targetDate: string
+  sameWeek: boolean
+  selectedWeekday: number
+  targetWeekday: number
+}
 
 export function localDate(value: string): Date {
   return new Date(`${value}T12:00:00`)
@@ -72,16 +74,8 @@ export function monthDistance(from: string, to: string): number {
   )
 }
 
-export function dayPagerDates(
-  date: string
-): [string, string, string, string, string] {
-  return [
-    moveDate(date, -2),
-    moveDate(date, -1),
-    date,
-    moveDate(date, 1),
-    moveDate(date, 2),
-  ]
+export function dayPagerDates(date: string): [string, string, string] {
+  return [moveDate(date, -1), date, moveDate(date, 1)]
 }
 
 export function createWeekWindow(center: string, radius: number): string[] {
@@ -152,31 +146,29 @@ export function dayPagerPosition(
   scrollLeft: number,
   pageWidth: number
 ): number | null {
-  return scrollPosition(dayPagerCenterPage * 2 + 1, scrollLeft, pageWidth)
+  return scrollPosition(3, scrollLeft, pageWidth)
 }
 
-export function dayPagerSettleOffset(
+export function dayPagerSettleDirection(
   scrollLeft: number,
   pageWidth: number
-): DayPagerOffset | null {
+): -1 | 0 | 1 | null {
   const position = dayPagerPosition(scrollLeft, pageWidth)
   if (position === null) return null
   const page = Math.round(position)
-  if (page === 0) return -2
-  if (page === 1) return -1
-  if (page === 3) return 1
-  if (page === 4) return 2
+  if (page === 0) return -1
+  if (page === 2) return 1
   return 0
 }
 
-export function dayPagerBoundaryOffset(
+export function dayPagerBoundaryDirection(
   scrollLeft: number,
   pageWidth: number
-): DayPagerOffset | null {
-  const offset = dayPagerSettleOffset(scrollLeft, pageWidth)
-  if (offset === null) return null
-  const boundary = (offset + dayPagerCenterPage) * pageWidth
-  return Math.abs(scrollLeft - boundary) <= 1 ? offset : null
+): -1 | 0 | 1 | null {
+  const direction = dayPagerSettleDirection(scrollLeft, pageWidth)
+  if (direction === null) return null
+  const boundary = (direction + 1) * pageWidth
+  return Math.abs(scrollLeft - boundary) <= 1 ? direction : null
 }
 
 export function snappedDayPagerDate(
@@ -184,8 +176,8 @@ export function snappedDayPagerDate(
   scrollLeft: number,
   pageWidth: number
 ): string | null {
-  const offset = dayPagerSettleOffset(scrollLeft, pageWidth)
-  return offset === null ? null : moveDate(date, offset)
+  const direction = dayPagerSettleDirection(scrollLeft, pageWidth)
+  return direction === null ? null : moveDate(date, direction)
 }
 
 export function weekScrollPosition(
@@ -208,26 +200,27 @@ export function snappedWeekDate(
   return start ? moveDate(start, localDate(selectedDate).getDay()) : null
 }
 
-export function dayPagerPreview(
-  dates: string[],
-  position: number
-): DayPagerPreview | null {
-  if (dates.length === 0) return null
-  const boundedPosition = Math.max(0, Math.min(dates.length - 1, position))
-  const lastIndex = dates.length - 1
-  const fromIndex =
-    boundedPosition === lastIndex
-      ? Math.max(0, lastIndex - 1)
-      : Math.floor(boundedPosition)
-  const toIndex = Math.min(lastIndex, fromIndex + 1)
-  const fromDate = dates[fromIndex]
-  const toDate = dates[toIndex]
-  if (!fromDate || !toDate) return null
+export function dayPagerPreview(position: number): DayPagerPreview | null {
+  const boundedPosition = Math.max(0, Math.min(2, position))
+  const offset = boundedPosition - 1
+  if (offset === 0) return null
   return {
-    fromDate,
-    toDate,
-    sameWeek: weekStart(fromDate) === weekStart(toDate),
-    progress: boundedPosition - fromIndex,
+    direction: offset < 0 ? -1 : 1,
+    progress: Math.abs(offset),
+  }
+}
+
+export function dayPagerWeekPreview(
+  date: string,
+  direction: -1 | 1
+): DayPagerWeekPreview {
+  const targetDate = moveDate(date, direction)
+  return {
+    selectedDate: date,
+    targetDate,
+    sameWeek: weekStart(date) === weekStart(targetDate),
+    selectedWeekday: localDate(date).getDay(),
+    targetWeekday: localDate(targetDate).getDay(),
   }
 }
 

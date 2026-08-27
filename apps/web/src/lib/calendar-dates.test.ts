@@ -2,12 +2,12 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   createWeekWindow,
-  dayPagerBoundaryOffset,
-  dayPagerCenterPage,
+  dayPagerBoundaryDirection,
   dayPagerDates,
   dayPagerPosition,
   dayPagerPreview,
-  dayPagerSettleOffset,
+  dayPagerSettleDirection,
+  dayPagerWeekPreview,
   extendWeekWindow,
   monthValuesForDates,
   snappedDayPagerDate,
@@ -18,180 +18,142 @@ import {
   weekWindowForDate,
 } from "./calendar-dates"
 
-describe("five-page day pager", () => {
-  const pageWidth = 390
-
-  it("buffers two dates on each side of the centered current date", () => {
+describe("three-page day pager", () => {
+  it("always renders previous, current, and next with current centered", () => {
     expect(dayPagerDates("2026-08-26")).toEqual([
-      "2026-08-24",
       "2026-08-25",
       "2026-08-26",
       "2026-08-27",
-      "2026-08-28",
     ])
-    expect(dayPagerCenterPage).toBe(2)
   })
 
-  it("maps every physical page to its buffered date offset", () => {
-    expect(dayPagerSettleOffset(0, pageWidth)).toBe(-2)
-    expect(dayPagerSettleOffset(pageWidth, pageWidth)).toBe(-1)
-    expect(dayPagerSettleOffset(2 * pageWidth, pageWidth)).toBe(0)
-    expect(dayPagerSettleOffset(3 * pageWidth, pageWidth)).toBe(1)
-    expect(dayPagerSettleOffset(4 * pageWidth, pageWidth)).toBe(2)
-  })
-
-  it("recognizes only fully reached page boundaries for early recycle", () => {
-    expect(dayPagerBoundaryOffset(0.5, pageWidth)).toBe(-2)
-    expect(dayPagerBoundaryOffset(1.5, pageWidth)).toBeNull()
-    expect(dayPagerBoundaryOffset(2 * pageWidth, pageWidth)).toBe(0)
-    expect(dayPagerBoundaryOffset(4 * pageWidth - 0.5, pageWidth)).toBe(2)
-    expect(dayPagerBoundaryOffset(4 * pageWidth - 1.5, pageWidth)).toBeNull()
-  })
-
-  it("moves exactly one day for one adjacent-page gesture", () => {
-    expect(snappedDayPagerDate("2026-08-26", pageWidth, pageWidth)).toBe(
+  it("settles to previous, current, or next only", () => {
+    expect(dayPagerSettleDirection(0, 390)).toBe(-1)
+    expect(dayPagerSettleDirection(390, 390)).toBe(0)
+    expect(dayPagerSettleDirection(2 * 390, 390)).toBe(1)
+    expect(snappedDayPagerDate("2026-08-26", 0.49 * 390, 390)).toBe(
       "2026-08-25"
     )
-    expect(snappedDayPagerDate("2026-08-26", 3 * pageWidth, pageWidth)).toBe(
+    expect(snappedDayPagerDate("2026-08-26", 1.49 * 390, 390)).toBe(
+      "2026-08-26"
+    )
+    expect(snappedDayPagerDate("2026-08-26", 1.51 * 390, 390)).toBe(
       "2026-08-27"
     )
   })
 
-  it("caps an unrecycled physical offset at the two-day buffer", () => {
-    expect(snappedDayPagerDate("2026-08-26", -10_000, pageWidth)).toBe(
-      "2026-08-24"
-    )
-    expect(snappedDayPagerDate("2026-08-26", 10_000, pageWidth)).toBe(
-      "2026-08-28"
-    )
+  it("recognizes only fully reached page boundaries for early recycle", () => {
+    expect(dayPagerBoundaryDirection(0.5, 390)).toBe(-1)
+    expect(dayPagerBoundaryDirection(1.5, 390)).toBeNull()
+    expect(dayPagerBoundaryDirection(390, 390)).toBe(0)
+    expect(dayPagerBoundaryDirection(2 * 390 - 0.5, 390)).toBe(1)
+    expect(dayPagerBoundaryDirection(2 * 390 - 1.5, 390)).toBeNull()
+  })
+
+  it("cannot commit more than one day from one settle", () => {
+    expect(snappedDayPagerDate("2026-08-26", -10_000, 390)).toBe("2026-08-25")
+    expect(snappedDayPagerDate("2026-08-26", 10_000, 390)).toBe("2026-08-27")
   })
 
   it("recycles the committed date back into the center page", () => {
-    const committed = snappedDayPagerDate(
-      "2026-08-26",
-      3 * pageWidth,
-      pageWidth
-    )
+    const committed = snappedDayPagerDate("2026-08-26", 2 * 390, 390)
 
     expect(committed).toBe("2026-08-27")
-    expect(dayPagerDates(committed ?? "")[dayPagerCenterPage]).toBe(committed)
+    expect(dayPagerDates(committed ?? "")[1]).toBe(committed)
   })
 
-  it("advances exactly five days when consecutive gestures fill the buffer", () => {
+  it("advances exactly five days across five next-page settles", () => {
     let date = "2026-08-27"
-    for (const pendingGestures of [2, 2, 1]) {
-      date =
-        snappedDayPagerDate(
-          date,
-          (dayPagerCenterPage + pendingGestures) * pageWidth,
-          pageWidth
-        ) ?? date
+    for (let gesture = 0; gesture < 5; gesture += 1) {
+      date = snappedDayPagerDate(date, 2 * 390, 390) ?? date
     }
 
     expect(date).toBe("2026-09-01")
   })
 
-  it("moves back exactly five days when consecutive gestures fill the buffer", () => {
+  it("moves back exactly five days across five previous-page settles", () => {
     let date = "2026-08-27"
-    for (const pendingGestures of [-2, -2, -1]) {
-      date =
-        snappedDayPagerDate(
-          date,
-          (dayPagerCenterPage + pendingGestures) * pageWidth,
-          pageWidth
-        ) ?? date
+    for (let gesture = 0; gesture < 5; gesture += 1) {
+      date = snappedDayPagerDate(date, 0, 390) ?? date
     }
 
     expect(date).toBe("2026-08-22")
   })
 
   it("treats programmatic center confirmations and duplicates as no-ops", () => {
-    const committed = snappedDayPagerDate(
-      "2026-08-27",
-      3 * pageWidth,
-      pageWidth
-    )
-    const center = dayPagerCenterPage * pageWidth
-    const recentered = snappedDayPagerDate(committed ?? "", center, pageWidth)
-    const duplicate = snappedDayPagerDate(recentered ?? "", center, pageWidth)
+    const committed = snappedDayPagerDate("2026-08-27", 2 * 390, 390)
+    const recentered = snappedDayPagerDate(committed ?? "", 390, 390)
+    const duplicate = snappedDayPagerDate(recentered ?? "", 390, 390)
 
     expect(committed).toBe("2026-08-28")
     expect(recentered).toBe(committed)
     expect(duplicate).toBe(committed)
   })
 
-  it("crosses month and year boundaries with buffered pages", () => {
+  it("crosses month and year boundaries with adjacent pages", () => {
     expect(dayPagerDates("2026-09-01")).toEqual([
-      "2026-08-30",
       "2026-08-31",
       "2026-09-01",
       "2026-09-02",
-      "2026-09-03",
     ])
     expect(dayPagerDates("2027-01-01")).toEqual([
-      "2026-12-30",
       "2026-12-31",
       "2027-01-01",
       "2027-01-02",
-      "2027-01-03",
     ])
-    expect(snappedDayPagerDate("2026-08-31", 3 * pageWidth, pageWidth)).toBe(
-      "2026-09-01"
-    )
-    expect(snappedDayPagerDate("2026-12-31", 3 * pageWidth, pageWidth)).toBe(
-      "2027-01-01"
-    )
+    expect(snappedDayPagerDate("2026-08-31", 2 * 390, 390)).toBe("2026-09-01")
+    expect(snappedDayPagerDate("2026-12-31", 2 * 390, 390)).toBe("2027-01-01")
   })
 
-  it("tracks adjacent-date progress across both buffer pages", () => {
-    const dates = dayPagerDates("2026-08-26")
-
-    expect(dayPagerPosition(1.25 * pageWidth, pageWidth)).toBe(1.25)
-    expect(dayPagerPreview(dates, 1.25)).toEqual({
-      fromDate: "2026-08-25",
-      toDate: "2026-08-26",
-      sameWeek: true,
-      progress: 0.25,
-    })
-    expect(dayPagerPreview(dates, 2.75)).toEqual({
-      fromDate: "2026-08-26",
-      toDate: "2026-08-27",
-      sameWeek: true,
+  it("tracks finger movement one-to-one from the center", () => {
+    expect(dayPagerPosition(0.25 * 390, 390)).toBe(0.25)
+    expect(dayPagerPreview(0.25)).toEqual({
+      direction: -1,
       progress: 0.75,
     })
-    expect(dayPagerPreview(dates, 3.5)).toEqual({
-      fromDate: "2026-08-27",
-      toDate: "2026-08-28",
-      sameWeek: true,
-      progress: 0.5,
+    expect(dayPagerPreview(1)).toBeNull()
+    expect(dayPagerPreview(1.75)).toEqual({
+      direction: 1,
+      progress: 0.75,
     })
-    expect(dayPagerPreview(dates, 4)).toEqual({
-      fromDate: "2026-08-27",
-      toDate: "2026-08-28",
+  })
+
+  it("keeps preview directional without deriving intermediate selection", () => {
+    expect(dayPagerPreview(0.5)).toEqual({ direction: -1, progress: 0.5 })
+    expect(dayPagerPreview(1.5)).toEqual({ direction: 1, progress: 0.5 })
+  })
+
+  it("previews one indicator cell within the same week", () => {
+    expect(dayPagerWeekPreview("2026-08-26", 1)).toEqual({
+      selectedDate: "2026-08-26",
+      targetDate: "2026-08-27",
       sameWeek: true,
-      progress: 1,
+      selectedWeekday: 3,
+      targetWeekday: 4,
     })
   })
 
   it("prepares the adjacent weeks for Saturday to Sunday", () => {
-    expect(dayPagerPreview(dayPagerDates("2026-08-29"), 2.5)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
+    expect(dayPagerWeekPreview("2026-08-29", 1)).toEqual({
+      selectedDate: "2026-08-29",
+      targetDate: "2026-08-30",
       sameWeek: false,
-      progress: 0.5,
+      selectedWeekday: 6,
+      targetWeekday: 0,
     })
   })
 
   it("prepares the adjacent weeks for Sunday to Saturday", () => {
-    expect(dayPagerPreview(dayPagerDates("2026-08-30"), 1.5)).toEqual({
-      fromDate: "2026-08-29",
-      toDate: "2026-08-30",
+    expect(dayPagerWeekPreview("2026-08-30", -1)).toEqual({
+      selectedDate: "2026-08-30",
+      targetDate: "2026-08-29",
       sameWeek: false,
-      progress: 0.5,
+      selectedWeekday: 0,
+      targetWeekday: 6,
     })
   })
 
-  it("finds every assignment month required by the five pages", () => {
+  it("finds every assignment month required by the three pages", () => {
     expect(monthValuesForDates(dayPagerDates("2027-01-01"))).toEqual([
       "2026-12",
       "2027-01",
@@ -199,11 +161,10 @@ describe("five-page day pager", () => {
   })
 
   it("rejects a zero-width viewport", () => {
-    expect(dayPagerBoundaryOffset(0, 0)).toBeNull()
+    expect(dayPagerBoundaryDirection(0, 0)).toBeNull()
     expect(dayPagerPosition(0, 0)).toBeNull()
-    expect(dayPagerSettleOffset(0, 0)).toBeNull()
+    expect(dayPagerSettleDirection(0, 0)).toBeNull()
     expect(snappedDayPagerDate("2026-08-26", 0, 0)).toBeNull()
-    expect(dayPagerPreview([], 0)).toBeNull()
   })
 })
 
