@@ -10,10 +10,8 @@ import {
 
 import {
   createWeekWindow,
-  dayPagerWeekPreview,
   extendWeekWindow,
   localDate,
-  moveDate,
   snappedWeekDate,
   weekDates,
   weekStart,
@@ -36,9 +34,9 @@ const indicatorTransitionClasses = [
   "motion-reduce:transition-none",
 ]
 
-export type DayPagerWeekPreviewController = {
+export type WeekRailPreviewController = {
   update: (preview: DayPagerPreview) => void
-  commit: (direction: -1 | 0 | 1) => void
+  commit: (date: string) => void
   dismiss: () => void
 }
 
@@ -121,26 +119,20 @@ function WeekContent({
 
 function PreviewWeek({
   layerRef,
-  date,
-  selectedDate,
 }: {
   layerRef: RefObject<HTMLDivElement | null>
-  date: string
-  selectedDate: string
 }) {
   return (
     <div ref={layerRef} className="absolute inset-0 opacity-0">
       <div className="relative grid w-full shrink-0 grid-cols-7 bg-background pb-3">
         <div className="relative z-[1] col-span-7 col-start-1 row-start-1 grid grid-cols-7">
-          {weekDates(date).map((value) => (
-            <span key={value} className={weekCellClassName}>
+          {weekdays.map((weekday) => (
+            <span key={weekday} className={weekCellClassName}>
               <span aria-hidden className="h-4" />
               <span
-                data-preview-date={value}
-                className={`relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums ${value === selectedDate ? "font-semibold" : ""}`}
-              >
-                {localDate(value).getDate()}
-              </span>
+                data-preview-number
+                className="relative z-[1] grid size-8 place-items-center text-sm text-foreground tabular-nums"
+              />
             </span>
           ))}
         </div>
@@ -159,17 +151,16 @@ function PreviewWeek({
   )
 }
 
-function setPreviewSelectedDate(
+function setPreviewWeek(
   layer: HTMLDivElement,
+  date: string,
   selectedDate: string
 ): void {
-  for (const number of layer.querySelectorAll<HTMLElement>(
-    "[data-preview-date]"
-  )) {
-    number.classList.toggle(
-      "font-semibold",
-      number.dataset.previewDate === selectedDate
-    )
+  const numbers = layer.querySelectorAll<HTMLElement>("[data-preview-number]")
+  for (const [index, value] of weekDates(date).entries()) {
+    const number = numbers.item(index)
+    number.textContent = String(localDate(value).getDate())
+    number.classList.toggle("font-semibold", value === selectedDate)
   }
 }
 
@@ -184,23 +175,26 @@ function pageWidth(rail: HTMLDivElement, pageCount: number): number {
 export function WeekRail({
   date,
   onDateChange,
-  dayPagerPreviewRef,
+  previewControllerRef,
 }: {
   date: string
   onDateChange: (date: string) => void
-  dayPagerPreviewRef: RefObject<DayPagerWeekPreviewController | null>
+  previewControllerRef: RefObject<WeekRailPreviewController | null>
 }) {
   const railRef = useRef<HTMLDivElement>(null)
   const previewRootRef = useRef<HTMLDivElement>(null)
-  const previewCurrentRef = useRef<HTMLDivElement>(null)
-  const previewPreviousRef = useRef<HTMLDivElement>(null)
-  const previewNextRef = useRef<HTMLDivElement>(null)
+  const previewLayerARef = useRef<HTMLDivElement>(null)
+  const previewLayerBRef = useRef<HTMLDivElement>(null)
   const scrollTimerRef = useRef<number | null>(null)
   const transitionTimerRef = useRef<number | null>(null)
   const touchActiveRef = useRef(false)
   const pendingPrependRef = useRef(0)
   const pendingHandoffRef = useRef<string | null>(null)
-  const renderedPreviewDirectionRef = useRef<-1 | 1 | null>(null)
+  const renderedPreviewRef = useRef<{
+    fromDate: string
+    toDate: string
+    selectedDate: string
+  } | null>(null)
   const tapTargetRef = useRef<string | null>(null)
   const currentDateRef = useRef(date)
   const [weekStarts, setWeekStarts] = useState(() =>
@@ -231,89 +225,76 @@ export function WeekRail({
     root.style.visibility = "hidden"
     root.style.setProperty("--preview-progress", "0")
     pendingHandoffRef.current = null
-    renderedPreviewDirectionRef.current = null
-    const selectedDate = currentDateRef.current
-    for (const layer of [
-      previewPreviousRef.current,
-      previewCurrentRef.current,
-      previewNextRef.current,
-    ]) {
-      if (layer) setPreviewSelectedDate(layer, selectedDate)
-    }
+    renderedPreviewRef.current = null
   }, [])
 
   useImperativeHandle(
-    dayPagerPreviewRef,
+    previewControllerRef,
     () => ({
       update(preview) {
         const root = previewRootRef.current
-        const currentLayer = previewCurrentRef.current
-        const previousLayer = previewPreviousRef.current
-        const nextLayer = previewNextRef.current
-        if (!root || !currentLayer || !previousLayer || !nextLayer) return
-        const startingPreview = renderedPreviewDirectionRef.current === null
+        const layerA = previewLayerARef.current
+        const layerB = previewLayerBRef.current
+        if (!root || !layerA || !layerB) return
+        const startingPreview = !renderedPreviewRef.current
         if (startingPreview) disableIndicatorTransition()
         pendingHandoffRef.current = null
 
-        const committedDate = currentDateRef.current
-        if (renderedPreviewDirectionRef.current !== preview.direction) {
-          const weekPreview = dayPagerWeekPreview(
-            committedDate,
-            preview.direction
-          )
-          const targetLayer =
-            preview.direction === -1 ? previousLayer : nextLayer
-          const otherLayer =
-            preview.direction === -1 ? nextLayer : previousLayer
-          const currentIndicator = previewIndicator(currentLayer)
-          const targetIndicator = previewIndicator(targetLayer)
-          if (!currentIndicator || !targetIndicator) return
-          setPreviewSelectedDate(currentLayer, committedDate)
-          setPreviewSelectedDate(targetLayer, committedDate)
-          otherLayer.style.opacity = "0"
-          if (weekPreview.sameWeek) {
-            currentLayer.style.opacity = "1"
-            currentIndicator.style.transform = `translateX(calc(${weekPreview.selectedWeekday * 100}% + ${preview.direction * 100}% * var(--preview-progress)))`
-            targetLayer.style.opacity = "0"
+        const selectedDate = currentDateRef.current
+        const rendered = renderedPreviewRef.current
+        if (
+          !rendered ||
+          rendered.fromDate !== preview.fromDate ||
+          rendered.toDate !== preview.toDate ||
+          rendered.selectedDate !== selectedDate
+        ) {
+          const indicatorA = previewIndicator(layerA)
+          const indicatorB = previewIndicator(layerB)
+          if (!indicatorA || !indicatorB) return
+          const fromWeekday = localDate(preview.fromDate).getDay()
+          const toWeekday = localDate(preview.toDate).getDay()
+          setPreviewWeek(layerA, preview.fromDate, selectedDate)
+
+          if (preview.sameWeek) {
+            layerA.style.opacity = "1"
+            indicatorA.style.transform = `translateX(calc(${fromWeekday * 100}% + ${(toWeekday - fromWeekday) * 100}% * var(--preview-progress)))`
+            layerB.style.opacity = "0"
           } else {
-            currentLayer.style.opacity = "calc(1 - var(--preview-progress))"
-            currentIndicator.style.transform = `translateX(calc(${weekPreview.selectedWeekday * 100}% + ${preview.direction * 200}% * var(--preview-progress)))`
-            targetLayer.style.opacity = "var(--preview-progress)"
-            targetIndicator.style.transform = `translateX(calc(${(weekPreview.targetWeekday - preview.direction * 2) * 100}% + ${preview.direction * 200}% * var(--preview-progress)))`
+            setPreviewWeek(layerB, preview.toDate, selectedDate)
+            layerA.style.opacity = "calc(1 - var(--preview-progress))"
+            indicatorA.style.transform = `translateX(calc(${fromWeekday * 100}% + 200% * var(--preview-progress)))`
+            layerB.style.opacity = "var(--preview-progress)"
+            indicatorB.style.transform = `translateX(calc(${(toWeekday - 2) * 100}% + 200% * var(--preview-progress)))`
           }
-          renderedPreviewDirectionRef.current = preview.direction
+          renderedPreviewRef.current = {
+            fromDate: preview.fromDate,
+            toDate: preview.toDate,
+            selectedDate,
+          }
         }
 
-        // Gesture progress never enters React's render path.
+        // Between adjacent-date boundaries this is the only DOM write.
         root.style.setProperty("--preview-progress", String(preview.progress))
         if (startingPreview) {
           root.style.visibility = "visible"
         }
       },
-      commit(direction) {
+      commit(nextDate) {
         const root = previewRootRef.current
-        const currentLayer = previewCurrentRef.current
-        const previousLayer = previewPreviousRef.current
-        const nextLayer = previewNextRef.current
-        if (!root || !currentLayer || !previousLayer || !nextLayer) return
+        const layerA = previewLayerARef.current
+        const layerB = previewLayerBRef.current
+        const indicatorA = layerA && previewIndicator(layerA)
+        if (!root || !layerA || !layerB || !indicatorA) return
         disableIndicatorTransition()
 
-        if (direction === 0) {
-          hidePreview()
-          return
-        }
-        const nextDate = moveDate(currentDateRef.current, direction)
-        const targetLayer = direction === -1 ? previousLayer : nextLayer
-        const otherLayer = direction === -1 ? nextLayer : previousLayer
-        const targetIndicator = previewIndicator(targetLayer)
-        if (!targetIndicator) return
-        setPreviewSelectedDate(targetLayer, nextDate)
-        currentLayer.style.opacity = "0"
-        otherLayer.style.opacity = "0"
-        targetLayer.style.opacity = "1"
-        targetIndicator.style.transform = `translateX(${localDate(nextDate).getDay() * 100}%)`
+        setPreviewWeek(layerA, nextDate, nextDate)
+        layerA.style.opacity = "1"
+        indicatorA.style.transform = `translateX(${localDate(nextDate).getDay() * 100}%)`
+        layerB.style.opacity = "0"
         root.style.visibility = "visible"
         pendingHandoffRef.current = nextDate
+
+        if (nextDate === currentDateRef.current) hidePreview()
       },
       dismiss: hidePreview,
     }),
@@ -515,21 +496,8 @@ export function WeekRail({
         className="pointer-events-none absolute inset-0 z-[5] overflow-hidden border-b bg-background"
         style={{ visibility: "hidden" }}
       >
-        <PreviewWeek
-          layerRef={previewPreviousRef}
-          date={moveDate(date, -1)}
-          selectedDate={date}
-        />
-        <PreviewWeek
-          layerRef={previewCurrentRef}
-          date={date}
-          selectedDate={date}
-        />
-        <PreviewWeek
-          layerRef={previewNextRef}
-          date={moveDate(date, 1)}
-          selectedDate={date}
-        />
+        <PreviewWeek layerRef={previewLayerARef} />
+        <PreviewWeek layerRef={previewLayerBRef} />
       </div>
     </div>
   )

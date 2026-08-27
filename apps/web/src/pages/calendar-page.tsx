@@ -19,7 +19,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
 import {
-  type DayPagerWeekPreviewController,
+  type WeekRailPreviewController,
   WeekRail,
 } from "@/components/calendar/week-rail"
 import { nativeSelectClassName } from "@/components/form-styles"
@@ -34,11 +34,12 @@ import {
   type CalendarAssignment,
 } from "@/api/assignments"
 import {
-  dayPagerBoundaryDirection,
+  dayPagerBoundaryOffset,
+  dayPagerCenterPage,
   dayPagerDates,
   dayPagerPosition,
   dayPagerPreview,
-  dayPagerSettleDirection,
+  dayPagerSettleOffset,
   localDate,
   monthDistance,
   monthValue,
@@ -210,9 +211,8 @@ export function CalendarPage() {
   const calendarAnimationFrameRef = useRef<number | null>(null)
   const calendarGestureActiveRef = useRef(false)
   const dayPagerPreviewActiveRef = useRef(false)
-  const dayPagerPreviewDirectionRef = useRef<-1 | 1 | null>(null)
   const currentDateRef = useRef(date)
-  const dayPagerWeekPreviewRef = useRef<DayPagerWeekPreviewController>(null)
+  const weekRailPreviewRef = useRef<WeekRailPreviewController>(null)
   const previousPrefetchMonthRef = useRef(monthValue(date))
   const initializedCalendarRef = useRef(false)
   const currentTime = useCurrentTime()
@@ -256,8 +256,7 @@ export function CalendarPage() {
     }
     calendarGestureActiveRef.current = false
     dayPagerPreviewActiveRef.current = false
-    dayPagerPreviewDirectionRef.current = null
-    dayPagerWeekPreviewRef.current?.dismiss()
+    weekRailPreviewRef.current?.dismiss()
   }, [])
 
   const changeDate = useCallback(
@@ -283,8 +282,9 @@ export function CalendarPage() {
         window.cancelAnimationFrame(calendarAnimationFrameRef.current)
         calendarAnimationFrameRef.current = null
       }
-      if (Math.abs(pager.scrollLeft - pager.clientWidth) > 1) {
-        pager.scrollLeft = pager.clientWidth
+      const center = dayPagerCenterPage * pager.clientWidth
+      if (Math.abs(pager.scrollLeft - center) > 1) {
+        pager.scrollLeft = center
       }
     }
     if (calendarElement && !initializedCalendarRef.current) {
@@ -300,7 +300,9 @@ export function CalendarPage() {
     const pager = calendarPagerRef.current
     if (!pager) return undefined
     const handleResize = () => {
-      if (pager.clientWidth > 0) pager.scrollLeft = pager.clientWidth
+      if (pager.clientWidth > 0) {
+        pager.scrollLeft = dayPagerCenterPage * pager.clientWidth
+      }
     }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
@@ -348,11 +350,11 @@ export function CalendarPage() {
     (atPageBoundary = false) => {
       const pager = calendarPagerRef.current
       if (!pager || pager.clientWidth === 0) return false
-      const direction = atPageBoundary
-        ? dayPagerBoundaryDirection(pager.scrollLeft, pager.clientWidth)
-        : dayPagerSettleDirection(pager.scrollLeft, pager.clientWidth)
-      if (direction === null) return false
-      const pageBoundary = (direction + 1) * pager.clientWidth
+      const offset = atPageBoundary
+        ? dayPagerBoundaryOffset(pager.scrollLeft, pager.clientWidth)
+        : dayPagerSettleOffset(pager.scrollLeft, pager.clientWidth)
+      if (offset === null) return false
+      const pageBoundary = (offset + dayPagerCenterPage) * pager.clientWidth
       if (calendarScrollTimerRef.current !== null) {
         window.clearTimeout(calendarScrollTimerRef.current)
         calendarScrollTimerRef.current = null
@@ -366,20 +368,19 @@ export function CalendarPage() {
       }
       const previewWasActive = dayPagerPreviewActiveRef.current
       dayPagerPreviewActiveRef.current = false
-      dayPagerPreviewDirectionRef.current = null
-      if (previewWasActive || direction !== 0) {
-        dayPagerWeekPreviewRef.current?.commit(direction)
+      const nextDate = moveDate(currentDateRef.current, offset)
+      if (previewWasActive || offset !== 0) {
+        weekRailPreviewRef.current?.commit(nextDate)
       }
-      if (direction === 0) return true
+      if (offset === 0) return true
 
-      const nextDate = moveDate(currentDateRef.current, direction)
-      // A three-page pager cannot accept another gesture while it remains at a
-      // physical edge. Flush only this settled date change so React replaces the
-      // pages before the synchronous rebase to the center page.
+      // The outer pages absorb a gesture that starts before the preceding snap
+      // is committed. Once the physical offset settles, replace the five dates
+      // and synchronously rebase the native scroller to its center page.
       flushSync(() => {
         changeDate(nextDate, { preserveWeekRailPreview: true })
       })
-      pager.scrollLeft = pager.clientWidth
+      pager.scrollLeft = dayPagerCenterPage * pager.clientWidth
       return true
     },
     [changeDate]
@@ -417,19 +418,13 @@ export function CalendarPage() {
       const pager = calendarPagerRef.current
       if (pager && pager.clientWidth > 0) {
         const position = dayPagerPosition(pager.scrollLeft, pager.clientWidth)
-        const preview = position === null ? null : dayPagerPreview(position)
-        if (preview) {
+        const preview =
+          position === null ? null : dayPagerPreview(calendarDates, position)
+        const betweenPages =
+          preview && preview.progress > 0 && preview.progress < 1
+        if (preview && (dayPagerPreviewActiveRef.current || betweenPages)) {
           dayPagerPreviewActiveRef.current = true
-          dayPagerPreviewDirectionRef.current = preview.direction
-          dayPagerWeekPreviewRef.current?.update(preview)
-        } else if (
-          dayPagerPreviewActiveRef.current &&
-          dayPagerPreviewDirectionRef.current
-        ) {
-          dayPagerWeekPreviewRef.current?.update({
-            direction: dayPagerPreviewDirectionRef.current,
-            progress: 0,
-          })
+          weekRailPreviewRef.current?.update(preview)
         }
       }
       calendarAnimationFrameRef.current = null
@@ -444,6 +439,17 @@ export function CalendarPage() {
         fallbackScrollEndDelay
       )
     }
+  }
+
+  function startCalendarGesture() {
+    const pager = calendarPagerRef.current
+    if (pager && pager.clientWidth > 0) {
+      const offset = dayPagerBoundaryOffset(pager.scrollLeft, pager.clientWidth)
+      if (offset === -dayPagerCenterPage || offset === dayPagerCenterPage) {
+        settleCalendarScroll(true)
+      }
+    }
+    calendarGestureActiveRef.current = true
   }
 
   function changeMonth(months: number) {
@@ -522,7 +528,7 @@ export function CalendarPage() {
       <WeekRail
         date={date}
         onDateChange={changeDate}
-        dayPagerPreviewRef={dayPagerWeekPreviewRef}
+        previewControllerRef={weekRailPreviewRef}
       />
 
       <p className="shrink-0 py-0.5 text-center text-sm font-semibold">
@@ -552,10 +558,7 @@ export function CalendarPage() {
               settleCalendarScroll(true)
             }}
             onTouchStart={() => {
-              // A new touch must not turn an already reached edge into an
-              // active gesture before that edge has been recycled.
-              settleCalendarScroll(true)
-              calendarGestureActiveRef.current = true
+              startCalendarGesture()
             }}
           >
             {calendarDates.map((pageDate) => (
