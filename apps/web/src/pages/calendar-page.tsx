@@ -34,6 +34,7 @@ import {
   type CalendarAssignment,
 } from "@/api/assignments"
 import {
+  dayPagerBoundaryDirection,
   dayPagerDates,
   dayPagerPosition,
   dayPagerPreview,
@@ -346,16 +347,12 @@ export function CalendarPage() {
   const settleCalendarScroll = useCallback(
     (atPageBoundary = false) => {
       const pager = calendarPagerRef.current
-      if (!pager || pager.clientWidth === 0) return
-      const direction = dayPagerSettleDirection(
-        pager.scrollLeft,
-        pager.clientWidth
-      )
-      if (direction === null) return
+      if (!pager || pager.clientWidth === 0) return false
+      const direction = atPageBoundary
+        ? dayPagerBoundaryDirection(pager.scrollLeft, pager.clientWidth)
+        : dayPagerSettleDirection(pager.scrollLeft, pager.clientWidth)
+      if (direction === null) return false
       const pageBoundary = (direction + 1) * pager.clientWidth
-      if (atPageBoundary && Math.abs(pager.scrollLeft - pageBoundary) > 1) {
-        return
-      }
       if (calendarScrollTimerRef.current !== null) {
         window.clearTimeout(calendarScrollTimerRef.current)
         calendarScrollTimerRef.current = null
@@ -373,7 +370,7 @@ export function CalendarPage() {
       if (previewWasActive || direction !== 0) {
         dayPagerWeekPreviewRef.current?.commit(direction)
       }
-      if (direction === 0) return
+      if (direction === 0) return true
 
       const nextDate = moveDate(currentDateRef.current, direction)
       // A three-page pager cannot accept another gesture while it remains at a
@@ -383,6 +380,7 @@ export function CalendarPage() {
         changeDate(nextDate, { preserveWeekRailPreview: true })
       })
       pager.scrollLeft = pager.clientWidth
+      return true
     },
     [changeDate]
   )
@@ -390,7 +388,9 @@ export function CalendarPage() {
   useEffect(() => {
     const pager = calendarPagerRef.current
     if (!pager || !("onscrollend" in pager)) return undefined
-    const handleScrollEnd = () => settleCalendarScroll()
+    const handleScrollEnd = () => {
+      if (!calendarGestureActiveRef.current) settleCalendarScroll()
+    }
     pager.addEventListener("scrollend", handleScrollEnd)
     return () => pager.removeEventListener("scrollend", handleScrollEnd)
   }, [settleCalendarScroll])
@@ -407,6 +407,9 @@ export function CalendarPage() {
   }
 
   function handleCalendarScroll() {
+    if (!calendarGestureActiveRef.current && settleCalendarScroll(true)) {
+      return
+    }
     if (calendarAnimationFrameRef.current !== null) {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
     }
@@ -430,7 +433,6 @@ export function CalendarPage() {
         }
       }
       calendarAnimationFrameRef.current = null
-      if (!calendarGestureActiveRef.current) settleCalendarScroll(true)
     })
     const pager = calendarPagerRef.current
     if (pager && !("onscrollend" in pager)) {
@@ -550,6 +552,9 @@ export function CalendarPage() {
               settleCalendarScroll(true)
             }}
             onTouchStart={() => {
+              // A new touch must not turn an already reached edge into an
+              // active gesture before that edge has been recycled.
+              settleCalendarScroll(true)
               calendarGestureActiveRef.current = true
             }}
           >

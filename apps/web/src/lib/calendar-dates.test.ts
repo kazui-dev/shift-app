@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   createWeekWindow,
+  dayPagerBoundaryDirection,
   dayPagerDates,
   dayPagerPosition,
   dayPagerPreview,
@@ -39,6 +40,14 @@ describe("three-page day pager", () => {
     expect(snappedDayPagerDate("2026-08-26", 1.51 * 390, 390)).toBe(
       "2026-08-27"
     )
+  })
+
+  it("recognizes only fully reached page boundaries for early recycle", () => {
+    expect(dayPagerBoundaryDirection(0.5, 390)).toBe(-1)
+    expect(dayPagerBoundaryDirection(1.5, 390)).toBeNull()
+    expect(dayPagerBoundaryDirection(390, 390)).toBe(0)
+    expect(dayPagerBoundaryDirection(2 * 390 - 0.5, 390)).toBe(1)
+    expect(dayPagerBoundaryDirection(2 * 390 - 1.5, 390)).toBeNull()
   })
 
   it("cannot commit more than one day from one settle", () => {
@@ -152,6 +161,7 @@ describe("three-page day pager", () => {
   })
 
   it("rejects a zero-width viewport", () => {
+    expect(dayPagerBoundaryDirection(0, 0)).toBeNull()
     expect(dayPagerPosition(0, 0)).toBeNull()
     expect(dayPagerSettleDirection(0, 0)).toBeNull()
     expect(snappedDayPagerDate("2026-08-26", 0, 0)).toBeNull()

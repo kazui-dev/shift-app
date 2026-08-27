@@ -161,6 +161,16 @@ export function dayPagerSettleDirection(
   return 0
 }
 
+export function dayPagerBoundaryDirection(
+  scrollLeft: number,
+  pageWidth: number
+): -1 | 0 | 1 | null {
+  const direction = dayPagerSettleDirection(scrollLeft, pageWidth)
+  if (direction === null) return null
+  const boundary = (direction + 1) * pageWidth
+  return Math.abs(scrollLeft - boundary) <= 1 ? direction : null
+}
+
 export function snappedDayPagerDate(
   date: string,
   scrollLeft: number,
