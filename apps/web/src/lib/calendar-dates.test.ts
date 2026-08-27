@@ -71,10 +71,28 @@ describe("three-page day pager", () => {
     expect(date).toBe("2026-09-01")
   })
 
+  it("hands five unfinished next snaps off across five gesture boundaries", () => {
+    let date = "2026-08-27"
+    for (let gesture = 0; gesture < 5; gesture += 1) {
+      date = snappedDayPagerDate(date, 1.75 * 390, 390) ?? date
+    }
+
+    expect(date).toBe("2026-09-01")
+  })
+
   it("moves back exactly five days across five previous-page settles", () => {
     let date = "2026-08-27"
     for (let gesture = 0; gesture < 5; gesture += 1) {
       date = snappedDayPagerDate(date, 0, 390) ?? date
+    }
+
+    expect(date).toBe("2026-08-22")
+  })
+
+  it("hands five unfinished previous snaps off across five gesture boundaries", () => {
+    let date = "2026-08-27"
+    for (let gesture = 0; gesture < 5; gesture += 1) {
+      date = snappedDayPagerDate(date, 0.25 * 390, 390) ?? date
     }
 
     expect(date).toBe("2026-08-22")

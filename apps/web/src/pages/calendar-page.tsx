@@ -208,7 +208,7 @@ export function CalendarPage() {
   const calendarPagerRef = useRef<HTMLDivElement>(null)
   const calendarScrollTimerRef = useRef<number | null>(null)
   const calendarAnimationFrameRef = useRef<number | null>(null)
-  const calendarGestureActiveRef = useRef(false)
+  const calendarTouchActiveRef = useRef(false)
   const dayPagerPreviewActiveRef = useRef(false)
   const dayPagerPreviewDirectionRef = useRef<-1 | 1 | null>(null)
   const currentDateRef = useRef(date)
@@ -254,7 +254,7 @@ export function CalendarPage() {
       window.cancelAnimationFrame(calendarAnimationFrameRef.current)
       calendarAnimationFrameRef.current = null
     }
-    calendarGestureActiveRef.current = false
+    calendarTouchActiveRef.current = false
     dayPagerPreviewActiveRef.current = false
     dayPagerPreviewDirectionRef.current = null
     dayPagerWeekPreviewRef.current?.dismiss()
@@ -357,9 +357,6 @@ export function CalendarPage() {
         window.clearTimeout(calendarScrollTimerRef.current)
         calendarScrollTimerRef.current = null
       }
-      if (Math.abs(pager.scrollLeft - pageBoundary) > 1) {
-        pager.scrollLeft = pageBoundary
-      }
       if (calendarAnimationFrameRef.current !== null) {
         window.cancelAnimationFrame(calendarAnimationFrameRef.current)
         calendarAnimationFrameRef.current = null
@@ -370,12 +367,16 @@ export function CalendarPage() {
       if (previewWasActive || direction !== 0) {
         dayPagerWeekPreviewRef.current?.commit(direction)
       }
-      if (direction === 0) return true
+      if (direction === 0) {
+        if (Math.abs(pager.scrollLeft - pageBoundary) > 1) {
+          pager.scrollLeft = pageBoundary
+        }
+        return true
+      }
 
       const nextDate = moveDate(currentDateRef.current, direction)
-      // A three-page pager cannot accept another gesture while it remains at a
-      // physical edge. Flush only this settled date change so React replaces the
-      // pages before the synchronous rebase to the center page.
+      // Commit only at a gesture boundary. flushSync lets the three React pages
+      // change dates before this native scroller is synchronously rebased.
       flushSync(() => {
         changeDate(nextDate, { preserveWeekRailPreview: true })
       })
@@ -389,14 +390,14 @@ export function CalendarPage() {
     const pager = calendarPagerRef.current
     if (!pager || !("onscrollend" in pager)) return undefined
     const handleScrollEnd = () => {
-      if (!calendarGestureActiveRef.current) settleCalendarScroll()
+      if (!calendarTouchActiveRef.current) settleCalendarScroll()
     }
     pager.addEventListener("scrollend", handleScrollEnd)
     return () => pager.removeEventListener("scrollend", handleScrollEnd)
   }, [settleCalendarScroll])
 
   function settleCalendarScrollFallback() {
-    if (calendarGestureActiveRef.current) {
+    if (calendarTouchActiveRef.current) {
       calendarScrollTimerRef.current = window.setTimeout(
         settleCalendarScrollFallback,
         fallbackScrollEndDelay
@@ -407,7 +408,7 @@ export function CalendarPage() {
   }
 
   function handleCalendarScroll() {
-    if (!calendarGestureActiveRef.current && settleCalendarScroll(true)) {
+    if (!calendarTouchActiveRef.current && settleCalendarScroll(true)) {
       return
     }
     if (calendarAnimationFrameRef.current !== null) {
@@ -544,18 +545,20 @@ export function CalendarPage() {
             style={{ height: 24 * hourHeight + calendarInset * 2 }}
             onScroll={handleCalendarScroll}
             onTouchCancel={() => {
-              calendarGestureActiveRef.current = false
+              calendarTouchActiveRef.current = false
               settleCalendarScroll(true)
             }}
             onTouchEnd={() => {
-              calendarGestureActiveRef.current = false
+              calendarTouchActiveRef.current = false
               settleCalendarScroll(true)
             }}
             onTouchStart={() => {
-              // A new touch must not turn an already reached edge into an
-              // active gesture before that edge has been recycled.
-              settleCalendarScroll(true)
-              calendarGestureActiveRef.current = true
+              // A new touch ends the preceding native scroll operation. Hand
+              // its nearest snap page off before the new gesture becomes active,
+              // so an interrupted snap never leaves this three-page pager at an
+              // unusable physical edge.
+              settleCalendarScroll()
+              calendarTouchActiveRef.current = true
             }}
           >
             {calendarDates.map((pageDate) => (
