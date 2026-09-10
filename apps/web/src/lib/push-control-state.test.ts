@@ -12,19 +12,21 @@ describe("push control state", () => {
       enabled: false,
     })
     const toggled = reducePushControl(loaded, {
-      type: "toggle",
+      type: "requested",
       enabled: true,
     })
 
     expect(toggled).toEqual({
       confirmedEnabled: false,
       enabled: true,
-      pending: true,
+      syncing: true,
     })
-    expect(reducePushControl(toggled, { type: "success" })).toEqual({
+    expect(
+      reducePushControl(toggled, { type: "synced", enabled: true })
+    ).toEqual({
       confirmedEnabled: true,
       enabled: true,
-      pending: false,
+      syncing: false,
     })
   })
 
@@ -34,36 +36,62 @@ describe("push control state", () => {
       enabled: true,
     })
     const toggled = reducePushControl(loaded, {
-      type: "toggle",
+      type: "requested",
       enabled: false,
     })
 
-    expect(reducePushControl(toggled, { type: "failure" })).toEqual({
+    expect(
+      reducePushControl(toggled, { type: "failed", enabled: false })
+    ).toEqual({
       confirmedEnabled: true,
       enabled: true,
-      pending: false,
+      syncing: false,
     })
   })
 
-  it("ignores duplicate and concurrent toggle requests", () => {
+  it("keeps the latest request while an earlier request is syncing", () => {
     const loaded = reducePushControl(pushControlInitialState, {
       type: "loaded",
       enabled: false,
     })
-    const toggled = reducePushControl(loaded, {
-      type: "toggle",
+    const enabling = reducePushControl(loaded, {
+      type: "requested",
       enabled: true,
     })
+    const disabling = reducePushControl(enabling, {
+      type: "requested",
+      enabled: false,
+    })
 
-    expect(reducePushControl(loaded, { type: "toggle", enabled: false })).toBe(
-      loaded
-    )
-    expect(reducePushControl(toggled, { type: "toggle", enabled: false })).toBe(
-      toggled
-    )
+    expect(disabling).toEqual({
+      confirmedEnabled: false,
+      enabled: false,
+      syncing: true,
+    })
+    expect(
+      reducePushControl(disabling, { type: "synced", enabled: true })
+    ).toEqual({
+      confirmedEnabled: true,
+      enabled: false,
+      syncing: true,
+    })
+    expect(
+      reducePushControl(disabling, { type: "failed", enabled: true })
+    ).toBe(disabling)
+  })
+
+  it("ignores requests before loading and duplicate requests", () => {
+    const loaded = reducePushControl(pushControlInitialState, {
+      type: "loaded",
+      enabled: false,
+    })
+
+    expect(
+      reducePushControl(loaded, { type: "requested", enabled: false })
+    ).toBe(loaded)
     expect(
       reducePushControl(pushControlInitialState, {
-        type: "toggle",
+        type: "requested",
         enabled: true,
       })
     ).toBe(pushControlInitialState)

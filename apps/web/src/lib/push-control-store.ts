@@ -6,10 +6,14 @@ import {
 } from "./push-control-state"
 
 type Listener = () => void
+export type PushControlSyncResult =
+  | { status: "synced"; enabled: boolean }
+  | { status: "failed"; error: unknown }
 
 const listeners = new Set<Listener>()
 let state = pushControlInitialState
 let initialization: Promise<void> | null = null
+let synchronization: Promise<PushControlSyncResult> | null = null
 
 export function pushNotificationsSupported(): boolean {
   return (
@@ -55,14 +59,37 @@ export function subscribePushControl(listener: Listener): () => void {
   return () => listeners.delete(listener)
 }
 
-export function requestPushControlState(enabled: boolean): void {
-  dispatch({ type: "toggle", enabled })
+export function requestPushControlState(enabled: boolean): boolean {
+  const previous = state
+  dispatch({ type: "requested", enabled })
+  return state !== previous
 }
 
-export function confirmPushControlState(): void {
-  dispatch({ type: "success" })
+async function syncLatestPushControl(
+  sync: (enabled: boolean) => Promise<void>
+): Promise<PushControlSyncResult> {
+  const target = state.enabled
+  if (target === null || target === state.confirmedEnabled) {
+    return { status: "synced", enabled: state.confirmedEnabled ?? false }
+  }
+  try {
+    await sync(target)
+    dispatch({ type: "synced", enabled: target })
+  } catch (error) {
+    const latestRequestFailed = state.enabled === target
+    dispatch({ type: "failed", enabled: target })
+    if (latestRequestFailed) return { status: "failed", error }
+  }
+  return syncLatestPushControl(sync)
 }
 
-export function rollbackPushControlState(): void {
-  dispatch({ type: "failure" })
+export function synchronizePushControl(
+  sync: (enabled: boolean) => Promise<void>
+): Promise<PushControlSyncResult> | null {
+  if (synchronization || state.enabled === state.confirmedEnabled) return null
+
+  synchronization = syncLatestPushControl(sync).finally(() => {
+    synchronization = null
+  })
+  return synchronization
 }
