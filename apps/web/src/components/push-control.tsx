@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
@@ -19,50 +19,58 @@ import {
   synchronizePushControl,
 } from "@/lib/push-control-store"
 
+async function syncSubscription(enabled: boolean): Promise<void> {
+  const registration = await navigator.serviceWorker.ready
+  const current = await registration.pushManager.getSubscription()
+  if (!enabled) {
+    if (current) {
+      await removePushSubscription(current.endpoint)
+      await current.unsubscribe()
+    }
+    return
+  }
+  if (current) {
+    await savePushSubscription(current.toJSON())
+    return
+  }
+  const permission = await Notification.requestPermission()
+  if (permission !== "granted") {
+    throw new Error("通知が許可されていません。")
+  }
+  const { publicKey } = await getPushConfig()
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: base64UrlBytes(publicKey),
+  })
+  try {
+    await savePushSubscription(subscription.toJSON())
+  } catch (error) {
+    await subscription.unsubscribe()
+    throw error
+  }
+}
+
+function reportSyncFailure(synchronization: Promise<void> | null): void {
+  if (!synchronization) return
+  void synchronization.catch((error: unknown) =>
+    toast.error(errorMessage(error))
+  )
+}
+
 export function PushControl() {
   const offline = useOfflineMode()
   const supported = pushNotificationsSupported()
   const state = useSyncExternalStore(subscribePushControl, getPushControlState)
 
-  async function syncSubscription(enabled: boolean): Promise<void> {
-    const registration = await navigator.serviceWorker.ready
-    const current = await registration.pushManager.getSubscription()
-    if (!enabled) {
-      if (current) {
-        await removePushSubscription(current.endpoint)
-        await current.unsubscribe()
-      }
-      return
-    }
-    if (current) {
-      await savePushSubscription(current.toJSON())
-      return
-    }
-    const permission = await Notification.requestPermission()
-    if (permission !== "granted") {
-      throw new Error("通知が許可されていません。")
-    }
-    const { publicKey } = await getPushConfig()
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: base64UrlBytes(publicKey),
-    })
-    try {
-      await savePushSubscription(subscription.toJSON())
-    } catch (error) {
-      await subscription.unsubscribe()
-      throw error
-    }
-  }
-
   function toggle(nextEnabled: boolean): void {
     if (!requestPushControlState(nextEnabled)) return
-    const synchronization = synchronizePushControl(syncSubscription)
-    if (!synchronization) return
-    void synchronization.catch((error: unknown) =>
-      toast.error(errorMessage(error))
-    )
+    reportSyncFailure(synchronizePushControl(syncSubscription))
   }
+
+  useEffect(() => {
+    if (offline) return
+    reportSyncFailure(synchronizePushControl(syncSubscription))
+  }, [offline])
 
   if (!supported) return null
 
