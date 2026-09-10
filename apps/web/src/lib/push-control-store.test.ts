@@ -70,7 +70,7 @@ describe("push control store", () => {
     expect(requestPushControlState(false)).toBe(true)
     expect(synchronizePushControl(sync)).toBeNull()
     finishEnable?.()
-    await synchronization
+    await expect(synchronization).resolves.toBeUndefined()
 
     expect(sync.mock.calls).toEqual([[true], [false]])
     expect(getPushControlState()).toEqual({
@@ -106,7 +106,7 @@ describe("push control store", () => {
 
     await expect(
       synchronizePushControl(() => Promise.reject(error))
-    ).resolves.toEqual({ status: "failed", error })
+    ).rejects.toBe(error)
     expect(getPushControlState()).toEqual({
       confirmedEnabled: false,
       enabled: false,

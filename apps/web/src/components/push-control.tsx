@@ -24,7 +24,7 @@ export function PushControl() {
   const supported = pushNotificationsSupported()
   const state = useSyncExternalStore(subscribePushControl, getPushControlState)
 
-  async function sync(enabled: boolean): Promise<void> {
+  async function syncSubscription(enabled: boolean): Promise<void> {
     const registration = await navigator.serviceWorker.ready
     const current = await registration.pushManager.getSubscription()
     if (!enabled) {
@@ -55,18 +55,12 @@ export function PushControl() {
     }
   }
 
-  async function toggle(nextEnabled: boolean) {
+  function toggle(nextEnabled: boolean): void {
     if (!requestPushControlState(nextEnabled)) return
-    const synchronization = synchronizePushControl(sync)
+    const synchronization = synchronizePushControl(syncSubscription)
     if (!synchronization) return
-
-    const result = await synchronization
-    if (result.status === "failed") {
-      toast.error(errorMessage(result.error))
-      return
-    }
-    toast.success(
-      result.enabled ? "通知を有効にしました。" : "通知を解除しました。"
+    void synchronization.catch((error: unknown) =>
+      toast.error(errorMessage(error))
     )
   }
 
@@ -80,7 +74,7 @@ export function PushControl() {
       checked={state.enabled ?? false}
       disabled={offline}
       title={offline ? "オンライン時に変更できます" : undefined}
-      onCheckedChange={(checked) => void toggle(checked)}
+      onCheckedChange={toggle}
     />
   )
 }
