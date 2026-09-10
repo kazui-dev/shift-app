@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
+import {
+  loadPushControlIntent,
+  savePushControlIntent,
+} from "./push-control-intent"
+
 afterEach(() => vi.unstubAllGlobals())
+
+function memoryStorage(): Pick<Storage, "getItem" | "removeItem" | "setItem"> {
+  const values = new Map<string, string>()
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    removeItem: (key) => void values.delete(key),
+    setItem: (key, value) => void values.set(key, value),
+  }
+}
 
 describe("push control store", () => {
   it("loads the browser subscription once before settings consumes it", async () => {
@@ -107,6 +121,83 @@ describe("push control store", () => {
     await expect(
       synchronizePushControl(() => Promise.reject(error))
     ).rejects.toBe(error)
+    expect(getPushControlState()).toEqual({
+      confirmedEnabled: false,
+      enabled: false,
+      syncing: false,
+    })
+  })
+
+  it("restores an interrupted request and clears it after syncing", async () => {
+    vi.resetModules()
+    const initialStore = await import("./push-control-store")
+    const storage = memoryStorage()
+    vi.stubGlobal("navigator", {
+      serviceWorker: {
+        getRegistration: () =>
+          Promise.resolve({
+            pushManager: { getSubscription: () => Promise.resolve(null) },
+          }),
+      },
+    })
+    vi.stubGlobal("window", {
+      Notification: () => undefined,
+      PushManager: () => undefined,
+      sessionStorage: storage,
+    })
+
+    await initialStore.preparePushControl("26AJ001")
+    initialStore.requestPushControlState(true)
+
+    expect(loadPushControlIntent(storage, "26AJ001")).toBe(true)
+
+    vi.resetModules()
+    const restoredStore = await import("./push-control-store")
+    await restoredStore.preparePushControl("26AJ001")
+
+    expect(restoredStore.getPushControlState()).toEqual({
+      confirmedEnabled: false,
+      enabled: true,
+      syncing: true,
+    })
+    await restoredStore.synchronizePushControl(() => Promise.resolve())
+    expect(loadPushControlIntent(storage, "26AJ001")).toBeNull()
+    expect(restoredStore.getPushControlState()).toEqual({
+      confirmedEnabled: true,
+      enabled: true,
+      syncing: false,
+    })
+  })
+
+  it("clears a restored request when the user returns to the confirmed state", async () => {
+    vi.resetModules()
+    const {
+      getPushControlState,
+      preparePushControl,
+      requestPushControlState,
+      synchronizePushControl,
+    } = await import("./push-control-store")
+    const storage = memoryStorage()
+    savePushControlIntent(storage, "26AJ001", true)
+    vi.stubGlobal("navigator", {
+      serviceWorker: {
+        getRegistration: () =>
+          Promise.resolve({
+            pushManager: { getSubscription: () => Promise.resolve(null) },
+          }),
+      },
+    })
+    vi.stubGlobal("window", {
+      Notification: () => undefined,
+      PushManager: () => undefined,
+      sessionStorage: storage,
+    })
+    await preparePushControl("26AJ001")
+
+    requestPushControlState(false)
+
+    expect(synchronizePushControl(() => Promise.resolve())).toBeNull()
+    expect(loadPushControlIntent(storage, "26AJ001")).toBeNull()
     expect(getPushControlState()).toEqual({
       confirmedEnabled: false,
       enabled: false,
