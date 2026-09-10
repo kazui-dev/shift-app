@@ -35,6 +35,12 @@
 - HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
+カレンダーの日送りは Embla Carousel の固定7スライドを循環利用する。物理スライドの
+DOMは維持し、確定したスナップを中心に論理日付だけを再配置する。選択日は
+`settle`後にアプリ状態へ反映し、ドラッグ中の進捗はReact stateを経由せずCSS変数で
+週ヘッダーへ描画する。週ヘッダー自身はスクロールを持たず、カレンダー内で複数の
+スクロール状態機械や`scrollLeft`補正を同期させない。
+
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。
 
 オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutationを破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。

@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react"
 
+import { localDate, moveMonth } from "@/lib/calendar-dates"
 import { japanDateTime } from "@/lib/japan-time"
 import { CalendarViewStateContext } from "./calendar-view-context"
 
@@ -15,9 +16,20 @@ export function CalendarViewStateProvider({
   const [date, setDate] = useState(currentDate)
   const preferredDayRef = useRef(Number(date.slice(8)))
   const scrollTopRef = useRef<number | null>(null)
+  const selectDate = useCallback((nextDate: string) => {
+    preferredDayRef.current = localDate(nextDate).getDate()
+    setDate(nextDate)
+  }, [])
+  const selectMonth = useCallback((months: number) => {
+    setDate((current) => moveMonth(current, months, preferredDayRef.current))
+  }, [])
+  const readScrollTop = useCallback(() => scrollTopRef.current, [])
+  const saveScrollTop = useCallback((scrollTop: number) => {
+    scrollTopRef.current = scrollTop
+  }, [])
   const value = useMemo(
-    () => ({ date, setDate, preferredDayRef, scrollTopRef }),
-    [date, setDate]
+    () => ({ date, selectDate, selectMonth, readScrollTop, saveScrollTop }),
+    [date, readScrollTop, saveScrollTop, selectDate, selectMonth]
   )
 
   return (
