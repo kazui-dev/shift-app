@@ -17,11 +17,13 @@ import {
 } from "@/lib/loop-carousel"
 
 export function useLoopCarousel<Value extends string>({
+  duration = 25,
   onProgress,
   onSelect,
   value,
   valuesAround,
 }: {
+  duration?: number
   onProgress?: (value: Value, progress: number) => void
   onSelect: (value: Value, previousValue: Value) => void
   value: Value
@@ -31,6 +33,7 @@ export function useLoopCarousel<Value extends string>({
     align: "start",
     containScroll: false,
     dragFree: false,
+    duration,
     loop: true,
     skipSnaps: false,
     slidesToScroll: 1,

@@ -31,6 +31,7 @@ export function MonthSwitcher({
     [onMonthChange]
   )
   const { scrollNext, scrollPrevious, values, viewportRef } = useLoopCarousel({
+    duration: 20,
     onSelect: selectMonth,
     value: currentMonth,
     valuesAround: calendarMonthSlideValues,
