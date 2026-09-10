@@ -28,11 +28,9 @@ import { CalendarWeekHeader } from "@/components/calendar/calendar-week-header"
 import { paintCalendarWeekHeader } from "@/components/calendar/calendar-week-presentation"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
 import { useCalendarAssignments } from "@/components/calendar/use-calendar-assignments"
-import {
-  calendarInitialSlide,
-  calendarSlideDates,
-} from "@/lib/calendar-carousel"
+import { calendarSlideDates } from "@/lib/calendar-carousel"
 import { japanDateTime } from "@/lib/japan-time"
+import { loopCarouselInitialSlide } from "@/lib/loop-carousel"
 
 function initialCalendarScrollTop(now: Date): number {
   const japanNow = japanDateTime(now)
@@ -74,7 +72,7 @@ export function CalendarPage() {
   dateRef.current = date
   const now = japanDateTime(useCurrentTime())
   const carouselDates = useMemo(
-    () => calendarSlideDates(date, calendarInitialSlide),
+    () => calendarSlideDates(date, loopCarouselInitialSlide),
     [date]
   )
   const calendarAssignments = useCalendarAssignments(date, carouselDates)
@@ -107,6 +105,14 @@ export function CalendarPage() {
       if (header) paintCalendarWeekHeader(header, presentationDate, offset)
     },
     []
+  )
+
+  const changeMonth = useCallback(
+    (months: number) => {
+      setSelectedAssignmentId(null)
+      selectMonth(months)
+    },
+    [selectMonth]
   )
 
   const selectAssignment = useCallback(
@@ -156,10 +162,7 @@ export function CalendarPage() {
         <MonthSwitcher
           date={date}
           onDateChange={changeDate}
-          onMonthChange={(months) => {
-            setSelectedAssignmentId(null)
-            selectMonth(months)
-          }}
+          onMonthChange={changeMonth}
         />
         {!offline && (
           <div className="flex items-center gap-1">

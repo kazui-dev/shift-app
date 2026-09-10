@@ -1,6 +1,7 @@
 import { calendarWeekPresentation } from "@/lib/calendar-week"
 
 export function resetCalendarWeekHeader(root: HTMLDivElement): void {
+  root.style.setProperty("--calendar-day-progress-active", "0")
   root.style.setProperty("--calendar-swipe-offset", "0%")
   root.style.setProperty("--calendar-cross-progress", "0")
   root.style.setProperty("--calendar-previous-progress", "0")
@@ -15,6 +16,10 @@ export function paintCalendarWeekHeader(
 ): void {
   const presentation = calendarWeekPresentation(date, offset)
 
+  root.style.setProperty(
+    "--calendar-day-progress-active",
+    Math.abs(offset) > Number.EPSILON ? "1" : "0"
+  )
   root.style.setProperty("--calendar-swipe-offset", presentation.offsetPercent)
   root.style.setProperty("--calendar-indicator-duration", "0ms")
   root.style.setProperty(

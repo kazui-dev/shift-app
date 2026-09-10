@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  monthDistance,
   monthValue,
   monthValuesForDates,
   moveDate,
@@ -39,6 +40,8 @@ describe("calendar dates", () => {
   it("moves and deduplicates month values", () => {
     expect(monthValue("2026-08-27")).toBe("2026-08")
     expect(moveMonthValue("2026-12", 1)).toBe("2027-01")
+    expect(monthDistance("2026-12", "2027-02")).toBe(2)
+    expect(monthDistance("2027-02", "2026-12")).toBe(-2)
     expect(
       monthValuesForDates(["2026-08-31", "2026-09-01", "2026-09-02"])
     ).toEqual(["2026-08", "2026-09"])
