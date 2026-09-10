@@ -1,19 +1,19 @@
 export type PushControlState = {
   confirmedEnabled: boolean | null
   enabled: boolean | null
-  pending: boolean
+  syncing: boolean
 }
 
 export type PushControlEvent =
   | { type: "loaded"; enabled: boolean }
-  | { type: "toggle"; enabled: boolean }
-  | { type: "success" }
-  | { type: "failure" }
+  | { type: "requested"; enabled: boolean }
+  | { type: "synced"; enabled: boolean }
+  | { type: "failed"; enabled: boolean }
 
 export const pushControlInitialState: PushControlState = {
   confirmedEnabled: null,
   enabled: null,
-  pending: false,
+  syncing: false,
 }
 
 export function reducePushControl(
@@ -24,29 +24,26 @@ export function reducePushControl(
     return {
       confirmedEnabled: event.enabled,
       enabled: event.enabled,
-      pending: false,
+      syncing: false,
     }
   }
-  if (event.type === "toggle") {
-    if (
-      state.pending ||
-      state.enabled === null ||
-      state.enabled === event.enabled
-    ) {
+  if (event.type === "requested") {
+    if (state.enabled === null || state.enabled === event.enabled) {
       return state
     }
-    return { ...state, enabled: event.enabled, pending: true }
+    return { ...state, enabled: event.enabled, syncing: true }
   }
-  if (event.type === "success") {
+  if (event.type === "synced") {
     return {
-      confirmedEnabled: state.enabled,
+      confirmedEnabled: event.enabled,
       enabled: state.enabled,
-      pending: false,
+      syncing: state.enabled !== event.enabled,
     }
   }
+  if (state.enabled !== event.enabled) return state
   return {
     ...state,
     enabled: state.confirmedEnabled,
-    pending: false,
+    syncing: false,
   }
 }
