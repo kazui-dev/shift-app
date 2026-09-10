@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { X } from "lucide-react"
+import { LoaderCircle, RefreshCw, X } from "lucide-react"
 import { useRegisterSW } from "virtual:pwa-register/react"
 
 import { Button } from "@workspace/ui/components/button"
@@ -79,18 +79,30 @@ export function PwaUpdateNotice() {
 
   return (
     <output
-      className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-sm items-center gap-3 rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg md:bottom-6"
+      className="fixed inset-x-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-sm items-center rounded-xl border bg-popover px-4 py-3 text-popover-foreground shadow-lg md:bottom-6"
       aria-live="polite"
       aria-busy={updating}
     >
       <p className="min-w-0 flex-1 text-sm leading-relaxed">
         新しいバージョンがあります
       </p>
-      <Button size="sm" disabled={updating} onClick={() => void applyUpdate()}>
+      <Button
+        className="w-18"
+        size="sm"
+        disabled={updating}
+        onClick={() => void applyUpdate()}
+      >
+        <span className="grid size-4 shrink-0 place-items-center">
+          {updating ? (
+            <LoaderCircle className="size-4 animate-spin" />
+          ) : (
+            <RefreshCw className="size-4" />
+          )}
+        </span>
         更新
       </Button>
       <button
-        className="shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+        className="ml-3 shrink-0 rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
         type="button"
         aria-label="更新通知を閉じる"
         disabled={updating}
