@@ -69,7 +69,9 @@ export function CalendarPage() {
   >(null)
   const calendarRef = useRef<HTMLDivElement>(null)
   const weekHeaderRef = useRef<HTMLDivElement>(null)
+  const dateRef = useRef(date)
   const initializedCalendarRef = useRef(false)
+  dateRef.current = date
   const now = japanDateTime(useCurrentTime())
   const carouselDates = useMemo(
     () => calendarSlideDates(date, calendarInitialSlide),
@@ -91,19 +93,20 @@ export function CalendarPage() {
 
   const changeDate = useCallback(
     (nextDate: string) => {
-      if (!nextDate || nextDate === date) return
+      if (!nextDate || nextDate === dateRef.current) return
+      dateRef.current = nextDate
       setSelectedAssignmentId(null)
       selectDate(nextDate)
     },
-    [date, selectDate]
+    [selectDate]
   )
 
   const updateWeekHeader = useCallback(
-    (offset: number) => {
+    (presentationDate: string, offset: number) => {
       const header = weekHeaderRef.current
-      if (header) paintCalendarWeekHeader(header, date, offset)
+      if (header) paintCalendarWeekHeader(header, presentationDate, offset)
     },
-    [date]
+    []
   )
 
   const selectAssignment = useCallback(
