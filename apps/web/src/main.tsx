@@ -13,6 +13,7 @@ import {
   queryClient,
   shouldPersistQueryKey,
 } from "@/lib/query-client.ts"
+import { initializePushControl } from "@/lib/push-control-store.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
 const router = createRouter({
@@ -30,6 +31,8 @@ const rootElement = document.getElementById("root")
 if (!rootElement) {
   throw new Error("Application root element was not found")
 }
+
+void initializePushControl()
 
 createRoot(rootElement).render(
   <StrictMode>

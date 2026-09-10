@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react"
+import { useSyncExternalStore } from "react"
 
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
@@ -12,30 +12,18 @@ import {
 } from "@/api/push"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import {
-  pushControlInitialState,
-  reducePushControl,
-} from "@/lib/push-control-state"
+  confirmPushControlState,
+  getPushControlState,
+  pushNotificationsSupported,
+  requestPushControlState,
+  rollbackPushControlState,
+  subscribePushControl,
+} from "@/lib/push-control-store"
 
 export function PushControl() {
   const offline = useOfflineMode()
-  const supported =
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window
-  const [state, dispatch] = useReducer(
-    reducePushControl,
-    pushControlInitialState
-  )
-
-  useEffect(() => {
-    if (!supported) return
-    void navigator.serviceWorker.ready
-      .then((registration) => registration.pushManager.getSubscription())
-      .then((subscription) =>
-        dispatch({ type: "loaded", enabled: subscription !== null })
-      )
-      .catch(() => dispatch({ type: "loaded", enabled: false }))
-  }, [supported])
+  const supported = pushNotificationsSupported()
+  const state = useSyncExternalStore(subscribePushControl, getPushControlState)
 
   async function toggle(nextEnabled: boolean) {
     if (
@@ -45,7 +33,7 @@ export function PushControl() {
     ) {
       return
     }
-    dispatch({ type: "toggle", enabled: nextEnabled })
+    requestPushControlState(nextEnabled)
     try {
       const registration = await navigator.serviceWorker.ready
       const current = await registration.pushManager.getSubscription()
@@ -54,19 +42,19 @@ export function PushControl() {
           await removePushSubscription(current.endpoint)
           await current.unsubscribe()
         }
-        dispatch({ type: "success" })
+        confirmPushControlState()
         toast.success("通知を解除しました。")
         return
       }
       if (current) {
         await savePushSubscription(current.toJSON())
-        dispatch({ type: "success" })
+        confirmPushControlState()
         toast.success("通知を有効にしました。")
         return
       }
       const permission = await Notification.requestPermission()
       if (permission !== "granted") {
-        dispatch({ type: "failure" })
+        rollbackPushControlState()
         toast.error("通知が許可されていません。")
         return
       }
@@ -81,10 +69,10 @@ export function PushControl() {
         await subscription.unsubscribe()
         throw error
       }
-      dispatch({ type: "success" })
+      confirmPushControlState()
       toast.success("通知を有効にしました。")
     } catch (error) {
-      dispatch({ type: "failure" })
+      rollbackPushControlState()
       toast.error(errorMessage(error))
     }
   }
