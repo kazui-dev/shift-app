@@ -1,4 +1,4 @@
-import { useLayoutEffect, type RefObject } from "react"
+import { useEffect, useLayoutEffect, useState, type RefObject } from "react"
 
 import { calendarWeekSlideDates } from "@/lib/calendar-carousel"
 import { localDate, moveDate, weekDates } from "@/lib/calendar-dates"
@@ -33,10 +33,12 @@ function WeekNumbers({ date }: { date: string }) {
 }
 
 function WeekPage({
+  animateIndicator,
   date,
   selectedDate,
   onDateChange,
 }: {
+  animateIndicator: boolean
   date: string
   selectedDate: string
   onDateChange: (date: string) => void
@@ -74,7 +76,7 @@ function WeekPage({
         className="pointer-events-none absolute inset-0 grid grid-cols-7"
       >
         <span
-          className={`${weekCellClassName} transition-transform [transition-duration:160ms] ease-out motion-reduce:transition-none`}
+          className={`${weekCellClassName} ${animateIndicator ? "transition-transform [transition-duration:160ms] ease-out motion-reduce:transition-none" : ""}`}
           style={{ transform: `translateX(${selectedWeekday * 100}%)` }}
         >
           <span aria-hidden className="h-4" />
@@ -166,6 +168,7 @@ export function CalendarWeekHeader({
   onDateChange: (date: string) => void
   rootRef: RefObject<HTMLDivElement | null>
 }) {
+  const [animatedDate, setAnimatedDate] = useState<string | null>(null)
   const { values, viewportRef } = useLoopCarousel({
     onSelect: onDateChange,
     value: date,
@@ -176,6 +179,22 @@ export function CalendarWeekHeader({
     const root = rootRef.current
     if (root) resetCalendarWeekHeader(root)
   }, [date, rootRef])
+
+  useEffect(() => {
+    if (animatedDate === null) return undefined
+    if (animatedDate !== date) {
+      setAnimatedDate(null)
+      return undefined
+    }
+    const timeout = window.setTimeout(() => setAnimatedDate(null), 160)
+    return () => window.clearTimeout(timeout)
+  }, [animatedDate, date])
+
+  function selectWeekDate(nextDate: string) {
+    if (nextDate === date) return
+    setAnimatedDate(nextDate)
+    onDateChange(nextDate)
+  }
 
   return (
     <div
@@ -196,9 +215,10 @@ export function CalendarWeekHeader({
             return (
               <WeekPage
                 key={slotId}
+                animateIndicator={animatedDate === date}
                 date={weekDate}
                 selectedDate={date}
-                onDateChange={onDateChange}
+                onDateChange={selectWeekDate}
               />
             )
           })}
