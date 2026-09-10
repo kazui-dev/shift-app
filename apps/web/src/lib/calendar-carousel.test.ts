@@ -1,12 +1,29 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
-  calendarInitialSlide,
+  calendarMonthSlideValues,
   calendarSlideDates,
-  calendarSwipeOffset,
-  createCalendarCarouselState,
-  reduceCalendarCarousel,
+  calendarWeekSlideDates,
 } from "./calendar-carousel"
+import {
+  createLoopCarouselState,
+  loopCarouselInitialSlide as calendarInitialSlide,
+  loopCarouselProgress as calendarSwipeOffset,
+  reduceLoopCarousel,
+  type LoopCarouselEvent,
+  type LoopCarouselState,
+} from "./loop-carousel"
+
+function createCalendarCarouselState(date: string) {
+  return createLoopCarouselState(date, calendarSlideDates)
+}
+
+function reduceCalendarCarousel(
+  state: LoopCarouselState<string>,
+  event: LoopCarouselEvent<string>
+) {
+  return reduceLoopCarousel(state, event, calendarSlideDates)
+}
 
 describe("calendar carousel slots", () => {
   it("centers consecutive dates in stable circular slots", () => {
@@ -76,19 +93,19 @@ describe("calendar carousel transitions", () => {
     })
 
     expect(dragging).toMatchObject({
-      date: "2026-08-27",
       index: 3,
       phase: "dragging",
+      value: "2026-08-27",
     })
     expect(selected).toMatchObject({
-      date: "2026-08-28",
       index: 4,
       phase: "animating",
+      value: "2026-08-28",
     })
     expect(reduceCalendarCarousel(selected, { type: "settle" })).toMatchObject({
-      date: "2026-08-28",
       index: 4,
       phase: "idle",
+      value: "2026-08-28",
     })
   })
 
@@ -99,9 +116,9 @@ describe("calendar carousel transitions", () => {
     const settled = reduceCalendarCarousel(released, { type: "settle" })
 
     expect(settled).toMatchObject({
-      date: "2026-08-27",
       index: 3,
       phase: "idle",
+      value: "2026-08-27",
     })
   })
 
@@ -115,11 +132,11 @@ describe("calendar carousel transitions", () => {
     }
 
     expect(state).toMatchObject({
-      date: "2026-08-31",
       index: 0,
       phase: "animating",
+      value: "2026-08-31",
     })
-    expect(state.dates[0]).toBe("2026-08-31")
+    expect(state.values[0]).toBe("2026-08-31")
   })
 
   it("rebases interrupted reverse selections across the loop boundary", () => {
@@ -129,8 +146,8 @@ describe("calendar carousel transitions", () => {
       state = reduceCalendarCarousel(state, { type: "select", index })
     }
 
-    expect(state).toMatchObject({ date: "2026-08-23", index: 6 })
-    expect(state.dates[6]).toBe("2026-08-23")
+    expect(state).toMatchObject({ index: 6, value: "2026-08-23" })
+    expect(state.values[6]).toBe("2026-08-23")
   })
 
   it("makes an external replacement authoritative during animation", () => {
@@ -140,14 +157,14 @@ describe("calendar carousel transitions", () => {
     )
     const replaced = reduceCalendarCarousel(selected, {
       type: "replace",
-      date: "2027-01-15",
       index: 4,
+      value: "2027-01-15",
     })
 
     expect(replaced).toMatchObject({
-      date: "2027-01-15",
       index: 4,
       phase: "idle",
+      value: "2027-01-15",
     })
     expect(reduceCalendarCarousel(replaced, { type: "settle" })).toEqual(
       replaced
@@ -161,11 +178,11 @@ describe("calendar carousel transitions", () => {
     )
 
     expect(state).toMatchObject({
-      date: "2026-08-27",
       index: 5,
       phase: "idle",
+      value: "2026-08-27",
     })
-    expect(state.dates[5]).toBe("2026-08-27")
+    expect(state.values[5]).toBe("2026-08-27")
   })
 
   it("ignores a selected index outside the physical slots", () => {
@@ -174,5 +191,31 @@ describe("calendar carousel transitions", () => {
     expect(reduceCalendarCarousel(state, { type: "select", index: 7 })).toBe(
       state
     )
+  })
+})
+
+describe("calendar period carousel slots", () => {
+  it("moves week slides by seven days while preserving the weekday", () => {
+    expect(calendarWeekSlideDates("2026-08-27", 3)).toEqual([
+      "2026-08-06",
+      "2026-08-13",
+      "2026-08-20",
+      "2026-08-27",
+      "2026-09-03",
+      "2026-09-10",
+      "2026-09-17",
+    ])
+  })
+
+  it("moves month slides across year boundaries", () => {
+    expect(calendarMonthSlideValues("2026-12", 3)).toEqual([
+      "2026-09",
+      "2026-10",
+      "2026-11",
+      "2026-12",
+      "2027-01",
+      "2027-02",
+      "2027-03",
+    ])
   })
 })

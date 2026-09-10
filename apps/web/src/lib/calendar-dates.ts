@@ -46,6 +46,16 @@ export function moveMonthValue(value: string, months: number): string {
   return monthValue(moveMonth(`${value}-01`, months, 1))
 }
 
+export function monthDistance(from: string, to: string): number {
+  const fromDate = localDate(`${from}-01`)
+  const toDate = localDate(`${to}-01`)
+  return (
+    (toDate.getFullYear() - fromDate.getFullYear()) * 12 +
+    toDate.getMonth() -
+    fromDate.getMonth()
+  )
+}
+
 export function monthValuesForDates(dates: string[]): string[] {
   return [...new Set(dates.map(monthValue))]
 }

@@ -35,13 +35,14 @@
 - HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
-カレンダーの日送りは Embla Carousel の固定7スライドを循環利用する。物理スライドの
-DOMは維持し、Emblaの`select`で論理日付と物理スロットを確定・再配置する。
+カレンダーの日、週、月送りは共通のloop carousel adapterを介してEmbla Carouselの
+固定7スライドを循環利用する。物理スライドのDOMは維持し、Emblaの`select`で
+論理値と物理スロットを確定・再配置する。
 `settle`は表示上の移動終了だけを表し、日付確定には使わない。遷移は
 `idle`、`dragging`、`animating`の単一モデルで管理し、確定前に次の操作を受けても
 スロット割り当てを毎回更新する。ドラッグ中の進捗はReact stateを経由せずCSS変数で
-週ヘッダーへ描画する。週ヘッダー自身はスクロールを持たず、カレンダー内で複数の
-スクロール状態機械や`scrollLeft`補正を同期させない。
+週ヘッダーへ描画する。各carouselはスクロール位置を直接同期せず、選択日だけを共有
+する。日のドラッグ中は週ヘッダー上の専用presentation layerへ進捗を描画する。
 
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。
 
