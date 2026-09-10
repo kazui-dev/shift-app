@@ -4,6 +4,8 @@ import {
   calendarInitialSlide,
   calendarSlideDates,
   calendarSwipeOffset,
+  createCalendarCarouselState,
+  reduceCalendarCarousel,
 } from "./calendar-carousel"
 
 describe("calendar carousel slots", () => {
@@ -44,6 +46,7 @@ describe("calendar carousel slots", () => {
     const snaps = [0, 1 / 7, 2 / 7, 3 / 7, 4 / 7, 5 / 7, 6 / 7]
 
     expect(calendarSwipeOffset(3.5 / 7, 3, snaps)).toBeCloseTo(0.5)
+    expect(calendarSwipeOffset(3.5 / 7, 4, snaps)).toBeCloseTo(-0.5)
     expect(calendarSwipeOffset(2.25 / 7, 3, snaps)).toBeCloseTo(-0.75)
     expect(calendarSwipeOffset(0.5 / 7, 0, snaps)).toBeCloseTo(0.5)
     expect(calendarSwipeOffset(6.5 / 7, 0, snaps)).toBeCloseTo(-0.5)
@@ -60,5 +63,116 @@ describe("calendar carousel slots", () => {
     const sparseSnaps = [0]
     sparseSnaps.length = 2
     expect(calendarSwipeOffset(0.25, 0, sparseSnaps)).toBe(0)
+  })
+})
+
+describe("calendar carousel transitions", () => {
+  it("commits the selected date before animation settles", () => {
+    const initial = createCalendarCarouselState("2026-08-27")
+    const dragging = reduceCalendarCarousel(initial, { type: "pointerDown" })
+    const selected = reduceCalendarCarousel(dragging, {
+      type: "select",
+      index: 4,
+    })
+
+    expect(dragging).toMatchObject({
+      date: "2026-08-27",
+      index: 3,
+      phase: "dragging",
+    })
+    expect(selected).toMatchObject({
+      date: "2026-08-28",
+      index: 4,
+      phase: "animating",
+    })
+    expect(reduceCalendarCarousel(selected, { type: "settle" })).toMatchObject({
+      date: "2026-08-28",
+      index: 4,
+      phase: "idle",
+    })
+  })
+
+  it("settles a cancelled drag without changing the date", () => {
+    const initial = createCalendarCarouselState("2026-08-27")
+    const dragging = reduceCalendarCarousel(initial, { type: "pointerDown" })
+    const released = reduceCalendarCarousel(dragging, { type: "pointerUp" })
+    const settled = reduceCalendarCarousel(released, { type: "settle" })
+
+    expect(settled).toMatchObject({
+      date: "2026-08-27",
+      index: 3,
+      phase: "idle",
+    })
+  })
+
+  it("rebases every interrupted selection across the loop boundary", () => {
+    let state = createCalendarCarouselState("2026-08-27")
+
+    for (const index of [4, 5, 6, 0]) {
+      state = reduceCalendarCarousel(state, { type: "pointerDown" })
+      state = reduceCalendarCarousel(state, { type: "select", index })
+      state = reduceCalendarCarousel(state, { type: "pointerUp" })
+    }
+
+    expect(state).toMatchObject({
+      date: "2026-08-31",
+      index: 0,
+      phase: "animating",
+    })
+    expect(state.dates[0]).toBe("2026-08-31")
+  })
+
+  it("rebases interrupted reverse selections across the loop boundary", () => {
+    let state = createCalendarCarouselState("2026-08-27")
+
+    for (const index of [2, 1, 0, 6]) {
+      state = reduceCalendarCarousel(state, { type: "select", index })
+    }
+
+    expect(state).toMatchObject({ date: "2026-08-23", index: 6 })
+    expect(state.dates[6]).toBe("2026-08-23")
+  })
+
+  it("makes an external replacement authoritative during animation", () => {
+    const selected = reduceCalendarCarousel(
+      createCalendarCarouselState("2026-08-27"),
+      { type: "select", index: 4 }
+    )
+    const replaced = reduceCalendarCarousel(selected, {
+      type: "replace",
+      date: "2027-01-15",
+      index: 4,
+    })
+
+    expect(replaced).toMatchObject({
+      date: "2027-01-15",
+      index: 4,
+      phase: "idle",
+    })
+    expect(reduceCalendarCarousel(replaced, { type: "settle" })).toEqual(
+      replaced
+    )
+  })
+
+  it("preserves the logical date when Embla reinitializes", () => {
+    const state = reduceCalendarCarousel(
+      createCalendarCarouselState("2026-08-27"),
+      { type: "reInit", index: 5 }
+    )
+
+    expect(state).toMatchObject({
+      date: "2026-08-27",
+      index: 5,
+      phase: "idle",
+    })
+    expect(state.dates[5]).toBe("2026-08-27")
+  })
+
+  it("ignores a selected index outside the physical slots", () => {
+    const state = createCalendarCarouselState("2026-08-27")
+
+    expect(reduceCalendarCarousel(state, { type: "select", index: 7 })).toBe(
+      state
+    )
   })
 })

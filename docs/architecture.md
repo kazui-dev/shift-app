@@ -36,8 +36,10 @@
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
 カレンダーの日送りは Embla Carousel の固定7スライドを循環利用する。物理スライドの
-DOMは維持し、確定したスナップを中心に論理日付だけを再配置する。選択日は
-`settle`後にアプリ状態へ反映し、ドラッグ中の進捗はReact stateを経由せずCSS変数で
+DOMは維持し、Emblaの`select`で論理日付と物理スロットを確定・再配置する。
+`settle`は表示上の移動終了だけを表し、日付確定には使わない。遷移は
+`idle`、`dragging`、`animating`の単一モデルで管理し、確定前に次の操作を受けても
+スロット割り当てを毎回更新する。ドラッグ中の進捗はReact stateを経由せずCSS変数で
 週ヘッダーへ描画する。週ヘッダー自身はスクロールを持たず、カレンダー内で複数の
 スクロール状態機械や`scrollLeft`補正を同期させない。
 
