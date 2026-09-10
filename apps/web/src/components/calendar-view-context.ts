@@ -1,10 +1,11 @@
-import { createContext, useContext, type RefObject } from "react"
+import { createContext, useContext } from "react"
 
 export type CalendarViewState = {
   date: string
-  setDate: (date: string) => void
-  preferredDayRef: RefObject<number>
-  scrollTopRef: RefObject<number | null>
+  selectDate: (date: string) => void
+  selectMonth: (months: number) => void
+  readScrollTop: () => number | null
+  saveScrollTop: (scrollTop: number) => void
 }
 
 export const CalendarViewStateContext = createContext<CalendarViewState | null>(
