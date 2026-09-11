@@ -44,7 +44,7 @@
 週ヘッダーへ描画する。各carouselはスクロール位置を直接同期せず、選択日だけを共有
 する。日のドラッグ中は週ヘッダー上の専用presentation layerへ進捗を描画する。
 
-Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャットの下書きと送信待ちは専用のIndexedDB storeに利用者・ルーム別で保存し、画像のBlobも保持する。送信内容を永続化してからアップロードと送信を開始し、client生成UUIDで再送を冪等化する。既存の停止中text mutationは既定`mutationFn`で再開できる状態を保つ。新しい送信は専用outboxだけを使う。
+Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャットの下書きと送信待ちは専用のIndexedDB storeに利用者・ルーム別で保存し、画像のBlobも保持する。送信内容を永続化してからアップロードと送信を開始し、client生成UUIDで再送を冪等化する。送信は専用outboxだけを使い、TanStack Queryのmutationは永続化しない。保存形式が異なるcacheやoutboxは破棄し、旧形式への読み替えは行わない。
 
 オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutation、チャットの下書き・送信待ち画像を破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
 

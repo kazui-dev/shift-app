@@ -102,6 +102,7 @@ it("does not send when durable local storage fails", async () => {
 })
 it("restores persisted drafts and interrupted uploads after reload", async () => {
   vi.mocked(get).mockResolvedValue({
+    version: 2,
     drafts: { two: { content: "再開", files: [] } },
     queue: [
       {
@@ -118,4 +119,25 @@ it("restores persisted drafts and interrupted uploads after reload", async () =>
   await value.flush()
   expect(sendChatMessage).toHaveBeenCalledTimes(1)
   expect(value.snapshot().queue).toEqual([])
+})
+
+it("discards incompatible saved queues instead of replaying them", async () => {
+  vi.mocked(get).mockResolvedValue({
+    version: 1,
+    drafts: { one: { content: "old", files: [] } },
+    queue: [
+      {
+        id: crypto.randomUUID(),
+        roomId: "one",
+        content: "old",
+        files: [],
+        status: "waiting",
+      },
+    ],
+  })
+  const value = await store()
+  await value.flush()
+  expect(value.draft("one").content).toBe("")
+  expect(value.snapshot().queue).toEqual([])
+  expect(sendChatMessage).not.toHaveBeenCalled()
 })

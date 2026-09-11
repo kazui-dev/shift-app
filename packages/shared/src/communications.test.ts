@@ -60,7 +60,10 @@ describe("communication schemas", () => {
 
   it("requires an idempotency id for chat messages", () => {
     expect(
-      v.safeParse(sendChatMessageInputSchema, { content: "了解" }).success
+      v.safeParse(sendChatMessageInputSchema, {
+        content: "了解",
+        attachmentIds: [],
+      }).success
     ).toBe(false)
   })
 
@@ -79,11 +82,25 @@ it("accepts images without text but rejects empty messages and excessive attachm
   const id = crypto.randomUUID(),
     attachmentIds = [crypto.randomUUID()]
   expect(
+    v.parse(sendChatMessageInputSchema, {
+      id,
+      content: " 了解 ",
+      attachmentIds: [],
+    }).content
+  ).toBe("了解")
+  expect(
+    v.safeParse(sendChatMessageInputSchema, { id, content: "了解" }).success
+  ).toBe(false)
+  expect(
     v.parse(sendChatMessageInputSchema, { id, content: "", attachmentIds })
       .attachmentIds
   ).toEqual(attachmentIds)
   expect(
-    v.safeParse(sendChatMessageInputSchema, { id, content: "  " }).success
+    v.safeParse(sendChatMessageInputSchema, {
+      id,
+      content: "  ",
+      attachmentIds: [],
+    }).success
   ).toBe(false)
   expect(
     v.safeParse(sendChatMessageInputSchema, {

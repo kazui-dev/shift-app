@@ -41,15 +41,15 @@ createRoot(rootElement).render(
       client={queryClient}
       persistOptions={{
         persister,
-        buster: "shift-app-cache-2026-08-offline-v2",
+        buster: "shift-app-cache-2026-09-chat-reset-v3",
         dehydrateOptions: {
+          shouldDehydrateMutation: () => false,
           shouldDehydrateQuery: (query) =>
             query.meta?.persist !== false &&
             shouldPersistQueryKey(query.queryKey) &&
             defaultShouldDehydrateQuery(query),
         },
       }}
-      onSuccess={() => queryClient.resumePausedMutations()}
     >
       <ThemeProvider>
         <RouterProvider router={router} />

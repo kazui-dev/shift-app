@@ -3,14 +3,11 @@ import type {
   PersistedClient,
   Persister,
 } from "@tanstack/react-query-persist-client"
-import * as v from "valibot"
-import { chatMessagesResponseSchema } from "@workspace/shared/communications"
 import { del, get, set } from "idb-keyval"
 
 import { toast } from "@workspace/ui/lib/toast"
 import { errorMessage } from "@/api/client"
 import { clearChatStorage } from "./chat-store"
-import { sendChatMessage } from "@/api/chat"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"
@@ -45,29 +42,9 @@ export const queryClient = new QueryClient({
   },
 })
 
-queryClient.setMutationDefaults(["send-chat-message"], {
-  mutationFn: (variables: { roomId: string; id: string; content: string }) =>
-    sendChatMessage(variables.roomId, variables),
-})
-
 export const persister: Persister = {
   persistClient: (client: PersistedClient) => set(PERSISTED_QUERY_KEY, client),
-  restoreClient: async () => {
-    const client = await get<PersistedClient>(PERSISTED_QUERY_KEY)
-    if (!client) return undefined
-    const schema = v.object({
-      pages: v.array(chatMessagesResponseSchema),
-      pageParams: v.array(v.unknown()),
-    })
-    client.clientState.queries = client.clientState.queries.flatMap((query) => {
-      if (query.queryKey[0] !== "chat-messages") return [query]
-      const parsed = v.safeParse(schema, query.state.data)
-      return parsed.success
-        ? [{ ...query, state: { ...query.state, data: parsed.output } }]
-        : []
-    })
-    return client
-  },
+  restoreClient: () => get<PersistedClient>(PERSISTED_QUERY_KEY),
   removeClient: () => del(PERSISTED_QUERY_KEY),
 }
 
