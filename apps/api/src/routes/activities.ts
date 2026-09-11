@@ -1,3 +1,4 @@
+import { cleanDeletedRooms } from "../services/chat-cleanup"
 import { activityActionsApp } from "./activity-actions"
 import { activityAttendanceApp } from "./activity-attendance"
 import { Hono } from "hono"
@@ -177,5 +178,6 @@ activitiesApp.delete("/:activityId", async (c) => {
       .bind(id),
     c.env.shift_app.prepare("DELETE FROM activities WHERE id=?").bind(id),
   ])
+  c.executionCtx.waitUntil(cleanDeletedRooms(c.env))
   return c.body(null, 204)
 })

@@ -131,7 +131,7 @@ describe("shift slot migration", () => {
           )
           .get()?.can_post
       ).toBe(0)
-      migrate(db, 21, 23)
+      migrate(db, 21, 25)
       expect(
         db.prepare("SELECT id FROM app_users WHERE id='m'").get()?.id
       ).toBe("m")
@@ -140,6 +140,51 @@ describe("shift slot migration", () => {
         db.prepare("SELECT COUNT(*) AS count FROM attendance_records").get()
           ?.count
       ).toBe(1)
+      db.exec(
+        "INSERT INTO chat_rooms(id,year,name,created_by,created_at,updated_at,kind) VALUES('custom',2026,'Room','m',0,0,'custom')"
+      )
+      expect(() =>
+        db.exec("INSERT INTO chat_room_exits VALUES('custom','m',1000)")
+      ).toThrow("LAST_CHAT_MANAGER")
+      db.exec(
+        "UPDATE chat_rooms SET status='archived' WHERE id='custom'; INSERT INTO chat_room_exits VALUES('custom','m',1000)"
+      )
+      expect(
+        db
+          .prepare(
+            "SELECT can_read FROM chat_effective_permissions WHERE room_id='custom' AND member_id='m'"
+          )
+          .get()
+      ).toBeUndefined()
+      expect(
+        db
+          .prepare(
+            "SELECT exited_at FROM chat_room_access WHERE room_id='custom' AND member_id='m'"
+          )
+          .get()?.exited_at
+      ).toBe(1000)
+      db.exec(
+        "INSERT INTO chat_room_targets(room_id,target_type,target_id,can_read,can_post,can_manage,created_at) VALUES('custom','member','m',1,1,1,1100)"
+      )
+      expect(
+        db
+          .prepare(
+            "SELECT exited_at FROM chat_room_access WHERE room_id='custom' AND member_id='m'"
+          )
+          .get()?.exited_at
+      ).toBeNull()
+      db.exec(
+        "DELETE FROM shift_assignments; DELETE FROM activities WHERE id='a'"
+      )
+      expect(
+        db
+          .prepare("SELECT room_id FROM chat_room_deletions WHERE room_id='a'")
+          .get()
+      ).toMatchObject({ room_id: "a" })
+      expect(
+        db.prepare("SELECT id FROM chat_rooms WHERE id='a'").get()
+      ).toBeUndefined()
+      expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([])
     } finally {
       db.close()
     }

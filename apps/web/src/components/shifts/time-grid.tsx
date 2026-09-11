@@ -322,7 +322,12 @@ export function TimeGrid({
                     </span>
                   ))}
                 {data.otherAssignments
-                  .filter((item) => item.memberId === member.id)
+                  .filter(
+                    (item) =>
+                      item.memberId === member.id &&
+                      Date.parse(item.startsAt) < end &&
+                      Date.parse(item.endsAt) > start
+                  )
                   .map((item) => (
                     <span
                       key={`${item.startsAt}-${item.endsAt}`}

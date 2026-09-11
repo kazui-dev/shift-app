@@ -19,6 +19,19 @@ type StoredMessage = {
 }
 
 export class ChatRoom extends DurableObject<CloudflareBindings> {
+  private deleted = false
+
+  async deleteMessages(roomId: string) {
+    const room = await this.env.shift_app
+      .prepare("SELECT id FROM chat_rooms WHERE id=?")
+      .bind(roomId)
+      .first()
+    if (room) throw new Error("Cannot delete an existing room")
+    this.deleted = true
+    for (const socket of this.ctx.getWebSockets())
+      socket.close(1000, "Room deleted")
+    this.ctx.storage.sql.exec("DELETE FROM messages")
+  }
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {
     super(ctx, env)
     void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
@@ -97,7 +110,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       )
       .bind(input.roomId, input.memberId)
       .first<{ can_post: number }>()
-    if (permission?.can_post !== 1)
+    if (this.deleted || permission?.can_post !== 1)
       throw new Error("Chat posting permission has changed")
     const existing = this.ctx.storage.sql
       .exec<StoredMessage>(

@@ -5,6 +5,7 @@ import {
   chatRoomsResponseSchema,
   chatTargetsResponseSchema,
   roomSettingsInputSchema,
+  roomSettingsResponseSchema,
 } from "@workspace/shared/communications"
 
 import { apiJson, apiVoid } from "./client"
@@ -59,7 +60,7 @@ export const updateChatPreferences = (
 export const getRoomSettings = (id: string) =>
   apiJson(
     `/api/chat/rooms/${encodeURIComponent(id)}/settings`,
-    roomSettingsInputSchema
+    roomSettingsResponseSchema
   )
 export const saveRoomSettings = (
   id: string,
@@ -68,5 +69,14 @@ export const saveRoomSettings = (
   apiVoid(`/api/chat/rooms/${encodeURIComponent(id)}/settings`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      name: input.name,
+      closed: input.closed,
+      targets: input.targets,
+    }),
+  })
+
+export const leaveChatRoom = (id: string) =>
+  apiVoid(`/api/me/chat-memberships/${encodeURIComponent(id)}`, {
+    method: "DELETE",
   })

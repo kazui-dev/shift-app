@@ -18,7 +18,7 @@
 | PWA / offline persistence   | asset cache・query cache・chat送信待ちを実装済み     |
 | Better Auth / OAuth         | handler・所属確認・onboarding 実装済み               |
 | Durable Objects / chat      | ルーム別SQLite・WebSocketを実装済み                  |
-| Web Push / reminders        | 割当時・開始10分前通知を実装済み                     |
+| Web Push / reminders        | 手動の更新通知・開始10分前通知を実装済み             |
 | Shift management API / UI   | 年度・役割・希望・割当・タイムライン・出勤を実装済み |
 | `packages/shared`           | 認証・シフト・連絡 API schema を実装済み             |
 
@@ -56,7 +56,7 @@ Push購読toggleはアプリ起動時に端末状態を一度だけ読み込む�
 
 - HTTP API は Hono で実装する。
 - 永続データは D1、schema と query は Drizzle で管理する。
-- 認証と session 管理には Better Auth を使う。Discord OAuth identity と domain 上の `members` を分離し、許可対象 server をサーバー側で検証する。
+- 認証と session 管理には Better Auth を使う。Discord OAuth identity と domain 上の `app_users` を分離し、許可対象 server をサーバー側で検証する。
 - ルーム単位の WebSocket 接続、順序制御、presence など、単一の調整主体が必要なチャット機能に Durable Objects を使う。通常の CRUD は D1 に置く。
 - 新規 Durable Object は SQLite storage を使い、class lifecycle は Wrangler の宣言型 `exports` で管理する。
 - `compatibility_date` 2026-08-04以降ではNode.js互換性が既定で有効になるため、
@@ -93,10 +93,8 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/years/:year/availability-dates`       | 希望を入力できる日付の管理       |
 | `/api/years/:year/activities`               | 年度内 activity                  |
 | `/api/activities/:activityId`               | activity と割当                  |
-| `/api/assignments/:assignmentId`            | 個別割当の取消                   |
 | `/api/assignments/:assignmentId/attendance` | 本人の出勤記録                   |
 | `/api/assignments/:assignmentId/report`     | 本人の遅刻・欠勤連絡             |
-| `/api/years/:year/reports`                  | 管理者向け連絡一覧               |
 | `/api/reports/:reportId`                    | 連絡状態の更新                   |
 | `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成       |
 | `/api/chat/targets`                         | 年度内のチャット対象候補         |
@@ -243,3 +241,12 @@ Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`ex
 - [shadcn/ui: Monorepo](https://ui.shadcn.com/docs/monorepo)
 - [Vite+: Getting started](https://viteplus.dev/guide/)
 - [Vite 8: Getting started](https://v8.vite.dev/guide/)
+
+## 管理刷新の保存境界
+
+年度参加は `year_memberships`、年度をまたぐ利用者は `app_users` が持つ。デフォルト年度と本人の表示年度を分離し、管理画面の年度選択は端末内で保持する。
+シフト編集は `shift_slots` と参加者を一括保存し、バージョン比較で同時編集の上書きを防ぐ。無効シフトも重複判定の対象になる。
+希望の入力途中は本人専用に自動保存し、提出済みの内容だけを管理画面に公開する。
+
+チャットの実効権限はD1のviewで年度参加、シフト、責任者、明示宛先を合算する。退出後は退出時点までの履歴だけを読める。シフト削除時には削除待ちテーブルを経由し、Durable Objectのメッセージ削除に失敗してもcronで再試行する。
+出勤訂正・連絡理由と履歴は本人または現在の責任者・全シフト管理者に限定し、参加者全体には公開しない。

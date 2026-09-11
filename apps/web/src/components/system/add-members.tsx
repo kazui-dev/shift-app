@@ -7,6 +7,10 @@ import {
   activateYearMembership,
   getYearMemberships,
   getYears,
+  getRoster,
+  getYearRoles,
+  createYearRole,
+  changeMemberRoles,
 } from "@/api/years"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -29,6 +33,17 @@ export function AddMembers({
     queryKey: ["year-memberships", year],
     queryFn: () => getYearMemberships(year),
   })
+  const [copyRoleIds, setCopyRoleIds] = useState<string[]>([])
+  const sourceRoles = useQuery({
+    queryKey: ["year-roles", source],
+    queryFn: () => getYearRoles(source),
+    enabled: source !== year,
+  })
+  const sourceRoster = useQuery({
+    queryKey: ["roster", source],
+    queryFn: () => getRoster(source),
+    enabled: source !== year,
+  })
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
@@ -49,8 +64,55 @@ export function AddMembers({
     ) ?? []
   async function add() {
     setPending(true)
+    const roleMap = new Map<string, string>()
+    try {
+      if (copyRoleIds.length) {
+        const existing = await getYearRoles(year)
+        await Promise.all(
+          copyRoleIds.map(async (sourceId) => {
+            const role = sourceRoles.data?.roles.find(
+              (item) => item.id === sourceId
+            )
+            if (!role) throw new Error("コピー元のロールが見つかりません。")
+            const target = existing.roles.find(
+              (item) => item.name === role.name
+            )
+            roleMap.set(
+              sourceId,
+              target?.id ??
+                (
+                  await createYearRole(year, {
+                    name: role.name,
+                    color: role.color,
+                    permissions: role.permissions,
+                  })
+                ).role.id
+            )
+          })
+        )
+      }
+    } catch (error) {
+      toast.error(errorMessage(error))
+      setPending(false)
+      return
+    }
     const results = await Promise.allSettled(
-      selected.map((id) => activateYearMembership(year, id))
+      selected.map(async (id) => {
+        await activateYearMembership(year, id)
+        const addRoleIds =
+          sourceRoster.data?.members
+            .find((member) => member.id === id)
+            ?.roles.flatMap((role) => {
+              const target = roleMap.get(role.id)
+              return target ? [target] : []
+            }) ?? []
+        if (addRoleIds.length)
+          await changeMemberRoles(year, {
+            memberIds: [id],
+            addRoleIds,
+            removeRoleIds: [],
+          })
+      })
     )
     const failed = selected.filter(
       (_, index) => results[index]?.status === "rejected"
@@ -58,6 +120,7 @@ export function AddMembers({
     await Promise.all([
       client.invalidateQueries({ queryKey: ["year-memberships", year] }),
       client.invalidateQueries({ queryKey: ["roster", year] }),
+      client.invalidateQueries({ queryKey: ["year-roles", year] }),
     ])
     setSelected(failed)
     setPending(false)
@@ -86,6 +149,7 @@ export function AddMembers({
           onChange={(e) => {
             setSource(Number(e.target.value))
             setSelected([])
+            setCopyRoleIds([])
           }}
         >
           <option value={year}>未参加のユーザー</option>
@@ -129,8 +193,37 @@ export function AddMembers({
             </li>
           ))}
         </ul>
+        {source !== year && sourceRoles.data && (
+          <details className="space-y-2 text-sm">
+            <summary className="cursor-pointer">ロールも引き継ぐ</summary>
+            <p className="text-xs text-muted-foreground">
+              選んだロールと、追加するメンバーへの付与を引き継ぎます。同名のロールがある場合はそのロールを使います。
+            </p>
+            {sourceRoles.data.roles.map((role) => (
+              <label key={role.id} className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  checked={copyRoleIds.includes(role.id)}
+                  disabled={pending}
+                  onChange={(event) =>
+                    setCopyRoleIds((ids) =>
+                      event.target.checked
+                        ? [...ids, role.id]
+                        : ids.filter((id) => id !== role.id)
+                    )
+                  }
+                />
+                {role.name}
+              </label>
+            ))}
+          </details>
+        )}
         <Button
-          disabled={pending || !selected.length}
+          disabled={
+            pending ||
+            !selected.length ||
+            (copyRoleIds.length > 0 && !sourceRoster.data)
+          }
           onClick={() => void add()}
         >
           {selected.length ? `${selected.length}人を追加` : "追加"}

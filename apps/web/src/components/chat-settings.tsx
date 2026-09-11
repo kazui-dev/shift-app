@@ -39,6 +39,7 @@ export function ChatSettings({
           onClose={onClose}
         />
       )}
+      {targets.isError && <p role="alert">{errorMessage(targets.error)}</p>}
       {settings.isError && <p role="alert">{errorMessage(settings.error)}</p>}
     </ResponsiveDialog>
   )
@@ -75,6 +76,7 @@ function SettingsForm({
     <div className="space-y-4">
       <Input
         aria-label="ルーム名"
+        readOnly={initial.kind !== "custom"}
         value={value.name}
         onChange={(event) => setValue({ ...value, name: event.target.value })}
       />
@@ -143,16 +145,18 @@ function SettingsForm({
             )
           })}
       </div>
-      <label className="flex items-center justify-between text-sm">
-        ルームを閉じる
-        <input
-          type="checkbox"
-          checked={value.closed}
-          onChange={(event) =>
-            setValue({ ...value, closed: event.target.checked })
-          }
-        />
-      </label>
+      {initial.kind === "custom" && (
+        <label className="flex items-center justify-between text-sm">
+          ルームを閉じる
+          <input
+            type="checkbox"
+            checked={value.closed}
+            onChange={(event) =>
+              setValue({ ...value, closed: event.target.checked })
+            }
+          />
+        </label>
+      )}
       <Button disabled={pending} onClick={() => void save()}>
         保存
       </Button>

@@ -5,6 +5,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { toast } from "@workspace/ui/lib/toast"
 import {
+  getAttendanceEvents,
   correctAttendance,
   getReportEvents,
   getShiftAttendance,
@@ -42,6 +43,9 @@ export function ShiftAttendance({
   const [correcting, setCorrecting] = useState<
     Data["assignments"][number] | null
   >(null)
+  const [attendanceHistory, setAttendanceHistory] = useState<string | null>(
+    null
+  )
   const [history, setHistory] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   async function run(work: () => Promise<unknown>) {
@@ -53,6 +57,8 @@ export function ShiftAttendance({
           queryKey: ["shift-attendance", activityId],
         }),
         client.invalidateQueries({ queryKey: ["assignments"] }),
+        client.invalidateQueries({ queryKey: ["attendance-events"] }),
+        client.invalidateQueries({ queryKey: ["report-events"] }),
       ])
       setEditing(null)
       setCorrecting(null)
@@ -192,6 +198,15 @@ export function ShiftAttendance({
                         連絡
                       </Button>
                     )}
+                    {(a.own || data.canManage) && a.checkedInAt && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setAttendanceHistory(a.id)}
+                      >
+                        履歴
+                      </Button>
+                    )}
                     {data.canManage && (
                       <Button
                         size="sm"
@@ -217,6 +232,12 @@ export function ShiftAttendance({
           onSubmit={(at, reason) =>
             void run(() => correctAttendance(correcting.id, at, reason))
           }
+        />
+      )}
+      {attendanceHistory && (
+        <AttendanceHistory
+          id={attendanceHistory}
+          onClose={() => setAttendanceHistory(null)}
         />
       )}
       {history && (
@@ -401,4 +422,55 @@ function HistoryDetails({ details }: { details: string }) {
   } catch {
     return null
   }
+}
+
+function AttendanceHistory({
+  id,
+  onClose,
+}: {
+  id: string
+  onClose: () => void
+}) {
+  const query = useQuery({
+    queryKey: ["attendance-events", id],
+    queryFn: () => getAttendanceEvents(id),
+  })
+  return (
+    <ResponsiveDialog
+      open
+      title="出勤の修正履歴"
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      {query.isError && <p role="alert">{errorMessage(query.error)}</p>}
+      {query.isPending && (
+        <p className="text-sm text-muted-foreground">読み込み中…</p>
+      )}
+      {query.data?.events.length === 0 && (
+        <p className="text-sm text-muted-foreground">修正履歴はありません。</p>
+      )}
+      <ul className="divide-y">
+        {query.data?.events.map((event) => (
+          <li key={event.id} className="space-y-1 py-3 text-sm">
+            <p>
+              {event.before ? timeLabel(event.before) : "記録なし"} →{" "}
+              {timeLabel(event.after)}
+            </p>
+            <p>{event.reason}</p>
+            <p className="text-xs text-muted-foreground">
+              {event.actor} ·{" "}
+              {new Intl.DateTimeFormat("ja-JP", {
+                timeZone: "Asia/Tokyo",
+                month: "numeric",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              }).format(new Date(event.createdAt))}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </ResponsiveDialog>
+  )
 }

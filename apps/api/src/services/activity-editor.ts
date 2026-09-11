@@ -80,9 +80,9 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .all<{ memberId: string; id: string; name: string; color: string }>(),
     db
       .prepare(
-        `SELECT s.member_id AS memberId, w.starts_at AS startsAt, w.ends_at AS endsAt FROM availability_submissions s JOIN availability_windows w ON w.submission_id = s.id WHERE s.year = ? AND s.status = 'submitted' AND w.starts_at < ? AND w.ends_at > ?`
+        `SELECT s.member_id AS memberId, w.starts_at AS startsAt, w.ends_at AS endsAt FROM availability_submissions s JOIN availability_windows w ON w.submission_id = s.id WHERE s.year = ? AND s.status = 'submitted'`
       )
-      .bind(activity.year, activity.endsAt, activity.startsAt)
+      .bind(activity.year)
       .all<{ memberId: string; startsAt: number; endsAt: number }>(),
     db
       .prepare(
@@ -92,9 +92,9 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .all<{ memberId: string }>(),
     db
       .prepare(
-        `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name FROM shift_assignments a JOIN shift_slots s ON s.id = a.slot_id JOIN activities act ON act.id = s.activity_id WHERE a.status = 'active' AND act.id <> ? AND s.starts_at < ? AND s.ends_at > ?`
+        `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name FROM shift_assignments a JOIN shift_slots s ON s.id = a.slot_id JOIN activities act ON act.id = s.activity_id WHERE a.status = 'active' AND act.id <> ? AND act.year = ?`
       )
-      .bind(id, activity.endsAt, activity.startsAt)
+      .bind(id, activity.year)
       .all<{
         memberId: string
         startsAt: number

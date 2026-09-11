@@ -1,3 +1,4 @@
+import { chatMembershipsApp } from "./chat-memberships"
 import { Hono } from "hono"
 
 import type { ApiEnv } from "../../lib/http"
@@ -12,3 +13,5 @@ meApp.route("/", meAssignmentsApp)
 meApp.route("/availability", meAvailabilityApp)
 
 meApp.route("/display-year", displayYearApp)
+
+meApp.route("/chat-memberships", chatMembershipsApp)

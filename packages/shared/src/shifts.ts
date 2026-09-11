@@ -591,3 +591,16 @@ export const reportEventsResponseSchema = v.object({
     })
   ),
 })
+
+export const attendanceEventsResponseSchema = v.object({
+  events: v.array(
+    v.object({
+      id: v.string(),
+      before: v.nullable(instantSchema),
+      after: instantSchema,
+      reason: v.string(),
+      createdAt: instantSchema,
+      actor: v.string(),
+    })
+  ),
+})

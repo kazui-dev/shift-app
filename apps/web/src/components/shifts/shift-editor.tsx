@@ -1,3 +1,5 @@
+import { mergePlan } from "./merge-plan"
+import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
@@ -8,12 +10,13 @@ import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import {
+  getActivity,
   saveActivity,
   copyActivity,
   deleteActivity,
   notifyActivity,
 } from "@/api/activities"
-import { errorMessage } from "@/api/client"
+import { ApiError, errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { nativeSelectClassName } from "@/components/form-styles"
@@ -37,7 +40,7 @@ function initial(data: EditorData): ActivityEditorInput {
     responsibles: data.responsibles,
   }
 }
-export function ShiftEditor({ data }: { data: EditorData }) {
+export function ShiftEditor({ data: source }: { data: EditorData }) {
   const client = useQueryClient()
   const navigate = useNavigate()
   const [actions, setActions] = useState(false)
@@ -47,15 +50,18 @@ export function ShiftEditor({ data }: { data: EditorData }) {
   const [deleting, setDeleting] = useState(false)
   const [copyDate, setCopyDate] = useState("")
   const [history, setHistory] = useState<EditHistory<ActivityEditorInput>>(
-    () => ({ past: [], present: initial(data), future: [] })
+    () => ({ past: [], present: initial(source), future: [] })
   )
-  const [saved, setSaved] = useState(() => JSON.stringify(initial(data)))
-  const [version, setVersion] = useState(data.activity.version)
+  const [saved, setSaved] = useState(() => JSON.stringify(initial(source)))
+  const [base, setBase] = useState(() => initial(source))
+  const [latest, setLatest] = useState<EditorData | null>(null)
+  const [conflicted, setConflicted] = useState(false)
+  const [version, setVersion] = useState(source.activity.version)
   const [selection, setSelection] = useState<ShiftSelection | null>(null)
   const [role, setRole] = useState(
-    data.candidateRoleIds.length === 1
-      ? (data.candidateRoleIds[0] ?? "")
-      : data.candidateRoleIds.length > 1
+    source.candidateRoleIds.length === 1
+      ? (source.candidateRoleIds[0] ?? "")
+      : source.candidateRoleIds.length > 1
         ? "candidates"
         : ""
   )
@@ -66,6 +72,14 @@ export function ShiftEditor({ data }: { data: EditorData }) {
   const [failure, setFailure] = useState<string | null>(null)
   const plan = history.present,
     dirty = JSON.stringify(plan) !== saved
+  const data = {
+    ...source,
+    availability: source.availability.filter(
+      (window) =>
+        Date.parse(window.startsAt) < Date.parse(plan.endsAt) &&
+        Date.parse(window.endsAt) > Date.parse(plan.startsAt)
+    ),
+  }
   const blocker = useBlocker({
     shouldBlockFn: () => dirty,
     enableBeforeUnload: dirty,
@@ -175,6 +189,8 @@ export function ShiftEditor({ data }: { data: EditorData }) {
       client.setQueryData(["activity-editor", data.activity.id], result)
       setVersion(result.activity.version)
       setSaved(JSON.stringify(plan))
+      setBase({ ...plan, version: result.activity.version })
+      setConflicted(false)
       await Promise.all([
         client.invalidateQueries({
           queryKey: ["activities", data.activity.year],
@@ -184,6 +200,7 @@ export function ShiftEditor({ data }: { data: EditorData }) {
       toast.success("保存しました。")
     } catch (error) {
       setFailure(errorMessage(error))
+      setConflicted(error instanceof ApiError && error.code === "SHIFT_CHANGED")
     } finally {
       setPending(false)
     }
@@ -290,6 +307,8 @@ export function ShiftEditor({ data }: { data: EditorData }) {
             key={selection.memberId}
             selection={selection}
             slots={plan.slots}
+            startsAt={plan.startsAt}
+            endsAt={plan.endsAt}
             data={data}
             pending={pending}
             onClose={() => setSelection(null)}
@@ -470,9 +489,52 @@ export function ShiftEditor({ data }: { data: EditorData }) {
         />
       )}
       {failure && (
-        <p role="alert" className="text-sm text-destructive">
-          {failure} 編集内容は保持しています。
-        </p>
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-destructive">
+            {failure} 編集内容は保持しています。
+          </p>
+          {conflicted && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() =>
+                void action(async () =>
+                  setLatest(await getActivity(data.activity.id))
+                )
+              }
+            >
+              最新の変更を確認
+            </Button>
+          )}
+        </div>
+      )}
+      {latest && (
+        <ShiftConflicts
+          base={base}
+          data={latest}
+          local={plan}
+          latest={initial(latest)}
+          onClose={() => setLatest(null)}
+          onMerge={(merged) => {
+            client.setQueryData(["activity-editor", data.activity.id], latest)
+            setVersion(latest.activity.version)
+            setBase(initial(latest))
+            setSaved(JSON.stringify(initial(latest)))
+            setHistory((current) => ({
+              past: current.past.map(
+                (item) => mergePlan(base, item, initial(latest)).plan
+              ),
+              present: merged,
+              future: current.future.map(
+                (item) => mergePlan(base, item, initial(latest)).plan
+              ),
+            }))
+            setLatest(null)
+            setFailure(null)
+            setConflicted(false)
+          }}
+        />
       )}
       {attendanceOpen && (
         <ShiftAttendance

@@ -1,3 +1,4 @@
+import { DisplayYearNotice } from "@/components/display-year-notice"
 import {
   useCallback,
   useEffect,
@@ -152,6 +153,7 @@ export function CalendarPage() {
           onDateChange={changeDate}
           onMonthChange={changeMonth}
         />
+        <DisplayYearNotice />
         {!offline && (
           <div className="flex items-center gap-1">
             <Button

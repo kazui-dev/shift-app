@@ -130,3 +130,8 @@ export const roomSettingsInputSchema = v.strictObject({
     v.maxLength(100)
   ),
 })
+
+export const roomSettingsResponseSchema = v.object({
+  ...roomSettingsInputSchema.entries,
+  kind: v.picklist(["custom", "global", "shift"]),
+})

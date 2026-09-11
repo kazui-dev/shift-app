@@ -19,6 +19,8 @@ function local(value: string) {
 export function ShiftSelectionPanel({
   selection,
   slots,
+  startsAt,
+  endsAt,
   data,
   pending,
   onClose,
@@ -27,6 +29,8 @@ export function ShiftSelectionPanel({
 }: {
   selection: ShiftSelection
   slots: ActivityEditorInput["slots"]
+  startsAt: string
+  endsAt: string
   data: EditorData
   pending: boolean
   onClose: () => void
@@ -39,6 +43,27 @@ export function ShiftSelectionPanel({
   const shifts = slots.filter((slot) =>
     slot.memberIds.includes(selection.memberId)
   )
+  const all = [
+    ...shifts,
+    ...data.otherAssignments.filter(
+      (item) => item.memberId === selection.memberId
+    ),
+  ]
+  const dayStart = japanLocalDateTime(`${japanDateTime(startsAt).date}T00:00`)
+  const minutes = (from: number, to: number) =>
+    all.reduce(
+      (total, item) =>
+        total +
+        Math.max(
+          0,
+          Math.min(to, Date.parse(item.endsAt)) -
+            Math.max(from, Date.parse(item.startsAt))
+        ) /
+          60000,
+      0
+    )
+  const duration = (value: number) =>
+    `${Math.floor(value / 60)}時間${value % 60 ? `${value % 60}分` : ""}`
   return (
     <aside
       aria-label="シフトの編集パネル"
@@ -106,8 +131,8 @@ export function ShiftSelectionPanel({
               value={{
                 memberId: selection.memberId,
                 slotId: null,
-                startsAt: data.activity.startsAt,
-                endsAt: data.activity.endsAt,
+                startsAt,
+                endsAt,
               }}
               pending={pending}
               onApply={(value) => {
@@ -130,6 +155,18 @@ export function ShiftSelectionPanel({
             追加
           </Button>
         </div>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">合計時間</summary>
+          <p className="mt-2">
+            当日：{duration(minutes(dayStart, dayStart + 86400000))}
+          </p>
+          <p className="mt-1">
+            年度：
+            {duration(
+              minutes(Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY)
+            )}
+          </p>
+        </details>
       </div>
     </aside>
   )
@@ -150,7 +187,12 @@ function ShiftTimeRow({
   const [error, setError] = useState<string | null>(null)
   function commit() {
     if (!from && !to) return
-    if (from === local(value.startsAt) && to === local(value.endsAt)) return
+    if (
+      value.slotId &&
+      from === local(value.startsAt) &&
+      to === local(value.endsAt)
+    )
+      return
     if (
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(from) ||
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(to)

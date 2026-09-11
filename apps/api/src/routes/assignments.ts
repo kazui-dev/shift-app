@@ -1,3 +1,4 @@
+import { attendanceEventsApp } from "./attendance-events"
 import {
   reportSelection,
   reportJson,
@@ -188,3 +189,5 @@ assignmentsApp.patch("/:assignmentId/attendance", async (c) => {
     },
   })
 })
+
+assignmentsApp.route("/", attendanceEventsApp)

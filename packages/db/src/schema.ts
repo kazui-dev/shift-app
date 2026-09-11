@@ -690,3 +690,23 @@ export const activityNotifications = sqliteTable(
     primaryKey({ columns: [table.activityId, table.memberId, table.version] }),
   ]
 )
+
+// Durable Object cleanup survives the transaction that removes the room.
+export const chatRoomDeletions = sqliteTable("chat_room_deletions", {
+  roomId: text("room_id").primaryKey(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+})
+
+export const chatRoomExits = sqliteTable(
+  "chat_room_exits",
+  {
+    roomId: text("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => appUsers.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.roomId, table.memberId] })]
+)

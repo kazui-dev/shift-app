@@ -1,3 +1,4 @@
+import { attendanceEventsResponseSchema } from "@workspace/shared/shifts"
 import {
   attendanceEnvelopeSchema,
   assignmentReportEnvelopeSchema,
@@ -131,4 +132,10 @@ export const correctAttendance = (
     `/api/assignments/${encodeURIComponent(assignmentId)}/attendance`,
     attendanceEnvelopeSchema,
     { method: "PATCH", body: JSON.stringify({ checkedInAt, reason }) }
+  )
+
+export const getAttendanceEvents = (id: string) =>
+  apiJson(
+    `/api/assignments/${encodeURIComponent(id)}/attendance/events`,
+    attendanceEventsResponseSchema
   )

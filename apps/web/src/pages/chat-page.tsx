@@ -1,3 +1,6 @@
+import { ConfirmDialog } from "@/components/confirm-dialog"
+import { leaveChatRoom } from "@/api/chat"
+import { DisplayYearNotice } from "@/components/display-year-notice"
 import { getRouteApi } from "@tanstack/react-router"
 import { ShiftAttendance } from "@/components/shifts/shift-attendance"
 import { ChatSettings } from "@/components/chat-settings"
@@ -48,6 +51,7 @@ export function ChatPage() {
   const [attendanceOpen, setAttendanceOpen] = useState(!!search.report)
   const queryClient = useQueryClient()
   const offline = useOfflineMode()
+  const [leaving, setLeaving] = useState(false)
   const displayYear = useDisplayYear()
   const selectedYear = displayYear.year
   const [closed, setClosed] = useState(false)
@@ -246,6 +250,22 @@ export function ChatPage() {
 
   return (
     <section className="flex min-h-[calc(100dvh-9rem)] w-full min-w-0 flex-col gap-6 md:min-h-[70dvh]">
+      {leaving && selectedRoom && (
+        <ConfirmDialog
+          title="ルームから退出しますか"
+          description="退出後も、退出するまでの履歴は確認できます。"
+          confirmLabel="退出"
+          onCancel={() => setLeaving(false)}
+          onConfirm={() => {
+            setLeaving(false)
+            void leaveChatRoom(selectedRoom.id)
+              .then(() =>
+                queryClient.invalidateQueries({ queryKey: ["chat-rooms"] })
+              )
+              .catch((error) => toast.error(errorMessage(error)))
+          }}
+        />
+      )}
       <PageHeader
         className="md:hidden"
         title={selectedRoom?.name ?? "チャット"}
@@ -262,6 +282,7 @@ export function ChatPage() {
           ) : undefined
         }
       >
+        <DisplayYearNotice />
         {selectedRoomId === null && !offline && (
           <Button
             size="icon-sm"
@@ -274,6 +295,7 @@ export function ChatPage() {
         )}
       </PageHeader>
       <PageHeader className="hidden md:flex" title="チャット">
+        <DisplayYearNotice />
         {!offline && (
           <Button
             size="icon-sm"
@@ -363,6 +385,15 @@ export function ChatPage() {
                   onClick={() => setSettingsOpen(true)}
                 >
                   設定
+                </Button>
+              )}
+              {selectedRoom.kind === "custom" && !selectedRoom.historical && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLeaving(true)}
+                >
+                  退出
                 </Button>
               )}
               {!selectedRoom.canPost && (

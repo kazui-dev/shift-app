@@ -310,6 +310,7 @@ chatApp.get("/rooms/:roomId/settings", async (c) => {
     }>()
   return c.json({
     name: room.name,
+    kind: room.kind,
     closed: room.status === "archived",
     targets: targets.results.map((target) => ({
       ...target,
