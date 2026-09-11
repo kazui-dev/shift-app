@@ -195,15 +195,9 @@ export function CalendarPage() {
         </div>
 
         {calendarAssignments.selectedMonthIsError && !offline && (
-          <Button
-            className="absolute top-2 right-2"
-            size="sm"
-            variant="outline"
-            title={errorMessage(calendarAssignments.selectedMonthError)}
-            onClick={calendarAssignments.refetchSelectedMonth}
-          >
-            予定を再読み込み
-          </Button>
+          <output className="absolute top-2 right-2 rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
+            予定の更新が遅れています。自動で再接続します。
+          </output>
         )}
 
         {selectedAssignment && (

@@ -62,7 +62,7 @@ chatTargetsApp.get("/targets", async (c) => {
         .prepare(
           `SELECT id AS targetId, name AS displayName
            FROM activities
-           WHERE year = ? AND status = 'active'
+           WHERE year = ? AND active = 1
            ORDER BY starts_at, lower(name), id`
         )
         .bind(year)

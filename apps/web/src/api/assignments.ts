@@ -42,7 +42,11 @@ export function assignmentMonthRange(month: string): {
   }
 }
 
-export function assignmentMonthQuery(month: string, year: number | null) {
+export function assignmentMonthQuery(
+  month: string,
+  year: number | null,
+  online = true
+) {
   const range = assignmentMonthRange(month)
   return queryOptions({
     queryKey: ["assignments", "month", month, year] as const,
@@ -51,6 +55,8 @@ export function assignmentMonthQuery(month: string, year: number | null) {
         ? skipToken
         : ({ signal }) => getMyAssignments(year, range.from, range.to, signal),
     staleTime: assignmentMonthStaleTime,
+    refetchInterval: (query) =>
+      online && query.state.status === "error" ? 30_000 : false,
   })
 }
 
