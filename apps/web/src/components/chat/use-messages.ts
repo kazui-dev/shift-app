@@ -17,7 +17,7 @@ import {
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 const positions = new Map<string, number>()
-export function useMessages(room: Room, offline: boolean) {
+export function useMessages(room: Room, offline: boolean, active: boolean) {
   const client = useQueryClient(),
     viewport = useRef<HTMLDivElement>(null),
     sticky = useRef(true),
@@ -32,7 +32,7 @@ export function useMessages(room: Room, offline: boolean) {
     initialPageParam: null as number | null,
     getNextPageParam: (last) =>
       last.hasMore ? last.messages[0]?.sequence : undefined,
-    enabled: !offline,
+    enabled: !offline && active,
   })
   const messages = useMemo(
     () => query.data?.pages.toReversed().flatMap((page) => page.messages) ?? [],
@@ -43,6 +43,7 @@ export function useMessages(room: Room, offline: boolean) {
     if (
       sequence &&
       !offline &&
+      active &&
       !room.historical &&
       document.visibilityState === "visible" &&
       sequence > readSequence.current
@@ -57,10 +58,18 @@ export function useMessages(room: Room, offline: boolean) {
           readSequence.current = room.lastRead
         })
     }
-  }, [messages, offline, room.historical, room.id, room.lastRead, client])
+  }, [
+    messages,
+    offline,
+    active,
+    room.historical,
+    room.id,
+    room.lastRead,
+    client,
+  ])
   useLayoutEffect(() => {
     const list = viewport.current
-    if (!list || !messages.length) return
+    if (!active || !list || !messages.length) return
     if (!initialized.current) {
       initialized.current = true
       const saved = positions.get(room.id),
@@ -78,12 +87,21 @@ export function useMessages(room: Room, offline: boolean) {
       previousHeight.current = null
     } else if (sticky.current) list.scrollTop = list.scrollHeight
     setAtBottom(sticky.current)
-  }, [messages, room.id])
+  }, [messages, room.id, active])
+  useLayoutEffect(() => {
+    const list = viewport.current
+    if (!active || !list) return undefined
+    const resize = new ResizeObserver(() => {
+      if (sticky.current) list.scrollTop = list.scrollHeight
+    })
+    resize.observe(list)
+    return () => resize.disconnect()
+  }, [active])
   useEffect(() => {
     if (atBottom) markRead()
   }, [markRead, atBottom])
   useEffect(() => {
-    if (offline || room.historical) return undefined
+    if (!active || offline || room.historical) return undefined
     let socket: WebSocket | null = null,
       timer: number | null = null,
       disposed = false,
@@ -131,7 +149,7 @@ export function useMessages(room: Room, offline: boolean) {
       if (timer !== null) window.clearTimeout(timer)
       socket?.close(1000, "Room changed")
     }
-  }, [client, offline, room.id, room.historical])
+  }, [client, offline, active, room.id, room.historical])
   return {
     viewport,
     messages,

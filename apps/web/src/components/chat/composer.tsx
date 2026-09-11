@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { ArrowUp, ImagePlus, X } from "lucide-react"
+import { ArrowUp, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { toast } from "@workspace/ui/lib/toast"
@@ -28,18 +28,32 @@ export function ChatComposer({
   const form = useRef<HTMLFormElement>(null)
   const input = useRef<HTMLTextAreaElement>(null),
     fileInput = useRef<HTMLInputElement>(null)
+  const [bodyHeight, setBodyHeight] = useState(48)
   const [expanded, setExpanded] = useState(false),
     [dragging, setDragging] = useState(false)
   const touch = useMediaQuery("(pointer: coarse)")
   useLayoutEffect(() => {
     const field = input.current
-    if (!field) return
-    field.style.height = "auto"
-    const height = field.scrollHeight
-    field.style.height = `${Math.max(32, Math.min(height, 168))}px`
-    if (draft.content && (draft.content.includes("\n") || height > 32))
-      setExpanded(true)
-    else if (!draft.content) setExpanded(false)
+    if (!field) return undefined
+    let width = field.clientWidth
+    const measure = () => {
+      field.style.height = "auto"
+      const height = field.scrollHeight
+      const bounded = Math.max(32, Math.min(height, 168))
+      field.style.height = `${bounded}px`
+      setBodyHeight(bounded + 8 + (expanded ? 44 : 8))
+      if (draft.content && (draft.content.includes("\n") || height > 32))
+        setExpanded(true)
+      else if (!draft.content) setExpanded(false)
+    }
+    measure()
+    const observer = new ResizeObserver(() => {
+      if (field.clientWidth === width) return
+      width = field.clientWidth
+      measure()
+    })
+    observer.observe(field)
+    return () => observer.disconnect()
   }, [draft.content, expanded])
   function addFiles(incoming: File[]) {
     const accepted: ChatFile[] = []
@@ -100,6 +114,7 @@ export function ChatComposer({
   return (
     <form
       ref={form}
+      data-chat-composer
       aria-label="メッセージを作成"
       onSubmit={(event) => {
         event.preventDefault()
@@ -156,18 +171,21 @@ export function ChatComposer({
           ))}
         </ul>
       )}
-      <div className={`relative px-2 pt-2 ${expanded ? "pb-11" : "pb-2"}`}>
+      <div
+        style={{ height: bodyHeight }}
+        className={`relative px-2 pt-2 transition-[height,padding-bottom] duration-200 ease-out motion-reduce:transition-none ${expanded ? "pb-11" : "pb-2"}`}
+      >
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
           disabled={disabled}
-          className="absolute bottom-2 left-2 rounded-full text-muted-foreground"
+          className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground"
           aria-label="画像を添付"
           title="画像を添付"
           onClick={() => fileInput.current?.click()}
         >
-          <ImagePlus />
+          <Plus />
         </Button>
         <Textarea
           ref={input}
@@ -178,7 +196,7 @@ export function ChatComposer({
           disabled={disabled}
           value={draft.content}
           enterKeyHint={touch ? "enter" : "send"}
-          className={`min-h-0 resize-none rounded-none border-0 bg-transparent py-1 text-sm leading-6 shadow-none focus-visible:ring-0 dark:bg-transparent ${expanded ? "px-1" : "px-10"}`}
+          className={`min-h-0 touch-pan-y touch-pinch-zoom resize-none overscroll-contain rounded-none border-0 bg-transparent py-1 text-base leading-6 shadow-none transition-[padding] duration-200 ease-out focus-visible:ring-0 motion-reduce:transition-none md:text-sm dark:bg-transparent ${expanded ? "px-1" : "px-10"}`}
           onChange={(event) => {
             const content = event.currentTarget.value
             if (!content) setExpanded(false)
@@ -208,7 +226,7 @@ export function ChatComposer({
         <Button
           type="submit"
           size="icon-sm"
-          className="absolute right-2 bottom-2 rounded-full"
+          className="absolute right-2 bottom-2 size-8 rounded-full"
           aria-label="送信"
           disabled={disabled || (!draft.content.trim() && !draft.files.length)}
         >

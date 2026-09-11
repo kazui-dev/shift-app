@@ -35,6 +35,7 @@ accountApp.get("/account", async (c) => {
   const db = drizzle(c.env.shift_app)
   const [member] = await db
     .select({
+      id: appUsers.id,
       displayName: appUsers.displayName,
       studentId: appUsers.studentId,
       accessLevel: appUsers.accessLevel,
@@ -53,7 +54,7 @@ accountApp.get("/account", async (c) => {
 
   return c.json({
     status: "active" as const,
-    member,
+    member: { ...member, image: authSession.user.image ?? null },
     providers,
     linkedProviders,
   })

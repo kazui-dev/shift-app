@@ -75,6 +75,7 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
       id: queued.id,
       sequence: 1,
       memberId: "m",
+      memberImage: null,
       memberDisplayName: "名前",
       content: "",
       createdAt: new Date().toISOString(),
@@ -82,7 +83,17 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
     },
   })
   value.retry(queued.id)
-  await value.flush()
+  const confirm = vi.fn<(roomId: string, message: { id: string }) => void>(
+    (roomId, message) => {
+      expect(roomId).toBe("one")
+      expect(message.id).toBe(queued.id)
+      expect(
+        value.snapshot().queue.some((item) => item.id === message.id)
+      ).toBe(true)
+    }
+  )
+  await value.flush(confirm)
+  expect(confirm).toHaveBeenCalledTimes(1)
   expect(uploadChatImage).toHaveBeenCalledTimes(1)
   expect(sendChatMessage).toHaveBeenNthCalledWith(2, "one", {
     id: queued.id,
@@ -102,12 +113,13 @@ it("does not send when durable local storage fails", async () => {
 })
 it("restores persisted drafts and interrupted uploads after reload", async () => {
   vi.mocked(get).mockResolvedValue({
-    version: 2,
+    version: 3,
     drafts: { two: { content: "再開", files: [] } },
     queue: [
       {
         id: crypto.randomUUID(),
         roomId: "one",
+        createdAt: new Date().toISOString(),
         content: "送信",
         files: [],
         status: "sending",
@@ -116,6 +128,18 @@ it("restores persisted drafts and interrupted uploads after reload", async () =>
   })
   const value = await store()
   expect(value.draft("two").content).toBe("再開")
+  vi.mocked(sendChatMessage).mockResolvedValue({
+    message: {
+      id: crypto.randomUUID(),
+      sequence: 1,
+      memberId: "m",
+      memberDisplayName: "名前",
+      memberImage: null,
+      content: "送信",
+      attachments: [],
+      createdAt: new Date().toISOString(),
+    },
+  })
   await value.flush()
   expect(sendChatMessage).toHaveBeenCalledTimes(1)
   expect(value.snapshot().queue).toEqual([])
@@ -129,6 +153,7 @@ it("discards incompatible saved queues instead of replaying them", async () => {
       {
         id: crypto.randomUUID(),
         roomId: "one",
+        createdAt: new Date().toISOString(),
         content: "old",
         files: [],
         status: "waiting",

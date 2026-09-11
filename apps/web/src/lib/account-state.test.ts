@@ -17,6 +17,8 @@ import { shouldPersistQueryKey } from "@/lib/query-client"
 const activeAccount = (studentId: string): ActiveAccountState => ({
   status: "active",
   member: {
+    id: "6632fe2d-1064-442c-8884-3b674f564e60",
+    image: null,
     displayName: "電大太郎",
     studentId,
     accessLevel: "member",

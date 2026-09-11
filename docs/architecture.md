@@ -29,7 +29,7 @@
 `apps/web` は React + Vite の SPA とする。
 
 - ファイルベースルーティングに TanStack Router を使う。Vite plugin は `@vitejs/plugin-react` より前に登録する。
-- サーバー状態、mutation、offline persistence に TanStack Query を使う。optimistic update は今後導入する。
+- サーバー状態、mutation、offline persistence に TanStack Query を使う。チャット送信はclient生成UUIDを使い、送信待ちと確定済みを同じメッセージ行へ統合する。
 - UI 部品は shadcn/ui CLI で管理し、共有可能な部品を `packages/ui` に置く。
 - API 入出力は Valibot schema で検証し、共通 schema は `packages/shared` に置く。
 - HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
@@ -264,3 +264,27 @@ Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`ex
 アップロードは1枚10MB・4000万画素、1投稿4枚まで。Images bindingで実体を検査し、JPEG/PNG/WebP/HEIC/HEIF/AVIFを最大2400pxの静止WebPに変換する。EXIF・XMP・未知のmetadata chunkを除去し、原本は保存しない。利用者・ルーム単位の24時間100回の上限は失敗や取り消しでも減らさない。
 
 添付metadataは各ChatRoomのSQLite schema version 2で管理する。投稿者が所有する未送信画像だけを本文と同一transactionで確定し、未送信の画像は配信しない。24時間以上残った未送信画像はDurable Object alarmで削除し、失敗時は再試行する。ルーム削除時は既存の削除待ちcronから画像と本文を削除する。D1のschema変更はない。
+
+チャットの通常送信では処理状態ラベルを表示せず、同じUUIDの行を送信直後から確定後まで維持する。送信応答をquery cacheへ反映してからoutboxを除去し、WebSocket経由の履歴ともUUIDで重複排除する。再送操作は失敗時に、接続待ちの表示はオフライン時に限る。
+
+Discordのプロフィール画像はOAuthログイン時に認証userへ同期する。アプリの氏名は`app_users.display_name`を使い続け、Discordの表示名更新から分離する。画像URLは本人のaccount応答・閲覧権限を確認したチャットのHTTP応答に含める。本文には画像URLを複製せず、過去のメッセージにも現在のプロフィール画像を合成する。認証userの画像保存時はDiscord CDNのカスタム画像URLだけを許可し、任意の外部画像URLとDiscordの既定アイコンは採用しない。カスタム画像がない場合はログイン時に保存済み画像も消去し、URLが未取得または読み込めない場合と同様に名前の先頭文字を表示する。
+
+### Mobile chat navigation
+
+チャットは`/chat`を一覧、`/chat/:roomId`を会話として扱い、共通のChatPageが
+一覧と直前の会話を保持する。モバイルはPointer Eventsによる2パネルで指に追従する水平移動と
+途中キャンセルを提供し、PCは同じDOMを2列に配置する。開始・水平移動・確定・取消を同じ制御で扱い、OSによるpointercancelは遷移を確定しない。一覧の検索・スクロール、
+会話のスクロール・下書きを遷移で作り直さない。非表示のパネルはinertにし、
+非表示の会話はWebSocket購読と既読更新を停止する。
+
+ルーム一覧から開いた会話はhistory stateに戻り先の種別を記録し、戻る操作で
+既存の一覧履歴へ戻す。直接開いた会話では一覧へreplaceする。スワイプも戻るリンクも
+同じnavigation操作を使い、ブラウザーの戻る・進むとパネル位置を同期する。
+画面両端24pxはOSの操作用に残し、フォーム・ボタン・選択中のテキストからは
+スワイプを始めない。縦スクロールとピンチズームを維持し、motion reductionにも従う。
+
+ボトムナビは48pxと端末のsafe areaを使い、選択中のアイコンに薄い無彩色の丸い背景を付ける。
+チャット入力欄との間は16px空ける。モバイルで入力欄内にフォーカスがある間は
+ナビと予約領域を同じ200msで畳み、フォーカスが外れたら戻す。
+useChatViewportがVisualViewportの高さ・位置を一元管理し、キーボード表示で
+入力欄が隠れないよう表示領域を追従させる。入力欄のボタンは32pxのまま維持する。

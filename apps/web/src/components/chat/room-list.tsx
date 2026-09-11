@@ -15,6 +15,7 @@ export function RoomList({
   loadingClosed,
   closedError,
   selectedId,
+  fromList,
   offline,
   onExpand,
   onCreate,
@@ -26,6 +27,7 @@ export function RoomList({
   loadingClosed: boolean
   closedError: boolean
   selectedId: string | null
+  fromList: boolean
   offline: boolean
   onExpand: () => void
   onCreate: () => void
@@ -46,6 +48,7 @@ export function RoomList({
               <li key={room.id}>
                 <Link
                   to="/chat/$roomId"
+                  state={{ chatFromList: fromList }}
                   params={{ roomId: room.id }}
                   aria-current={selectedId === room.id ? "page" : undefined}
                   className={`flex min-h-12 items-center gap-2 rounded-lg px-3 py-2.5 hover:bg-muted/50 ${selectedId === room.id ? "bg-muted/70" : ""}`}
@@ -115,7 +118,7 @@ export function RoomList({
           </Button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-3">
+      <div className="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto px-1 pb-3">
         {loading ? (
           <output className="block px-3 py-4 text-sm text-muted-foreground">
             読み込み中…

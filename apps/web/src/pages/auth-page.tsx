@@ -160,7 +160,7 @@ function OnboardingView() {
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="display-name">氏名</FieldLabel>
+            <FieldLabel htmlFor="display-name">氏名（スペースなし）</FieldLabel>
             <Input
               id="display-name"
               className="h-11"

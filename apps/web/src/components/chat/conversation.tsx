@@ -31,6 +31,8 @@ import { useChatStore } from "./use-chat-store"
 import { useMessages } from "./use-messages"
 import { MessageImages, LocalImage } from "./images"
 import { RoomInfo } from "./room-info"
+import { MemberAvatar } from "../member-avatar"
+import { messageRows } from "./message-list"
 import { roomSchedule } from "./room-schedule"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
@@ -52,7 +54,11 @@ function time(value: string) {
 export function ChatConversation({
   roomId,
   report,
+  active,
+  onBack,
 }: {
+  active: boolean
+  onBack: () => void
   roomId: string
   report?: string | undefined
 }) {
@@ -60,13 +66,21 @@ export function ChatConversation({
     query = useQuery({
       queryKey: ["chat-room", roomId],
       queryFn: () => getChatRoom(roomId),
-      enabled: !offline,
+      enabled: !offline && active,
     })
   if (!query.data)
     return (
       <div className="flex flex-1 flex-col">
         <div className="flex h-14 items-center px-4">
-          <Link to="/chat" className="md:hidden" aria-label="ルーム一覧へ">
+          <Link
+            to="/chat"
+            onClick={(event) => {
+              event.preventDefault()
+              onBack()
+            }}
+            className="md:hidden"
+            aria-label="ルーム一覧へ"
+          >
             <ChevronLeft />
           </Link>
         </div>
@@ -78,15 +92,25 @@ export function ChatConversation({
       </div>
     )
   return (
-    <Conversation room={query.data.room} offline={offline} report={report} />
+    <Conversation
+      room={query.data.room}
+      offline={offline}
+      report={report}
+      active={active}
+      onBack={onBack}
+    />
   )
 }
 function Conversation({
   room,
   offline,
   report,
+  active,
+  onBack,
 }: {
   room: Room
+  active: boolean
+  onBack: () => void
   offline: boolean
   report?: string | undefined
 }) {
@@ -96,10 +120,10 @@ function Conversation({
     [info, setInfo] = useState(false),
     [attendance, setAttendance] = useState(!!report),
     [leaving, setLeaving] = useState(false)
-  const { store, ready, queue } = useChatStore(),
+  const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id),
     pending = queue.filter((item) => item.roomId === room.id)
-  const history = useMessages(room, offline),
+  const history = useMessages(room, offline, active),
     seat = useRef<HTMLDivElement>(null),
     layout = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -116,6 +140,7 @@ function Conversation({
     observer.observe(element)
     return () => observer.disconnect()
   }, [room.canPost])
+  const rows = messageRows(history.messages, pending, member)
   async function mute() {
     try {
       await updateChatPreferences(room.id, { muted: !room.muted })
@@ -131,6 +156,10 @@ function Conversation({
     <>
       <header className="flex h-14 shrink-0 items-center gap-2 border-b px-1 pb-2 md:px-5">
         <Link
+          onClick={(event) => {
+            event.preventDefault()
+            onBack()
+          }}
           to="/chat"
           aria-label="ルーム一覧へ"
           className="flex size-8 items-center justify-center md:hidden"
@@ -208,7 +237,7 @@ function Conversation({
         <div
           ref={history.viewport}
           onScroll={history.onScroll}
-          className={`absolute inset-0 overflow-y-auto overscroll-contain px-3 pt-4 md:px-5 ${room.canPost ? "pb-[calc(var(--composer-height)+2.5rem)]" : "pb-6"}`}
+          className={`absolute inset-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain px-3 pt-4 md:px-5 ${room.canPost ? "pb-[calc(var(--composer-height)+2.5rem)]" : "pb-6"}`}
         >
           {history.query.hasNextPage && (
             <div className="mb-4 text-center">
@@ -223,13 +252,14 @@ function Conversation({
             </div>
           )}
           <ol aria-label="メッセージ" className="min-w-0">
-            {history.messages.map((message, index) => {
-              const previous = history.messages[index - 1],
+            {rows.map((message, index) => {
+              const previous = rows[index - 1],
                 dayChanged =
                   !previous ||
                   date(previous.createdAt) !== date(message.createdAt),
                 unread =
                   history.initialRead > 0 &&
+                  message.memberId !== member.id &&
                   message.sequence === history.initialRead + 1
               const grouped =
                 previous?.memberId === message.memberId &&
@@ -240,7 +270,9 @@ function Conversation({
               return (
                 <li
                   key={message.id}
-                  data-sequence={message.sequence}
+                  data-message-id={message.id}
+                  data-sequence={message.sequence ?? undefined}
+                  data-delivery={message.status}
                   className={grouped ? "pt-0.5" : "pt-4 first:pt-0"}
                 >
                   {dayChanged && (
@@ -259,12 +291,11 @@ function Conversation({
                   )}
                   <div className="group grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 rounded-md hover:bg-muted/25">
                     {!grouped ? (
-                      <span
-                        aria-hidden
-                        className="mt-0.5 flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium"
-                      >
-                        {message.memberDisplayName.slice(0, 1)}
-                      </span>
+                      <MemberAvatar
+                        name={message.memberDisplayName}
+                        image={message.memberImage}
+                        className="mt-0.5"
+                      />
                     ) : (
                       <span className="self-start pt-1 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">
                         {time(message.createdAt)}
@@ -293,59 +324,55 @@ function Conversation({
                         roomId={room.id}
                         images={message.attachments}
                       />
+                      {message.files.length > 0 && (
+                        <div
+                          className={`mt-2 grid max-w-lg gap-2 ${message.files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                        >
+                          {message.files.map((file) => (
+                            <div
+                              key={file.id}
+                              className="w-fit overflow-hidden rounded-xl border"
+                            >
+                              <LocalImage
+                                blob={file.blob}
+                                alt={file.name}
+                                className="max-h-80 w-auto max-w-full object-contain"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {(message.status === "failed" ||
+                        (offline && message.status !== "sent")) && (
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                          {message.status === "failed" ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => store.retry(message.id)}
+                            >
+                              再送
+                            </Button>
+                          ) : (
+                            "接続後に送信"
+                          )}
+                          {message.status !== "sending" && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => store.cancel(message.id)}
+                            >
+                              取り消す
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>
               )
             })}
           </ol>
-          {pending.length > 0 && (
-            <ul aria-label="送信待ち" className="mt-4 space-y-3 pl-11">
-              {pending.map((item) => (
-                <li key={item.id} className="text-sm">
-                  <p className="leading-7 whitespace-pre-wrap text-muted-foreground">
-                    {item.content}
-                  </p>
-                  {item.files.length > 0 && (
-                    <div className="mt-2 flex gap-2">
-                      {item.files.map((file) => (
-                        <LocalImage
-                          key={file.id}
-                          blob={file.blob}
-                          alt={file.name}
-                          className="size-20 rounded-lg border object-cover"
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    {item.status === "failed" ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => store.retry(item.id)}
-                      >
-                        再送
-                      </Button>
-                    ) : item.status === "sending" ? (
-                      "送信中…"
-                    ) : (
-                      "送信待ち"
-                    )}
-                    {item.status !== "sending" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => store.cancel(item.id)}
-                      >
-                        取り消す
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
           {room.historical && (
             <p className="mt-5 text-center text-xs text-muted-foreground">
               退出前の履歴です
@@ -366,7 +393,7 @@ function Conversation({
         {room.canPost && (
           <div
             ref={seat}
-            className="absolute inset-x-2 bottom-2 md:inset-x-5 md:bottom-3"
+            className="absolute inset-x-2 bottom-4 md:inset-x-5 md:bottom-3"
           >
             <ChatComposer
               draft={draft}
@@ -381,15 +408,17 @@ function Conversation({
           </div>
         )}
       </div>
-      {info && <RoomInfo room={room} onClose={() => setInfo(false)} />}
-      {settings && (
+      {active && info && (
+        <RoomInfo room={room} onClose={() => setInfo(false)} />
+      )}
+      {active && settings && (
         <ChatSettings
           id={room.id}
           year={room.year}
           onClose={() => setSettings(false)}
         />
       )}
-      {attendance && room.activityId && (
+      {active && attendance && room.activityId && (
         <ShiftAttendance
           activityId={room.activityId}
           onClose={() => {
@@ -403,7 +432,7 @@ function Conversation({
           }}
         />
       )}
-      {leaving && (
+      {active && leaving && (
         <ConfirmDialog
           title="ルームから退出しますか"
           description="退出するまでの履歴は引き続き確認できます。"

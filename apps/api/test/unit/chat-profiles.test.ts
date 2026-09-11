@@ -1,0 +1,54 @@
+import { DatabaseSync, type SQLInputValue } from "node:sqlite"
+import { Hono } from "hono"
+import { expect, it } from "vite-plus/test"
+import type { ApiEnv } from "../../src/lib/http"
+import { withMemberImages } from "../../src/services/chat-profiles"
+it("resolves current profile images without modifying stored posts", async () => {
+  const db = new DatabaseSync(":memory:")
+  try {
+    db.exec(
+      "CREATE TABLE user(id TEXT,image TEXT);CREATE TABLE app_users(id TEXT,user_id TEXT);INSERT INTO user VALUES('u','https://cdn.discordapp.com/embed/avatars/0.png');INSERT INTO app_users VALUES('m','u')"
+    )
+    const env = {
+      shift_app: {
+        prepare: (sql: string) => ({
+          bind: (...values: SQLInputValue[]) => ({
+            all: () =>
+              Promise.resolve({ results: db.prepare(sql).all(...values) }),
+          }),
+        }),
+      },
+    }
+    const messages = [
+      { id: "post", memberId: "m", content: "既存の本文" },
+      { id: "missing", memberId: "gone", content: "本文" },
+    ]
+    const app = new Hono<ApiEnv>()
+    app.get("/", async (c) => c.json(await withMemberImages(c.env, messages)))
+    expect(await (await app.request("/", {}, env)).json()).toEqual([
+      {
+        ...messages[0],
+        memberImage: "https://cdn.discordapp.com/embed/avatars/0.png",
+      },
+      { ...messages[1], memberImage: null },
+    ])
+    db.exec(
+      "UPDATE user SET image='https://cdn.discordapp.com/embed/avatars/1.png'"
+    )
+    expect(await (await app.request("/", {}, env)).json()).toMatchObject([
+      {
+        id: "post",
+        content: "既存の本文",
+        memberImage: "https://cdn.discordapp.com/embed/avatars/1.png",
+      },
+      { id: "missing", memberImage: null },
+    ])
+    expect(messages[0]).toEqual({
+      id: "post",
+      memberId: "m",
+      content: "既存の本文",
+    })
+  } finally {
+    db.close()
+  }
+})
