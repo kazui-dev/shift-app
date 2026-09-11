@@ -1,5 +1,6 @@
 :root {
   --app-sidebar-width: 0px;
+  --app-bottom-bar-height: calc(4.25rem + 1px);
 }
 
 @media (min-width: 768px) {
@@ -28,4 +29,12 @@
   [data-app-update-notice] {
     transition: none;
   }
+}
+
+/* A conversation owns its message scroller; the document is not a second one. */
+html:has([data-chat-shell]),
+html:has([data-chat-shell]) body,
+html:has([data-chat-shell]) #root {
+  height: 100%;
+  overflow: clip;
 }

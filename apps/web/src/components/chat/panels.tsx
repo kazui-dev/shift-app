@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react"
 import { useMediaQuery } from "@/hooks/use-media-query"
-import { swipeDestination, type ChatPanel } from "./swipe"
+import { swipeDestination, swipeIntent, type ChatPanel } from "./swipe"
 
 type Gesture = {
   id: number
@@ -44,7 +44,6 @@ export function ChatPanels({
   const track = useRef<HTMLDivElement>(null)
   const listPanel = useRef<HTMLElement>(null)
   const conversationPanel = useRef<HTMLDivElement>(null)
-  const suppressClick = useRef(false)
   const first = useRef(true)
   const previousDesktop = useRef(desktop)
   const paint = useCallback(
@@ -91,14 +90,21 @@ export function ChatPanels({
     const root = viewport.current
     if (!root || desktop) return undefined
     let gesture: Gesture | null = null
-    const down = (event: PointerEvent) => {
-      suppressClick.current = false
+    const cancel = () => {
+      if (gesture?.locked) paint(gesture.start, true)
+      gesture = null
+    }
+    const down = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        cancel()
+        return
+      }
+      const touch = event.touches.item(0)
       if (
+        !touch ||
         !hasRoom ||
-        !event.isPrimary ||
-        event.pointerType !== "touch" ||
-        event.clientX < 24 ||
-        event.clientX > window.innerWidth - 24
+        touch.clientX < 24 ||
+        touch.clientX > window.innerWidth - 24
       )
         return
       if (
@@ -110,10 +116,10 @@ export function ChatPanels({
         return
       if (window.getSelection()?.toString()) return
       gesture = {
-        id: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        lastX: event.clientX,
+        id: touch.identifier,
+        x: touch.clientX,
+        y: touch.clientY,
+        lastX: touch.clientX,
         lastTime: event.timeStamp,
         velocity: 0,
         width: root.clientWidth,
@@ -121,80 +127,76 @@ export function ChatPanels({
         locked: false,
       }
     }
-    const move = (event: PointerEvent) => {
-      if (!gesture || event.pointerId !== gesture.id) return
-      const dx = event.clientX - gesture.x,
-        dy = event.clientY - gesture.y
+    const move = (event: TouchEvent) => {
+      if (!gesture) return
+      const touch = Array.from(event.touches).find(
+        (item) => item.identifier === gesture?.id
+      )
+      if (!touch || event.touches.length !== 1) {
+        cancel()
+        return
+      }
+      const dx = touch.clientX - gesture.x,
+        dy = touch.clientY - gesture.y
       if (!gesture.locked) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) return
-        if (
-          Math.abs(dy) * 1.5 >= Math.abs(dx) ||
-          (gesture.start === 0 && dx > 0) ||
-          (gesture.start === 1 && dx < 0)
-        ) {
+        const intent = swipeIntent(gesture.start, dx, dy)
+        if (intent === "pending") return
+        if (intent === "native") {
           gesture = null
           return
         }
         gesture.locked = true
-        root.setPointerCapture(event.pointerId)
+      }
+      // Only an accepted horizontal swipe belongs to the app. Cancel the
+      // browser's touch gesture itself, not just its derived pointer event.
+      if (!event.cancelable) {
+        cancel()
+        return
       }
       event.preventDefault()
       const elapsed = event.timeStamp - gesture.lastTime
       if (elapsed > 0)
-        gesture.velocity = (event.clientX - gesture.lastX) / elapsed
-      gesture.lastX = event.clientX
+        gesture.velocity = (touch.clientX - gesture.lastX) / elapsed
+      gesture.lastX = touch.clientX
       gesture.lastTime = event.timeStamp
       paint(Math.max(0, Math.min(1, gesture.start - dx / gesture.width)), false)
     }
-    const finish = (event: PointerEvent) => {
-      if (event.type === "lostpointercapture" && event.target !== root) return
-      if (!gesture || event.pointerId !== gesture.id) return
+    const finish = (event: TouchEvent) => {
+      if (!gesture) return
+      const touch = Array.from(event.changedTouches).find(
+        (item) => item.identifier === gesture?.id
+      )
+      if (!touch) return
       const current = gesture
       gesture = null
-      if (root.hasPointerCapture(event.pointerId))
-        root.releasePointerCapture(event.pointerId)
       if (!current.locked) return
-      suppressClick.current = true
       const velocity =
         event.timeStamp - current.lastTime > 100 ? 0 : current.velocity
-      const destination =
-        event.type === "pointerup"
-          ? swipeDestination(
-              current.start,
-              event.clientX - current.x,
-              current.width,
-              velocity
-            )
-          : current.start
+      const destination = swipeDestination(
+        current.start,
+        touch.clientX - current.x,
+        current.width,
+        velocity
+      )
       paint(destination, true)
       navigate(destination)
     }
-    const click = (event: MouseEvent) => {
-      if (!suppressClick.current) return
-      suppressClick.current = false
-      event.preventDefault()
-      event.stopPropagation()
-    }
-    root.addEventListener("pointerdown", down)
-    root.addEventListener("pointermove", move)
-    root.addEventListener("pointerup", finish)
-    root.addEventListener("pointercancel", finish)
-    root.addEventListener("lostpointercapture", finish)
-    root.addEventListener("click", click, true)
+    root.addEventListener("touchstart", down, { passive: true })
+    root.addEventListener("touchmove", move, { passive: false })
+    root.addEventListener("touchend", finish, { passive: true })
+    root.addEventListener("touchcancel", cancel, { passive: true })
     return () => {
-      root.removeEventListener("pointerdown", down)
-      root.removeEventListener("pointermove", move)
-      root.removeEventListener("pointerup", finish)
-      root.removeEventListener("pointercancel", finish)
-      root.removeEventListener("lostpointercapture", finish)
-      root.removeEventListener("click", click, true)
+      root.removeEventListener("touchstart", down)
+      root.removeEventListener("touchmove", move)
+      root.removeEventListener("touchend", finish)
+      root.removeEventListener("touchcancel", cancel)
     }
   }, [desktop, hasRoom, showingRoom, paint])
   return (
     <section
       ref={viewport}
       aria-label="チャット"
-      className="min-h-0 min-w-0 flex-1 overflow-hidden"
+      className="min-h-0 min-w-0 flex-1 overflow-clip"
     >
       <div
         ref={track}

@@ -1,11 +1,11 @@
-import { useEffect, useRef } from "react"
+import { useLayoutEffect, useRef } from "react"
 import { useMediaQuery } from "./use-media-query"
 
 // Keyboard geometry is independent from navigation and composer layout.
 export function useChatViewport(isChat: boolean) {
   const mobile = useMediaQuery("(max-width: 767px)")
   const shell = useRef<HTMLDivElement>(null)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = shell.current
     if (!element || !isChat || !mobile) return undefined
     const viewport = window.visualViewport

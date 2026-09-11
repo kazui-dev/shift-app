@@ -436,7 +436,7 @@ function Conversation({
         {room.canPost && (
           <div
             ref={seat}
-            className="absolute inset-x-2 bottom-4 md:inset-x-5 md:bottom-3"
+            className="absolute inset-x-2 bottom-[calc(var(--app-bottom-bar-height)-50px)] md:inset-x-5"
           >
             <ChatComposer
               draft={draft}

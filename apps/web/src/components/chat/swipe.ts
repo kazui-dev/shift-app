@@ -1,5 +1,20 @@
 export type ChatPanel = 0 | 1
 
+export function swipeIntent(
+  start: ChatPanel,
+  dx: number,
+  dy: number
+): "pending" | "native" | "horizontal" {
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) return "pending"
+  if (
+    Math.abs(dy) * 1.5 >= Math.abs(dx) ||
+    (start === 0 && dx > 0) ||
+    (start === 1 && dx < 0)
+  )
+    return "native"
+  return "horizontal"
+}
+
 export function swipeDestination(
   start: ChatPanel,
   distance: number,

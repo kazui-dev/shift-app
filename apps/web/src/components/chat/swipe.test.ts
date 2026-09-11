@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test"
-import { swipeDestination } from "./swipe"
+import { swipeDestination, swipeIntent } from "./swipe"
 
 it("commits a deliberate drag or a short flick in either direction", () => {
   expect(swipeDestination(1, 140, 390, 0)).toBe(0)
@@ -18,4 +18,16 @@ it("keeps the current panel for a short drag or a reversal", () => {
 it("does not navigate beyond the list or the conversation", () => {
   expect(swipeDestination(0, 180, 390, 1)).toBe(0)
   expect(swipeDestination(1, -180, 390, -1)).toBe(1)
+})
+
+it("leaves taps, vertical scrolling, and outward gestures to the browser", () => {
+  expect(swipeIntent(1, 3, 4)).toBe("pending")
+  expect(swipeIntent(1, 10, 40)).toBe("native")
+  expect(swipeIntent(1, 30, 20)).toBe("native")
+  expect(swipeIntent(0, 50, 0)).toBe("native")
+  expect(swipeIntent(1, -50, 0)).toBe("native")
+})
+it("claims only inward horizontal movement beyond the tap threshold", () => {
+  expect(swipeIntent(1, 40, 10)).toBe("horizontal")
+  expect(swipeIntent(0, -40, 10)).toBe("horizontal")
 })
