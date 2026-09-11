@@ -82,11 +82,29 @@ export function useChatPanels({
   useEffect(() => {
     if (!api || desktop) return undefined
     const element = list.current
+    let restoreBounds: (() => void) | undefined
     const paint = () => {
       if (element)
         element.style.transform = `translate3d(${api.scrollProgress() * 75}%,0,0)`
     }
     const reInit = () => {
+      restoreBounds?.()
+      const engine = api.internalEngine()
+      const translate = engine.translate.to
+      // Bound every render, including settled frames that emit no scroll event.
+      engine.translate.to = (value) => {
+        for (const position of [
+          engine.target,
+          engine.location,
+          engine.previousLocation,
+          engine.offsetLocation,
+        ])
+          position.set(engine.limit.constrain(position.get()))
+        translate(engine.limit.constrain(value))
+      }
+      restoreBounds = () => {
+        engine.translate.to = translate
+      }
       api.scrollTo(requested.current, true)
       paint()
     }
@@ -98,6 +116,7 @@ export function useChatPanels({
       api.off("select", select)
       api.off("scroll", paint)
       api.off("reInit", reInit)
+      restoreBounds?.()
       element?.style.removeProperty("transform")
     }
   }, [api, desktop])
