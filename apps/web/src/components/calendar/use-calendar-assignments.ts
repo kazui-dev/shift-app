@@ -1,3 +1,4 @@
+import { useOfflineMode } from "@/components/offline-mode-context"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useEffect, useMemo } from "react"
 import { useQueries, useQueryClient } from "@tanstack/react-query"
@@ -15,9 +16,7 @@ import {
 
 export type CalendarAssignments = {
   byDate: Map<string, CalendarAssignment[]>
-  selectedMonthError: unknown
   selectedMonthIsError: boolean
-  refetchSelectedMonth: () => void
 }
 
 export function useCalendarAssignments(
@@ -25,10 +24,11 @@ export function useCalendarAssignments(
   dates: string[]
 ): CalendarAssignments {
   const { year } = useDisplayYear()
+  const offline = useOfflineMode()
   const queryClient = useQueryClient()
   const months = useMemo(() => monthValuesForDates(dates), [dates])
   const queries = useQueries({
-    queries: months.map((month) => assignmentMonthQuery(month, year)),
+    queries: months.map((month) => assignmentMonthQuery(month, year, !offline)),
   })
   const selectedMonth = monthValue(selectedDate)
   const selectedMonthIndex = months.indexOf(selectedMonth)
@@ -53,10 +53,6 @@ export function useCalendarAssignments(
 
   return {
     byDate,
-    selectedMonthError: selectedMonthQuery?.error,
     selectedMonthIsError: selectedMonthQuery?.isError ?? false,
-    refetchSelectedMonth: () => {
-      void selectedMonthQuery?.refetch()
-    },
   }
 }

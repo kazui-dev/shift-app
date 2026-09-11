@@ -34,7 +34,7 @@ import {
 } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
-import { EmptyState, PageHeader } from "@/components/page-layout"
+import { EmptyState } from "@/components/page-layout"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 
 function time(value: string) {
@@ -266,54 +266,48 @@ export function ChatPage() {
           }}
         />
       )}
-      <PageHeader
-        className="md:hidden"
-        title={selectedRoom?.name ?? "チャット"}
-        back={
-          selectedRoomId !== null ? (
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="チャット一覧に戻る"
-              onClick={() => setRoomId(null)}
-            >
-              <ChevronLeft />
-            </Button>
-          ) : undefined
-        }
-      >
-        <DisplayYearNotice />
-        {selectedRoomId === null && !offline && (
+      {selectedRoomId !== null && (
+        <header className="flex min-h-11 items-center gap-2 md:hidden">
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="ルームを作成"
-            onClick={() => setCreateOpen(true)}
+            aria-label="チャット一覧に戻る"
+            onClick={() => setRoomId(null)}
           >
-            <Plus />
+            <ChevronLeft />
           </Button>
-        )}
-      </PageHeader>
-      <PageHeader className="hidden md:flex" title="チャット">
-        <DisplayYearNotice />
-        {!offline && (
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="ルームを作成"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus />
-          </Button>
-        )}
-      </PageHeader>
+          {selectedRoom && (
+            <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
+              {selectedRoom.name}
+            </h1>
+          )}
+          <DisplayYearNotice />
+        </header>
+      )}
       <div className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] md:border-y">
         <aside
           className={`${selectedRoomId === null ? "flex" : "hidden"} min-h-0 flex-col md:flex md:border-r`}
         >
-          <Button variant="ghost" size="sm" onClick={() => setClosed(!closed)}>
-            {closed ? "ルーム一覧" : "閉じたルーム"}
-          </Button>
+          <div className="flex min-h-12 items-center justify-between gap-2 px-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setClosed(!closed)}
+            >
+              {closed ? "ルーム一覧" : "閉じたルーム"}
+            </Button>
+            {!offline && (
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="ルームを作成"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus />
+              </Button>
+            )}
+          </div>
+          <DisplayYearNotice />
           <div className="min-h-0 flex-1 overflow-y-auto">
             <ul className="divide-y">
               {rooms.data?.rooms.map((room) => (
