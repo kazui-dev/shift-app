@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
+import { toast } from "@workspace/ui/lib/toast"
 import { Input } from "@workspace/ui/components/input"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { japanDateTime, japanLocalDateTime } from "@/lib/japan-time"
@@ -184,7 +185,6 @@ function ShiftTimeRow({
 }) {
   const [from, setFrom] = useState(value.slotId ? local(value.startsAt) : "")
   const [to, setTo] = useState(value.slotId ? local(value.endsAt) : "")
-  const [error, setError] = useState<string | null>(null)
   function commit() {
     if (!from && !to) return
     if (
@@ -197,7 +197,7 @@ function ShiftTimeRow({
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(from) ||
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(to)
     ) {
-      setError("時刻は09:00の形式で入力してください。")
+      toast.error("時刻は09:00の形式で入力してください。", { id: "shift-time" })
       return
     }
     const start = japanLocalDateTime(
@@ -205,16 +205,16 @@ function ShiftTimeRow({
     )
     const end = japanLocalDateTime(`${japanDateTime(value.endsAt).date}T${to}`)
     if (start >= end) {
-      setError("終了は開始より後にしてください。")
+      toast.error("終了は開始より後にしてください。", { id: "shift-time" })
       return
     }
-    setError(
-      onApply({
-        ...value,
-        startsAt: new Date(start).toISOString(),
-        endsAt: new Date(end).toISOString(),
-      })
-    )
+    const error = onApply({
+      ...value,
+      startsAt: new Date(start).toISOString(),
+      endsAt: new Date(end).toISOString(),
+    })
+    if (error) toast.error(error, { id: "shift-time" })
+    else toast.dismiss("shift-time")
   }
   return (
     <form
@@ -288,11 +288,6 @@ function ShiftTimeRow({
           )}
         </Button>
       </div>
-      {error && (
-        <p role="alert" className="text-xs text-destructive">
-          {error}
-        </p>
-      )}
     </form>
   )
 }

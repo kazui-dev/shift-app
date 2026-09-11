@@ -194,12 +194,6 @@ export function CalendarPage() {
           />
         </div>
 
-        {calendarAssignments.selectedMonthIsError && !offline && (
-          <output className="absolute top-2 right-2 rounded-md bg-background px-3 py-2 text-xs text-muted-foreground">
-            予定の更新が遅れています。自動で再接続します。
-          </output>
-        )}
-
         {selectedAssignment && (
           <AssignmentDetailsDialog
             key={selectedAssignment.id}

@@ -105,7 +105,6 @@ export function MemberManager({ year }: { year: number }) {
           </Button>
         </div>
       )}
-      {roster.isError && <p role="alert">{errorMessage(roster.error)}</p>}
       <ul className="divide-y border-y">
         {members.map((member) => (
           <li key={member.id} className="flex min-h-16 items-center gap-4 py-3">

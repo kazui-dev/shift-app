@@ -101,29 +101,36 @@ export function ManagePage({ view }: { view: ManageView }) {
 
     return (
       <section className="w-full min-w-0 space-y-6">
-        <div className="flex justify-end">
-          {manageableYears.length > 1 && (
-            <select
-              aria-label="年度"
-              className={cn(nativeSelectClassName, "w-auto")}
-              value={year ?? ""}
-              onChange={(event) => setSelectedYear(Number(event.target.value))}
-            >
-              {manageableYears.map((item) => (
-                <option key={item.year} value={item.year}>
-                  {item.year}年度
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
         {!years.isPending && (
           <div className="space-y-6">
             {year !== null && (
               <section>
-                <h2 className="mb-2 text-xs font-medium text-muted-foreground">
-                  管理
-                </h2>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h2 className="text-xs font-medium text-muted-foreground">
+                    管理
+                  </h2>
+                  {manageableYears.length > 1 && (
+                    <select
+                      aria-label="年度"
+                      className={cn(nativeSelectClassName, "w-auto")}
+                      value={year ?? ""}
+                      onChange={(event) =>
+                        setSelectedYear(Number(event.target.value))
+                      }
+                    >
+                      {manageableYears.map((item) => (
+                        <option key={item.year} value={item.year}>
+                          {item.year}年度
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {manageableYears.length === 1 && (
+                    <span className="text-xs text-muted-foreground">
+                      {year}年度
+                    </span>
+                  )}
+                </div>
                 <ul className="divide-y border-y">
                   {shiftItems.map(({ to, name, icon: Icon }) => (
                     <li key={to}>

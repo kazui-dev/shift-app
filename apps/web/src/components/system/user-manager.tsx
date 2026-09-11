@@ -36,7 +36,6 @@ export function UserManager() {
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
-      {users.isError && <p role="alert">{errorMessage(users.error)}</p>}
       <ul className="divide-y border-y">
         {users.data?.users
           .filter((user) =>

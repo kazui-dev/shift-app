@@ -84,7 +84,6 @@ export function ShiftAttendance({
       {query.isPending && (
         <p className="text-sm text-muted-foreground">読み込み中…</p>
       )}
-      {query.error && <p role="alert">{errorMessage(query.error)}</p>}
       {target ? (
         <ReportForm
           key={target.id}
@@ -443,7 +442,6 @@ function AttendanceHistory({
         if (!open) onClose()
       }}
     >
-      {query.isError && <p role="alert">{errorMessage(query.error)}</p>}
       {query.isPending && (
         <p className="text-sm text-muted-foreground">読み込み中…</p>
       )}

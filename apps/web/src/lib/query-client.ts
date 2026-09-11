@@ -1,10 +1,12 @@
-import { QueryClient } from "@tanstack/react-query"
+import { QueryCache, QueryClient } from "@tanstack/react-query"
 import type {
   PersistedClient,
   Persister,
 } from "@tanstack/react-query-persist-client"
 import { del, get, set } from "idb-keyval"
 
+import { toast } from "@workspace/ui/lib/toast"
+import { errorMessage } from "@/api/client"
 import { sendChatMessage } from "@/api/chat"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
@@ -21,6 +23,15 @@ export function shouldPersistQueryKey(queryKey: readonly unknown[]): boolean {
 }
 
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (query.queryKey[0] === "account" || !navigator.onLine) return
+      toast.error(errorMessage(error), { id: `query:${query.queryHash}` })
+    },
+    onSuccess: (_data, query) => {
+      toast.dismiss(`query:${query.queryHash}`)
+    },
+  }),
   defaultOptions: {
     queries: {
       gcTime: DAY_IN_MILLISECONDS,

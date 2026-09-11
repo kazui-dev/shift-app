@@ -12,12 +12,7 @@ export function DiscordLinkRequestManager() {
     meta: { persist: false },
   })
   if (requests.isPending) return null
-  if (requests.isError)
-    return (
-      <p className="text-sm text-destructive">
-        Discord連携申請を読み込めませんでした。
-      </p>
-    )
+  if (requests.isError) return null
   if (requests.data.requests.length === 0)
     return <EmptyState>申請はありません</EmptyState>
   return (
@@ -36,11 +31,6 @@ export function AuditLogManager() {
     meta: { persist: false },
   })
   if (logs.isPending) return null
-  if (logs.isError)
-    return (
-      <p className="text-sm text-destructive">
-        操作履歴を読み込めませんでした。
-      </p>
-    )
+  if (logs.isError) return null
   return <AuditLogList logs={logs.data.auditLogs} />
 }

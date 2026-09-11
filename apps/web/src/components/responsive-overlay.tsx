@@ -4,6 +4,7 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogDescription,
   DialogHeader,
   DialogTitle,
@@ -19,6 +20,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetClose,
   SheetDescription,
   SheetHeader,
   SheetTitle,
@@ -34,6 +36,7 @@ type ResponsiveOverlayProps = {
   description?: string
   children: React.ReactNode
   className?: string
+  initialFocus?: React.RefObject<HTMLElement | null>
 }
 
 function DrawerView({
@@ -43,6 +46,7 @@ function DrawerView({
   description,
   children,
   className,
+  initialFocus,
 }: ResponsiveOverlayProps) {
   return (
     <Drawer
@@ -51,17 +55,23 @@ function DrawerView({
       showSwipeHandle
       swipeDirection="down"
     >
-      <DrawerContent className={cn("max-h-[85dvh]", className)}>
-        <DrawerHeader className="border-b px-5 pb-4 text-left">
-          <DrawerTitle className="pr-10">{title}</DrawerTitle>
+      <DrawerContent
+        initialFocus={initialFocus}
+        className={cn("max-h-[85dvh]", className)}
+      >
+        <DrawerHeader className="gap-2 border-b px-5 py-3 text-left">
+          <div className="flex items-center gap-3">
+            <DrawerTitle className="min-w-0 flex-1">{title}</DrawerTitle>
+            <DrawerClose
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="閉じる" />
+              }
+            >
+              <X />
+            </DrawerClose>
+          </div>
           {description && <DrawerDescription>{description}</DrawerDescription>}
         </DrawerHeader>
-        <DrawerClose
-          className="absolute top-4 right-3"
-          render={<Button variant="ghost" size="icon-sm" aria-label="閉じる" />}
-        >
-          <X />
-        </DrawerClose>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
@@ -77,9 +87,22 @@ export function ResponsiveDialog(props: ResponsiveOverlayProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className={cn("gap-0 p-0", props.className)}>
-        <DialogHeader className="border-b p-5 pr-14">
-          <DialogTitle>{props.title}</DialogTitle>
+      <DialogContent
+        initialFocus={props.initialFocus}
+        showCloseButton={false}
+        className={cn("gap-0 p-0", props.className)}
+      >
+        <DialogHeader className="gap-2 border-b px-5 py-3">
+          <div className="flex items-center gap-3">
+            <DialogTitle className="min-w-0 flex-1">{props.title}</DialogTitle>
+            <DialogClose
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="閉じる" />
+              }
+            >
+              <X />
+            </DialogClose>
+          </div>
           {props.description && (
             <DialogDescription>{props.description}</DialogDescription>
           )}
@@ -100,11 +123,22 @@ export function ResponsiveSheet(props: ResponsiveOverlayProps) {
   return (
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
+        initialFocus={props.initialFocus}
         className={cn("w-[28rem] max-w-full gap-0", props.className)}
         side="right"
+        showCloseButton={false}
       >
-        <SheetHeader className="border-b px-6 py-5 pr-14">
-          <SheetTitle>{props.title}</SheetTitle>
+        <SheetHeader className="gap-2 border-b px-6 py-3">
+          <div className="flex items-center gap-3">
+            <SheetTitle className="min-w-0 flex-1">{props.title}</SheetTitle>
+            <SheetClose
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="閉じる" />
+              }
+            >
+              <X />
+            </SheetClose>
+          </div>
           {props.description && (
             <SheetDescription>{props.description}</SheetDescription>
           )}

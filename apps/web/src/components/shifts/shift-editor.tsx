@@ -69,7 +69,6 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
   const [settings, setSettings] = useState(false)
   const [pending, setPending] = useState(false)
   const [warning, setWarning] = useState(false)
-  const [failure, setFailure] = useState<string | null>(null)
   const plan = history.present,
     dirty = JSON.stringify(plan) !== saved
   const data = {
@@ -183,7 +182,6 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
       return
     }
     setPending(true)
-    setFailure(null)
     try {
       const result = await saveActivity(data.activity.id, { ...plan, version })
       client.setQueryData(["activity-editor", data.activity.id], result)
@@ -199,8 +197,20 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
       ])
       toast.success("保存しました。")
     } catch (error) {
-      setFailure(errorMessage(error))
-      setConflicted(error instanceof ApiError && error.code === "SHIFT_CHANGED")
+      const conflict =
+        error instanceof ApiError && error.code === "SHIFT_CHANGED"
+      setConflicted(conflict)
+      toast.error(`${errorMessage(error)} 編集内容は保持しています。`, {
+        action: conflict
+          ? {
+              label: "最新の変更を確認",
+              onClick: () =>
+                void action(async () =>
+                  setLatest(await getActivity(data.activity.id))
+                ),
+            }
+          : undefined,
+      })
     } finally {
       setPending(false)
     }
@@ -251,8 +261,14 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
         </Button>
         <Button
           size="sm"
-          disabled={pending || !dirty}
-          onClick={() => void save()}
+          disabled={pending || (!dirty && !conflicted)}
+          onClick={() =>
+            conflicted
+              ? void action(async () =>
+                  setLatest(await getActivity(data.activity.id))
+                )
+              : void save()
+          }
         >
           保存
         </Button>
@@ -488,27 +504,6 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
           }}
         />
       )}
-      {failure && (
-        <div className="space-y-2">
-          <p role="alert" className="text-sm text-destructive">
-            {failure} 編集内容は保持しています。
-          </p>
-          {conflicted && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={() =>
-                void action(async () =>
-                  setLatest(await getActivity(data.activity.id))
-                )
-              }
-            >
-              最新の変更を確認
-            </Button>
-          )}
-        </div>
-      )}
       {latest && (
         <ShiftConflicts
           base={base}
@@ -531,7 +526,6 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
               ),
             }))
             setLatest(null)
-            setFailure(null)
             setConflicted(false)
           }}
         />

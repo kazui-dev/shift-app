@@ -66,7 +66,6 @@ export function YearSettingsPanel() {
       {years.isPending && (
         <p className="text-sm text-muted-foreground">読み込み中…</p>
       )}
-      {years.isError && <p role="alert">{errorMessage(years.error)}</p>}
       <div className="divide-y divide-border/70">
         {years.data?.years.map((item) => (
           <div
