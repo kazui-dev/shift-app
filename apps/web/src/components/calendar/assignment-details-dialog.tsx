@@ -48,8 +48,9 @@ export function AssignmentDetailsDialog({
           {!offline && (
             <Link
               className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted"
-              to="/chat"
-              search={{ room: assignment.activityId, report: assignment.id }}
+              to="/chat/$roomId"
+              params={{ roomId: assignment.activityId }}
+              search={{ report: assignment.id }}
             >
               遅刻・欠勤連絡
             </Link>

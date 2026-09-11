@@ -9,6 +9,7 @@ import {
 } from "../lib/http"
 import { activitiesApp } from "./activities"
 import { assignmentsApp } from "./assignments"
+import { chatImagesApp } from "./chat-images"
 import { chatApp } from "./chat"
 import { chatTargetsApp } from "./chat-targets"
 import { meApp } from "./me/index"
@@ -20,12 +21,15 @@ import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()
 
-apiApp.use(
-  "*",
+apiApp.use("*", (c, next) =>
   bodyLimit({
-    maxSize: 32 * 1024,
-    onError: (c) =>
-      c.json(
+    maxSize:
+      c.req.method === "POST" &&
+      /^\/api\/chat\/rooms\/[^/]+\/attachments$/.test(c.req.path)
+        ? 10 * 1024 * 1024
+        : 32 * 1024,
+    onError: (context) =>
+      context.json(
         {
           error: {
             code: "BODY_TOO_LARGE",
@@ -34,7 +38,7 @@ apiApp.use(
         },
         413
       ),
-  })
+  })(c, next)
 )
 apiApp.use("*", requireMember)
 apiApp.use("*", requireSameOriginForMutation)
@@ -48,6 +52,7 @@ apiApp.route("/activities", activitiesApp)
 apiApp.route("/assignments", assignmentsApp)
 apiApp.route("/chat", chatTargetsApp)
 apiApp.route("/chat", chatApp)
+apiApp.route("/chat", chatImagesApp)
 apiApp.route("/reports", reportsApp)
 
 apiApp.notFound((c) => apiError(c, 404, "NOT_FOUND", "API route not found"))

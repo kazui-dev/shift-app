@@ -182,7 +182,7 @@ export async function notifyRoomMessage(
         item.memberId,
         name,
         content,
-        "/chat",
+        `/chat/${roomId}`,
         `chat-${roomId}`
       )
     )

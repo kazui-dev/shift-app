@@ -79,6 +79,39 @@ chatApp.get("/rooms", async (c) => {
   return c.json({ rooms: rooms.results.map(roomJson) })
 })
 
+chatApp.get("/rooms/:roomId", async (c) => {
+  const room = await findAccessibleRoom(
+    c.env,
+    c.req.param("roomId"),
+    c.get("member").id
+  )
+  return room
+    ? c.json({ room: roomJson(room) })
+    : apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
+})
+
+chatApp.get("/rooms/:roomId/members", async (c) => {
+  const room = await findAccessibleRoom(
+    c.env,
+    c.req.param("roomId"),
+    c.get("member").id
+  )
+  if (!room || room.exitedAt !== null)
+    return apiError(c, 404, "NOT_FOUND", "メンバーを表示できません。")
+  const members = await c.env.shift_app
+    .prepare(
+      `SELECT u.id,u.display_name AS displayName,e.can_manage AS canManage FROM chat_effective_permissions e JOIN app_users u ON u.id=e.member_id WHERE e.room_id=? AND e.can_read=1 ORDER BY u.student_id`
+    )
+    .bind(room.id)
+    .all<{ id: string; displayName: string; canManage: number }>()
+  return c.json({
+    members: members.results.map((member) => ({
+      ...member,
+      canManage: member.canManage === 1,
+    })),
+  })
+})
+
 chatApp.post("/rooms", async (c) => {
   const input = v.safeParse(
     createChatRoomInputSchema,
@@ -205,14 +238,33 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
     return apiError(c, 403, "CHAT_READ_ONLY", "このルームには投稿できません。")
   const now = Date.now()
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
-  const message = await stub.sendMessage({
-    roomId: room.id,
-    id: input.output.id,
-    memberId: member.id,
-    memberDisplayName: member.displayName,
-    content: input.output.content,
-    createdAt: now,
-  })
+  const message = await stub
+    .sendMessage({
+      roomId: room.id,
+      id: input.output.id,
+      memberId: member.id,
+      memberDisplayName: member.displayName,
+      content: input.output.content,
+      createdAt: now,
+      attachmentIds: input.output.attachmentIds,
+    })
+    .catch((error) => {
+      if (
+        error instanceof Error &&
+        ["INVALID_CHAT_ATTACHMENTS", "MESSAGE_ID_CONFLICT"].includes(
+          error.message
+        )
+      )
+        return null
+      throw error
+    })
+  if (!message)
+    return apiError(
+      c,
+      422,
+      "INVALID_CHAT_ATTACHMENTS",
+      "画像をもう一度添付して送信してください。"
+    )
   const updated = await c.env.shift_app
     .prepare(
       "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
@@ -226,7 +278,7 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
         room.id,
         member.id,
         room.name,
-        input.output.content
+        input.output.content || "画像が送信されました"
       )
     )
   return c.json({ message }, 201)

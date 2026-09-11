@@ -6,6 +6,7 @@ import {
   useRouter,
   useRouterState,
 } from "@tanstack/react-router"
+import { ChatDelivery } from "./chat/delivery"
 import { AppNavigation } from "./app-navigation"
 
 import { CalendarViewStateProvider } from "./calendar-view-state"
@@ -17,15 +18,17 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { isCalendar, pathname } = useRouterState({
+  const { isCalendar, isChat, pathname } = useRouterState({
     select: (routerState) => ({
       isCalendar: routerState.matches.some(
         (match) => match.routeId === "/_app/calendar"
       ),
-      pathname: routerState.location.pathname,
+      isChat: routerState.matches.some(
+        (match) => match.routeId === "/_app/chat"
+      ),
+      pathname: routerState.matches.at(-1)?.pathname ?? "/",
     }),
   })
-  const isChat = pathname === "/chat"
   const fitted = isCalendar || isChat
   const [browserOffline, setBrowserOffline] = useState(() => !navigator.onLine)
   const offline = accountOffline || browserOffline
@@ -118,6 +121,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
         {offline ? "オフラインです" : ""}
       </output>
       <OfflineModeContext value={offline}>
+        <ChatDelivery />
         <CalendarViewStateProvider>
           <main
             className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-6 md:pt-6 ${isChat ? "md:pl-2" : ""} ${fitted ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8"}`}
