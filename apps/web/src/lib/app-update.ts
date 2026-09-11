@@ -74,7 +74,7 @@ export function activateAppUpdate(
           "更新を確認できませんでした。ページを再読み込みしてください。"
         )
       registration.addEventListener("updatefound", inspect)
-      if (registration.waiting) {
+      if (registration.waiting || registration.installing) {
         inspect()
         return
       }
