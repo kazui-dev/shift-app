@@ -1,3 +1,5 @@
+import { activateAppUpdate } from "@/lib/app-update"
+import { toast } from "@workspace/ui/lib/toast"
 import { useEffect, useRef, useState } from "react"
 import { LoaderCircle, RefreshCw, X } from "lucide-react"
 import { useRegisterSW } from "virtual:pwa-register/react"
@@ -5,16 +7,18 @@ import { useRegisterSW } from "virtual:pwa-register/react"
 import { Button } from "@workspace/ui/components/button"
 
 const updateCheckInterval = 60 * 60 * 1000
-const updateTimeout = 15_000
 
 export function PwaUpdateNotice() {
   const [dismissed, setDismissed] = useState(false)
   const [updating, setUpdating] = useState(false)
-  const updateTimerRef = useRef<number | null>(null)
+  const updateAbort = useRef<AbortController | null>(null)
+  const initialController = useRef(navigator.serviceWorker?.controller ?? null)
   const {
-    needRefresh: [needsRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({ immediate: true })
+    needRefresh: [needsRefresh, setNeedsRefresh],
+  } = useRegisterSW({
+    immediate: true,
+    onNeedReload: () => setNeedsRefresh(true),
+  })
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined
@@ -29,8 +33,8 @@ export function PwaUpdateNotice() {
         return
       }
       try {
-        const registration = await navigator.serviceWorker.ready
-        if (!disposed) await registration.update()
+        const registration = await navigator.serviceWorker.getRegistration()
+        if (!disposed) await registration?.update()
       } catch {}
     }
     const checkWhenVisible = () => {
@@ -48,9 +52,7 @@ export function PwaUpdateNotice() {
 
     return () => {
       disposed = true
-      if (updateTimerRef.current !== null) {
-        window.clearTimeout(updateTimerRef.current)
-      }
+      updateAbort.current?.abort()
       window.clearInterval(timer)
       window.removeEventListener("focus", checkWhenVisible)
       window.removeEventListener("online", checkWhenVisible)
@@ -63,16 +65,22 @@ export function PwaUpdateNotice() {
   const applyUpdate = async () => {
     if (updating) return
     setUpdating(true)
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => resolve())
-    })
+    const abort = new AbortController()
+    updateAbort.current = abort
     try {
-      await updateServiceWorker(true)
-      updateTimerRef.current = window.setTimeout(() => {
-        updateTimerRef.current = null
-        setUpdating(false)
-      }, updateTimeout)
-    } catch {
+      await activateAppUpdate(
+        navigator.serviceWorker,
+        initialController.current,
+        abort.signal
+      )
+      window.location.reload()
+    } catch (error) {
+      if (!abort.signal.aborted)
+        toast.error(
+          error instanceof Error ? error.message : "更新に失敗しました。"
+        )
+    } finally {
+      updateAbort.current = null
       setUpdating(false)
     }
   }

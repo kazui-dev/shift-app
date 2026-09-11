@@ -1,6 +1,14 @@
+import { useQueryClient } from "@tanstack/react-query"
+import { prepareConversation } from "./queries"
 import { useState } from "react"
 import { Link } from "@tanstack/react-router"
-import { BellOff, ChevronRight, Plus, Search } from "lucide-react"
+import {
+  BellOff,
+  ChevronRight,
+  Plus,
+  Search,
+  MessageCircle,
+} from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import type { getChatRooms } from "@/api/chat"
@@ -32,6 +40,10 @@ export function RoomList({
   onExpand: () => void
   onCreate: () => void
 }) {
+  const client = useQueryClient()
+  const prepare = (id: string) => {
+    if (!offline) void prepareConversation(client, id)
+  }
   const [search, setSearch] = useState("")
   function items(values: Room[]) {
     return (
@@ -50,9 +62,17 @@ export function RoomList({
                   to="/chat/$roomId"
                   state={{ chatFromList: fromList }}
                   params={{ roomId: room.id }}
+                  onPointerEnter={(event) => {
+                    if (event.pointerType === "mouse") prepare(room.id)
+                  }}
+                  onFocus={() => prepare(room.id)}
+                  onClick={() => prepare(room.id)}
                   aria-current={selectedId === room.id ? "page" : undefined}
-                  className={`flex min-h-12 items-center gap-2 rounded-lg px-3 py-2.5 hover:bg-muted/50 ${selectedId === room.id ? "bg-muted/70" : ""}`}
+                  className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted ${selectedId === room.id ? "bg-muted/70" : ""}`}
                 >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground">
+                    <MessageCircle className="size-4" aria-hidden />
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span
                       className={`block truncate text-sm ${room.unreadCount || selectedId === room.id ? "font-semibold" : "font-medium"}`}
