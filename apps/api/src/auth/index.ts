@@ -6,7 +6,7 @@ import { betterAuth } from "better-auth/minimal"
 import * as schema from "@workspace/db"
 import { affiliationVerifications } from "@workspace/db/schema"
 
-import { getDiscordUserInfo } from "./providers"
+import { getDiscordUserInfo, normalizeProfileImage } from "./providers"
 
 const SEVEN_DAYS_IN_SECONDS = 60 * 60 * 24 * 7
 
@@ -99,6 +99,7 @@ export function createAuth(env: CloudflareBindings) {
             clientId: env.DISCORD_CLIENT_ID,
             clientSecret: env.DISCORD_CLIENT_SECRET,
             disableDefaultScope: true,
+            overrideUserInfoOnSignIn: true,
             scope: ["identify", "guilds.members.read"],
             getUserInfo: (tokens) =>
               getDiscordUserInfo(tokens, env.DISCORD_GUILD_ID),
@@ -106,6 +107,14 @@ export function createAuth(env: CloudflareBindings) {
         }
       : {},
     databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => ({ data: normalizeProfileImage(user) }),
+        },
+        update: {
+          before: async (user) => ({ data: normalizeProfileImage(user) }),
+        },
+      },
       account: {
         create: {
           after: recordAffiliation,

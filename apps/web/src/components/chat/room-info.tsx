@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { getChatMembers, type getChatRoom } from "@/api/chat"
 import { ResponsiveSheet } from "../responsive-overlay"
+import { MemberAvatar } from "../member-avatar"
 import { roomSchedule } from "./room-schedule"
 export function RoomInfo({
   room,
@@ -43,12 +44,10 @@ export function RoomInfo({
             <ul className="space-y-4">
               {query.data?.members.map((member) => (
                 <li key={member.id} className="flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium"
-                  >
-                    {member.displayName.slice(0, 1)}
-                  </span>
+                  <MemberAvatar
+                    name={member.displayName}
+                    image={member.image}
+                  />
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {member.displayName}
                   </span>

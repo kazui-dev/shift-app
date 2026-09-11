@@ -64,6 +64,8 @@ export const authStateSchema = v.variant("status", [
   v.object({
     status: v.literal("active"),
     member: v.object({
+      id: v.pipe(v.string(), v.uuid()),
+      image: v.nullable(v.pipe(v.string(), v.url())),
       displayName: v.string(),
       studentId: studentIdSchema,
       accessLevel: accessLevelSchema,

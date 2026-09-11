@@ -18,12 +18,13 @@ const draftSchema = v.object({
 const queuedSchema = v.object({
   id: v.string(),
   roomId: v.string(),
+  createdAt: v.string(),
   content: v.string(),
   files: v.array(fileSchema),
   status: v.picklist(["waiting", "sending", "failed"]),
 })
 const stateSchema = v.object({
-  version: v.literal(2),
+  version: v.literal(3),
   drafts: v.record(v.string(), draftSchema),
   queue: v.array(queuedSchema),
 })
@@ -40,7 +41,7 @@ function db() {
 }
 
 export class ChatStore {
-  private state: State = { version: 2, drafts: {}, queue: [], ready: false }
+  private state: State = { version: 3, drafts: {}, queue: [], ready: false }
   private listeners = new Set<() => void>()
   private writing = Promise.resolve()
   private running = false
@@ -74,7 +75,7 @@ export class ChatStore {
         this.publish({
           ...(parsed.success
             ? parsed.output
-            : { version: 2, drafts: {}, queue: [] }),
+            : { version: 3, drafts: {}, queue: [] }),
           ready: true,
         })
       if (!parsed.success && this.active) await this.persist()
@@ -91,7 +92,7 @@ export class ChatStore {
         this.active
           ? set(
               this.userId,
-              { version: 2, drafts: state.drafts, queue: state.queue },
+              { version: 3, drafts: state.drafts, queue: state.queue },
               db()
             )
           : undefined
@@ -124,6 +125,7 @@ export class ChatStore {
       id: crypto.randomUUID(),
       roomId,
       status: "waiting",
+      createdAt: new Date().toISOString(),
     }
     const drafts = { ...this.state.drafts, [roomId]: empty }
     this.publish({
@@ -167,7 +169,12 @@ export class ChatStore {
     this.active = false
     this.listeners.clear()
   }
-  async flush(onSent?: (roomId: string) => void) {
+  async flush(
+    onSent?: (
+      roomId: string,
+      message: Awaited<ReturnType<typeof sendChatMessage>>["message"]
+    ) => void
+  ) {
     if (this.running || !this.active || !this.state.ready || !navigator.onLine)
       return
     this.running = true
@@ -197,7 +204,7 @@ export class ChatStore {
         if (!this.active) return
         this.update(message.id, { files })
         await this.persist()
-        await sendChatMessage(message.roomId, {
+        const result = await sendChatMessage(message.roomId, {
           id: message.id,
           content: message.content,
           attachmentIds: files.flatMap((file) =>
@@ -205,12 +212,12 @@ export class ChatStore {
           ),
         })
         if (!this.active) return
+        onSent?.(message.roomId, result.message)
         this.publish({
           ...this.state,
           queue: this.state.queue.filter((item) => item.id !== message.id),
         })
         await this.persist()
-        onSent?.(message.roomId)
       } catch (error) {
         if (!this.active) return
         this.update(message.id, {

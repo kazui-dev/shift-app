@@ -6,6 +6,7 @@ import {
   useRouter,
   useRouterState,
 } from "@tanstack/react-router"
+import { useChatViewport } from "@/hooks/use-chat-viewport"
 import { ChatDelivery } from "./chat/delivery"
 import { AppNavigation } from "./app-navigation"
 
@@ -29,6 +30,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
       pathname: routerState.matches.at(-1)?.pathname ?? "/",
     }),
   })
+  const { shell, composing } = useChatViewport(isChat)
   const fitted = isCalendar || isChat
   const [browserOffline, setBrowserOffline] = useState(() => !navigator.onLine)
   const offline = accountOffline || browserOffline
@@ -104,15 +106,18 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
 
   return (
     <div
+      ref={shell}
       data-sidebar-open={sidebarOpen}
-      className={
+      data-composing={composing}
+      className={`${isChat ? "max-md:fixed max-md:inset-x-0 max-md:top-[var(--chat-viewport-top,0px)] max-md:h-[var(--chat-viewport-height,100dvh)]" : ""} ${
         fitted
           ? "flex h-dvh w-full min-w-0 flex-col overflow-hidden overscroll-none transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
           : "min-h-svh w-full min-w-0 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
-      }
+      }`}
     >
       <AppNavigation
         offline={offline}
+        hiddenOnMobile={composing}
         expanded={sidebarOpen}
         onToggle={() => setSidebarOpen((open) => !open)}
       />
@@ -124,7 +129,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
         <ChatDelivery />
         <CalendarViewStateProvider>
           <main
-            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-6 md:pt-6 ${isChat ? "md:pl-2" : ""} ${fitted ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8"}`}
+            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] transition-[padding-bottom] duration-200 ease-out motion-reduce:transition-none sm:px-6 md:pt-6 ${isChat ? "md:pl-2" : ""} ${composing ? "pb-[env(safe-area-inset-bottom)]" : fitted ? "pb-[calc(3rem+1px+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8"}`}
           >
             {unsafeOfflineRoute ? null : <Outlet />}
           </main>

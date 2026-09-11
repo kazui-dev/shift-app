@@ -94,7 +94,7 @@ export const chatRoomEnvelopeSchema = v.object({
   room: chatRoomResponseSchema,
 })
 
-export const chatMessageResponseSchema = v.object({
+const storedChatMessageSchema = v.object({
   sequence: v.pipe(v.number(), v.integer(), v.gtValue(0)),
   id: v.pipe(v.string(), v.uuid()),
   memberId: v.pipe(v.string(), v.uuid()),
@@ -102,6 +102,11 @@ export const chatMessageResponseSchema = v.object({
   content: v.string(),
   attachments: v.array(chatAttachmentSchema),
   createdAt: instantSchema,
+})
+
+export const chatMessageResponseSchema = v.object({
+  ...storedChatMessageSchema.entries,
+  memberImage: v.nullable(v.pipe(v.string(), v.url())),
 })
 
 export const chatMessagesResponseSchema = v.object({
@@ -116,7 +121,7 @@ export const chatMessageEnvelopeSchema = v.object({
 export const chatEventSchema = v.variant("type", [
   v.object({
     type: v.literal("message"),
-    message: chatMessageResponseSchema,
+    message: storedChatMessageSchema,
   }),
 ])
 
@@ -170,6 +175,7 @@ export const chatMembersResponseSchema = v.object({
       id: v.string(),
       displayName: v.string(),
       canManage: v.boolean(),
+      image: v.nullable(v.pipe(v.string(), v.url())),
     })
   ),
 })

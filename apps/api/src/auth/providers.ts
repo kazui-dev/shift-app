@@ -9,14 +9,14 @@ type OAuthUserInfo = {
     id: string
     name: string
     email: string
-    image?: string
+    image: string
     emailVerified: boolean
   }
   data: Record<string, unknown>
 }
 
 const discordProfileSchema = v.object({
-  id: v.pipe(v.string(), v.minLength(1)),
+  id: v.pipe(v.string(), v.regex(/^\d+$/)),
   username: v.pipe(v.string(), v.minLength(1)),
   global_name: v.optional(v.nullable(v.string())),
   avatar: v.optional(v.nullable(v.string())),
@@ -67,16 +67,28 @@ export async function getDiscordUserInfo(
   const profile = parsedProfile.output
   const image = profile.avatar
     ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-    : undefined
+    : ""
 
   return {
     user: {
       id: profile.id,
       name: profile.global_name ?? profile.username,
       email: `discord-${profile.id}@identity.invalid`,
-      ...(image === undefined ? {} : { image }),
+      image,
       emailVerified: false,
     },
     data: profile,
   }
+}
+
+// Keep only Discord custom avatars; an empty OAuth image explicitly clears it.
+export function normalizeProfileImage<
+  T extends { image?: string | null | undefined },
+>(profile: T) {
+  if (profile.image == null) return profile
+  return /^https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/[a-zA-Z0-9_]+\.png$/.test(
+    profile.image
+  )
+    ? profile
+    : { ...profile, image: null }
 }

@@ -1,3 +1,4 @@
+import { withMemberImages } from "../services/chat-profiles"
 import { notifyRoomMessage } from "../services/push"
 import {
   roomSelection,
@@ -100,10 +101,15 @@ chatApp.get("/rooms/:roomId/members", async (c) => {
     return apiError(c, 404, "NOT_FOUND", "メンバーを表示できません。")
   const members = await c.env.shift_app
     .prepare(
-      `SELECT u.id,u.display_name AS displayName,e.can_manage AS canManage FROM chat_effective_permissions e JOIN app_users u ON u.id=e.member_id WHERE e.room_id=? AND e.can_read=1 ORDER BY u.student_id`
+      `SELECT u.id,u.display_name AS displayName,e.can_manage AS canManage,identity.image FROM chat_effective_permissions e JOIN app_users u ON u.id=e.member_id LEFT JOIN user identity ON identity.id=u.user_id WHERE e.room_id=? AND e.can_read=1 ORDER BY u.student_id`
     )
     .bind(room.id)
-    .all<{ id: string; displayName: string; canManage: number }>()
+    .all<{
+      id: string
+      displayName: string
+      canManage: number
+      image: string | null
+    }>()
   return c.json({
     members: members.results.map((member) => ({
       ...member,
@@ -203,13 +209,15 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
-  return c.json(
-    await stub.getMessages(
-      query.output.before ?? null,
-      query.output.limit,
-      room.exitedAt
-    )
+  const history = await stub.getMessages(
+    query.output.before ?? null,
+    query.output.limit,
+    room.exitedAt
   )
+  return c.json({
+    ...history,
+    messages: await withMemberImages(c.env, history.messages),
+  })
 })
 
 chatApp.post("/rooms/:roomId/messages", async (c) => {
@@ -281,7 +289,8 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
         input.output.content || "画像が送信されました"
       )
     )
-  return c.json({ message }, 201)
+  const [enriched] = await withMemberImages(c.env, [message])
+  return c.json({ message: enriched }, 201)
 })
 
 chatApp.get("/rooms/:roomId/ws", async (c) => {
