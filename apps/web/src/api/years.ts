@@ -1,12 +1,13 @@
 import {
   operatingYearEnvelopeSchema,
-  roleMembershipResponseSchema,
+  displayYearResponseSchema,
   rosterResponseSchema,
   yearMembershipEnvelopeSchema,
   yearMembershipsResponseSchema,
   yearRoleEnvelopeSchema,
   yearRolesResponseSchema,
   yearsResponseSchema,
+  yearSettingsResponseSchema,
   type ShiftPermission,
 } from "@workspace/shared/shifts"
 
@@ -35,22 +36,16 @@ export const deactivateYearMembership = (year: number, memberId: string) =>
 export const getYearRoles = (year: number) =>
   apiJson(`/api/years/${year}/roles`, yearRolesResponseSchema)
 
-export const createYear = (input: {
-  year: number
-  status: "draft" | "active" | "archived"
-}) =>
+export const createYear = (input: { year: number }) =>
   apiJson("/api/years", operatingYearEnvelopeSchema, {
     method: "POST",
     body: JSON.stringify(input),
   })
 
-export const updateYear = (
-  year: number,
-  input: { status: "draft" | "active" | "archived" }
-) =>
-  apiJson(`/api/years/${year}`, operatingYearEnvelopeSchema, {
-    method: "PATCH",
-    body: JSON.stringify(input),
+export const setDefaultYear = (defaultYear: number) =>
+  apiJson("/api/year-settings", yearSettingsResponseSchema, {
+    method: "PUT",
+    body: JSON.stringify({ defaultYear }),
   })
 
 export const createYearRole = (
@@ -62,15 +57,35 @@ export const createYearRole = (
     body: JSON.stringify(input),
   })
 
-export const assignYearRole = (roleId: string, memberId: string) =>
-  apiJson(
-    `/api/roles/${encodeURIComponent(roleId)}/members/${encodeURIComponent(memberId)}`,
-    roleMembershipResponseSchema,
-    { method: "PUT" }
-  )
+export const getDisplayYear = () =>
+  apiJson("/api/me/display-year", displayYearResponseSchema)
+export const setDisplayYear = (year: number) =>
+  apiJson("/api/me/display-year", displayYearResponseSchema, {
+    method: "PUT",
+    body: JSON.stringify({ year }),
+  })
+export const updateRole = (
+  id: string,
+  input: { name: string; color: string; permissions: ShiftPermission[] }
+) =>
+  apiVoid(`/api/roles/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  })
+export const changeMemberRoles = (
+  year: number,
+  input: { memberIds: string[]; addRoleIds: string[]; removeRoleIds: string[] }
+) =>
+  apiVoid(`/api/years/${year}/memberships`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  })
 
-export const removeYearRole = (roleId: string, memberId: string) =>
-  apiVoid(
-    `/api/roles/${encodeURIComponent(roleId)}/members/${encodeURIComponent(memberId)}`,
-    { method: "DELETE" }
-  )
+export const reorderRoles = (year: number, roleIds: string[]) =>
+  apiVoid(`/api/years/${year}/role-order`, {
+    method: "PUT",
+    body: JSON.stringify({ roleIds }),
+  })
+
+export const deleteRole = (id: string) =>
+  apiVoid(`/api/roles/${encodeURIComponent(id)}`, { method: "DELETE" })

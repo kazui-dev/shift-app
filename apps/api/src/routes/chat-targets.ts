@@ -32,7 +32,7 @@ chatTargetsApp.get("/targets", async (c) => {
     .prepare(
       `SELECT member.id AS targetId, member.display_name AS displayName
        FROM year_memberships membership
-       JOIN members member ON member.id = membership.member_id
+       JOIN app_users member ON member.id = membership.member_id
        WHERE membership.year = ? AND membership.status = 'active'
        ORDER BY lower(member.display_name), member.id`
     )

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/d1"
 import type { Context, MiddlewareHandler } from "hono"
 
-import { members } from "@workspace/db/schema"
+import { appUsers } from "@workspace/db/schema"
 import type { ShiftPermission } from "@workspace/shared/shifts"
 
 import { createAuth } from "../auth"
@@ -48,13 +48,13 @@ export const requireMember: MiddlewareHandler<ApiEnv> = async (c, next) => {
   const db = drizzle(c.env.shift_app)
   const [member] = await db
     .select({
-      id: members.id,
-      userId: members.userId,
-      displayName: members.displayName,
-      accessLevel: members.accessLevel,
+      id: appUsers.id,
+      userId: appUsers.userId,
+      displayName: appUsers.displayName,
+      accessLevel: appUsers.accessLevel,
     })
-    .from(members)
-    .where(eq(members.userId, session.user.id))
+    .from(appUsers)
+    .where(eq(appUsers.userId, session.user.id))
     .limit(1)
 
   if (!member) {

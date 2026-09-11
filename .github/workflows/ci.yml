@@ -29,6 +29,8 @@ jobs:
       - run: vp exec knip
       - run: vp run -r coverage
       - run: vp run -r --cache typecheck
+      - name: Apply migrations to local D1
+        run: vp -C apps/api exec wrangler d1 migrations apply shift-app --local --persist-to ../web/.wrangler/state
       - run: vp run deployCheck
       - name: Preview smoke test
         shell: bash

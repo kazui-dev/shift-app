@@ -4,12 +4,17 @@ import {
   chatRoomEnvelopeSchema,
   chatRoomsResponseSchema,
   chatTargetsResponseSchema,
+  roomSettingsInputSchema,
+  roomSettingsResponseSchema,
 } from "@workspace/shared/communications"
 
-import { apiJson } from "./client"
+import { apiJson, apiVoid } from "./client"
 
-export const getChatRooms = () =>
-  apiJson("/api/chat/rooms", chatRoomsResponseSchema)
+export const getChatRooms = (year: number, closed = false) =>
+  apiJson(
+    `/api/chat/rooms?year=${year}&closed=${closed}`,
+    chatRoomsResponseSchema
+  )
 
 export const getChatTargets = (year: number) =>
   apiJson(`/api/chat/targets?year=${year}`, chatTargetsResponseSchema)
@@ -27,9 +32,9 @@ export const createChatRoom = (input: {
     body: JSON.stringify(input),
   })
 
-export const getChatMessages = (roomId: string) =>
+export const getChatMessages = (roomId: string, before: number | null = null) =>
   apiJson(
-    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages`,
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages${before === null ? "" : `?before=${before}`}`,
     chatMessagesResponseSchema
   )
 
@@ -42,3 +47,36 @@ export const sendChatMessage = (
     chatMessageEnvelopeSchema,
     { method: "POST", body: JSON.stringify(input) }
   )
+
+export const updateChatPreferences = (
+  id: string,
+  input: { muted?: boolean; lastRead?: number }
+) =>
+  apiVoid(`/api/chat/rooms/${encodeURIComponent(id)}/preferences`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  })
+export const getRoomSettings = (id: string) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(id)}/settings`,
+    roomSettingsResponseSchema
+  )
+export const saveRoomSettings = (
+  id: string,
+  input: import("valibot").InferOutput<typeof roomSettingsInputSchema>
+) =>
+  apiVoid(`/api/chat/rooms/${encodeURIComponent(id)}/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: input.name,
+      closed: input.closed,
+      targets: input.targets,
+    }),
+  })
+
+export const leaveChatRoom = (id: string) =>
+  apiVoid(`/api/me/chat-memberships/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  })

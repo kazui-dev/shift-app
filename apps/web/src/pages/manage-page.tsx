@@ -1,12 +1,11 @@
-import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { cn } from "@workspace/ui/lib/utils"
+import { UserManager } from "@/components/system/user-manager"
+import { useManagementYear } from "@/components/use-management-year"
 import { getRouteApi, Link } from "@tanstack/react-router"
 import {
   CalendarClock,
   ChevronLeft,
   ChevronRight,
-  CircleAlert,
-  ClipboardCheck,
   History,
   Link as LinkIcon,
   Tags,
@@ -15,7 +14,6 @@ import {
 
 import { Button } from "@workspace/ui/components/button"
 
-import { getYears } from "@/api/years"
 import {
   AuditLogManager,
   DiscordLinkRequestManager,
@@ -23,7 +21,6 @@ import {
 import { nativeSelectClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
-import { ReportManager } from "@/components/manage/report-manager"
 import { EmptyState, PageHeader } from "@/components/page-layout"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
 import { MemberManager } from "@/components/system/member-manager"
@@ -34,9 +31,9 @@ const routeApi = getRouteApi("/_app")
 type ManageView =
   | "home"
   | "shifts"
-  | "reports"
   | "availability"
   | "years"
+  | "users"
   | "members"
   | "roles"
   | "discordLinks"
@@ -44,10 +41,10 @@ type ManageView =
 
 const viewTitles: Record<Exclude<ManageView, "home">, string> = {
   shifts: "シフト",
-  reports: "遅刻・欠勤連絡",
   availability: "シフト希望",
   years: "年度",
   members: "メンバー",
+  users: "ユーザー",
   roles: "ロール",
   discordLinks: "Discord連携申請",
   audit: "操作履歴",
@@ -56,22 +53,14 @@ const viewTitles: Record<Exclude<ManageView, "home">, string> = {
 export function ManagePage({ view }: { view: ManageView }) {
   const { state } = routeApi.useRouteContext()
   const systemAdmin = state.member.accessLevel === "system_admin"
-  const years = useQuery({ queryKey: ["years"], queryFn: getYears })
-  const manageableYears = useMemo(
-    () => years.data?.years.filter((year) => year.canManage) ?? [],
-    [years.data]
-  )
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const [selectedSystemYear, setSelectedSystemYear] = useState<number | null>(
-    null
-  )
-  const year = selectedYear ?? manageableYears[0]?.year ?? null
-  const systemYear = selectedSystemYear ?? years.data?.years[0]?.year ?? null
+  const years = useManagementYear()
+  const manageableYears = years.years
+  const year = years.year
+  const setSelectedYear = years.selectYear
 
   if (!years.isPending && year === null && !systemAdmin) {
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
-        <PageHeader title="管理" />
+      <section className="w-full min-w-0 space-y-6">
         <EmptyState>管理できる年度がありません</EmptyState>
       </section>
     )
@@ -85,15 +74,11 @@ export function ManagePage({ view }: { view: ManageView }) {
         icon: CalendarClock,
       },
       {
-        to: "/manage/reports" as const,
-        name: "遅刻・欠勤連絡",
-        icon: CircleAlert,
+        to: "/manage/members" as const,
+        name: "メンバー",
+        icon: Users,
       },
-      {
-        to: "/manage/availability" as const,
-        name: "シフト希望",
-        icon: ClipboardCheck,
-      },
+      { to: "/manage/roles" as const, name: "ロール", icon: Tags },
     ]
     const systemItems = [
       {
@@ -101,16 +86,7 @@ export function ManagePage({ view }: { view: ManageView }) {
         name: "年度",
         icon: CalendarClock,
       },
-      {
-        to: "/manage/members" as const,
-        name: "メンバー",
-        icon: Users,
-      },
-      {
-        to: "/manage/roles" as const,
-        name: "ロール",
-        icon: Tags,
-      },
+      { to: "/manage/users" as const, name: "ユーザー", icon: Users },
       {
         to: "/manage/discord-link-requests" as const,
         name: "Discord連携申請",
@@ -124,12 +100,12 @@ export function ManagePage({ view }: { view: ManageView }) {
     ]
 
     return (
-      <section className="mx-auto max-w-3xl space-y-6">
-        <PageHeader title="管理">
+      <section className="w-full min-w-0 space-y-6">
+        <div className="flex justify-end">
           {manageableYears.length > 1 && (
             <select
               aria-label="年度"
-              className={`${nativeSelectClassName} w-auto`}
+              className={cn(nativeSelectClassName, "w-auto")}
               value={year ?? ""}
               onChange={(event) => setSelectedYear(Number(event.target.value))}
             >
@@ -140,13 +116,13 @@ export function ManagePage({ view }: { view: ManageView }) {
               ))}
             </select>
           )}
-        </PageHeader>
+        </div>
         {!years.isPending && (
           <div className="space-y-6">
             {year !== null && (
               <section>
                 <h2 className="mb-2 text-xs font-medium text-muted-foreground">
-                  シフト管理
+                  管理
                 </h2>
                 <ul className="divide-y border-y">
                   {shiftItems.map(({ to, name, icon: Icon }) => (
@@ -192,16 +168,17 @@ export function ManagePage({ view }: { view: ManageView }) {
   }
 
   const yearScoped =
-    view === "shifts" || view === "reports" || view === "availability"
-  const systemYearScoped = view === "members" || view === "roles"
+    view === "shifts" ||
+    view === "availability" ||
+    view === "members" ||
+    view === "roles"
 
   return (
-    <section className="mx-auto max-w-4xl space-y-6">
+    <section className="w-full min-w-0 space-y-6">
       <PageHeader
         title={viewTitles[view]}
         back={
           <Button
-            className="-ml-2"
             render={<Link to="/manage" />}
             nativeButton={false}
             variant="ghost"
@@ -212,30 +189,17 @@ export function ManagePage({ view }: { view: ManageView }) {
           </Button>
         }
       >
+        {yearScoped && manageableYears.length === 1 && (
+          <span className="text-sm text-muted-foreground">{year}</span>
+        )}
         {yearScoped && manageableYears.length > 1 && (
           <select
             aria-label="年度"
-            className={`${nativeSelectClassName} w-auto`}
+            className={cn(nativeSelectClassName, "w-auto")}
             value={year ?? ""}
             onChange={(event) => setSelectedYear(Number(event.target.value))}
           >
             {manageableYears.map((item) => (
-              <option key={item.year} value={item.year}>
-                {item.year}年度
-              </option>
-            ))}
-          </select>
-        )}
-        {systemYearScoped && years.data && years.data.years.length > 1 && (
-          <select
-            aria-label="年度"
-            className={`${nativeSelectClassName} w-auto`}
-            value={systemYear ?? ""}
-            onChange={(event) =>
-              setSelectedSystemYear(Number(event.target.value))
-            }
-          >
-            {years.data.years.map((item) => (
               <option key={item.year} value={item.year}>
                 {item.year}年度
               </option>
@@ -247,16 +211,16 @@ export function ManagePage({ view }: { view: ManageView }) {
       {view === "shifts" && year !== null && (
         <ActivityManager key={year} year={year} />
       )}
-      {view === "reports" && year !== null && <ReportManager year={year} />}
       {view === "availability" && year !== null && (
         <AvailabilitySummary year={year} />
       )}
+      {view === "users" && <UserManager />}
       {view === "years" && <YearSettingsPanel />}
-      {view === "members" && systemYear !== null && (
-        <MemberManager key={systemYear} year={systemYear} />
+      {view === "members" && year !== null && (
+        <MemberManager key={year} year={year} />
       )}
-      {view === "roles" && systemYear !== null && (
-        <YearRoleManager key={systemYear} year={systemYear} />
+      {view === "roles" && year !== null && (
+        <YearRoleManager key={year} year={year} />
       )}
       {view === "discordLinks" && <DiscordLinkRequestManager />}
       {view === "audit" && <AuditLogManager />}

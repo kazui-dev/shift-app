@@ -19,6 +19,8 @@ describe("year route transformations", () => {
         endsAt: Date.parse("2026-11-01T03:00:00.000Z"),
         color: "#2563EB",
         notes: null,
+        active: 1,
+        version: 1,
         assignmentCount: 2,
       })
     ).toMatchObject({

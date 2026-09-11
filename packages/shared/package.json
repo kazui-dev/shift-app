@@ -11,7 +11,8 @@
   "exports": {
     "./auth": "./src/auth.ts",
     "./communications": "./src/communications.ts",
-    "./shifts": "./src/shifts.ts"
+    "./shifts": "./src/shifts.ts",
+    "./availability": "./src/availability.ts"
   },
   "dependencies": {
     "valibot": "1.4.2"

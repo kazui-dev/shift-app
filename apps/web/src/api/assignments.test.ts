@@ -37,10 +37,10 @@ function assignment(
 
 describe("assignment month queries", () => {
   it("uses one stable query key and one calendar-month range", () => {
-    const query = assignmentMonthQuery("2026-08")
+    const query = assignmentMonthQuery("2026-08", 2026)
     const range = assignmentMonthRange("2026-08")
 
-    expect(query.queryKey).toEqual(["assignments", "month", "2026-08"])
+    expect(query.queryKey).toEqual(["assignments", "month", "2026-08", 2026])
     expect(range).toEqual({
       from: "2026-07-31T15:00:00.000Z",
       to: "2026-08-31T15:00:00.000Z",
@@ -53,7 +53,7 @@ describe("assignment month queries", () => {
     )
     vi.stubGlobal("fetch", fetchMock)
     const client = new QueryClient()
-    const query = assignmentMonthQuery("2026-08")
+    const query = assignmentMonthQuery("2026-08", 2026)
 
     await client.prefetchQuery(query)
     await client.prefetchQuery(query)

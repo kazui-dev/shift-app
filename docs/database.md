@@ -75,14 +75,24 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 ### `operating_years`
 
-`year`自体を識別子兼表示値として、編集状態（`draft`, `active`, `archived`）と作成・更新日時だけを保持する。年度に開始日・終了日は設けず、年度をまたぐ準備・運用を妨げない。年度依存tableの親となり、archived年度へのactivity・希望・割当の変更はAPIで拒否する。
+`year`自体を識別子兼表示値とし、作成・更新日時を保持する。年度の3状態は廃止し、アクセスと編集は参加状態・権限で判断する。開始日・終了日は設けない。
 
-| Column       | Type    | Note                          |
-| ------------ | ------- | ----------------------------- |
-| `year`       | integer | PK、識別子兼表示値            |
-| `status`     | text    | `draft`, `active`, `archived` |
-| `created_at` | integer | UNIX time milliseconds        |
-| `updated_at` | integer | UNIX time milliseconds        |
+| Column       | Type    | Note                   |
+| ------------ | ------- | ---------------------- |
+| `year`       | integer | PK、識別子兼表示値     |
+| `created_at` | integer | UNIX time milliseconds |
+| `updated_at` | integer | UNIX time milliseconds |
+
+### `year_settings`
+
+| Column         | Type    | Note                                              |
+| -------------- | ------- | ------------------------------------------------- |
+| `id`           | integer | PK、CHECKで1に限定                                |
+| `default_year` | integer | NOT NULL、FK `operating_years.year`、削除RESTRICT |
+
+最初の年度を作るtriggerで初期化し、singletonの削除をtriggerで拒否する。年度が存在する状態では必ず1つのデフォルト年度を持つ。切り替えは参照先の更新だけで行い、新しい年度の作成では切り替わらない。triggerはmigration `0012_default_year.sql`で管理する。移行時は旧active年度のうち最新、存在しなければ既存の最新年度を選ぶ。
+
+システム管理者の`PUT /api/year-settings`で切り替える。デフォルトの指定自体は年度へのアクセス権を付与しない。
 
 ### `year_roles`
 

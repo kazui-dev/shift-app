@@ -7,8 +7,12 @@ export const operatingYearSchema = v.pipe(
   v.minValue(2000),
   v.maxValue(2100)
 )
-export const yearStatusSchema = v.picklist(["draft", "active", "archived"])
-export const shiftPermissionSchema = v.picklist(["shift.manage"])
+export const shiftPermissionSchema = v.picklist([
+  "shift.create",
+  "shift.manage",
+  "member.manage",
+  "role.manage",
+])
 
 const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/
 
@@ -111,13 +115,16 @@ const availabilityWindowWithIdResponseSchema = v.intersect([
   v.object({ id: v.pipe(v.string(), v.uuid()) }),
 ])
 
-export const createOperatingYearInputSchema = v.object({
+export const createOperatingYearInputSchema = v.strictObject({
   year: operatingYearSchema,
-  status: v.optional(yearStatusSchema, "draft"),
 })
 
-export const updateOperatingYearInputSchema = v.object({
-  status: yearStatusSchema,
+export const replaceYearSettingsInputSchema = v.strictObject({
+  defaultYear: operatingYearSchema,
+})
+
+export const yearSettingsResponseSchema = v.object({
+  defaultYear: v.nullable(operatingYearSchema),
 })
 
 export const createYearRoleInputSchema = v.object({
@@ -150,30 +157,28 @@ const activityFields = {
   ),
 }
 
+const responsibleSchema = v.object({
+  targetType: v.picklist(["member", "role"]),
+  targetId: v.pipe(v.string(), v.uuid()),
+})
 export const createActivityInputSchema = v.pipe(
-  v.object(activityFields),
+  v.object({
+    ...activityFields,
+    responsibles: v.optional(
+      v.pipe(v.array(responsibleSchema), v.maxLength(100)),
+      []
+    ),
+    candidateRoleIds: v.optional(
+      v.pipe(v.array(v.pipe(v.string(), v.uuid())), v.maxLength(100)),
+      []
+    ),
+  }),
   v.forward(
     v.check(
       (value) => isOrdered(value.startsAt, value.endsAt),
       "終了日時は開始日時より後にしてください"
     ),
     ["endsAt"]
-  )
-)
-
-export const updateActivityInputSchema = v.pipe(
-  v.object({
-    name: v.optional(activityFields.name),
-    place: v.optional(activityFields.place),
-    activityType: v.optional(activityFields.activityType),
-    startsAt: v.optional(activityFields.startsAt),
-    endsAt: v.optional(activityFields.endsAt),
-    color: v.optional(activityFields.color),
-    notes: v.optional(activityFields.notes),
-  }),
-  v.check(
-    (value) => Object.keys(value).length > 0,
-    "更新項目を1つ以上指定してください"
   )
 )
 
@@ -204,47 +209,20 @@ export const replaceAvailabilityInputSchema = v.pipe(
   )
 )
 
-export const createAssignmentInputSchema = v.pipe(
-  v.object({
-    memberId: v.pipe(v.string(), v.uuid()),
-    startsAt: v.optional(instantSchema),
-    endsAt: v.optional(instantSchema),
-    notes: v.optional(
-      v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(1000))),
-      null
-    ),
-  }),
-  v.forward(
-    v.check(
-      (value) =>
-        (value.startsAt === undefined) === (value.endsAt === undefined),
-      "開始日時と終了日時は両方指定してください"
-    ),
-    ["endsAt"]
-  ),
-  v.forward(
-    v.check(
-      (value) =>
-        value.startsAt === undefined ||
-        value.endsAt === undefined ||
-        isOrdered(value.startsAt, value.endsAt),
-      "終了日時は開始日時より後にしてください"
-    ),
-    ["endsAt"]
-  )
-)
-
 export const createAssignmentReportInputSchema = v.object({
+  eta: v.optional(v.nullable(instantSchema), null),
   kind: v.picklist(["late", "absence"]),
   message: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(1000)),
 })
 
 export const operatingYearResponseSchema = v.object({
   year: operatingYearSchema,
-  status: yearStatusSchema,
+  isDefault: v.boolean(),
 })
 
 export const activityResponseSchema = v.object({
+  active: v.boolean(),
+  version: v.number(),
   id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
   name: v.string(),
@@ -265,9 +243,22 @@ export const assignmentResponseSchema = v.object({
   endsAt: instantSchema,
   notes: v.nullable(v.string()),
   checkedInAt: v.optional(v.nullable(instantSchema)),
+  attendanceStatus: v.optional(
+    v.nullable(v.picklist(["pending", "confirmed"]))
+  ),
+})
+
+export const checkInInputSchema = v.strictObject({
+  locationConfirmed: v.boolean(),
+})
+
+export const correctAttendanceInputSchema = v.strictObject({
+  checkedInAt: instantSchema,
+  reason: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(1000)),
 })
 
 export const attendanceResponseSchema = v.object({
+  status: v.picklist(["pending", "confirmed"]),
   id: v.pipe(v.string(), v.uuid()),
   assignmentId: v.pipe(v.string(), v.uuid()),
   checkedInAt: instantSchema,
@@ -280,7 +271,9 @@ export const assignmentReportResponseSchema = v.object({
   memberDisplayName: v.string(),
   kind: v.picklist(["late", "absence"]),
   message: v.string(),
-  status: v.picklist(["open", "resolved"]),
+  status: v.picklist(["open", "resolved", "withdrawn"]),
+  eta: v.nullable(instantSchema),
+  updatedAt: instantSchema,
   activityId: v.pipe(v.string(), v.uuid()),
   activityName: v.string(),
   startsAt: instantSchema,
@@ -292,6 +285,7 @@ export const assignmentReportResponseSchema = v.object({
 export const yearRoleResponseSchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
+  position: v.number(),
   name: v.string(),
   color: v.string(),
   permissions: v.array(shiftPermissionSchema),
@@ -361,6 +355,11 @@ export const yearsResponseSchema = v.object({
 })
 
 export const yearRolesResponseSchema = v.object({
+  authority: v.object({
+    systemAdmin: v.boolean(),
+    position: v.nullable(v.number()),
+    permissions: v.array(shiftPermissionSchema),
+  }),
   roles: v.array(yearRoleResponseSchema),
 })
 
@@ -392,11 +391,6 @@ export const activitiesResponseSchema = v.object({
       ),
     })
   ),
-})
-
-export const activityDetailResponseSchema = v.object({
-  activity: activityResponseSchema,
-  assignments: v.array(assignmentResponseSchema),
 })
 
 export const operatingYearEnvelopeSchema = v.object({
@@ -440,6 +434,14 @@ export const availabilityEnvelopeSchema = v.object({
 })
 
 export const availabilitySubmissionsResponseSchema = v.object({
+  progress: v.array(
+    v.object({
+      memberId: v.string(),
+      displayName: v.string(),
+      studentId: v.string(),
+      complete: v.boolean(),
+    })
+  ),
   submissions: v.array(availabilitySubmissionResponseSchema),
 })
 
@@ -472,3 +474,133 @@ export const apiErrorSchema = v.object({
 })
 
 export type ShiftPermission = v.InferOutput<typeof shiftPermissionSchema>
+
+export const displayYearInputSchema = v.strictObject({
+  year: operatingYearSchema,
+})
+export const displayYearResponseSchema = v.object({
+  year: v.nullable(operatingYearSchema),
+  defaultYear: v.nullable(operatingYearSchema),
+  unavailableSelection: v.boolean(),
+  years: v.array(operatingYearSchema),
+})
+
+export const updateRoleInputSchema = v.strictObject({
+  name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(80)),
+  color: v.pipe(v.string(), v.regex(/^#[0-9a-fA-F]{6}$/)),
+  permissions: v.array(shiftPermissionSchema),
+})
+export const reorderRoleInputSchema = v.strictObject({
+  roleIds: v.pipe(
+    v.array(v.pipe(v.string(), v.uuid())),
+    v.minLength(1),
+    v.maxLength(200)
+  ),
+})
+export const memberRoleChangesSchema = v.strictObject({
+  memberIds: v.pipe(
+    v.array(v.pipe(v.string(), v.uuid())),
+    v.minLength(1),
+    v.maxLength(200)
+  ),
+  addRoleIds: v.pipe(v.array(v.pipe(v.string(), v.uuid())), v.maxLength(50)),
+  removeRoleIds: v.pipe(v.array(v.pipe(v.string(), v.uuid())), v.maxLength(50)),
+})
+
+const slotSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  startsAt: instantSchema,
+  endsAt: instantSchema,
+  capacity: v.nullable(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  memberIds: v.pipe(v.array(v.pipe(v.string(), v.uuid())), v.maxLength(500)),
+})
+export const activityEditorInputSchema = v.object({
+  ...activityFields,
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  active: v.boolean(),
+  candidateRoleIds: v.optional(
+    v.pipe(v.array(v.pipe(v.string(), v.uuid())), v.maxLength(100)),
+    []
+  ),
+  responsibles: v.pipe(v.array(responsibleSchema), v.maxLength(100)),
+  slots: v.pipe(v.array(slotSchema), v.maxLength(200)),
+})
+export const activityEditorResponseSchema = v.object({
+  activity: v.object({
+    ...activityResponseSchema.entries,
+    active: v.boolean(),
+    version: v.number(),
+  }),
+  candidateRoleIds: v.array(v.string()),
+  responsibles: v.array(responsibleSchema),
+  slots: v.array(slotSchema),
+  members: v.array(yearMemberResponseSchema),
+  roles: v.array(
+    v.object({ id: v.string(), name: v.string(), color: v.string() })
+  ),
+  availability: v.array(
+    v.object({
+      memberId: v.string(),
+      startsAt: instantSchema,
+      endsAt: instantSchema,
+    })
+  ),
+  submittedMemberIds: v.array(v.string()),
+  otherAssignments: v.array(
+    v.object({
+      memberId: v.string(),
+      startsAt: instantSchema,
+      endsAt: instantSchema,
+      name: v.string(),
+    })
+  ),
+})
+export type ActivityEditorInput = v.InferOutput<
+  typeof activityEditorInputSchema
+>
+
+export const reportStateInputSchema = v.strictObject({
+  status: v.picklist(["resolved", "withdrawn"]),
+  updatedAt: instantSchema,
+})
+export const shiftAttendanceResponseSchema = v.object({
+  canManage: v.boolean(),
+  assignments: v.array(
+    v.object({
+      id: v.string(),
+      own: v.boolean(),
+      memberId: v.string(),
+      memberDisplayName: v.string(),
+      startsAt: instantSchema,
+      endsAt: instantSchema,
+      active: v.boolean(),
+      checkedInAt: v.nullable(instantSchema),
+      attendanceStatus: v.nullable(v.picklist(["pending", "confirmed"])),
+    })
+  ),
+  reports: v.array(assignmentReportResponseSchema),
+})
+export const reportEventsResponseSchema = v.object({
+  events: v.array(
+    v.object({
+      id: v.string(),
+      actor: v.string(),
+      action: v.string(),
+      details: v.string(),
+      createdAt: instantSchema,
+    })
+  ),
+})
+
+export const attendanceEventsResponseSchema = v.object({
+  events: v.array(
+    v.object({
+      id: v.string(),
+      before: v.nullable(instantSchema),
+      after: instantSchema,
+      reason: v.string(),
+      createdAt: instantSchema,
+      actor: v.string(),
+    })
+  ),
+})

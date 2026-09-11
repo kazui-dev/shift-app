@@ -5,6 +5,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 
 import "@workspace/ui/globals.css"
+import "./app-layout.css"
 import { AppToaster } from "@/components/app-toaster.tsx"
 import { PwaUpdateNotice } from "@/components/pwa-update-notice.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"

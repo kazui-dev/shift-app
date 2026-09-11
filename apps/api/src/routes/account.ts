@@ -4,7 +4,7 @@ import { Hono } from "hono"
 import { bodyLimit } from "hono/body-limit"
 import * as v from "valibot"
 
-import { identityLinkRequests, members } from "@workspace/db/schema"
+import { identityLinkRequests, appUsers } from "@workspace/db/schema"
 import { onboardingInputSchema } from "@workspace/shared/auth"
 
 import { createAuth, getConfiguredProviders } from "../auth"
@@ -35,12 +35,12 @@ accountApp.get("/account", async (c) => {
   const db = drizzle(c.env.shift_app)
   const [member] = await db
     .select({
-      displayName: members.displayName,
-      studentId: members.studentId,
-      accessLevel: members.accessLevel,
+      displayName: appUsers.displayName,
+      studentId: appUsers.studentId,
+      accessLevel: appUsers.accessLevel,
     })
-    .from(members)
-    .where(eq(members.userId, authSession.user.id))
+    .from(appUsers)
+    .where(eq(appUsers.userId, authSession.user.id))
     .limit(1)
 
   if (!member) {
@@ -101,9 +101,9 @@ accountApp.put(
 
     const db = drizzle(c.env.shift_app)
     const [currentMember] = await db
-      .select({ id: members.id })
-      .from(members)
-      .where(eq(members.userId, authSession.user.id))
+      .select({ id: appUsers.id })
+      .from(appUsers)
+      .where(eq(appUsers.userId, authSession.user.id))
       .limit(1)
 
     if (currentMember) {
@@ -112,9 +112,9 @@ accountApp.put(
 
     const { studentId, displayName } = parsed.output
     const [targetMember] = await db
-      .select({ id: members.id })
-      .from(members)
-      .where(eq(members.studentId, studentId))
+      .select({ id: appUsers.id })
+      .from(appUsers)
+      .where(eq(appUsers.studentId, studentId))
       .limit(1)
 
     if (targetMember) {
@@ -150,7 +150,7 @@ accountApp.put(
 
     const now = new Date()
     try {
-      await db.insert(members).values({
+      await db.insert(appUsers).values({
         id: crypto.randomUUID(),
         userId: authSession.user.id,
         displayName,

@@ -1,8 +1,17 @@
+import { notifyRoomMessage } from "../services/push"
+import {
+  roomSelection,
+  roomJson,
+  findAccessibleRoom,
+  type RoomRow,
+} from "../services/chat-access"
 import { Hono } from "hono"
 import * as v from "valibot"
 
 import {
   createChatRoomInputSchema,
+  chatPreferencesInputSchema,
+  roomSettingsInputSchema,
   sendChatMessageInputSchema,
 } from "@workspace/shared/communications"
 
@@ -12,7 +21,7 @@ import {
   canManageShifts,
   hasActiveYearMembership,
   readJson,
-  toIso,
+  parseYear,
 } from "../lib/http"
 
 const idSchema = v.pipe(v.string(), v.uuid())
@@ -31,65 +40,6 @@ const messagesQuerySchema = v.object({
     50
   ),
 })
-
-type RoomRow = {
-  id: string
-  year: number
-  name: string
-  createdBy: string
-  createdAt: number
-  updatedAt: number
-}
-
-function roomJson(room: RoomRow) {
-  return {
-    ...room,
-    createdAt: toIso(room.createdAt),
-    updatedAt: toIso(room.updatedAt),
-  }
-}
-
-async function findAccessibleRoom(
-  env: CloudflareBindings,
-  roomId: string,
-  memberId: string
-): Promise<RoomRow | null> {
-  return env.shift_app
-    .prepare(
-      `SELECT room.id, room.year, room.name, room.created_by AS createdBy,
-              room.created_at AS createdAt, room.updated_at AS updatedAt
-       FROM chat_rooms room
-       WHERE room.id = ? AND room.status = 'active'
-         AND EXISTS (
-           SELECT 1 FROM year_memberships year_membership
-           WHERE year_membership.year = room.year
-             AND year_membership.member_id = ?
-             AND year_membership.status = 'active'
-         )
-         AND (
-           room.created_by = ?
-           OR EXISTS (
-             SELECT 1 FROM chat_room_targets target
-             WHERE target.room_id = room.id
-               AND (
-                 (target.target_type = 'member' AND target.target_id = ?)
-                 OR (target.target_type = 'role' AND EXISTS (
-                   SELECT 1 FROM member_year_roles membership
-                   WHERE membership.member_id = ? AND membership.role_id = target.target_id
-                 ))
-                 OR (target.target_type = 'activity' AND EXISTS (
-                   SELECT 1 FROM shift_assignments assignment
-                   WHERE assignment.member_id = ?
-                     AND assignment.activity_id = target.target_id
-                     AND assignment.status = 'active'
-                 ))
-               )
-           )
-         )`
-    )
-    .bind(roomId, memberId, memberId, memberId, memberId, memberId)
-    .first<RoomRow>()
-}
 
 async function targetExists(
   env: CloudflareBindings,
@@ -112,44 +62,20 @@ async function targetExists(
 export const chatApp = new Hono<ApiEnv>()
 
 chatApp.get("/rooms", async (c) => {
+  const year = parseYear(c.req.query("year") ?? "")
+  if (year === null) return apiError(c, 422, "INVALID_YEAR", "Year is required")
   const member = c.get("member")
   const rooms = await c.env.shift_app
     .prepare(
-      `SELECT room.id, room.year, room.name, room.created_by AS createdBy,
-              room.created_at AS createdAt, room.updated_at AS updatedAt
-       FROM chat_rooms room
-       WHERE room.status = 'active'
-         AND EXISTS (
-           SELECT 1 FROM year_memberships year_membership
-           WHERE year_membership.year = room.year
-             AND year_membership.member_id = ?
-             AND year_membership.status = 'active'
-         )
-         AND (
-           room.created_by = ?
-           OR EXISTS (
-             SELECT 1 FROM chat_room_targets target
-             WHERE target.room_id = room.id
-               AND (
-                 (target.target_type = 'member' AND target.target_id = ?)
-                 OR (target.target_type = 'role' AND EXISTS (
-                   SELECT 1 FROM member_year_roles membership
-                   WHERE membership.member_id = ? AND membership.role_id = target.target_id
-                 ))
-                 OR (target.target_type = 'activity' AND EXISTS (
-                   SELECT 1 FROM shift_assignments assignment
-                   WHERE assignment.member_id = ?
-                     AND assignment.activity_id = target.target_id
-                     AND assignment.status = 'active'
-                 ))
-               )
-           )
-         )
-       ORDER BY room.updated_at DESC
-       LIMIT 200`
+      `${roomSelection} AND r.year=? AND r.status=? ORDER BY CASE r.kind WHEN 'global' THEN 0 ELSE 1 END,r.updated_at DESC LIMIT 200`
     )
-    .bind(member.id, member.id, member.id, member.id, member.id)
+    .bind(
+      member.id,
+      year,
+      c.req.query("closed") === "true" ? "archived" : "active"
+    )
     .all<RoomRow>()
+
   return c.json({ rooms: rooms.results.map(roomJson) })
 })
 
@@ -209,7 +135,7 @@ chatApp.post("/rooms", async (c) => {
         `INSERT INTO chat_rooms
           (id, year, name, status, created_by, created_at, updated_at)
          SELECT ?, year, ?, 'active', ?, ?, ?
-         FROM operating_years WHERE year = ? AND status <> 'archived'`
+         FROM operating_years WHERE year = ? RETURNING id`
       )
       .bind(roomId, input.output.name, actor.id, now, now, input.output.year),
     ...targets.map((target) =>
@@ -223,27 +149,13 @@ chatApp.post("/rooms", async (c) => {
     ),
   ]
   const results = await c.env.shift_app.batch(statements)
-  if (results[0]?.meta.changes !== 1) {
-    return apiError(
-      c,
-      409,
-      "YEAR_NOT_EDITABLE",
-      "Operating year is archived or missing"
-    )
+  if (!results[0]?.results.length) {
+    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
   }
-  return c.json(
-    {
-      room: roomJson({
-        id: roomId,
-        year: input.output.year,
-        name: input.output.name,
-        createdBy: actor.id,
-        createdAt: now,
-        updatedAt: now,
-      }),
-    },
-    201
-  )
+  const created = await findAccessibleRoom(c.env, roomId, actor.id)
+  if (!created)
+    return apiError(c, 500, "ROOM_CREATE_FAILED", "Room could not be read")
+  return c.json({ room: roomJson(created) }, 201)
 })
 
 chatApp.get("/rooms/:roomId/messages", async (c) => {
@@ -259,7 +171,11 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
   }
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   return c.json(
-    await stub.getMessages(query.output.before ?? null, query.output.limit)
+    await stub.getMessages(
+      query.output.before ?? null,
+      query.output.limit,
+      room.exitedAt
+    )
   )
 })
 
@@ -285,19 +201,34 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
   if (!room) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
+  if (!room.canPost)
+    return apiError(c, 403, "CHAT_READ_ONLY", "このルームには投稿できません。")
   const now = Date.now()
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const message = await stub.sendMessage({
+    roomId: room.id,
     id: input.output.id,
     memberId: member.id,
     memberDisplayName: member.displayName,
     content: input.output.content,
     createdAt: now,
   })
-  await c.env.shift_app
-    .prepare("UPDATE chat_rooms SET updated_at = ? WHERE id = ?")
-    .bind(now, room.id)
+  const updated = await c.env.shift_app
+    .prepare(
+      "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
+    )
+    .bind(now, message.sequence, room.id, message.sequence)
     .run()
+  if (updated.meta.changes > 0)
+    c.executionCtx.waitUntil(
+      notifyRoomMessage(
+        c.env,
+        room.id,
+        member.id,
+        room.name,
+        input.output.content
+      )
+    )
   return c.json({ message }, 201)
 })
 
@@ -314,10 +245,134 @@ chatApp.get("/rooms/:roomId/ws", async (c) => {
   if (!room) {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
   }
+  if (room.exitedAt !== null)
+    return apiError(c, 403, "CHAT_READ_ONLY", "Room access has ended")
   const headers = new Headers(c.req.raw.headers)
   headers.delete("Cookie")
   headers.set("X-Chat-Member-Id", member.id)
+  headers.set("X-Chat-Room-Id", room.id)
   return c.env.CHAT_ROOMS.getByName(room.id).fetch(
     new Request(c.req.raw, { headers })
   )
+})
+
+chatApp.patch("/rooms/:roomId/preferences", async (c) => {
+  const input = v.safeParse(
+    chatPreferencesInputSchema,
+    await readJson(c.req.raw)
+  )
+  if (!input.success)
+    return apiError(c, 422, "INVALID_PREFERENCES", "Invalid room preferences")
+  const room = await findAccessibleRoom(
+    c.env,
+    c.req.param("roomId"),
+    c.get("member").id
+  )
+  if (!room) return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Room not found")
+  const memberId = c.get("member").id
+  await c.env.shift_app
+    .prepare(
+      `INSERT INTO chat_room_preferences (room_id,member_id,muted,last_read) VALUES (?,?,?,?) ON CONFLICT(room_id,member_id) DO UPDATE SET muted=CASE WHEN ? THEN excluded.muted ELSE chat_room_preferences.muted END,last_read=MAX(chat_room_preferences.last_read,excluded.last_read)`
+    )
+    .bind(
+      room.id,
+      memberId,
+      input.output.muted === undefined
+        ? room.muted
+        : input.output.muted
+          ? 1
+          : 0,
+      Math.min(room.lastSequence, input.output.lastRead ?? room.lastRead),
+      input.output.muted === undefined ? 0 : 1
+    )
+    .run()
+  return c.body(null, 204)
+})
+chatApp.get("/rooms/:roomId/settings", async (c) => {
+  const room = await findAccessibleRoom(
+    c.env,
+    c.req.param("roomId"),
+    c.get("member").id
+  )
+  if (!room?.canManage)
+    return apiError(c, 403, "FORBIDDEN", "Room management is required")
+  const targets = await c.env.shift_app
+    .prepare(
+      "SELECT target_type AS targetType,target_id AS targetId,can_read AS canRead,can_post AS canPost,can_manage AS canManage FROM chat_room_targets WHERE room_id=?"
+    )
+    .bind(room.id)
+    .all<{
+      targetType: string
+      targetId: string
+      canRead: number
+      canPost: number
+      canManage: number
+    }>()
+  return c.json({
+    name: room.name,
+    kind: room.kind,
+    closed: room.status === "archived",
+    targets: targets.results.map((target) => ({
+      ...target,
+      canRead: target.canRead === 1,
+      canPost: target.canPost === 1,
+      canManage: target.canManage === 1,
+    })),
+  })
+})
+chatApp.put("/rooms/:roomId/settings", async (c) => {
+  const input = v.safeParse(roomSettingsInputSchema, await readJson(c.req.raw))
+  if (!input.success)
+    return apiError(c, 422, "INVALID_ROOM_SETTINGS", "Invalid room settings")
+  const actor = c.get("member"),
+    room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
+  if (!room?.canManage)
+    return apiError(c, 403, "FORBIDDEN", "Room management is required")
+  if (room.kind !== "custom" && input.output.closed)
+    return apiError(
+      c,
+      409,
+      "AUTOMATIC_ROOM",
+      "このルームはシフト・年度から管理します。"
+    )
+  const valid = await Promise.all(
+    input.output.targets.map((target) => targetExists(c.env, room.year, target))
+  )
+  if (valid.some((value) => !value))
+    return apiError(
+      c,
+      422,
+      "INVALID_TARGET",
+      "Targets must belong to this year"
+    )
+  const now = Date.now()
+  await c.env.shift_app.batch([
+    c.env.shift_app
+      .prepare("UPDATE chat_rooms SET name=?,status=?,updated_at=? WHERE id=?")
+      .bind(
+        room.kind === "custom" ? input.output.name : room.name,
+        input.output.closed ? "archived" : "active",
+        now,
+        room.id
+      ),
+    c.env.shift_app
+      .prepare("DELETE FROM chat_room_targets WHERE room_id=?")
+      .bind(room.id),
+    ...input.output.targets.map((target) =>
+      c.env.shift_app
+        .prepare(
+          "INSERT INTO chat_room_targets (room_id,target_type,target_id,can_read,can_post,can_manage,created_at) VALUES (?,?,?,?,?,?,?)"
+        )
+        .bind(
+          room.id,
+          target.targetType,
+          target.targetId,
+          target.canRead ? 1 : 0,
+          target.canPost ? 1 : 0,
+          target.canManage ? 1 : 0,
+          now
+        )
+    ),
+  ])
+  return c.body(null, 204)
 })

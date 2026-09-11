@@ -1,3 +1,4 @@
+import { memberRolesApp } from "./member-roles"
 import { Hono } from "hono"
 
 import type { ApiEnv } from "../../lib/http"
@@ -6,7 +7,6 @@ import { availabilityDatesApp } from "./availability-dates"
 import { availabilitySubmissionsApp } from "./availability-submissions"
 import { yearLifecycleApp } from "./lifecycle"
 import { yearMembershipsApp } from "./memberships"
-import { yearReportsApp } from "./reports"
 import { yearRolesApp } from "./roles"
 import { rosterApp } from "./roster"
 
@@ -19,4 +19,5 @@ yearsApp.route("/", yearActivitiesApp)
 yearsApp.route("/", availabilityDatesApp)
 yearsApp.route("/", availabilitySubmissionsApp)
 yearsApp.route("/", yearMembershipsApp)
-yearsApp.route("/", yearReportsApp)
+
+yearsApp.route("/", memberRolesApp)

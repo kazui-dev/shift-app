@@ -1,3 +1,4 @@
+import { useDisplayYear } from "@/components/use-display-year"
 import { useEffect, useMemo } from "react"
 import { useQueries, useQueryClient } from "@tanstack/react-query"
 
@@ -14,7 +15,6 @@ import {
 
 export type CalendarAssignments = {
   byDate: Map<string, CalendarAssignment[]>
-  selectedMonthDataUpdatedAt: number
   selectedMonthError: unknown
   selectedMonthIsError: boolean
   refetchSelectedMonth: () => void
@@ -24,10 +24,11 @@ export function useCalendarAssignments(
   selectedDate: string,
   dates: string[]
 ): CalendarAssignments {
+  const { year } = useDisplayYear()
   const queryClient = useQueryClient()
   const months = useMemo(() => monthValuesForDates(dates), [dates])
   const queries = useQueries({
-    queries: months.map(assignmentMonthQuery),
+    queries: months.map((month) => assignmentMonthQuery(month, year)),
   })
   const selectedMonth = monthValue(selectedDate)
   const selectedMonthIndex = months.indexOf(selectedMonth)
@@ -45,14 +46,13 @@ export function useCalendarAssignments(
     if (!selectedMonthQuery?.isSuccess) return
     for (const distance of [-1, 1]) {
       void queryClient.prefetchQuery(
-        assignmentMonthQuery(moveMonthValue(selectedMonth, distance))
+        assignmentMonthQuery(moveMonthValue(selectedMonth, distance), year)
       )
     }
-  }, [queryClient, selectedMonth, selectedMonthQuery?.isSuccess])
+  }, [queryClient, selectedMonth, selectedMonthQuery?.isSuccess, year])
 
   return {
     byDate,
-    selectedMonthDataUpdatedAt: selectedMonthQuery?.dataUpdatedAt ?? 0,
     selectedMonthError: selectedMonthQuery?.error,
     selectedMonthIsError: selectedMonthQuery?.isError ?? false,
     refetchSelectedMonth: () => {

@@ -1,14 +1,15 @@
+import { attendanceEventsResponseSchema } from "@workspace/shared/shifts"
 import {
   attendanceEnvelopeSchema,
-  assignmentMutationResponseSchema,
   assignmentReportEnvelopeSchema,
-  assignmentReportsResponseSchema,
+  shiftAttendanceResponseSchema,
+  reportEventsResponseSchema,
   myAssignmentsResponseSchema,
 } from "@workspace/shared/shifts"
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions, skipToken } from "@tanstack/react-query"
 
 import { japanDateStart, japanMonthRange } from "@/lib/japan-time"
-import { apiJson, apiVoid } from "./client"
+import { apiJson } from "./client"
 
 const assignmentMonthStaleTime = 5 * 60 * 1000
 
@@ -16,8 +17,13 @@ export type CalendarAssignment = Awaited<
   ReturnType<typeof getMyAssignments>
 >["assignments"][number]
 
-const getMyAssignments = (from: string, to: string, signal?: AbortSignal) => {
-  const query = new URLSearchParams({ from, to })
+const getMyAssignments = (
+  year: number,
+  from: string,
+  to: string,
+  signal?: AbortSignal
+) => {
+  const query = new URLSearchParams({ from, to, year: String(year) })
   return apiJson(
     `/api/me/assignments?${query}`,
     myAssignmentsResponseSchema,
@@ -36,11 +42,14 @@ export function assignmentMonthRange(month: string): {
   }
 }
 
-export function assignmentMonthQuery(month: string) {
+export function assignmentMonthQuery(month: string, year: number | null) {
   const range = assignmentMonthRange(month)
   return queryOptions({
-    queryKey: ["assignments", "month", month] as const,
-    queryFn: ({ signal }) => getMyAssignments(range.from, range.to, signal),
+    queryKey: ["assignments", "month", month, year] as const,
+    queryFn:
+      year === null
+        ? skipToken
+        : ({ signal }) => getMyAssignments(year, range.from, range.to, signal),
     staleTime: assignmentMonthStaleTime,
   })
 }
@@ -77,31 +86,16 @@ export function assignmentsByDate(
   return result
 }
 
-export const createAssignment = (
-  activityId: string,
-  input: { memberId: string; notes: string | null }
-) =>
-  apiJson(
-    `/api/activities/${encodeURIComponent(activityId)}/assignments`,
-    assignmentMutationResponseSchema,
-    { method: "POST", body: JSON.stringify(input) }
-  )
-
-export const cancelAssignment = (assignmentId: string) =>
-  apiVoid(`/api/assignments/${encodeURIComponent(assignmentId)}`, {
-    method: "DELETE",
-  })
-
-export const checkIn = (assignmentId: string) =>
+export const checkIn = (assignmentId: string, locationConfirmed: boolean) =>
   apiJson(
     `/api/assignments/${encodeURIComponent(assignmentId)}/attendance`,
     attendanceEnvelopeSchema,
-    { method: "PUT" }
+    { method: "PUT", body: JSON.stringify({ locationConfirmed }) }
   )
 
 export const submitAssignmentReport = (
   assignmentId: string,
-  input: { kind: "late" | "absence"; message: string }
+  input: { kind: "late" | "absence"; message: string; eta?: string | null }
 ) =>
   apiJson(
     `/api/assignments/${encodeURIComponent(assignmentId)}/report`,
@@ -109,12 +103,39 @@ export const submitAssignmentReport = (
     { method: "PUT", body: JSON.stringify(input) }
   )
 
-export const getAssignmentReports = (year: number) =>
-  apiJson(`/api/years/${year}/reports`, assignmentReportsResponseSchema)
-
-export const resolveAssignmentReport = (reportId: string) =>
+export const getShiftAttendance = (activityId: string) =>
+  apiJson(
+    `/api/activities/${encodeURIComponent(activityId)}/attendance`,
+    shiftAttendanceResponseSchema
+  )
+export const getReportEvents = (reportId: string) =>
+  apiJson(
+    `/api/reports/${encodeURIComponent(reportId)}/events`,
+    reportEventsResponseSchema
+  )
+export const updateReportState = (
+  reportId: string,
+  status: "resolved" | "withdrawn",
+  updatedAt: string
+) =>
   apiJson(
     `/api/reports/${encodeURIComponent(reportId)}`,
     assignmentReportEnvelopeSchema,
-    { method: "PATCH", body: JSON.stringify({ status: "resolved" }) }
+    { method: "PATCH", body: JSON.stringify({ status, updatedAt }) }
+  )
+export const correctAttendance = (
+  assignmentId: string,
+  checkedInAt: string,
+  reason: string
+) =>
+  apiJson(
+    `/api/assignments/${encodeURIComponent(assignmentId)}/attendance`,
+    attendanceEnvelopeSchema,
+    { method: "PATCH", body: JSON.stringify({ checkedInAt, reason }) }
+  )
+
+export const getAttendanceEvents = (id: string) =>
+  apiJson(
+    `/api/assignments/${encodeURIComponent(id)}/attendance/events`,
+    attendanceEventsResponseSchema
   )

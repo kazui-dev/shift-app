@@ -84,7 +84,7 @@ async function claimAndSend(
   if (claim.meta.changes !== 1) return
 
   const title =
-    kind === "assigned" ? "シフトが割り当てられました" : "シフト開始10分前"
+    kind === "assigned" ? "シフトが更新されました" : "シフト開始10分前"
   const result = await deliver(
     env,
     subscription,
@@ -135,14 +135,56 @@ async function subscriptionsForMember(
   return result.results
 }
 
-export async function notifyAssignmentCreated(
+export async function sendMemberNotification(
   env: CloudflareBindings,
-  assignment: AssignmentNotification
+  memberId: string,
+  title: string,
+  body: string,
+  url: string,
+  tag: string
 ) {
-  const subscriptions = await subscriptionsForMember(env, assignment.memberId)
+  const subscriptions = await subscriptionsForMember(env, memberId)
+  const results = await Promise.all(
+    subscriptions.map(async (subscription) => {
+      const result = await deliver(
+        env,
+        subscription,
+        JSON.stringify({ title, body, tag, data: { url } })
+      )
+      if (result === "dead")
+        await env.shift_app
+          .prepare("DELETE FROM push_subscriptions WHERE id=?")
+          .bind(subscription.id)
+          .run()
+      return result !== "retry"
+    })
+  )
+  return results.every(Boolean)
+}
+
+export async function notifyRoomMessage(
+  env: CloudflareBindings,
+  roomId: string,
+  senderId: string,
+  name: string,
+  content: string
+) {
+  const recipients = await env.shift_app
+    .prepare(
+      `SELECT e.member_id AS memberId FROM chat_effective_permissions e JOIN chat_rooms r ON r.id=e.room_id LEFT JOIN chat_room_preferences p ON p.room_id=e.room_id AND p.member_id=e.member_id WHERE e.room_id=? AND e.can_read=1 AND e.member_id<>? AND COALESCE(p.muted,0)=0 AND r.status='active'`
+    )
+    .bind(roomId, senderId)
+    .all<{ memberId: string }>()
   await Promise.all(
-    subscriptions.map((subscription) =>
-      claimAndSend(env, assignment, subscription, "assigned")
+    recipients.results.map((item) =>
+      sendMemberNotification(
+        env,
+        item.memberId,
+        name,
+        content,
+        "/chat",
+        `chat-${roomId}`
+      )
     )
   )
 }
@@ -156,20 +198,21 @@ export async function sendDueAssignmentReminders(
     .prepare(
       `SELECT assignment.id AS assignmentId, assignment.member_id AS memberId,
               activity.name AS activityName, activity.place,
-              assignment.starts_at AS startsAt,
+              slot.starts_at AS startsAt,
               subscription.id, subscription.endpoint,
               subscription.expiration_time AS expirationTime,
               subscription.p256dh, subscription.auth
        FROM shift_assignments assignment
-       JOIN activities activity ON activity.id = assignment.activity_id
+       JOIN shift_slots slot ON slot.id = assignment.slot_id
+       JOIN activities activity ON activity.id = slot.activity_id
        JOIN year_memberships year_membership
          ON year_membership.year = activity.year
         AND year_membership.member_id = assignment.member_id
         AND year_membership.status = 'active'
        JOIN push_subscriptions subscription
          ON subscription.member_id = assignment.member_id
-       WHERE assignment.status = 'active'
-         AND assignment.starts_at > ? AND assignment.starts_at <= ?`
+       WHERE assignment.status = 'active' AND activity.active = 1
+         AND slot.starts_at > ? AND slot.starts_at <= ?`
     )
     .bind(from, to)
     .all<AssignmentNotification & SubscriptionRow>()

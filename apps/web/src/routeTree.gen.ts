@@ -22,10 +22,11 @@ import { Route as AppManageAuditRouteImport } from './routes/_app.manage.audit'
 import { Route as AppManageAvailabilityRouteImport } from './routes/_app.manage.availability'
 import { Route as AppManageDiscordLinkRequestsRouteImport } from './routes/_app.manage.discord-link-requests'
 import { Route as AppManageMembersRouteImport } from './routes/_app.manage.members'
-import { Route as AppManageReportsRouteImport } from './routes/_app.manage.reports'
 import { Route as AppManageRolesRouteImport } from './routes/_app.manage.roles'
 import { Route as AppManageShiftsRouteImport } from './routes/_app.manage.shifts'
+import { Route as AppManageUsersRouteImport } from './routes/_app.manage.users'
 import { Route as AppManageYearsRouteImport } from './routes/_app.manage.years'
+import { Route as AppManageShiftsShiftIdRouteImport } from './routes/_app.manage.shifts_.$shiftId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -92,11 +93,6 @@ const AppManageMembersRoute = AppManageMembersRouteImport.update({
   path: '/members',
   getParentRoute: () => AppManageRoute,
 } as any)
-const AppManageReportsRoute = AppManageReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AppManageRoute,
-} as any)
 const AppManageRolesRoute = AppManageRolesRouteImport.update({
   id: '/roles',
   path: '/roles',
@@ -107,9 +103,19 @@ const AppManageShiftsRoute = AppManageShiftsRouteImport.update({
   path: '/shifts',
   getParentRoute: () => AppManageRoute,
 } as any)
+const AppManageUsersRoute = AppManageUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppManageRoute,
+} as any)
 const AppManageYearsRoute = AppManageYearsRouteImport.update({
   id: '/years',
   path: '/years',
+  getParentRoute: () => AppManageRoute,
+} as any)
+const AppManageShiftsShiftIdRoute = AppManageShiftsShiftIdRouteImport.update({
+  id: '/shifts_/$shiftId',
+  path: '/shifts/$shiftId',
   getParentRoute: () => AppManageRoute,
 } as any)
 
@@ -125,11 +131,12 @@ export interface FileRoutesByFullPath {
   '/manage/availability': typeof AppManageAvailabilityRoute
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
-  '/manage/reports': typeof AppManageReportsRoute
   '/manage/roles': typeof AppManageRolesRoute
   '/manage/shifts': typeof AppManageShiftsRoute
+  '/manage/users': typeof AppManageUsersRoute
   '/manage/years': typeof AppManageYearsRoute
   '/manage/': typeof AppManageIndexRoute
+  '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,11 +149,12 @@ export interface FileRoutesByTo {
   '/manage/availability': typeof AppManageAvailabilityRoute
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
-  '/manage/reports': typeof AppManageReportsRoute
   '/manage/roles': typeof AppManageRolesRoute
   '/manage/shifts': typeof AppManageShiftsRoute
+  '/manage/users': typeof AppManageUsersRoute
   '/manage/years': typeof AppManageYearsRoute
   '/manage': typeof AppManageIndexRoute
+  '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,11 +170,12 @@ export interface FileRoutesById {
   '/_app/manage/availability': typeof AppManageAvailabilityRoute
   '/_app/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/_app/manage/members': typeof AppManageMembersRoute
-  '/_app/manage/reports': typeof AppManageReportsRoute
   '/_app/manage/roles': typeof AppManageRolesRoute
   '/_app/manage/shifts': typeof AppManageShiftsRoute
+  '/_app/manage/users': typeof AppManageUsersRoute
   '/_app/manage/years': typeof AppManageYearsRoute
   '/_app/manage/': typeof AppManageIndexRoute
+  '/_app/manage/shifts_/$shiftId': typeof AppManageShiftsShiftIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -182,11 +191,12 @@ export interface FileRouteTypes {
     | '/manage/availability'
     | '/manage/discord-link-requests'
     | '/manage/members'
-    | '/manage/reports'
     | '/manage/roles'
     | '/manage/shifts'
+    | '/manage/users'
     | '/manage/years'
     | '/manage/'
+    | '/manage/shifts/$shiftId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -199,11 +209,12 @@ export interface FileRouteTypes {
     | '/manage/availability'
     | '/manage/discord-link-requests'
     | '/manage/members'
-    | '/manage/reports'
     | '/manage/roles'
     | '/manage/shifts'
+    | '/manage/users'
     | '/manage/years'
     | '/manage'
+    | '/manage/shifts/$shiftId'
   id:
     | '__root__'
     | '/'
@@ -218,11 +229,12 @@ export interface FileRouteTypes {
     | '/_app/manage/availability'
     | '/_app/manage/discord-link-requests'
     | '/_app/manage/members'
-    | '/_app/manage/reports'
     | '/_app/manage/roles'
     | '/_app/manage/shifts'
+    | '/_app/manage/users'
     | '/_app/manage/years'
     | '/_app/manage/'
+    | '/_app/manage/shifts_/$shiftId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -323,13 +335,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManageMembersRouteImport
       parentRoute: typeof AppManageRoute
     }
-    '/_app/manage/reports': {
-      id: '/_app/manage/reports'
-      path: '/reports'
-      fullPath: '/manage/reports'
-      preLoaderRoute: typeof AppManageReportsRouteImport
-      parentRoute: typeof AppManageRoute
-    }
     '/_app/manage/roles': {
       id: '/_app/manage/roles'
       path: '/roles'
@@ -344,11 +349,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManageShiftsRouteImport
       parentRoute: typeof AppManageRoute
     }
+    '/_app/manage/users': {
+      id: '/_app/manage/users'
+      path: '/users'
+      fullPath: '/manage/users'
+      preLoaderRoute: typeof AppManageUsersRouteImport
+      parentRoute: typeof AppManageRoute
+    }
     '/_app/manage/years': {
       id: '/_app/manage/years'
       path: '/years'
       fullPath: '/manage/years'
       preLoaderRoute: typeof AppManageYearsRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/shifts_/$shiftId': {
+      id: '/_app/manage/shifts_/$shiftId'
+      path: '/shifts/$shiftId'
+      fullPath: '/manage/shifts/$shiftId'
+      preLoaderRoute: typeof AppManageShiftsShiftIdRouteImport
       parentRoute: typeof AppManageRoute
     }
   }
@@ -359,11 +378,12 @@ interface AppManageRouteChildren {
   AppManageAvailabilityRoute: typeof AppManageAvailabilityRoute
   AppManageDiscordLinkRequestsRoute: typeof AppManageDiscordLinkRequestsRoute
   AppManageMembersRoute: typeof AppManageMembersRoute
-  AppManageReportsRoute: typeof AppManageReportsRoute
   AppManageRolesRoute: typeof AppManageRolesRoute
   AppManageShiftsRoute: typeof AppManageShiftsRoute
+  AppManageUsersRoute: typeof AppManageUsersRoute
   AppManageYearsRoute: typeof AppManageYearsRoute
   AppManageIndexRoute: typeof AppManageIndexRoute
+  AppManageShiftsShiftIdRoute: typeof AppManageShiftsShiftIdRoute
 }
 
 const AppManageRouteChildren: AppManageRouteChildren = {
@@ -371,11 +391,12 @@ const AppManageRouteChildren: AppManageRouteChildren = {
   AppManageAvailabilityRoute: AppManageAvailabilityRoute,
   AppManageDiscordLinkRequestsRoute: AppManageDiscordLinkRequestsRoute,
   AppManageMembersRoute: AppManageMembersRoute,
-  AppManageReportsRoute: AppManageReportsRoute,
   AppManageRolesRoute: AppManageRolesRoute,
   AppManageShiftsRoute: AppManageShiftsRoute,
+  AppManageUsersRoute: AppManageUsersRoute,
   AppManageYearsRoute: AppManageYearsRoute,
   AppManageIndexRoute: AppManageIndexRoute,
+  AppManageShiftsShiftIdRoute: AppManageShiftsShiftIdRoute,
 }
 
 const AppManageRouteWithChildren = AppManageRoute._addFileChildren(

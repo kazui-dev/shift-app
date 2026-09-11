@@ -1,7 +1,11 @@
+import { roleAuthority } from "../../services/role-authority"
 import { Hono } from "hono"
 import * as v from "valibot"
 
-import { createYearRoleInputSchema } from "@workspace/shared/shifts"
+import {
+  createYearRoleInputSchema,
+  reorderRoleInputSchema,
+} from "@workspace/shared/shifts"
 
 import {
   apiError,
@@ -9,7 +13,6 @@ import {
   canAccessYear,
   parseYear,
   readJson,
-  requireSystemAdmin,
 } from "../../lib/http"
 
 function getYearParam(value: string): number | null {
@@ -31,6 +34,7 @@ yearRolesApp.get("/:year/roles", async (c) => {
     .prepare(
       `SELECT
          role.id,
+         role.position,
          role.name,
          role.color,
          GROUP_CONCAT(permission.permission) AS permissions,
@@ -44,18 +48,25 @@ yearRolesApp.get("/:year/roles", async (c) => {
        LEFT JOIN year_role_permissions permission ON permission.role_id = role.id
        WHERE role.year = ?
        GROUP BY role.id
-       ORDER BY lower(role.name)`
+       ORDER BY role.position DESC, lower(role.name)`
     )
     .bind(year)
     .all<{
       id: string
+      position: number
       name: string
       color: string
       permissions: string | null
       memberCount: number
     }>()
 
+  const authority = await roleAuthority(c.env.shift_app, c.get("member"), year)
   return c.json({
+    authority: {
+      systemAdmin: authority.systemAdmin,
+      position: Number.isFinite(authority.position) ? authority.position : null,
+      permissions: [...authority.permissions],
+    },
     roles: roles.results.map((role) => ({
       ...role,
       year,
@@ -65,8 +76,6 @@ yearRolesApp.get("/:year/roles", async (c) => {
 })
 
 yearRolesApp.post("/:year/roles", async (c) => {
-  const denied = requireSystemAdmin(c)
-  if (denied) return denied
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
@@ -84,16 +93,44 @@ yearRolesApp.post("/:year/roles", async (c) => {
     )
   }
 
+  const authority = await roleAuthority(c.env.shift_app, c.get("member"), year)
+  if (
+    !authority.systemAdmin &&
+    (!authority.permissions.has("role.manage") ||
+      parsed.output.permissions.some(
+        (permission) => !authority.permissions.has(permission)
+      ))
+  ) {
+    return apiError(
+      c,
+      403,
+      "FORBIDDEN",
+      "Role management and granted permissions are required"
+    )
+  }
+  const last = await c.env.shift_app
+    .prepare("SELECT MIN(position) AS position FROM year_roles WHERE year = ?")
+    .bind(year)
+    .first<{ position: number | null }>()
+  const position = (last?.position ?? 1) - 1
   const roleId = crypto.randomUUID()
   const now = Date.now()
   const statements = [
     c.env.shift_app
       .prepare(
         `INSERT OR IGNORE INTO year_roles
-          (id, year, name, color, created_at, updated_at)
-         SELECT ?, year, ?, ?, ?, ? FROM operating_years WHERE year = ?`
+          (id, year, name, color, created_at, updated_at, position)
+         SELECT ?, year, ?, ?, ?, ?, ? FROM operating_years WHERE year = ? RETURNING id`
       )
-      .bind(roleId, parsed.output.name, parsed.output.color, now, now, year),
+      .bind(
+        roleId,
+        parsed.output.name,
+        parsed.output.color,
+        now,
+        now,
+        position,
+        year
+      ),
     ...parsed.output.permissions.map((permission) =>
       c.env.shift_app
         .prepare(
@@ -104,7 +141,7 @@ yearRolesApp.post("/:year/roles", async (c) => {
     ),
   ]
   const results = await c.env.shift_app.batch(statements)
-  if (results[0]?.meta.changes !== 1) {
+  if (!results[0]?.results.length) {
     return apiError(
       c,
       409,
@@ -113,5 +150,56 @@ yearRolesApp.post("/:year/roles", async (c) => {
     )
   }
 
-  return c.json({ role: { id: roleId, year, ...parsed.output } }, 201)
+  return c.json({ role: { id: roleId, year, position, ...parsed.output } }, 201)
+})
+
+yearRolesApp.put("/:year/role-order", async (c) => {
+  const year = parseYear(c.req.param("year"))
+  const input = v.safeParse(reorderRoleInputSchema, await readJson(c.req.raw))
+  if (year === null || !input.success)
+    return apiError(c, 422, "INVALID_ROLE_ORDER", "Invalid role order")
+  const authority = await roleAuthority(c.env.shift_app, c.get("member"), year)
+  if (!authority.systemAdmin && !authority.permissions.has("role.manage"))
+    return apiError(c, 403, "FORBIDDEN", "Role management is required")
+  const roles = await c.env.shift_app
+    .prepare(
+      "SELECT id, position FROM year_roles WHERE year = ? ORDER BY position DESC, id"
+    )
+    .bind(year)
+    .all<{ id: string; position: number }>()
+  const ids = input.output.roleIds
+  if (
+    new Set(ids).size !== ids.length ||
+    ids.length !== roles.results.length ||
+    roles.results.some((role) => !ids.includes(role.id))
+  )
+    return apiError(
+      c,
+      409,
+      "ROLE_ORDER_CHANGED",
+      "Reload the roles before reordering"
+    )
+  if (
+    !authority.systemAdmin &&
+    roles.results.some(
+      (role, index) =>
+        role.position >= authority.position && ids[index] !== role.id
+    )
+  )
+    return apiError(
+      c,
+      403,
+      "ROLE_HIERARCHY",
+      "Cannot move roles at or above your highest role"
+    )
+  await c.env.shift_app.batch(
+    ids.map((id, index) =>
+      c.env.shift_app
+        .prepare(
+          "UPDATE year_roles SET position = ?, updated_at = ? WHERE id = ?"
+        )
+        .bind(ids.length - index, Date.now(), id)
+    )
+  )
+  return c.body(null, 204)
 })

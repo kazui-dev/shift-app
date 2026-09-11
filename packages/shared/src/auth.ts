@@ -73,7 +73,9 @@ export const authStateSchema = v.variant("status", [
   }),
 ])
 
-export const adminMemberSchema = v.object({
+export const adminUserSchema = v.object({
+  years: v.array(v.number()),
+  discordLinked: v.boolean(),
   id: v.pipe(v.string(), v.uuid()),
   displayName: v.string(),
   studentId: studentIdSchema,
@@ -83,8 +85,8 @@ export const adminMemberSchema = v.object({
   createdAt: v.pipe(v.number(), v.integer(), v.minValue(0)),
 })
 
-export const adminMembersResponseSchema = v.object({
-  members: v.array(adminMemberSchema),
+export const adminUsersResponseSchema = v.object({
+  users: v.array(adminUserSchema),
 })
 
 export const adminAuditLogSchema = v.object({
@@ -126,7 +128,7 @@ export const revokeSessionsResponseSchema = v.object({
 
 export type AuthState = v.InferOutput<typeof authStateSchema>
 export type OnboardingInput = v.InferOutput<typeof onboardingInputSchema>
-export type AdminMember = v.InferOutput<typeof adminMemberSchema>
+export type AdminUser = v.InferOutput<typeof adminUserSchema>
 export type AdminAuditLog = v.InferOutput<typeof adminAuditLogSchema>
 export type IdentityLinkRequest = v.InferOutput<
   typeof identityLinkRequestSchema

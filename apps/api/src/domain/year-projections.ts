@@ -8,6 +8,8 @@ export type ActivityRow = {
   endsAt: number
   color: string
   notes: string | null
+  active: number
+  version: number
   assignmentCount: number
 }
 
@@ -29,6 +31,7 @@ const toIso = (timestamp: number) => new Date(timestamp).toISOString()
 export function serializeActivity(activity: ActivityRow) {
   return {
     ...activity,
+    active: activity.active === 1,
     startsAt: toIso(activity.startsAt),
     endsAt: toIso(activity.endsAt),
   }

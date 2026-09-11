@@ -3,7 +3,7 @@ import * as v from "valibot"
 
 import { timeWindowSchema } from "@workspace/shared/shifts"
 
-import { apiError, type ApiEnv, toIso } from "../../lib/http"
+import { apiError, type ApiEnv, parseYear, toIso } from "../../lib/http"
 
 const MAX_ASSIGNMENT_RANGE_MS = 31 * 24 * 60 * 60 * 1000
 
@@ -19,12 +19,15 @@ type AssignmentRow = {
   place: string
   activityType: string
   color: string
+  attendanceStatus: "pending" | "confirmed" | null
   checkedInAt: number | null
 }
 
 export const meAssignmentsApp = new Hono<ApiEnv>()
 
 meAssignmentsApp.get("/assignments", async (c) => {
+  const year = parseYear(c.req.query("year") ?? "")
+  if (year === null) return apiError(c, 422, "INVALID_YEAR", "Year is required")
   const range = v.safeParse(timeWindowSchema, {
     startsAt: c.req.query("from"),
     endsAt: c.req.query("to"),
@@ -54,33 +57,34 @@ meAssignmentsApp.get("/assignments", async (c) => {
     .prepare(
       `SELECT
          assignment.id,
-         assignment.activity_id AS activityId,
+         slot.activity_id AS activityId,
          assignment.member_id AS memberId,
          member.display_name AS memberDisplayName,
-         assignment.starts_at AS startsAt,
-         assignment.ends_at AS endsAt,
+         slot.starts_at AS startsAt,
+         slot.ends_at AS endsAt,
          assignment.notes,
          activity.name AS activityName,
          activity.place,
          activity.activity_type AS activityType,
          activity.color,
-         attendance.checked_in_at AS checkedInAt
+         attendance.checked_in_at AS checkedInAt, attendance.status AS attendanceStatus
        FROM shift_assignments assignment
-       JOIN activities activity ON activity.id = assignment.activity_id
+       JOIN shift_slots slot ON slot.id = assignment.slot_id
+       JOIN activities activity ON activity.id = slot.activity_id
        JOIN year_memberships year_membership
          ON year_membership.year = activity.year
         AND year_membership.member_id = assignment.member_id
         AND year_membership.status = 'active'
-       JOIN members member ON member.id = assignment.member_id
+       JOIN app_users member ON member.id = assignment.member_id
        LEFT JOIN attendance_records attendance ON attendance.assignment_id = assignment.id
-       WHERE assignment.member_id = ?
-         AND assignment.status = 'active'
-         AND assignment.starts_at < ?
-         AND assignment.ends_at > ?
-       ORDER BY assignment.starts_at, assignment.ends_at
+       WHERE assignment.member_id = ? AND activity.year = ?
+         AND assignment.status = 'active' AND activity.active = 1
+         AND slot.starts_at < ?
+         AND slot.ends_at > ?
+       ORDER BY slot.starts_at, slot.ends_at
        LIMIT 500`
     )
-    .bind(member.id, endsAt, startsAt)
+    .bind(member.id, year, endsAt, startsAt)
     .all<AssignmentRow>()
 
   return c.json({

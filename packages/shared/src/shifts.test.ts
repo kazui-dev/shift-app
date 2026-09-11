@@ -3,12 +3,12 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   activitiesResponseSchema,
-  createAssignmentInputSchema,
   createAssignmentReportInputSchema,
   createOperatingYearInputSchema,
   instantSchema,
   operatingYearSchema,
   replaceAvailabilityInputSchema,
+  replaceYearSettingsInputSchema,
   timeWindowSchema,
   yearsResponseSchema,
 } from "./shifts"
@@ -19,7 +19,7 @@ describe("shift API schemas", () => {
       v.parse(createOperatingYearInputSchema, {
         year: 2026,
       })
-    ).toMatchObject({ year: 2026, status: "draft" })
+    ).toMatchObject({ year: 2026 })
   })
 
   it("rejects overlapping availability windows", () => {
@@ -57,22 +57,13 @@ describe("shift API schemas", () => {
     ).toThrow("希望時間帯は同じ日付の中で入力してください")
   })
 
-  it("requires both assignment boundaries or neither", () => {
-    expect(() =>
-      v.parse(createAssignmentInputSchema, {
-        memberId: crypto.randomUUID(),
-        startsAt: "2026-11-01T09:00:00+09:00",
-      })
-    ).toThrow()
-  })
-
   it("validates year capabilities returned to the frontend", () => {
     expect(
       v.parse(yearsResponseSchema, {
         years: [
           {
             year: 2026,
-            status: "active",
+            isDefault: true,
             canManage: true,
           },
         ],
@@ -115,12 +106,27 @@ describe("shift API schemas", () => {
     ).toMatchObject({ kind: "absence" })
   })
 
-  it("preserves coercion, defaults, and unknown-key stripping at the boundary", () => {
+  it("coerces years and rejects removed status fields", () => {
     expect(v.parse(operatingYearSchema, "2026")).toBe(2026)
     expect(v.safeParse(operatingYearSchema, "").success).toBe(false)
+    expect(v.parse(createOperatingYearInputSchema, { year: "2026" })).toEqual({
+      year: 2026,
+    })
     expect(
-      v.parse(createOperatingYearInputSchema, { year: "2026", ignored: true })
-    ).toEqual({ year: 2026, status: "draft" })
+      v.safeParse(createOperatingYearInputSchema, {
+        year: 2026,
+        status: "active",
+      }).success
+    ).toBe(false)
+    expect(
+      v.safeParse(replaceYearSettingsInputSchema, { defaultYear: 2026 }).success
+    ).toBe(true)
+    expect(
+      v.safeParse(replaceYearSettingsInputSchema, { defaultYear: null }).success
+    ).toBe(false)
+    expect(
+      v.safeParse(replaceYearSettingsInputSchema, { defaultYear: 2200 }).success
+    ).toBe(false)
   })
 
   it.each(["2026-11-01T03:00:00.000Z", "2026-11-01T12:00:00+09:00"])(

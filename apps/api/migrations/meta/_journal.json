@@ -85,6 +85,104 @@
       "when": 1787483646711,
       "tag": "0011_shallow_lilith",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1789085684239,
+      "tag": "0012_default_year",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1789086338476,
+      "tag": "0013_display_year",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1789086558987,
+      "tag": "0014_role_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1789087006213,
+      "tag": "0015_shift_slots",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1789087143719,
+      "tag": "0016_slot_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1789087691196,
+      "tag": "0017_availability_rounds",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1789088122734,
+      "tag": "0018_chat_scopes",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789088529548,
+      "tag": "0019_attendance_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1789089397097,
+      "tag": "0020_shift_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1789089722400,
+      "tag": "0021_app_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1789089780562,
+      "tag": "0022_shift_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1789090455862,
+      "tag": "0023_chat_authority",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789100272553,
+      "tag": "0024_chat-cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1789100542859,
+      "tag": "0025_chat-exits",
+      "breakpoints": true
     }
   ]
 }

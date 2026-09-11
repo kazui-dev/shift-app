@@ -15,6 +15,7 @@ import { meApp } from "./me/index"
 import { pushApp } from "./push"
 import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
+import { yearSettingsApp } from "./year-settings"
 import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()
@@ -41,6 +42,7 @@ apiApp.use("*", requireSameOriginForMutation)
 apiApp.route("/me", meApp)
 apiApp.route("/push", pushApp)
 apiApp.route("/years", yearsApp)
+apiApp.route("/year-settings", yearSettingsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
 apiApp.route("/assignments", assignmentsApp)

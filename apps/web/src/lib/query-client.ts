@@ -11,6 +11,7 @@ const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"
 const persistedQueryRoots = new Set([
   "assignments",
+  "display-year",
   "chat-rooms",
   "chat-messages",
 ])

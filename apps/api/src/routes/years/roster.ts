@@ -1,3 +1,4 @@
+import { canManageYear } from "../../services/role-authority"
 import { Hono } from "hono"
 
 import {
@@ -18,7 +19,27 @@ rosterApp.get("/:year/roster", async (c) => {
   if (year === null) {
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
   }
-  if (!(await canManageShifts(c.env, c.get("member"), year))) {
+  if (
+    !(await canManageShifts(c.env, c.get("member"), year)) &&
+    !(await canManageYear(
+      c.env.shift_app,
+      c.get("member"),
+      year,
+      "shift.create"
+    )) &&
+    !(await canManageYear(
+      c.env.shift_app,
+      c.get("member"),
+      year,
+      "member.manage"
+    )) &&
+    !(await canManageYear(
+      c.env.shift_app,
+      c.get("member"),
+      year,
+      "role.manage"
+    ))
+  ) {
     return apiError(
       c,
       403,
@@ -37,11 +58,11 @@ rosterApp.get("/:year/roster", async (c) => {
          role.name AS roleName,
          role.color AS roleColor
        FROM year_memberships year_membership
-       JOIN members member ON member.id = year_membership.member_id
+       JOIN app_users member ON member.id = year_membership.member_id
        LEFT JOIN member_year_roles membership ON membership.member_id = member.id
        LEFT JOIN year_roles role ON role.id = membership.role_id AND role.year = ?
        WHERE year_membership.year = ? AND year_membership.status = 'active'
-       ORDER BY lower(member.display_name), lower(role.name)`
+       ORDER BY member.student_id, role.position DESC`
     )
     .bind(year, year)
     .all<{

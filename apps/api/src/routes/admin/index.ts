@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/d1"
 import { Hono } from "hono"
 import { bodyLimit } from "hono/body-limit"
 
-import { members } from "@workspace/db/schema"
+import { appUsers } from "@workspace/db/schema"
 
 import { createAuth } from "../../auth"
 import { apiErrorBody, requireSameOriginForMutation } from "../../lib/http"
@@ -38,12 +38,12 @@ adminApp.use("*", async (c, next) => {
   const db = drizzle(c.env.shift_app)
   const [member] = await db
     .select({
-      id: members.id,
-      userId: members.userId,
-      accessLevel: members.accessLevel,
+      id: appUsers.id,
+      userId: appUsers.userId,
+      accessLevel: appUsers.accessLevel,
     })
-    .from(members)
-    .where(eq(members.userId, authSession.user.id))
+    .from(appUsers)
+    .where(eq(appUsers.userId, authSession.user.id))
     .limit(1)
 
   if (!member || member.accessLevel !== "system_admin") {
@@ -53,7 +53,7 @@ adminApp.use("*", async (c, next) => {
     )
   }
 
-  c.set("adminMember", { id: member.id, userId: member.userId })
+  c.set("adminUser", { id: member.id, userId: member.userId })
   c.header("Cache-Control", "private, no-store")
   return next()
 })
