@@ -1,10 +1,11 @@
+import { prepareConversation } from "@/components/chat/queries"
 import {
   useNavigate,
   useParams,
   useSearch,
   useRouter,
 } from "@tanstack/react-router"
-import { skipToken, useQuery } from "@tanstack/react-query"
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { getChatRoom, getChatRooms } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
@@ -23,6 +24,7 @@ declare module "@tanstack/react-router" {
 }
 
 export function ChatPage() {
+  const client = useQueryClient()
   const desktop = useMediaQuery("(min-width: 768px)")
   const router = useRouter()
   const { report } = useSearch({ strict: false })
@@ -35,6 +37,9 @@ export function ChatPage() {
   const [lastRoomId, setLastRoomId] = useState(roomId)
   if (roomId && roomId !== lastRoomId) setLastRoomId(roomId)
   const retainedId = roomId ?? lastRoomId
+  useEffect(() => {
+    if (roomId && !offline) void prepareConversation(client, roomId)
+  }, [client, roomId, offline])
   function back() {
     if (router.history.location.state.chatFromList) router.history.back()
     else void navigate({ to: "/chat", replace: true })
@@ -100,6 +105,12 @@ export function ChatPage() {
           <ChatConversation
             key={retainedId}
             roomId={retainedId}
+            name={
+              [
+                ...(rooms.data?.rooms ?? []),
+                ...(archived.data?.rooms ?? []),
+              ].find((item) => item.id === retainedId)?.name
+            }
             report={report}
             active={!!roomId}
             onBack={back}

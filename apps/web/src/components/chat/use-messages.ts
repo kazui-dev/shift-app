@@ -1,3 +1,4 @@
+import { messagesQuery } from "./queries"
 import {
   useCallback,
   useEffect,
@@ -9,11 +10,7 @@ import {
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import * as v from "valibot"
 import { chatEventSchema } from "@workspace/shared/communications"
-import {
-  getChatMessages,
-  updateChatPreferences,
-  type getChatRoom,
-} from "@/api/chat"
+import { updateChatPreferences, type getChatRoom } from "@/api/chat"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 const positions = new Map<string, number>()
@@ -27,11 +24,7 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
   const initialRead = useRef(room.lastRead),
     readSequence = useRef(room.lastRead)
   const query = useInfiniteQuery({
-    queryKey: ["chat-messages", room.id],
-    queryFn: ({ pageParam }) => getChatMessages(room.id, pageParam),
-    initialPageParam: null as number | null,
-    getNextPageParam: (last) =>
-      last.hasMore ? last.messages[0]?.sequence : undefined,
+    ...messagesQuery(room.id),
     enabled: !offline && active,
   })
   const messages = useMemo(

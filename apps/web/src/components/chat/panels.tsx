@@ -116,8 +116,12 @@ export function ChatPanels({
       const dx = event.clientX - gesture.x,
         dy = event.clientY - gesture.y
       if (!gesture.locked) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return
-        if (Math.abs(dy) >= Math.abs(dx)) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 16) return
+        if (
+          Math.abs(dy) * 1.5 >= Math.abs(dx) ||
+          (gesture.start === 0 && dx > 0) ||
+          (gesture.start === 1 && dx < 0)
+        ) {
           gesture = null
           return
         }

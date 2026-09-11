@@ -1,3 +1,4 @@
+import { roomQuery } from "./queries"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -53,6 +54,7 @@ function time(value: string) {
 }
 export function ChatConversation({
   roomId,
+  name,
   report,
   active,
   onBack,
@@ -60,18 +62,18 @@ export function ChatConversation({
   active: boolean
   onBack: () => void
   roomId: string
+  name?: string | undefined
   report?: string | undefined
 }) {
   const offline = useOfflineMode(),
     query = useQuery({
-      queryKey: ["chat-room", roomId],
-      queryFn: () => getChatRoom(roomId),
+      ...roomQuery(roomId),
       enabled: !offline && active,
     })
   if (!query.data)
     return (
       <div className="flex flex-1 flex-col">
-        <div className="flex h-14 items-center px-4">
+        <div className="flex h-14 items-center gap-3 border-b px-3 md:px-5">
           <Link
             to="/chat"
             onClick={(event) => {
@@ -83,10 +85,18 @@ export function ChatConversation({
           >
             <ChevronLeft />
           </Link>
+          <span className="truncate text-sm font-semibold">{name}</span>
         </div>
+        {query.isError && (
+          <div className="px-5 py-4">
+            <Button variant="ghost" onClick={() => void query.refetch()}>
+              再試行
+            </Button>
+          </div>
+        )}
         {query.isLoading && (
           <output className="px-5 text-sm text-muted-foreground">
-            読み込み中…
+            <span className="sr-only">会話を取得しています</span>
           </output>
         )}
       </div>
@@ -237,7 +247,7 @@ function Conversation({
         <div
           ref={history.viewport}
           onScroll={history.onScroll}
-          className={`absolute inset-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-contain px-3 pt-4 md:px-5 ${room.canPost ? "pb-[calc(var(--composer-height)+2.5rem)]" : "pb-6"}`}
+          className={`absolute inset-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto px-3 pt-4 md:px-5 ${room.canPost ? "pb-[calc(var(--composer-height)+2.5rem)]" : "pb-6"}`}
         >
           {history.query.hasNextPage && (
             <div className="mb-4 text-center">
