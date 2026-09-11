@@ -25,6 +25,8 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
       pathname: routerState.location.pathname,
     }),
   })
+  const isChat = pathname === "/chat"
+  const fitted = isCalendar || isChat
   const [browserOffline, setBrowserOffline] = useState(() => !navigator.onLine)
   const offline = accountOffline || browserOffline
   const unsafeOfflineRoute =
@@ -101,7 +103,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
     <div
       data-sidebar-open={sidebarOpen}
       className={
-        isCalendar
+        fitted
           ? "flex h-dvh w-full min-w-0 flex-col overflow-hidden overscroll-none transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
           : "min-h-svh w-full min-w-0 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
       }
@@ -118,7 +120,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
       <OfflineModeContext value={offline}>
         <CalendarViewStateProvider>
           <main
-            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-6 md:pt-6 ${isCalendar ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8"}`}
+            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-6 md:pt-6 ${isChat ? "md:pl-2" : ""} ${fitted ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8"}`}
           >
             {unsafeOfflineRoute ? null : <Outlet />}
           </main>

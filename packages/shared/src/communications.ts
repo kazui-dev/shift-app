@@ -43,6 +43,8 @@ export const sendChatMessageInputSchema = v.object({
 export const chatRoomResponseSchema = v.object({
   kind: v.picklist(["custom", "global", "shift"]),
   activityId: v.nullable(v.string()),
+  activityStartsAt: v.nullable(instantSchema),
+  activityEndsAt: v.nullable(instantSchema),
   historical: v.boolean(),
   canPost: v.boolean(),
   canManage: v.boolean(),

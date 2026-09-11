@@ -36,8 +36,6 @@ export function AvailabilityPage() {
           initialAnswers={query.data.answers}
           submittedAnswers={query.data.submitted}
         />
-      ) : query.isError ? (
-        <p role="alert">{errorMessage(query.error)}</p>
       ) : null}
     </section>
   )
@@ -83,7 +81,6 @@ function AvailabilityForm({
     return initialAnswers
   })
   const [pending, setPending] = useState(false),
-    [failure, setFailure] = useState<string | null>(null),
     [submitted, setSubmitted] = useState(() =>
       dates
         .filter((d) => d.accepting)
@@ -115,12 +112,13 @@ function AvailabilityForm({
     try {
       localStorage.setItem(recoveryKey, json)
     } catch {
-      /* Surface network save failures below. */
+      /* Server save failures are reported by toast. */
     }
     const timer = window.setTimeout(() => {
       queue.current = queue.current.then(async () => {
         try {
           await replaceAvailability(year, { answers, submit: false })
+          toast.dismiss("availability-save")
           lastSaved.current = json
           try {
             if (localStorage.getItem(recoveryKey) === json)
@@ -128,9 +126,8 @@ function AvailabilityForm({
           } catch {
             /* No persistent browser storage. */
           }
-          setFailure(null)
         } catch (error) {
-          setFailure(errorMessage(error))
+          toast.error(errorMessage(error), { id: "availability-save" })
         }
       })
     }, 500)
@@ -179,18 +176,18 @@ function AvailabilityForm({
     await queue.current
     try {
       await replaceAvailability(year, { answers, submit: true })
+      toast.dismiss("availability-save")
       lastSaved.current = JSON.stringify(answers)
       try {
         localStorage.removeItem(recoveryKey)
       } catch {
         /* No persistent browser storage. */
       }
-      setFailure(null)
       setSubmitted(true)
       await client.invalidateQueries({ queryKey: ["availability", year] })
       toast.success("希望を提出しました。")
     } catch (error) {
-      setFailure(errorMessage(error))
+      toast.error(errorMessage(error), { id: "availability-save" })
     } finally {
       setPending(false)
     }
@@ -326,11 +323,6 @@ function AvailabilityForm({
           </section>
         )
       })}
-      {failure && (
-        <p role="alert" className="text-sm text-destructive">
-          {failure}
-        </p>
-      )}
       <div className="flex justify-end">
         <Button
           disabled={

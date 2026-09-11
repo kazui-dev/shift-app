@@ -16,7 +16,6 @@ import {
 
 export type CalendarAssignments = {
   byDate: Map<string, CalendarAssignment[]>
-  selectedMonthIsError: boolean
 }
 
 export function useCalendarAssignments(
@@ -53,6 +52,5 @@ export function useCalendarAssignments(
 
   return {
     byDate,
-    selectedMonthIsError: selectedMonthQuery?.isError ?? false,
   }
 }

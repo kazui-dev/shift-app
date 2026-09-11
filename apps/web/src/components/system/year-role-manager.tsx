@@ -81,7 +81,6 @@ export function YearRoleManager({ year }: { year: number }) {
         >
           ロールを作成
         </Button>
-        {query.isError && <p role="alert">{errorMessage(query.error)}</p>}
         <ul className="space-y-1">
           {query.data?.roles.map((item, index) => (
             <li key={item.id} className="flex items-center">

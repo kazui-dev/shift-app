@@ -167,7 +167,6 @@ export function AddMembers({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        {query.error && <p role="alert">{errorMessage(query.error)}</p>}
         <ul className="max-h-80 divide-y overflow-auto">
           {items.map((item) => (
             <li key={item.member.id}>

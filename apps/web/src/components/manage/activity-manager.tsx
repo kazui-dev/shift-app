@@ -96,7 +96,6 @@ export function ActivityManager({ year }: { year: number }) {
         </select>
         <Button onClick={() => setCreating(true)}>シフトを作成</Button>
       </div>
-      {query.isError && <p role="alert">{errorMessage(query.error)}</p>}
       <ul className="divide-y border-y">
         {query.data?.activities
           .filter(

@@ -1,3 +1,4 @@
+import { chatApp } from "../../src/routes/chat"
 import { URL } from "node:url"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
@@ -34,6 +35,7 @@ describe("migrated chat and calendar queries", () => {
         await next()
       })
       app.route("/chat", chatTargetsApp)
+      app.route("/chat", chatApp)
       app.route("/me", meAssignmentsApp)
       const env = {
         shift_app: {
@@ -54,6 +56,17 @@ describe("migrated chat and calendar queries", () => {
           { targetType: "member", targetId: "m", displayName: "Test" },
           { targetType: "activity", targetId: "a", displayName: "受付" },
         ],
+      })
+      const rooms = await app.request("/chat/rooms?year=2026", {}, env)
+      expect(rooms.status).toBe(200)
+      expect(await rooms.json()).toMatchObject({
+        rooms: expect.arrayContaining([
+          expect.objectContaining({
+            activityId: "a",
+            activityStartsAt: new Date(100).toISOString(),
+            activityEndsAt: new Date(500).toISOString(),
+          }),
+        ]),
       })
       db.exec("UPDATE activities SET active=0 WHERE id='a'")
       const inactive = await app.request("/chat/targets?year=2026", {}, env)

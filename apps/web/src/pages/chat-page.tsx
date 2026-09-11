@@ -1,6 +1,9 @@
+import { CreateChat } from "@/components/chat/create-chat"
+import { roomSchedule } from "@/components/chat/room-schedule"
+import { RoomList } from "@/components/chat/room-list"
+import { Textarea } from "@workspace/ui/components/textarea"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { leaveChatRoom } from "@/api/chat"
-import { DisplayYearNotice } from "@/components/display-year-notice"
 import { getRouteApi } from "@tanstack/react-router"
 import { ShiftAttendance } from "@/components/shifts/shift-attendance"
 import { ChatSettings } from "@/components/chat-settings"
@@ -12,23 +15,17 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { ChevronLeft, LoaderCircle, Plus, Send } from "lucide-react"
+import { ChevronLeft, LoaderCircle, MoreHorizontal, Send } from "lucide-react"
 import * as v from "valibot"
 
-import {
-  chatEventSchema,
-  type ChatTargetOption,
-} from "@workspace/shared/communications"
+import { chatEventSchema } from "@workspace/shared/communications"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
 import {
-  createChatRoom,
   getChatMessages,
   getChatRooms,
-  getChatTargets,
   sendChatMessage,
   updateChatPreferences,
 } from "@/api/chat"
@@ -39,8 +36,7 @@ import { ResponsiveDialog } from "@/components/responsive-overlay"
 
 function time(value: string) {
   return new Intl.DateTimeFormat("ja-JP", {
-    month: "numeric",
-    day: "numeric",
+    timeZone: "Asia/Tokyo",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value))
@@ -55,15 +51,30 @@ export function ChatPage() {
   const displayYear = useDisplayYear()
   const selectedYear = displayYear.year
   const [closed, setClosed] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const rooms = useQuery({
-    queryKey: ["chat-rooms", selectedYear, closed],
+    queryKey: ["chat-rooms", selectedYear, false],
+    queryFn:
+      selectedYear === null ? skipToken : () => getChatRooms(selectedYear),
+  })
+  const [roomId, setRoomId] = useState<string | null>(search.room ?? null)
+  const closedRooms = useQuery({
+    queryKey: ["chat-rooms", selectedYear, true],
     queryFn:
       selectedYear === null
         ? skipToken
-        : () => getChatRooms(selectedYear, closed),
+        : () => getChatRooms(selectedYear, true),
+    enabled:
+      closed ||
+      (rooms.isSuccess &&
+        roomId !== null &&
+        !rooms.data.rooms.some((room) => room.id === roomId)),
   })
-  const [roomId, setRoomId] = useState<string | null>(search.room ?? null)
+  const allRooms = [
+    ...(rooms.data?.rooms ?? []),
+    ...(closedRooms.data?.rooms ?? []),
+  ]
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 768px)").matches
   )
@@ -75,14 +86,12 @@ export function ChatPage() {
     return () => media.removeEventListener("change", update)
   }, [])
   const selectedRoomId =
-    roomId && rooms.data?.rooms.some((room) => room.id === roomId)
+    roomId && allRooms.some((room) => room.id === roomId)
       ? roomId
       : desktop
         ? (rooms.data?.rooms[0]?.id ?? null)
         : null
-  const selectedRoom = rooms.data?.rooms.find(
-    (room) => room.id === selectedRoomId
-  )
+  const selectedRoom = allRooms.find((room) => room.id === selectedRoomId)
   const scrollRef = useRef<HTMLUListElement>(null)
   const stickToBottom = useRef(true)
   const initializedRoom = useRef<string | null>(null)
@@ -133,13 +142,6 @@ export function ChatPage() {
         .then(() => queryClient.invalidateQueries({ queryKey: ["chat-rooms"] }))
         .catch(() => undefined)
   }, [messageList, selectedRoom, offline, queryClient])
-  const targets = useQuery({
-    queryKey: ["chat-targets", selectedYear],
-    queryFn:
-      selectedYear === null ? skipToken : () => getChatTargets(selectedYear),
-  })
-  const [name, setName] = useState("")
-  const [targetKeys, setTargetKeys] = useState<string[]>([])
   const [content, setContent] = useState("")
 
   useEffect(() => {
@@ -182,30 +184,6 @@ export function ChatPage() {
     }
   }, [offline, queryClient, selectedRoomId, selectedRoom?.historical])
 
-  const createRoom = useMutation({
-    mutationFn: (input: {
-      year: number
-      name: string
-      targets: ChatTargetOption[]
-    }) =>
-      createChatRoom({
-        year: input.year,
-        name: input.name,
-        targets: input.targets.map((target) => ({
-          targetType: target.targetType,
-          targetId: target.targetId,
-        })),
-      }),
-    onSuccess: async ({ room }) => {
-      setName("")
-      setTargetKeys([])
-      setRoomId(room.id)
-      setCreateOpen(false)
-      await queryClient.invalidateQueries({ queryKey: ["chat-rooms"] })
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  })
-
   const send = useMutation({
     mutationKey: ["send-chat-message"],
     mutationFn: (variables: { roomId: string; id: string; content: string }) =>
@@ -215,7 +193,6 @@ export function ChatPage() {
       if (offline) toast.info("オフライン送信待ちです。")
     },
     onSuccess: async () => {
-      setContent("")
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ["chat-messages", selectedRoomId],
@@ -225,16 +202,6 @@ export function ChatPage() {
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
-
-  function handleCreate(event: FormEvent) {
-    event.preventDefault()
-    const selectedTargets =
-      targets.data?.targets.filter((item) =>
-        targetKeys.includes(`${item.targetType}:${item.targetId}`)
-      ) ?? []
-    if (selectedYear !== null && name && selectedTargets.length)
-      createRoom.mutate({ year: selectedYear, name, targets: selectedTargets })
-  }
 
   function handleSend(event: FormEvent) {
     event.preventDefault()
@@ -249,7 +216,7 @@ export function ChatPage() {
   }
 
   return (
-    <section className="flex min-h-[calc(100dvh-9rem)] w-full min-w-0 flex-col gap-6 md:min-h-[70dvh]">
+    <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col">
       {leaving && selectedRoom && (
         <ConfirmDialog
           title="ルームから退出しますか"
@@ -266,86 +233,51 @@ export function ChatPage() {
           }}
         />
       )}
-      {selectedRoomId !== null && (
-        <header className="flex min-h-11 items-center gap-2 md:hidden">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            aria-label="チャット一覧に戻る"
-            onClick={() => setRoomId(null)}
-          >
-            <ChevronLeft />
-          </Button>
-          {selectedRoom && (
-            <h1 className="min-w-0 flex-1 truncate text-xl font-semibold">
-              {selectedRoom.name}
-            </h1>
-          )}
-          <DisplayYearNotice />
-        </header>
-      )}
-      <div className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)] md:border-y">
+      <div className="grid min-h-0 flex-1 md:grid-cols-[17rem_minmax(0,1fr)]">
         <aside
-          className={`${selectedRoomId === null ? "flex" : "hidden"} min-h-0 flex-col md:flex md:border-r`}
+          aria-label="ルーム一覧"
+          className={`${selectedRoomId === null ? "flex" : "hidden"} min-h-0 min-w-0 flex-col md:flex md:pr-3`}
         >
-          <div className="flex min-h-12 items-center justify-between gap-2 px-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setClosed(!closed)}
-            >
-              {closed ? "ルーム一覧" : "閉じたルーム"}
-            </Button>
-            {!offline && (
+          <RoomList
+            rooms={rooms.data?.rooms ?? []}
+            closedRooms={closedRooms.data?.rooms ?? []}
+            expanded={closed}
+            loadingClosed={closedRooms.isPending}
+            closedError={closedRooms.isError}
+            selectedId={selectedRoomId}
+            offline={offline}
+            onSelect={setRoomId}
+            onExpand={() => setClosed((value) => !value)}
+            onCreate={() => setCreateOpen(true)}
+          />
+          {offline && !rooms.data && (
+            <EmptyState>保存されたチャットはありません</EmptyState>
+          )}
+        </aside>
+        <div
+          className={`${selectedRoomId === null ? "hidden" : "flex"} min-h-0 min-w-0 flex-col md:flex md:border-l`}
+        >
+          {selectedRoom ? (
+            <header className="flex min-h-14 shrink-0 items-center gap-2 border-b pb-2 md:px-5">
               <Button
                 size="icon-sm"
                 variant="ghost"
-                aria-label="ルームを作成"
-                onClick={() => setCreateOpen(true)}
+                className="md:hidden"
+                aria-label="チャット一覧に戻る"
+                onClick={() => setRoomId(null)}
               >
-                <Plus />
+                <ChevronLeft />
               </Button>
-            )}
-          </div>
-          <DisplayYearNotice />
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <ul className="divide-y">
-              {rooms.data?.rooms.map((room) => (
-                <li key={room.id}>
-                  <button
-                    type="button"
-                    className={`flex min-h-14 w-full items-center px-1 text-left text-sm transition-colors md:px-3 ${selectedRoomId === room.id ? "font-medium text-foreground md:bg-muted/60" : "text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => setRoomId(room.id)}
-                  >
-                    <span className="truncate">{room.name}</span>
-                    {room.unreadCount > 0 && (
-                      <span className="ml-auto rounded-full bg-foreground px-1.5 text-xs text-background">
-                        {room.unreadCount}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {rooms.data?.rooms.length === 0 && (
-              <EmptyState>チャットはありません</EmptyState>
-            )}
-            {offline && !rooms.data && (
-              <EmptyState>保存されたチャットはありません</EmptyState>
-            )}
-          </div>
-        </aside>
-
-        <div
-          className={`${selectedRoomId === null ? "hidden" : "flex"} min-h-0 flex-col md:flex`}
-        >
-          <header className="hidden min-h-12 items-center gap-2 border-b px-4 md:flex">
-            <h2 className="min-w-0 truncate font-semibold">
-              {selectedRoom?.name ?? "チャット"}
-            </h2>
-          </header>
-          {selectedRoom && (
-            <div className="flex items-center justify-end gap-1 border-b py-1">
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-sm font-semibold">
+                  {selectedRoom.name}
+                </h1>
+                {roomSchedule(selectedRoom) && (
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {roomSchedule(selectedRoom)}
+                  </p>
+                )}
+              </div>
               {selectedRoom.activityId && (
                 <Button
                   variant="ghost"
@@ -357,45 +289,15 @@ export function ChatPage() {
               )}
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={() =>
-                  void updateChatPreferences(selectedRoom.id, {
-                    muted: !selectedRoom.muted,
-                  })
-                    .then(() =>
-                      queryClient.invalidateQueries({
-                        queryKey: ["chat-rooms"],
-                      })
-                    )
-                    .catch((error) => toast.error(errorMessage(error)))
-                }
+                size="icon-sm"
+                aria-label="ルームの操作"
+                onClick={() => setActionsOpen(true)}
               >
-                {selectedRoom.muted ? "ミュート解除" : "ミュート"}
+                <MoreHorizontal />
               </Button>
-              {selectedRoom.canManage && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  設定
-                </Button>
-              )}
-              {selectedRoom.kind === "custom" && !selectedRoom.historical && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setLeaving(true)}
-                >
-                  退出
-                </Button>
-              )}
-              {!selectedRoom.canPost && (
-                <span className="px-2 text-xs text-muted-foreground">
-                  閲覧のみ
-                </span>
-              )}
-            </div>
+            </header>
+          ) : (
+            <EmptyState>ルームを選んでください</EmptyState>
           )}
           <ul
             ref={scrollRef}
@@ -419,7 +321,7 @@ export function ChatPage() {
                   )
                   .catch(() => undefined)
             }}
-            className="max-h-[65dvh] min-h-0 flex-1 overflow-y-auto px-1 md:px-4"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-5 md:px-6"
           >
             {messages.hasNextPage && (
               <li className="py-2 text-center">
@@ -440,22 +342,46 @@ export function ChatPage() {
             {messageList.map((message, index) => {
               const previous = messageList[index - 1]
               const grouped =
-                previous?.memberDisplayName === message.memberDisplayName
+                previous?.memberId === message.memberId &&
+                Date.parse(message.createdAt) - Date.parse(previous.createdAt) <
+                  300_000 &&
+                new Date(previous.createdAt).toLocaleDateString("ja-JP", {
+                  timeZone: "Asia/Tokyo",
+                }) ===
+                  new Date(message.createdAt).toLocaleDateString("ja-JP", {
+                    timeZone: "Asia/Tokyo",
+                  })
               return (
                 <li
                   key={message.id}
                   data-sequence={message.sequence}
-                  className={grouped ? "pt-1" : "pt-5"}
+                  className={`${grouped ? "pt-1" : "pt-6"} max-w-[80ch] break-words`}
                 >
+                  {(!previous ||
+                    new Date(previous.createdAt).toLocaleDateString("ja-JP", {
+                      timeZone: "Asia/Tokyo",
+                    }) !==
+                      new Date(message.createdAt).toLocaleDateString("ja-JP", {
+                        timeZone: "Asia/Tokyo",
+                      })) && (
+                    <p className="mb-5 text-center text-xs text-muted-foreground">
+                      {new Intl.DateTimeFormat("ja-JP", {
+                        timeZone: "Asia/Tokyo",
+                        month: "long",
+                        day: "numeric",
+                        weekday: "short",
+                      }).format(new Date(message.createdAt))}
+                    </p>
+                  )}
                   {!grouped && (
-                    <p className="text-xs font-medium text-muted-foreground">
+                    <p className="flex items-baseline gap-2 text-sm font-medium">
                       {message.memberDisplayName}
-                      <span className="ml-2 font-normal">
+                      <span className="text-[11px] font-normal text-muted-foreground">
                         {time(message.createdAt)}
                       </span>
                     </p>
                   )}
-                  <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap">
+                  <p className="mt-0.5 text-sm leading-7 whitespace-pre-wrap">
                     {message.content}
                   </p>
                 </li>
@@ -464,11 +390,25 @@ export function ChatPage() {
           </ul>
           {selectedRoomId && selectedRoom?.canPost && (
             <form
-              className="flex gap-2 border-t bg-background py-3 md:px-4"
+              className="flex shrink-0 items-end gap-2 bg-background pt-3 md:px-5"
               onSubmit={handleSend}
             >
-              <Input
-                className="h-11 min-w-0 flex-1 rounded-full px-4"
+              <Textarea
+                aria-label="メッセージ"
+                rows={1}
+                className="max-h-36 min-h-11 min-w-0 flex-1 resize-none rounded-xl px-3 py-2.5"
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing &&
+                    desktop
+                  ) {
+                    event.preventDefault()
+                    if (!send.isPending)
+                      event.currentTarget.form?.requestSubmit()
+                  }
+                }}
                 placeholder="メッセージ"
                 maxLength={2000}
                 value={content}
@@ -476,7 +416,7 @@ export function ChatPage() {
               />
               <Button
                 size="icon-lg"
-                className="rounded-full"
+                className="rounded-xl"
                 disabled={send.isPending || !content.trim()}
                 aria-label="送信"
               >
@@ -491,6 +431,64 @@ export function ChatPage() {
         </div>
       </div>
 
+      {actionsOpen && selectedRoom && (
+        <ResponsiveDialog
+          open
+          title="ルームの操作"
+          onOpenChange={setActionsOpen}
+        >
+          <div className="flex flex-col gap-2">
+            <Button
+              variant="ghost"
+              disabled={offline}
+              onClick={() =>
+                void updateChatPreferences(selectedRoom.id, {
+                  muted: !selectedRoom.muted,
+                })
+                  .then(() => {
+                    setActionsOpen(false)
+                    return queryClient.invalidateQueries({
+                      queryKey: ["chat-rooms"],
+                    })
+                  })
+                  .catch((error) => toast.error(errorMessage(error)))
+              }
+            >
+              {selectedRoom.muted ? "ミュート解除" : "ミュート"}
+            </Button>
+            {selectedRoom.canManage && (
+              <Button
+                variant="ghost"
+                disabled={offline}
+                onClick={() => {
+                  setActionsOpen(false)
+                  setSettingsOpen(true)
+                }}
+              >
+                ルーム設定
+              </Button>
+            )}
+            {selectedRoom.kind === "custom" && !selectedRoom.historical && (
+              <Button
+                variant="ghost"
+                disabled={offline}
+                className="text-destructive"
+                onClick={() => {
+                  setActionsOpen(false)
+                  setLeaving(true)
+                }}
+              >
+                退出
+              </Button>
+            )}
+            {!selectedRoom.canPost && (
+              <p className="text-center text-xs text-muted-foreground">
+                このルームは閲覧のみです
+              </p>
+            )}
+          </div>
+        </ResponsiveDialog>
+      )}
       {attendanceOpen && selectedRoom?.activityId && (
         <ShiftAttendance
           activityId={selectedRoom.activityId}
@@ -505,63 +503,15 @@ export function ChatPage() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
-      {createOpen && !offline && (
-        <ResponsiveDialog
-          open
-          title="ルームを作成"
-          onOpenChange={(open) => {
-            if (!open) setCreateOpen(false)
+      {createOpen && !offline && selectedYear !== null && (
+        <CreateChat
+          year={selectedYear}
+          onClose={() => setCreateOpen(false)}
+          onCreated={(id) => {
+            setRoomId(id)
+            setCreateOpen(false)
           }}
-        >
-          <form className="grid gap-3" onSubmit={handleCreate}>
-            <Input
-              className="h-11"
-              placeholder="ルーム名"
-              required
-              maxLength={120}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            <fieldset className="max-h-64 overflow-auto">
-              <legend className="text-sm">宛先</legend>
-              {targets.data?.targets.map((target) => {
-                const key = `${target.targetType}:${target.targetId}`
-                return (
-                  <label
-                    key={key}
-                    className="flex min-h-10 items-center gap-3 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={targetKeys.includes(key)}
-                      onChange={(e) =>
-                        setTargetKeys((keys) =>
-                          e.target.checked
-                            ? [...keys, key]
-                            : keys.filter((item) => item !== key)
-                        )
-                      }
-                    />
-                    {target.displayName}
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {target.targetType === "member"
-                        ? "メンバー"
-                        : target.targetType === "role"
-                          ? "ロール"
-                          : "シフト"}
-                    </span>
-                  </label>
-                )
-              })}
-            </fieldset>
-            <Button disabled={createRoom.isPending}>
-              {createRoom.isPending && (
-                <LoaderCircle className="animate-spin" />
-              )}
-              作成
-            </Button>
-          </form>
-        </ResponsiveDialog>
+        />
       )}
     </section>
   )
