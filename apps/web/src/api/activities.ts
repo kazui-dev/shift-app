@@ -1,10 +1,12 @@
 import {
   activitiesResponseSchema,
-  activityDetailResponseSchema,
+  activityEditorResponseSchema,
+  type ActivityEditorInput,
   activityEnvelopeSchema,
 } from "@workspace/shared/shifts"
 
-import { apiJson } from "./client"
+import * as v from "valibot"
+import { apiJson, apiVoid } from "./client"
 
 export const getActivities = (year: number) =>
   apiJson(`/api/years/${year}/activities`, activitiesResponseSchema)
@@ -12,7 +14,7 @@ export const getActivities = (year: number) =>
 export const getActivity = (activityId: string) =>
   apiJson(
     `/api/activities/${encodeURIComponent(activityId)}`,
-    activityDetailResponseSchema
+    activityEditorResponseSchema
   )
 
 export const createActivity = (
@@ -25,9 +27,31 @@ export const createActivity = (
     endsAt: string
     color: string
     notes: string | null
+    responsibles: ActivityEditorInput["responsibles"]
+    candidateRoleIds: string[]
   }
 ) =>
   apiJson(`/api/years/${year}/activities`, activityEnvelopeSchema, {
     method: "POST",
     body: JSON.stringify(input),
+  })
+
+export const saveActivity = (id: string, input: ActivityEditorInput) =>
+  apiJson(
+    `/api/activities/${encodeURIComponent(id)}`,
+    activityEditorResponseSchema,
+    { method: "PUT", body: JSON.stringify(input) }
+  )
+
+export const copyActivity = (id: string, date: string) =>
+  apiJson(
+    `/api/activities/${encodeURIComponent(id)}/copies`,
+    v.object({ id: v.pipe(v.string(), v.uuid()) }),
+    { method: "POST", body: JSON.stringify({ date }) }
+  )
+export const deleteActivity = (id: string) =>
+  apiVoid(`/api/activities/${encodeURIComponent(id)}`, { method: "DELETE" })
+export const notifyActivity = (id: string) =>
+  apiVoid(`/api/activities/${encodeURIComponent(id)}/notifications`, {
+    method: "POST",
   })

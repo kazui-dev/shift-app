@@ -2,7 +2,9 @@ import { Hono } from "hono"
 
 import type { AdminEnv } from "./context"
 
-type AdminMemberRow = {
+type AdminUserRow = {
+  years: string | null
+  discordLinked: number
   id: string
   displayName: string
   studentId: string
@@ -55,11 +57,13 @@ function parseAuditDetails(
 
 export const adminQueriesApp = new Hono<AdminEnv>()
 
-adminQueriesApp.get("/members", async (c) => {
-  const adminMember = c.get("adminMember")
+adminQueriesApp.get("/users", async (c) => {
+  const adminUser = c.get("adminUser")
   const result = await c.env.shift_app
     .prepare(
       `SELECT
+        (SELECT GROUP_CONCAT(ym.year) FROM year_memberships ym WHERE ym.member_id = m.id AND ym.status = 'active') AS years,
+        EXISTS (SELECT 1 FROM account a WHERE a.user_id = m.user_id AND a.provider_id = 'discord') AS discordLinked,
         m.id AS id,
         m.display_name AS displayName,
         m.student_id AS studentId,
@@ -67,23 +71,22 @@ adminQueriesApp.get("/members", async (c) => {
         CASE WHEN m.user_id = ? THEN 1 ELSE 0 END AS isCurrentUser,
         (SELECT COUNT(*) FROM session s WHERE s.user_id = m.user_id) AS sessionCount,
         m.created_at AS createdAt
-      FROM members m
-      ORDER BY
-        CASE m.access_level
-          WHEN 'system_admin' THEN 0
-          WHEN 'leader' THEN 1
-          ELSE 2
-        END,
-        lower(m.display_name),
-        m.created_at`
+      FROM app_users m
+      ORDER BY m.student_id`
     )
-    .bind(adminMember.userId)
-    .all<AdminMemberRow>()
+    .bind(adminUser.userId)
+    .all<AdminUserRow>()
 
   return c.json({
-    members: result.results.map((member) => ({
+    users: result.results.map((member) => ({
       ...member,
       isCurrentUser: member.isCurrentUser === 1,
+      discordLinked: member.discordLinked === 1,
+      years:
+        member.years
+          ?.split(",")
+          .map(Number)
+          .sort((a, b) => b - a) ?? [],
     })),
   })
 })
@@ -101,8 +104,8 @@ adminQueriesApp.get("/audit-logs", async (c) => {
         log.details AS details,
         log.created_at AS createdAt
       FROM admin_audit_logs log
-      LEFT JOIN members actor ON actor.user_id = log.actor_user_id
-      LEFT JOIN members target ON target.id = log.target_member_id
+      LEFT JOIN app_users actor ON actor.user_id = log.actor_user_id
+      LEFT JOIN app_users target ON target.id = log.target_member_id
       ORDER BY log.created_at DESC
       LIMIT 50`
     )
@@ -117,7 +120,7 @@ adminQueriesApp.get("/audit-logs", async (c) => {
 })
 
 adminQueriesApp.get("/identity-link-requests", async (c) => {
-  const adminMember = c.get("adminMember")
+  const adminUser = c.get("adminUser")
   const result = await c.env.shift_app
     .prepare(
       `SELECT
@@ -131,7 +134,7 @@ adminQueriesApp.get("/identity-link-requests", async (c) => {
         request.created_at AS createdAt
       FROM identity_link_requests request
       JOIN user requester ON requester.id = request.requester_user_id
-      JOIN members target ON target.id = request.target_member_id
+      JOIN app_users target ON target.id = request.target_member_id
       WHERE request.status = 'pending'
       ORDER BY request.created_at ASC`
     )
@@ -144,7 +147,7 @@ adminQueriesApp.get("/identity-link-requests", async (c) => {
       targetDisplayName: request.targetDisplayName,
       targetStudentId: request.targetStudentId,
       createdAt: request.createdAt,
-      targetsCurrentAdmin: request.targetMemberId === adminMember.id,
+      targetsCurrentAdmin: request.targetMemberId === adminUser.id,
     })),
   })
 })

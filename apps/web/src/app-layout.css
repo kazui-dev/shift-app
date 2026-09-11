@@ -1,0 +1,31 @@
+:root {
+  --app-sidebar-width: 0px;
+}
+
+@media (min-width: 768px) {
+  :root:has([data-sidebar-open]) {
+    --app-sidebar-width: 4rem;
+  }
+
+  :root:has([data-sidebar-open="true"]) {
+    --app-sidebar-width: 13rem;
+  }
+
+  html [data-sonner-toaster][data-x-position="center"] {
+    left: calc(50% + var(--app-sidebar-width) / 2);
+    max-width: calc(100vw - var(--app-sidebar-width) - 3rem);
+    transition: left 200ms linear;
+  }
+
+  [data-app-update-notice] {
+    left: calc(var(--app-sidebar-width) + 1rem);
+    transition: left 200ms linear;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html [data-sonner-toaster][data-x-position="center"],
+  [data-app-update-notice] {
+    transition: none;
+  }
+}

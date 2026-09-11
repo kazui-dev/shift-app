@@ -1,15 +1,15 @@
 import {
   adminAuditLogsResponseSchema,
-  adminMembersResponseSchema,
+  adminUsersResponseSchema,
   adminMutationResponseSchema,
   identityLinkRequestsResponseSchema,
-  type AdminMember,
+  type AdminUser,
 } from "@workspace/shared/auth"
 
 import { apiJson } from "./client"
 
-export const getAdminMembers = () =>
-  apiJson("/api/admin/members", adminMembersResponseSchema)
+export const getAdminUsers = () =>
+  apiJson("/api/admin/users", adminUsersResponseSchema)
 
 export const getAdminAuditLogs = () =>
   apiJson("/api/admin/audit-logs", adminAuditLogsResponseSchema)
@@ -22,10 +22,10 @@ export const getDiscordLinkRequests = () =>
 
 export const updateAdminAccessLevel = (
   memberId: string,
-  input: { accessLevel: AdminMember["accessLevel"]; reason: string }
+  input: { accessLevel: AdminUser["accessLevel"]; reason: string }
 ) =>
   apiJson(
-    `/api/admin/members/${encodeURIComponent(memberId)}`,
+    `/api/admin/users/${encodeURIComponent(memberId)}`,
     adminMutationResponseSchema,
     { method: "PATCH", body: JSON.stringify(input) }
   )

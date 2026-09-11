@@ -1,12 +1,52 @@
+import { cn } from "@workspace/ui/lib/utils"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "@workspace/ui/lib/toast"
+import { setDisplayYear } from "@/api/years"
+import { errorMessage } from "@/api/client"
+import { useDisplayYear } from "@/components/use-display-year"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { PushControl } from "@/components/push-control"
 import { PageHeader } from "@/components/page-layout"
 import { useTheme } from "@/components/theme-context"
 export function SettingsPage() {
+  const display = useDisplayYear()
+  const client = useQueryClient()
+  const changeYear = useMutation({
+    mutationFn: setDisplayYear,
+    onSuccess: (data) => {
+      client.setQueryData(["display-year"], data)
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
   const { theme, setTheme } = useTheme()
 
   return (
-    <section className="mx-auto max-w-2xl space-y-8">
+    <section className="w-full min-w-0 space-y-8">
       <PageHeader title="設定" />
+      <div className="flex min-h-18 items-center justify-between gap-4 border-y py-3">
+        <label htmlFor="display-year" className="font-medium">
+          表示年度
+        </label>
+        {display.year === null ? (
+          <span className="text-sm text-muted-foreground">
+            参加年度がありません
+          </span>
+        ) : (
+          <select
+            id="display-year"
+            className={cn(nativeSelectClassName, "w-auto")}
+            value={display.year}
+            disabled={changeYear.isPending}
+            onChange={(event) => changeYear.mutate(Number(event.target.value))}
+          >
+            {display.data?.years.map((year) => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
 
       <div>
         <h2 className="mb-3 text-xs font-medium text-muted-foreground">外観</h2>

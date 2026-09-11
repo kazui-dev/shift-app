@@ -1,4 +1,5 @@
 import { memo } from "react"
+import { Clock } from "lucide-react"
 
 import type { CalendarAssignment } from "@/api/assignments"
 import { minutesFromJapanDateStart, type JapanDateTime } from "@/lib/japan-time"
@@ -61,22 +62,29 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
           <button
             key={assignment.id}
             type="button"
-            className="absolute right-0 left-14 overflow-hidden rounded-sm border-l-4 px-2 py-1 text-left hover:opacity-90"
+            className="absolute right-0 left-14 flex flex-col items-start justify-start overflow-hidden rounded py-1.5 pr-3 pl-[22px] text-left hover:opacity-90"
             style={{
               top,
               height,
-              borderLeftColor: assignment.color,
               backgroundColor: `color-mix(in oklab, ${assignment.color} 22%, var(--background))`,
             }}
             onClick={() => onSelectAssignment(date, assignment.id)}
           >
-            <span className="block truncate text-sm font-semibold">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-1.5 left-1.5 w-1 rounded-full"
+              style={{ backgroundColor: assignment.color }}
+            />
+            <span className="block w-full truncate text-sm font-semibold">
               {assignment.activityName}
             </span>
             {height >= 44 && (
-              <span className="block text-xs tabular-nums opacity-75">
-                {formatCalendarTime(assignment.startsAt)}–
-                {formatCalendarTime(assignment.endsAt)}
+              <span className="flex items-center gap-1 text-xs tabular-nums opacity-75">
+                <Clock aria-hidden="true" className="size-3 shrink-0" />
+                <span>
+                  {formatCalendarTime(assignment.startsAt)}–
+                  {formatCalendarTime(assignment.endsAt)}
+                </span>
               </span>
             )}
           </button>

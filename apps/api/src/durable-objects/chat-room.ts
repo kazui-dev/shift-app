@@ -54,7 +54,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
 
   getMessages(
     beforeSequence: number | null,
-    limit: number
+    limit: number,
+    beforeTime: number | null
   ): { messages: ChatMessage[]; hasMore: boolean } {
     const boundedLimit = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
@@ -63,11 +64,13 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
                 member_display_name AS memberDisplayName, content,
                 created_at AS createdAt
          FROM messages
-         WHERE (? IS NULL OR sequence < ?)
+         WHERE (? IS NULL OR sequence < ?) AND (? IS NULL OR created_at <= ?)
          ORDER BY sequence DESC
          LIMIT ?`,
         beforeSequence,
         beforeSequence,
+        beforeTime,
+        beforeTime,
         boundedLimit + 1
       )
       .toArray()
@@ -80,13 +83,22 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
-  sendMessage(input: {
+  async sendMessage(input: {
+    roomId: string
     id: string
     memberId: string
     memberDisplayName: string
     content: string
     createdAt: number
-  }): ChatMessage {
+  }): Promise<ChatMessage> {
+    const permission = await this.env.shift_app
+      .prepare(
+        "SELECT can_post FROM chat_effective_permissions WHERE room_id=? AND member_id=?"
+      )
+      .bind(input.roomId, input.memberId)
+      .first<{ can_post: number }>()
+    if (permission?.can_post !== 1)
+      throw new Error("Chat posting permission has changed")
     const existing = this.ctx.storage.sql
       .exec<StoredMessage>(
         `SELECT sequence, id, member_id AS memberId,
@@ -116,7 +128,25 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       .one()
     const message = this.toMessage(row)
     const payload = JSON.stringify({ type: "message", message })
+    const allowed = await this.env.shift_app
+      .prepare(
+        "SELECT member_id FROM chat_effective_permissions WHERE room_id=? AND can_read=1"
+      )
+      .bind(input.roomId)
+      .all<{ member_id: string }>()
+    const recipients = new Set(allowed.results.map((item) => item.member_id))
     for (const socket of this.ctx.getWebSockets()) {
+      const attachment: unknown = socket.deserializeAttachment()
+      if (
+        typeof attachment !== "object" ||
+        attachment === null ||
+        !("memberId" in attachment) ||
+        typeof attachment.memberId !== "string" ||
+        !recipients.has(attachment.memberId)
+      ) {
+        socket.close(1008, "Access ended")
+        continue
+      }
       try {
         socket.send(payload)
       } catch {
@@ -137,6 +167,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
     server.serializeAttachment({
       memberId: request.headers.get("X-Chat-Member-Id"),
+      roomId: request.headers.get("X-Chat-Room-Id"),
     })
     this.ctx.acceptWebSocket(server)
     return new Response(null, { status: 101, webSocket: client })

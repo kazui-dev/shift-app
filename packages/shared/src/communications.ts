@@ -41,6 +41,16 @@ export const sendChatMessageInputSchema = v.object({
 })
 
 export const chatRoomResponseSchema = v.object({
+  kind: v.picklist(["custom", "global", "shift"]),
+  activityId: v.nullable(v.string()),
+  historical: v.boolean(),
+  canPost: v.boolean(),
+  canManage: v.boolean(),
+  muted: v.boolean(),
+  lastRead: v.number(),
+  lastSequence: v.number(),
+  unreadCount: v.number(),
+  status: v.picklist(["active", "archived"]),
   id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
   name: v.string(),
@@ -100,3 +110,23 @@ export const pushConfigResponseSchema = v.object({
 })
 
 export type ChatTargetOption = v.InferOutput<typeof chatTargetOptionSchema>
+
+export const chatPreferencesInputSchema = v.strictObject({
+  muted: v.optional(v.boolean()),
+  lastRead: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+})
+export const roomSettingsInputSchema = v.strictObject({
+  name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+  closed: v.boolean(),
+  targets: v.pipe(
+    v.array(
+      v.object({
+        ...chatTargetSchema.entries,
+        canRead: v.boolean(),
+        canPost: v.boolean(),
+        canManage: v.boolean(),
+      })
+    ),
+    v.maxLength(100)
+  ),
+})

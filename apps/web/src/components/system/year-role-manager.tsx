@@ -1,125 +1,300 @@
+import { ArrowUp, ArrowDown } from "lucide-react"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Plus, X } from "lucide-react"
-
+import type { ShiftPermission } from "@workspace/shared/shifts"
 import { Button } from "@workspace/ui/components/button"
-import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Field, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-
+import {
+  createYearRole,
+  getYearRoles,
+  updateRole,
+  reorderRoles,
+  deleteRole,
+} from "@/api/years"
 import { errorMessage } from "@/api/client"
-import { createYearRole, getYearRoles } from "@/api/years"
 
+const permissions: { value: ShiftPermission; label: string }[] = [
+  { value: "shift.create", label: "シフト作成" },
+  { value: "shift.manage", label: "全シフト管理" },
+  { value: "member.manage", label: "メンバー管理" },
+  { value: "role.manage", label: "ロール管理" },
+]
+type Role = {
+  id: string
+  name: string
+  color: string
+  permissions: ShiftPermission[]
+}
 export function YearRoleManager({ year }: { year: number }) {
-  const queryClient = useQueryClient()
-  const roles = useQuery({
+  const query = useQuery({
     queryKey: ["year-roles", year],
     queryFn: () => getYearRoles(year),
   })
-  const [createOpen, setCreateOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [color, setColor] = useState("#7C3AED")
-  const [canManage, setCanManage] = useState(false)
+  const client = useQueryClient()
+  const [ordering, setOrdering] = useState(false)
+  const authority = query.data?.authority
+  const editable = (position: number) =>
+    !!authority &&
+    (authority.systemAdmin ||
+      (authority.permissions.includes("role.manage") &&
+        position < (authority.position ?? Number.NEGATIVE_INFINITY)))
+  async function move(index: number, delta: number) {
+    const ids = query.data?.roles.map((item) => item.id),
+      other = ids?.[index + delta],
+      id = ids?.[index]
+    if (!ids || !other || !id) return
+    ids[index] = other
+    ids[index + delta] = id
+    setOrdering(true)
+    try {
+      await reorderRoles(year, ids)
+      await client.invalidateQueries({ queryKey: ["year-roles", year] })
+    } catch (error) {
+      toast.error(errorMessage(error))
+    } finally {
+      setOrdering(false)
+    }
+  }
+  const [selected, setSelected] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const role = query.data?.roles.find((item) => item.id === selected)
+  return (
+    <div className="grid min-h-80 md:grid-cols-[15rem_1fr]">
+      <div
+        className={`${role || creating ? "hidden md:block" : ""} border-border/70 md:border-r md:pr-4`}
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-3"
+          disabled={
+            !authority ||
+            (!authority.systemAdmin &&
+              !authority.permissions.includes("role.manage"))
+          }
+          onClick={() => {
+            setSelected(null)
+            setCreating(true)
+          }}
+        >
+          ロールを作成
+        </Button>
+        {query.isError && <p role="alert">{errorMessage(query.error)}</p>}
+        <ul className="space-y-1">
+          {query.data?.roles.map((item, index) => (
+            <li key={item.id} className="flex items-center">
+              <button
+                className={`flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm ${selected === item.id ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
+                onClick={() => {
+                  setSelected(item.id)
+                  setCreating(false)
+                }}
+              >
+                <span
+                  className="size-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="truncate">{item.name}</span>
+              </button>
+              <div className="flex flex-col">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`${item.name}を上へ`}
+                  disabled={
+                    ordering ||
+                    !editable(item.position) ||
+                    !editable(
+                      query.data?.roles[index - 1]?.position ?? Infinity
+                    )
+                  }
+                  onClick={() => void move(index, -1)}
+                >
+                  <ArrowUp className="size-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`${item.name}を下へ`}
+                  disabled={
+                    ordering ||
+                    index === (query.data?.roles.length ?? 0) - 1 ||
+                    !editable(item.position) ||
+                    !editable(
+                      query.data?.roles[index + 1]?.position ?? Infinity
+                    )
+                  }
+                  onClick={() => void move(index, 1)}
+                >
+                  <ArrowDown className="size-3" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="md:pl-8">
+        {role || creating ? (
+          <RoleEditor
+            key={role?.id ?? "new"}
+            year={year}
+            role={role ?? null}
+            canEdit={
+              role
+                ? editable(role.position)
+                : !!authority &&
+                  (authority.systemAdmin ||
+                    authority.permissions.includes("role.manage"))
+            }
+            grantable={
+              authority?.systemAdmin
+                ? permissions.map((p) => p.value)
+                : (authority?.permissions ?? [])
+            }
+            onClose={() => {
+              setSelected(null)
+              setCreating(false)
+            }}
+          />
+        ) : (
+          <p className="hidden py-8 text-sm text-muted-foreground md:block">
+            ロールを選択してください
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+function RoleEditor({
+  year,
+  role,
+  canEdit,
+  grantable,
+  onClose,
+}: {
+  year: number
+  role: Role | null
+  canEdit: boolean
+  grantable: ShiftPermission[]
+  onClose: () => void
+}) {
+  const client = useQueryClient()
+  const [name, setName] = useState(role?.name ?? "")
+  const [color, setColor] = useState(role?.color ?? "#64748B")
+  const [grants, setGrants] = useState<ShiftPermission[]>(
+    role?.permissions ?? []
+  )
   const [pending, setPending] = useState(false)
-
-  async function addRole(event: FormEvent<HTMLFormElement>) {
+  const [deleting, setDeleting] = useState(false)
+  async function save(event: FormEvent) {
     event.preventDefault()
     setPending(true)
     try {
-      await createYearRole(year, {
-        name,
-        color,
-        permissions: canManage ? ["shift.manage"] : [],
-      })
-      setName("")
-      setCanManage(false)
-      setCreateOpen(false)
+      const input = { name, color, permissions: grants }
+      if (role) await updateRole(role.id, input)
+      else await createYearRole(year, input)
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["year-roles", year] }),
-        queryClient.invalidateQueries({ queryKey: ["years"] }),
+        client.invalidateQueries({ queryKey: ["year-roles", year] }),
+        client.invalidateQueries({ queryKey: ["years"] }),
+        client.invalidateQueries({ queryKey: ["roster", year] }),
       ])
-      toast.success("ロールを作成しました。")
+      toast.success("ロールを保存しました。")
+      if (!role) onClose()
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {
       setPending(false)
     }
   }
-
   return (
-    <section className="space-y-4">
-      <div className="flex justify-end">
-        <Button size="sm" variant="ghost" onClick={() => setCreateOpen(true)}>
-          <Plus />
-          ロールを追加
-        </Button>
-      </div>
-      {createOpen && (
-        <form
-          className="grid gap-3 border-y py-4 sm:grid-cols-[1fr_auto]"
-          onSubmit={addRole}
+    <form onSubmit={save} className="min-w-0 space-y-6">
+      <fieldset disabled={!canEdit || pending} className="space-y-6">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="md:hidden"
         >
-          <div className="flex items-center justify-between sm:col-span-2">
-            <h2 className="font-medium">新しいロール</h2>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              type="button"
-              aria-label="閉じる"
-              onClick={() => setCreateOpen(false)}
-            >
-              <X />
-            </Button>
-          </div>
-          <Input
-            className="h-11"
-            placeholder="ロール名"
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
+          一覧に戻る
+        </Button>
+        <div className="flex items-end gap-3">
+          <label htmlFor="role-name" className="flex-1 space-y-2 text-sm">
+            名前
+            <Input
+              id="role-name"
+              required
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
           <Input
             type="color"
             aria-label="ロールの色"
-            className="h-11 p-1 sm:w-16"
+            className="w-12 p-1"
             value={color}
             onChange={(event) => setColor(event.target.value)}
           />
-          <Field orientation="horizontal" className="min-h-11 sm:col-span-2">
-            <Checkbox
-              id="can-manage-shifts"
-              checked={canManage}
-              onCheckedChange={setCanManage}
-            />
-            <FieldLabel htmlFor="can-manage-shifts">
-              シフト管理を許可
-            </FieldLabel>
-          </Field>
-          <Button className="sm:col-span-2" disabled={pending}>
-            作成
-          </Button>
-        </form>
-      )}
-      {!roles.isPending && (
-        <ul className="divide-y border-y">
-          {roles.data?.roles.map((role) => (
-            <li key={role.id} className="flex min-h-14 items-center gap-3 py-3">
-              <span
-                className="size-3 rounded-full"
-                style={{ backgroundColor: role.color }}
+        </div>
+        <fieldset className="divide-y">
+          <legend className="pb-2 text-xs text-muted-foreground">
+            操作権限
+          </legend>
+          {permissions.map(({ value, label }) => (
+            <label
+              key={value}
+              className="flex min-h-12 items-center justify-between gap-3 text-sm"
+            >
+              {label}
+              <input
+                type="checkbox"
+                disabled={!grantable.includes(value)}
+                checked={grants.includes(value)}
+                onChange={(event) =>
+                  setGrants(
+                    event.target.checked
+                      ? [...grants, value]
+                      : grants.filter((item) => item !== value)
+                  )
+                }
               />
-              <span className="min-w-0 flex-1 font-medium">{role.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {role.memberCount}人
-                {role.permissions.includes("shift.manage")
-                  ? " · シフト管理"
-                  : ""}
-              </span>
-            </li>
+            </label>
           ))}
-        </ul>
+        </fieldset>
+        <div className="flex justify-between">
+          <Button disabled={pending}>保存</Button>
+          {role && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setDeleting(true)}
+            >
+              ロールを削除
+            </Button>
+          )}
+        </div>
+      </fieldset>
+      {deleting && role && (
+        <ConfirmDialog
+          title="ロールを削除しますか"
+          description="メンバーとチャットへの権限が解除されます。このロールが最後の責任者となっているシフトは無効になります。"
+          confirmLabel="削除"
+          onCancel={() => setDeleting(false)}
+          onConfirm={() => {
+            setDeleting(false)
+            setPending(true)
+            void deleteRole(role.id)
+              .then(async () => {
+                await client.invalidateQueries()
+                onClose()
+              })
+              .catch((error) => toast.error(errorMessage(error)))
+              .finally(() => setPending(false))
+          }}
+        />
       )}
-    </section>
+    </form>
   )
 }

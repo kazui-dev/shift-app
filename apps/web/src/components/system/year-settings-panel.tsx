@@ -1,29 +1,16 @@
-import { useMemo, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
-import { createYear, getYears, updateYear } from "@/api/years"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { createYear, getYears, setDefaultYear } from "@/api/years"
 import { SectionHeader } from "@/components/page-layout"
-
-const statusLabels = {
-  draft: "準備中",
-  active: "運用中",
-  archived: "終了",
-} as const
 
 export function YearSettingsPanel() {
   const queryClient = useQueryClient()
   const years = useQuery({ queryKey: ["years"], queryFn: getYears })
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const year = selectedYear ?? years.data?.years[0]?.year ?? null
-  const currentYear = useMemo(
-    () => years.data?.years.find((item) => item.year === year),
-    [year, years.data]
-  )
   const [yearNumber, setYearNumber] = useState(new Date().getFullYear())
   const [pending, setPending] = useState(false)
 
@@ -35,8 +22,7 @@ export function YearSettingsPanel() {
     event.preventDefault()
     setPending(true)
     try {
-      await createYear({ year: yearNumber, status: "draft" })
-      setSelectedYear(yearNumber)
+      await createYear({ year: yearNumber })
       await refreshYears()
       toast.success("年度を作成しました。")
     } catch (error) {
@@ -46,13 +32,12 @@ export function YearSettingsPanel() {
     }
   }
 
-  async function changeStatus(status: "draft" | "active" | "archived") {
-    if (year === null) return
+  async function changeDefault(year: number) {
     setPending(true)
     try {
-      await updateYear(year, { status })
+      await setDefaultYear(year)
       await refreshYears()
-      toast.success("年度の状態を更新しました。")
+      toast.success("デフォルト年度を変更しました。")
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {
@@ -78,36 +63,32 @@ export function YearSettingsPanel() {
         </Button>
       </form>
 
-      {!years.isPending && (
-        <select
-          aria-label="設定する年度"
-          className={nativeSelectClassName}
-          value={year ?? ""}
-          onChange={(event) => setSelectedYear(Number(event.target.value))}
-        >
-          {years.data?.years.map((item) => (
-            <option key={item.year} value={item.year}>
-              {item.year}年度（{statusLabels[item.status]}）
-            </option>
-          ))}
-        </select>
+      {years.isPending && (
+        <p className="text-sm text-muted-foreground">読み込み中…</p>
       )}
-      {currentYear && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-sm text-muted-foreground">状態</span>
-          {(["draft", "active", "archived"] as const).map((status) => (
-            <Button
-              key={status}
-              size="sm"
-              variant={currentYear.status === status ? "default" : "outline"}
-              disabled={pending || currentYear.status === status}
-              onClick={() => void changeStatus(status)}
-            >
-              {statusLabels[status]}
-            </Button>
-          ))}
-        </div>
-      )}
+      {years.isError && <p role="alert">{errorMessage(years.error)}</p>}
+      <div className="divide-y divide-border/70">
+        {years.data?.years.map((item) => (
+          <div
+            key={item.year}
+            className="flex min-h-16 items-center justify-between gap-4 py-3"
+          >
+            <span className="font-medium tabular-nums">{item.year}</span>
+            {item.isDefault ? (
+              <span className="text-sm text-muted-foreground">デフォルト</span>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={pending}
+                onClick={() => void changeDefault(item.year)}
+              >
+                デフォルトにする
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   )
 }

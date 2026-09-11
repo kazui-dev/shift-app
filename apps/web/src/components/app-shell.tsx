@@ -1,23 +1,15 @@
 import { useEffect, useState } from "react"
 import { onlineManager, useQueryClient } from "@tanstack/react-query"
 import {
-  Link,
   Outlet,
   useNavigate,
   useRouter,
   useRouterState,
 } from "@tanstack/react-router"
-import { CalendarDays, MessageCircle, Settings, Users } from "lucide-react"
+import { AppNavigation } from "./app-navigation"
 
 import { CalendarViewStateProvider } from "./calendar-view-state"
 import { OfflineModeContext } from "./offline-mode-context"
-
-const navigation = [
-  { to: "/calendar", label: "カレンダー", icon: CalendarDays },
-  { to: "/chat", label: "チャット", icon: MessageCircle },
-  { to: "/manage", label: "管理", icon: Users },
-  { to: "/settings", label: "設定", icon: Settings },
-] as const
 
 const unsafeOfflineRoutes = new Set(["/availability", "/manage", "/system"])
 
@@ -78,51 +70,58 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
     }
   }, [navigate, unsafeOfflineRoute])
 
-  const visibleNavigation = offline
-    ? navigation.filter((item) => item.to !== "/manage")
-    : navigation
-  const items = visibleNavigation
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => window.matchMedia("(min-width: 1024px)").matches
+  )
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)")
+    const resize = () => setSidebarOpen(query.matches)
+    query.addEventListener("change", resize)
+    const shortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "b")
+        return
+      if (!window.matchMedia("(min-width: 768px)").matches) return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, [contenteditable=true]")
+      )
+        return
+      event.preventDefault()
+      setSidebarOpen((open) => !open)
+    }
+    window.addEventListener("keydown", shortcut)
+    return () => {
+      query.removeEventListener("change", resize)
+      window.removeEventListener("keydown", shortcut)
+    }
+  }, [])
 
   return (
     <div
+      data-sidebar-open={sidebarOpen}
       className={
         isCalendar
-          ? "mx-auto flex h-dvh max-w-6xl flex-col overflow-hidden overscroll-none px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-4"
-          : "mx-auto min-h-svh max-w-6xl px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-8"
+          ? "flex h-dvh w-full min-w-0 flex-col overflow-hidden overscroll-none transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
+          : "min-h-svh w-full min-w-0 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
       }
     >
-      <nav
-        className={`fixed inset-x-0 bottom-0 z-40 shrink-0 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:static md:border-t-0 md:border-b md:bg-transparent md:backdrop-blur-none ${isCalendar ? "md:mb-4" : "md:mb-6"}`}
-      >
-        <div
-          className="mx-auto grid max-w-2xl px-1 md:max-w-none md:px-0"
-          style={{
-            gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
-          }}
-        >
-          {items.map(({ to, label, icon: Icon }) => (
-            <Link
-              key={to}
-              to={to}
-              preload="render"
-              className="flex min-h-16 items-center justify-center text-muted-foreground transition-colors md:min-h-12"
-              activeProps={{
-                className: "text-foreground [&_svg]:stroke-[2.5]",
-              }}
-            >
-              <Icon className="size-5" />
-              <span className="sr-only">{label}</span>
-            </Link>
-          ))}
-        </div>
-      </nav>
+      <AppNavigation
+        offline={offline}
+        expanded={sidebarOpen}
+        onToggle={() => setSidebarOpen((open) => !open)}
+      />
 
       <output className="sr-only" aria-live="polite">
         {offline ? "オフラインです" : ""}
       </output>
       <OfflineModeContext value={offline}>
         <CalendarViewStateProvider>
-          {unsafeOfflineRoute ? null : <Outlet />}
+          <main
+            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:px-6 md:pt-6 ${isCalendar ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8"}`}
+          >
+            {unsafeOfflineRoute ? null : <Outlet />}
+          </main>
         </CalendarViewStateProvider>
       </OfflineModeContext>
     </div>

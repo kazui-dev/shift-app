@@ -1,3 +1,6 @@
+import * as v from "valibot"
+import { sendMemberNotification } from "../../services/push"
+import { readJson } from "../../lib/http"
 import { Hono } from "hono"
 
 import {
@@ -44,17 +47,86 @@ availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
          window.starts_at AS startsAt,
          window.ends_at AS endsAt
        FROM availability_submissions submission
-       JOIN members member ON member.id = submission.member_id
+       JOIN app_users member ON member.id = submission.member_id
        LEFT JOIN availability_windows window ON window.submission_id = submission.id
        LEFT JOIN availability_dates availability_date
          ON availability_date.id = window.availability_date_id
-       WHERE submission.year = ?
+       WHERE submission.year = ? AND submission.status='submitted'
        ORDER BY lower(member.display_name), window.starts_at`
     )
     .bind(year)
     .all<AvailabilityManagerRow>()
 
+  const progress = await readProgress(c.env.shift_app, year)
   return c.json({
+    progress: progress.map((item) => ({ ...item, complete: !!item.complete })),
     submissions: groupAvailabilitySubmissions(rows.results),
   })
 })
+
+async function readProgress(db: D1Database, year: number) {
+  const result = await db
+    .prepare(`SELECT m.id AS memberId,m.display_name AS displayName,m.student_id AS studentId,
+    NOT EXISTS(SELECT 1 FROM availability_dates d WHERE d.year=ym.year AND d.deleted=0 AND d.accepting=1 AND NOT EXISTS(
+      SELECT 1 FROM availability_submissions s JOIN availability_day_answers answer ON answer.submission_id=s.id
+      WHERE s.year=ym.year AND s.member_id=ym.member_id AND s.status='submitted' AND answer.date_id=d.id AND answer.date_version=d.version)) AS complete
+    FROM year_memberships ym JOIN app_users m ON m.id=ym.member_id WHERE ym.year=? AND ym.status='active' ORDER BY m.student_id`)
+    .bind(year)
+    .all<{
+      memberId: string
+      displayName: string
+      studentId: string
+      complete: number
+    }>()
+  return result.results
+}
+availabilitySubmissionsApp.post(
+  "/:year/availability-notifications",
+  async (c) => {
+    const year = parseYear(c.req.param("year"))
+    const input = v.safeParse(
+      v.object({ scope: v.picklist(["all", "incomplete"]) }),
+      await readJson(c.req.raw)
+    )
+    if (year === null || !input.success)
+      return apiError(
+        c,
+        422,
+        "INVALID_NOTIFICATION",
+        "通知対象を指定してください"
+      )
+    if (!(await canManageShifts(c.env, c.get("member"), year)))
+      return apiError(c, 403, "FORBIDDEN", "シフト管理権限が必要です")
+    const open = await c.env.shift_app
+      .prepare(
+        "SELECT 1 FROM availability_dates WHERE year=? AND accepting=1 AND deleted=0 LIMIT 1"
+      )
+      .bind(year)
+      .first()
+    if (!open)
+      return apiError(c, 409, "FORM_CLOSED", "受付中の日程がありません")
+    const recipients = (await readProgress(c.env.shift_app, year)).filter(
+      (item) => input.output.scope === "all" || !item.complete
+    )
+    const sent = await Promise.all(
+      recipients.map((item) =>
+        sendMemberNotification(
+          c.env,
+          item.memberId,
+          "シフト希望を受け付けています",
+          `${year}のシフト希望を確認してください。`,
+          "/availability",
+          `availability-${year}`
+        )
+      )
+    )
+    if (sent.some((result) => !result))
+      return apiError(
+        c,
+        500,
+        "NOTIFICATION_RETRY",
+        "一部の通知を送れませんでした"
+      )
+    return c.body(null, 204)
+  }
+)

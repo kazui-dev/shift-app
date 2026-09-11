@@ -1,35 +1,56 @@
+import { canManageYear, roleAuthority } from "../../services/role-authority"
 import { Hono } from "hono"
 import * as v from "valibot"
 
-import {
-  apiError,
-  type ApiEnv,
-  parseYear,
-  requireSystemAdmin,
-  toIso,
-} from "../../lib/http"
+import { apiError, type ApiEnv, parseYear, toIso } from "../../lib/http"
 
 const idSchema = v.pipe(v.string(), v.uuid())
-
-type YearStatus = "draft" | "active" | "archived"
 
 function getYearParam(value: string): number | null {
   return parseYear(value)
 }
 
 export const yearMembershipsApp = new Hono<ApiEnv>()
+yearMembershipsApp.use("/:year/memberships/*", async (c, next) => {
+  const year = parseYear(c.req.param("year"))
+  if (year === null)
+    return apiError(c, 404, "YEAR_NOT_FOUND", "年度が見つかりません")
+  if (
+    !(await canManageYear(
+      c.env.shift_app,
+      c.get("member"),
+      year,
+      "member.manage"
+    ))
+  )
+    return apiError(c, 403, "FORBIDDEN", "メンバー管理権限が必要です")
+  return next()
+})
+yearMembershipsApp.use("/:year/memberships", async (c, next) => {
+  const year = parseYear(c.req.param("year"))
+  if (year === null)
+    return apiError(c, 404, "YEAR_NOT_FOUND", "年度が見つかりません")
+  if (
+    !(await canManageYear(
+      c.env.shift_app,
+      c.get("member"),
+      year,
+      "member.manage"
+    ))
+  )
+    return apiError(c, 403, "FORBIDDEN", "メンバー管理権限が必要です")
+  return next()
+})
 
 yearMembershipsApp.get("/:year/memberships", async (c) => {
-  const denied = requireSystemAdmin(c)
-  if (denied) return denied
   const year = getYearParam(c.req.param("year"))
   if (year === null)
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
 
   const operatingYear = await c.env.shift_app
-    .prepare("SELECT status FROM operating_years WHERE year = ?")
+    .prepare("SELECT year FROM operating_years WHERE year = ?")
     .bind(year)
-    .first<{ status: YearStatus }>()
+    .first<{ year: number }>()
   if (!operatingYear)
     return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
 
@@ -37,11 +58,11 @@ yearMembershipsApp.get("/:year/memberships", async (c) => {
     .prepare(
       `SELECT member.id, member.display_name AS displayName, member.student_id AS studentId,
             membership.status, membership.updated_at AS updatedAt
-     FROM members member
+     FROM app_users member
      LEFT JOIN year_memberships membership
        ON membership.member_id = member.id AND membership.year = ?
      ORDER BY CASE membership.status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,
-              lower(member.display_name)`
+              member.student_id`
     )
     .bind(year)
     .all<{
@@ -67,8 +88,6 @@ yearMembershipsApp.get("/:year/memberships", async (c) => {
 })
 
 yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
-  const denied = requireSystemAdmin(c)
-  if (denied) return denied
   const year = getYearParam(c.req.param("year"))
   const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (year === null || !memberId.success)
@@ -78,17 +97,17 @@ yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
     .prepare(
       `INSERT INTO year_memberships (year, member_id, status, created_at, updated_at)
      SELECT operating_year.year, member.id, 'active', ?, ?
-     FROM operating_years operating_year, members member
+     FROM operating_years operating_year, app_users member
      WHERE operating_year.year = ? AND member.id = ?
-     ON CONFLICT(year, member_id) DO UPDATE SET status = 'active', updated_at = excluded.updated_at`
+     ON CONFLICT(year, member_id) DO UPDATE SET status = 'active', updated_at = excluded.updated_at RETURNING member_id`
     )
     .bind(now, now, year, memberId.output)
     .run()
-  if (result.meta.changes !== 1)
+  if (!result.results.length)
     return apiError(c, 404, "RESOURCE_NOT_FOUND", "Year or member not found")
   const member = await c.env.shift_app
     .prepare(
-      "SELECT display_name AS displayName, student_id AS studentId FROM members WHERE id = ?"
+      "SELECT display_name AS displayName, student_id AS studentId FROM app_users WHERE id = ?"
     )
     .bind(memberId.output)
     .first<{ displayName: string; studentId: string }>()
@@ -107,8 +126,6 @@ yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
 })
 
 yearMembershipsApp.delete("/:year/memberships/:memberId", async (c) => {
-  const denied = requireSystemAdmin(c)
-  if (denied) return denied
   const year = getYearParam(c.req.param("year"))
   const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (year === null || !memberId.success)
@@ -118,14 +135,47 @@ yearMembershipsApp.delete("/:year/memberships/:memberId", async (c) => {
       "YEAR_MEMBERSHIP_NOT_FOUND",
       "Year membership not found"
     )
+  const actor = c.get("member")
+  const authority = await roleAuthority(c.env.shift_app, actor, year)
+  const target = await c.env.shift_app
+    .prepare(
+      `SELECT m.access_level AS accessLevel,MAX(r.position) AS position FROM app_users m LEFT JOIN member_year_roles mr ON mr.member_id=m.id LEFT JOIN year_roles r ON r.id=mr.role_id AND r.year=? WHERE m.id=? GROUP BY m.id`
+    )
+    .bind(year, memberId.output)
+    .first<{ accessLevel: string; position: number | null }>()
+  if (
+    !authority.systemAdmin &&
+    (!target ||
+      target.accessLevel === "system_admin" ||
+      (target.position ?? Number.NEGATIVE_INFINITY) >= authority.position)
+  )
+    return apiError(
+      c,
+      403,
+      "ROLE_HIERARCHY",
+      "このメンバーの参加を変更する権限がありません"
+    )
+  const future = await c.env.shift_app
+    .prepare(
+      `SELECT 1 FROM shift_assignments a JOIN shift_slots s ON s.id=a.slot_id JOIN activities activity ON activity.id=s.activity_id WHERE a.member_id=? AND activity.year=? AND a.status='active' AND s.ends_at>? LIMIT 1`
+    )
+    .bind(memberId.output, year, Date.now())
+    .first()
+  if (future)
+    return apiError(
+      c,
+      409,
+      "FUTURE_SHIFTS",
+      "今後のシフトからメンバーを外してから参加を解除してください"
+    )
   const result = await c.env.shift_app
     .prepare(
       `UPDATE year_memberships SET status = 'inactive', updated_at = ?
-     WHERE year = ? AND member_id = ? AND status = 'active'`
+     WHERE year = ? AND member_id = ? AND status = 'active' RETURNING member_id`
     )
     .bind(Date.now(), year, memberId.output)
     .run()
-  if (result.meta.changes !== 1)
+  if (!result.results.length)
     return apiError(
       c,
       404,

@@ -1,7 +1,7 @@
 export type AdminEnv = {
   Bindings: CloudflareBindings
   Variables: {
-    adminMember: {
+    adminUser: {
       id: string
       userId: string
     }

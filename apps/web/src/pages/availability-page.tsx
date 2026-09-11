@@ -1,317 +1,346 @@
-import { useMemo, useState, type FormEvent } from "react"
+import { getRouteApi } from "@tanstack/react-router"
+import * as v from "valibot"
+import { dayAnswerSchema } from "@workspace/shared/availability"
+import { useEffect, useRef, useState } from "react"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { ChevronLeft, LoaderCircle, Plus, Trash2 } from "lucide-react"
-
+import type { DayAnswer, FormDate } from "@workspace/shared/availability"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-
 import { getAvailability, replaceAvailability } from "@/api/availability"
 import { errorMessage } from "@/api/client"
-import { getYears } from "@/api/years"
-import { nativeSelectClassName } from "@/components/form-styles"
-import { EmptyState, PageHeader } from "@/components/page-layout"
-import {
-  validateAvailabilityWindows,
-  type AvailabilityWindowInput,
-} from "@/lib/availability-windows"
-import {
-  japanDateStart,
-  japanLocalDateTime,
-  japanTimeZone,
-} from "@/lib/japan-time"
-
-type WindowInput = AvailabilityWindowInput
-
-function timeInJapan(value: string): string {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: japanTimeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(value))
-  const part = (type: "hour" | "minute") =>
-    parts.find((item) => item.type === type)?.value ?? ""
-  return `${part("hour")}:${part("minute")}`
-}
-
-function dateLabel(value: string): string {
-  return new Intl.DateTimeFormat("ja-JP", {
-    timeZone: japanTimeZone,
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  }).format(new Date(japanDateStart(value)))
-}
-
-function timePart(value: string): string {
-  return value.length >= 16 ? value.slice(11, 16) : ""
-}
-
-function instant(date: string, time: string): string {
-  return new Date(japanLocalDateTime(`${date}T${time}`)).toISOString()
-}
-
+import { useDisplayYear } from "@/components/use-display-year"
+import { MinuteInput } from "@/components/minute-input"
+import { PageHeader } from "@/components/page-layout"
 export function AvailabilityPage() {
-  const years = useQuery({ queryKey: ["years"], queryFn: getYears })
-  const activeYears = useMemo(
-    () => years.data?.years.filter((year) => year.status === "active") ?? [],
-    [years.data]
-  )
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const year = selectedYear ?? activeYears[0]?.year ?? null
-  const availability = useQuery({
+  const display = useDisplayYear(),
+    year = display.year
+  const query = useQuery({
     queryKey: ["availability", year],
     queryFn: year === null ? skipToken : () => getAvailability(year),
   })
-
   return (
-    <section className="mx-auto max-w-2xl space-y-6">
-      <PageHeader
-        title="シフト希望"
-        back={
-          <Button
-            className="-ml-2"
-            render={<Link to="/calendar" />}
-            nativeButton={false}
-            size="icon-sm"
-            variant="ghost"
-            aria-label="カレンダーに戻る"
-          >
-            <ChevronLeft />
-          </Button>
-        }
-      >
-        {activeYears.length > 1 && (
-          <select
-            aria-label="年度"
-            className={`${nativeSelectClassName} w-auto`}
-            value={year ?? ""}
-            onChange={(event) => setSelectedYear(Number(event.target.value))}
-          >
-            {activeYears.map((item) => (
-              <option key={item.year} value={item.year}>
-                {item.year}年度
-              </option>
-            ))}
-          </select>
+    <section className="w-full min-w-0 space-y-6">
+      <PageHeader title="シフト希望">
+        {year !== null && year !== display.data?.defaultYear && (
+          <span className="text-sm text-muted-foreground">{year}</span>
         )}
       </PageHeader>
-      {years.isPending || availability.isPending ? null : activeYears.length ===
-        0 ? (
-        <EmptyState>現在、希望は受け付けていません</EmptyState>
-      ) : availability.data && year !== null ? (
-        availability.data.availability.dates.length === 0 ? (
-          <EmptyState>入力日はまだ設定されていません</EmptyState>
-        ) : (
-          <AvailabilityForm
-            key={`${year}-${availability.data.availability.updatedAt ?? "new"}`}
-            year={year}
-            dates={availability.data.availability.dates}
-            initialWindows={availability.data.availability.windows}
-          />
-        )
+      {display.isPending ? null : year === null ? (
+        <p className="text-sm text-muted-foreground">参加年度がありません。</p>
+      ) : query.data ? (
+        <AvailabilityForm
+          key={year}
+          year={year}
+          dates={query.data.dates}
+          initialAnswers={query.data.answers}
+          submittedAnswers={query.data.submitted}
+        />
+      ) : query.isError ? (
+        <p role="alert">{errorMessage(query.error)}</p>
       ) : null}
     </section>
   )
 }
-
+function minutes(value: string) {
+  const [hour = "0", minute = "0"] = value.split(":")
+  return Number(hour) * 60 + Number(minute)
+}
+function time(value: number) {
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`
+}
 function AvailabilityForm({
   year,
   dates,
-  initialWindows,
+  initialAnswers,
+  submittedAnswers,
 }: {
   year: number
-  dates: string[]
-  initialWindows: Array<{
-    id?: string | undefined
-    date: string
-    startsAt: string
-    endsAt: string
-  }>
+  dates: FormDate[]
+  submittedAnswers: DayAnswer[]
+  initialAnswers: DayAnswer[]
 }) {
-  const queryClient = useQueryClient()
-  const [windows, setWindows] = useState<WindowInput[]>(() =>
-    initialWindows.map((window) => ({
-      id: window.id ?? crypto.randomUUID(),
-      date: window.date,
-      startsAt: `${window.date}T${timeInJapan(window.startsAt)}`,
-      endsAt: `${window.date}T${timeInJapan(window.endsAt)}`,
-    }))
-  )
-  const [pending, setPending] = useState<"draft" | "submitted" | null>(null)
-  const validation = validateAvailabilityWindows(windows)
-  const groups = useMemo(
-    () =>
-      dates.map(
-        (date) =>
-          [
-            date,
-            windows
-              .filter((window) => window.date === date)
-              .toSorted((left, right) =>
-                left.startsAt.localeCompare(right.startsAt)
-              ),
-          ] as const
-      ),
-    [dates, windows]
-  )
-
-  function updateWindow(id: string, update: Partial<WindowInput>) {
-    setWindows((current) =>
-      current.map((window) =>
-        window.id === id ? { ...window, ...update } : window
-      )
+  const client = useQueryClient()
+  const { state } = getRouteApi("/_app").useRouteContext()
+  const recoveryKey = `availability-recovery:${state.member.studentId}:${year}`
+  const [answers, setAnswers] = useState(() => {
+    try {
+      const raw = localStorage.getItem(recoveryKey)
+      const parsed = raw
+        ? v.safeParse(v.array(dayAnswerSchema), JSON.parse(raw))
+        : null
+      if (parsed?.success)
+        return dates.flatMap((date) => {
+          const answer =
+            (date.accepting ? parsed.output : initialAnswers).find(
+              (item) => item.date === date.date
+            ) ?? initialAnswers.find((item) => item.date === date.date)
+          return answer ? [answer] : []
+        })
+    } catch {
+      /* The server draft remains available if browser storage is unavailable. */
+    }
+    return initialAnswers
+  })
+  const [pending, setPending] = useState(false),
+    [failure, setFailure] = useState<string | null>(null),
+    [submitted, setSubmitted] = useState(() =>
+      dates
+        .filter((d) => d.accepting)
+        .every((d) => {
+          const answer = initialAnswers.find((a) => a.date === d.date),
+            sent = submittedAnswers.find((a) => a.date === d.date)
+          return (
+            answer &&
+            sent &&
+            answer.version === d.version &&
+            answer.choice === sent.choice &&
+            (answer.choice !== "times" ||
+              JSON.stringify(
+                answer.times.map(({ from, to }) => ({ from, to }))
+              ) ===
+                JSON.stringify(
+                  sent.times.map(({ from, to }) => ({ from, to }))
+                ))
+          )
+        })
     )
-  }
-
-  function addWindow(date: string) {
-    const previous = windows
-      .filter((window) => window.date === date)
-      .toSorted((left, right) => left.endsAt.localeCompare(right.endsAt))
-      .at(-1)
-    const start = previous ? timePart(previous.endsAt) : "09:00"
-    const [hour = 9, minute = 0] = start.split(":").map(Number)
-    const endTotal = hour * 60 + minute + 60
-    const end =
-      endTotal < 24 * 60
-        ? `${String(Math.floor(endTotal / 60)).padStart(2, "0")}:${String(endTotal % 60).padStart(2, "0")}`
-        : "23:59"
-
-    setWindows((current) => [
-      ...current,
+  const lastSaved = useRef(JSON.stringify(initialAnswers)),
+    queue = useRef(Promise.resolve()),
+    latest = useRef(answers)
+  latest.current = answers
+  useEffect(() => {
+    const json = JSON.stringify(answers)
+    if (json === lastSaved.current) return undefined
+    try {
+      localStorage.setItem(recoveryKey, json)
+    } catch {
+      /* Surface network save failures below. */
+    }
+    const timer = window.setTimeout(() => {
+      queue.current = queue.current.then(async () => {
+        try {
+          await replaceAvailability(year, { answers, submit: false })
+          lastSaved.current = json
+          try {
+            if (localStorage.getItem(recoveryKey) === json)
+              localStorage.removeItem(recoveryKey)
+          } catch {
+            /* No persistent browser storage. */
+          }
+          setFailure(null)
+        } catch (error) {
+          setFailure(errorMessage(error))
+        }
+      })
+    }, 500)
+    return () => window.clearTimeout(timer)
+  }, [answers, year, recoveryKey])
+  useEffect(
+    () => () => {
+      const current = latest.current
+      if (JSON.stringify(current) !== lastSaved.current)
+        queue.current = queue.current.then(async () => {
+          try {
+            await replaceAvailability(year, { answers: current, submit: false })
+          } catch {
+            /* The recovery copy is restored when this page is reopened. */
+          }
+        })
+    },
+    [year]
+  )
+  function update(
+    date: FormDate,
+    choice: DayAnswer["choice"],
+    times?: DayAnswer["times"]
+  ) {
+    const old = answers.find((answer) => answer.date === date.date)
+    setAnswers([
+      ...answers.filter((answer) => answer.date !== date.date),
       {
-        id: crypto.randomUUID(),
-        date,
-        startsAt: `${date}T${start}`,
-        endsAt: `${date}T${end}`,
+        date: date.date,
+        version: date.version,
+        choice,
+        times: times ??
+          old?.times ?? [
+            {
+              id: crypto.randomUUID(),
+              from: date.startsMinute,
+              to: date.endsMinute,
+            },
+          ],
       },
     ])
+    setSubmitted(false)
   }
-
-  async function save(status: "draft" | "submitted") {
-    if (validation) {
-      toast.error(validation)
-      return
-    }
-    setPending(status)
+  async function submit() {
+    setPending(true)
+    await queue.current
     try {
-      await replaceAvailability(year, {
-        status,
-        windows: windows.map((window) => ({
-          date: window.date,
-          startsAt: instant(window.date, timePart(window.startsAt)),
-          endsAt: instant(window.date, timePart(window.endsAt)),
-        })),
-      })
-      await queryClient.invalidateQueries({ queryKey: ["availability", year] })
-      toast.success(
-        status === "submitted"
-          ? "希望を提出しました。"
-          : "下書きを保存しました。"
-      )
+      await replaceAvailability(year, { answers, submit: true })
+      lastSaved.current = JSON.stringify(answers)
+      try {
+        localStorage.removeItem(recoveryKey)
+      } catch {
+        /* No persistent browser storage. */
+      }
+      setFailure(null)
+      setSubmitted(true)
+      await client.invalidateQueries({ queryKey: ["availability", year] })
+      toast.success("希望を提出しました。")
     } catch (error) {
-      toast.error(errorMessage(error))
+      setFailure(errorMessage(error))
     } finally {
-      setPending(null)
+      setPending(false)
     }
   }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    void save("submitted")
-  }
-
+  if (!dates.length)
+    return (
+      <p className="text-sm text-muted-foreground">
+        日程はまだ設定されていません。
+      </p>
+    )
   return (
-    <form className="space-y-6" onSubmit={submit}>
-      {groups.map(([date, group]) => (
-        <section key={date}>
-          <h2 className="flex min-h-11 items-center border-b font-medium">
-            {dateLabel(date)}
-          </h2>
-          <div className="divide-y">
-            {group.map((window) => (
-              <div
-                key={window.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 py-3"
-              >
-                <Input
-                  type="time"
-                  aria-label={`${dateLabel(date)}の開始時刻`}
-                  className="h-11"
-                  required
-                  value={timePart(window.startsAt)}
-                  onChange={(event) =>
-                    updateWindow(window.id, {
-                      startsAt: `${date}T${event.target.value}`,
-                    })
-                  }
-                />
-                <span className="text-muted-foreground">–</span>
-                <Input
-                  type="time"
-                  aria-label={`${dateLabel(date)}の終了時刻`}
-                  className="h-11"
-                  required
-                  value={timePart(window.endsAt)}
-                  onChange={(event) =>
-                    updateWindow(window.id, {
-                      endsAt: `${date}T${event.target.value}`,
-                    })
-                  }
-                />
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label="時間帯を削除"
-                  onClick={() =>
-                    setWindows((current) =>
-                      current.filter((item) => item.id !== window.id)
-                    )
-                  }
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <Button
-            className="mt-2"
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={windows.length >= 64}
-            onClick={() => addWindow(date)}
+    <div className="space-y-5">
+      {dates.map((date) => {
+        const answer = answers.find((item) => item.date === date.date),
+          stale = answer && answer.version !== date.version
+        return (
+          <section
+            key={date.date}
+            className="rounded-lg border border-border/70 p-4"
           >
-            <Plus />
-            時間帯を追加
-          </Button>
-        </section>
-      ))}
-
-      <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] -mx-4 flex gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:justify-end sm:bg-transparent sm:px-0 sm:pb-0 sm:backdrop-blur-none md:bottom-0">
+            <header className="mb-4 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-medium">
+                {new Intl.DateTimeFormat("ja-JP", {
+                  month: "long",
+                  day: "numeric",
+                  weekday: "short",
+                }).format(new Date(`${date.date}T12:00:00+09:00`))}
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                {date.accepting
+                  ? `${time(date.startsMinute)}–${time(date.endsMinute)}`
+                  : "受付終了"}
+              </span>
+            </header>
+            <fieldset
+              disabled={!date.accepting || pending}
+              className="space-y-3"
+            >
+              <div className="flex gap-1 rounded-md bg-muted p-1">
+                {(
+                  [
+                    { value: "all", label: "終日参加" },
+                    { value: "times", label: "時間を指定" },
+                    { value: "no", label: "不参加" },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`min-h-10 flex-1 rounded-sm px-2 text-sm ${answer?.choice === value ? "bg-background font-medium shadow-xs" : "text-muted-foreground"}`}
+                    aria-pressed={answer?.choice === value}
+                    onClick={() => update(date, value)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {answer?.choice === "times" && (
+                <div className="space-y-2">
+                  {answer.times.map((window, index) => (
+                    <div key={window.id} className="flex items-center gap-2">
+                      <Input
+                        type="time"
+                        aria-label="参加可能な開始時刻"
+                        value={time(window.from)}
+                        onChange={(event) =>
+                          update(
+                            date,
+                            "times",
+                            answer.times.map((item, position) =>
+                              position === index
+                                ? { ...item, from: minutes(event.target.value) }
+                                : item
+                            )
+                          )
+                        }
+                      />
+                      <span>–</span>
+                      <MinuteInput
+                        label="参加可能な終了時刻"
+                        value={window.to}
+                        onChange={(value) =>
+                          update(
+                            date,
+                            "times",
+                            answer.times.map((item, position) =>
+                              position === index ? { ...item, to: value } : item
+                            )
+                          )
+                        }
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          update(
+                            date,
+                            "times",
+                            answer.times.filter(
+                              (_, position) => position !== index
+                            )
+                          )
+                        }
+                      >
+                        削除
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      update(date, "times", [
+                        ...answer.times,
+                        {
+                          id: crypto.randomUUID(),
+                          from: date.startsMinute,
+                          to: date.endsMinute,
+                        },
+                      ])
+                    }
+                  >
+                    時間を追加
+                  </Button>
+                </div>
+              )}
+              {stale && date.accepting && (
+                <p className="text-sm text-amber-700">
+                  日程が変更されています。回答を選び直してください。
+                </p>
+              )}
+            </fieldset>
+          </section>
+        )
+      })}
+      {failure && (
+        <p role="alert" className="text-sm text-destructive">
+          {failure}
+        </p>
+      )}
+      <div className="flex justify-end">
         <Button
-          className="flex-1 sm:flex-none"
-          type="button"
-          variant="outline"
-          disabled={pending !== null}
-          onClick={() => void save("draft")}
+          disabled={
+            pending || submitted || !dates.some((date) => date.accepting)
+          }
+          onClick={() => void submit()}
         >
-          {pending === "draft" && <LoaderCircle className="animate-spin" />}
-          下書き保存
-        </Button>
-        <Button
-          className="flex-1 sm:flex-none"
-          type="submit"
-          disabled={pending !== null}
-        >
-          {pending === "submitted" && <LoaderCircle className="animate-spin" />}
-          提出
+          {submitted ? "提出済み" : "提出する"}
         </Button>
       </div>
-    </form>
+    </div>
   )
 }

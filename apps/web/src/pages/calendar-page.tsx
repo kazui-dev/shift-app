@@ -13,7 +13,8 @@ import { SquarePen } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 
-import { checkIn, submitAssignmentReport } from "@/api/assignments"
+import { confirmCampusLocation } from "@/lib/campus-location"
+import { checkIn } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -126,38 +127,25 @@ export function CalendarPage() {
   async function recordCheckIn(assignmentId: string): Promise<void> {
     setPendingAssignmentId(assignmentId)
     try {
-      await checkIn(assignmentId)
+      const locationConfirmed = await confirmCampusLocation()
+      const result = await checkIn(assignmentId, locationConfirmed)
       await queryClient.invalidateQueries({
         queryKey: ["assignments", "month"],
       })
-      toast.success("出勤を記録しました。")
+      toast.success(
+        result.attendance.status === "confirmed"
+          ? "出勤を記録しました。"
+          : "出勤を記録しました。責任者の確認をお待ちください。"
+      )
     } catch (error) {
       toast.error(errorMessage(error))
-    } finally {
-      setPendingAssignmentId(null)
-    }
-  }
-
-  async function submitReport(
-    assignmentId: string,
-    kind: "late" | "absence",
-    message: string
-  ): Promise<boolean> {
-    setPendingAssignmentId(assignmentId)
-    try {
-      await submitAssignmentReport(assignmentId, { kind, message })
-      toast.success("連絡を送信しました。")
-      return true
-    } catch (error) {
-      toast.error(errorMessage(error))
-      return false
     } finally {
       setPendingAssignmentId(null)
     }
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-3">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
       <header className="flex shrink-0 items-center justify-between gap-3">
         <MonthSwitcher
           date={date}
@@ -220,12 +208,10 @@ export function CalendarPage() {
           <AssignmentDetailsDialog
             key={selectedAssignment.id}
             assignment={selectedAssignment}
-            dataUpdatedAt={calendarAssignments.selectedMonthDataUpdatedAt}
             offline={offline}
             pending={pendingAssignmentId === selectedAssignment.id}
             onCheckIn={recordCheckIn}
             onClose={() => setSelectedAssignmentId(null)}
-            onSubmitReport={submitReport}
           />
         )}
       </div>

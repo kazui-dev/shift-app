@@ -76,6 +76,7 @@ export function PushControl() {
 
   return (
     <Switch
+      className="after:right-0"
       id="push-notifications"
       aria-label="通知"
       aria-busy={state.syncing}

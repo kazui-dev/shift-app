@@ -19,7 +19,7 @@ type IdentityLinkDecisionRow = {
 
 export const adminCommandsApp = new Hono<AdminEnv>()
 
-adminCommandsApp.patch("/members/:memberId", async (c) => {
+adminCommandsApp.patch("/users/:memberId", async (c) => {
   const parsed = v.safeParse(
     updateAccessLevelInputSchema,
     await readJson(c.req.raw)
@@ -32,11 +32,11 @@ adminCommandsApp.patch("/members/:memberId", async (c) => {
   }
 
   const targetMemberId = c.req.param("memberId")
-  const adminMember = c.get("adminMember")
+  const adminUser = c.get("adminUser")
   const target = await c.env.shift_app
     .prepare(
       `SELECT id, user_id AS userId, access_level AS accessLevel
-       FROM members
+       FROM app_users
        WHERE id = ?`
     )
     .bind(targetMemberId)
@@ -49,7 +49,7 @@ adminCommandsApp.patch("/members/:memberId", async (c) => {
   if (!target) {
     return c.json(apiErrorBody("MEMBER_NOT_FOUND", "Member not found"), 404)
   }
-  if (target.id === adminMember.id) {
+  if (target.id === adminUser.id) {
     return c.json(
       apiErrorBody("SELF_ROLE_CHANGE", "You cannot change your own role"),
       409
@@ -72,35 +72,35 @@ adminCommandsApp.patch("/members/:memberId", async (c) => {
         `INSERT INTO admin_audit_logs
           (id, actor_user_id, actor_type, action, target_member_id, details, created_at)
          SELECT ?, ?, 'system_admin', 'member.access_level.updated', m.id, ?, ?
-         FROM members m
+         FROM app_users m
          WHERE m.id = ?
            AND m.user_id <> ?
            AND m.access_level <> ?
            AND (
              m.access_level <> 'system_admin'
              OR ? = 'system_admin'
-             OR (SELECT COUNT(*) FROM members WHERE access_level = 'system_admin') > 1
+             OR (SELECT COUNT(*) FROM app_users WHERE access_level = 'system_admin') > 1
            )`
       )
       .bind(
         auditId,
-        adminMember.userId,
+        adminUser.userId,
         details,
         now,
         targetMemberId,
-        adminMember.userId,
+        adminUser.userId,
         parsed.output.accessLevel,
         parsed.output.accessLevel
       ),
     c.env.shift_app
       .prepare(
-        `UPDATE members
+        `UPDATE app_users
          SET access_level = ?, updated_at = ?
          WHERE id = ?
            AND EXISTS (
              SELECT 1 FROM admin_audit_logs
-             WHERE id = ? AND target_member_id = members.id
-           )`
+             WHERE id = ? AND target_member_id = app_users.id
+           ) RETURNING id`
       )
       .bind(parsed.output.accessLevel, now, targetMemberId, auditId),
   ])
@@ -109,7 +109,7 @@ adminCommandsApp.patch("/members/:memberId", async (c) => {
     !auditResult ||
     !updateResult ||
     auditResult.meta.changes !== 1 ||
-    updateResult.meta.changes !== 1
+    !updateResult.results.length
   ) {
     return c.json(
       apiErrorBody(
@@ -123,7 +123,7 @@ adminCommandsApp.patch("/members/:memberId", async (c) => {
   return c.json({ ok: true as const })
 })
 
-adminCommandsApp.post("/members/:memberId/revoke-sessions", async (c) => {
+adminCommandsApp.post("/users/:memberId/revoke-sessions", async (c) => {
   const parsed = v.safeParse(
     revokeSessionsInputSchema,
     await readJson(c.req.raw)
@@ -136,7 +136,7 @@ adminCommandsApp.post("/members/:memberId/revoke-sessions", async (c) => {
   }
 
   const targetMemberId = c.req.param("memberId")
-  const adminMember = c.get("adminMember")
+  const adminUser = c.get("adminUser")
   const auditId = crypto.randomUUID()
   const now = Date.now()
   const details = JSON.stringify({ reason: parsed.output.reason })
@@ -146,14 +146,14 @@ adminCommandsApp.post("/members/:memberId/revoke-sessions", async (c) => {
         `INSERT INTO admin_audit_logs
           (id, actor_user_id, actor_type, action, target_member_id, details, created_at)
          SELECT ?, ?, 'system_admin', 'member.sessions.revoked', m.id, ?, ?
-         FROM members m
+         FROM app_users m
          WHERE m.id = ?`
       )
-      .bind(auditId, adminMember.userId, details, now, targetMemberId),
+      .bind(auditId, adminUser.userId, details, now, targetMemberId),
     c.env.shift_app
       .prepare(
         `DELETE FROM session
-         WHERE user_id = (SELECT user_id FROM members WHERE id = ?)
+         WHERE user_id = (SELECT user_id FROM app_users WHERE id = ?)
            AND EXISTS (SELECT 1 FROM admin_audit_logs WHERE id = ?)`
       )
       .bind(targetMemberId, auditId),
@@ -185,7 +185,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
   }
 
   const requestId = c.req.param("requestId")
-  const adminMember = c.get("adminMember")
+  const adminUser = c.get("adminUser")
   const request = await c.env.shift_app
     .prepare(
       `SELECT
@@ -194,7 +194,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
         target.id AS targetMemberId,
         target.user_id AS targetUserId
        FROM identity_link_requests request
-       JOIN members target ON target.id = request.target_member_id
+       JOIN app_users target ON target.id = request.target_member_id
        WHERE request.id = ? AND request.status = 'pending'`
     )
     .bind(requestId)
@@ -208,7 +208,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
   }
   if (
     parsed.output.decision === "approved" &&
-    request.targetMemberId === adminMember.id
+    request.targetMemberId === adminUser.id
   ) {
     return c.json(
       apiErrorBody(
@@ -234,7 +234,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
            FROM identity_link_requests request
            WHERE request.id = ? AND request.status = 'pending'`
         )
-        .bind(auditId, adminMember.userId, action, details, now, requestId),
+        .bind(auditId, adminUser.userId, action, details, now, requestId),
       c.env.shift_app
         .prepare(
           `UPDATE identity_link_requests
@@ -242,7 +242,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
            WHERE id = ?
              AND EXISTS (SELECT 1 FROM admin_audit_logs WHERE id = ?)`
         )
-        .bind(adminMember.id, now, requestId, auditId),
+        .bind(adminUser.id, now, requestId, auditId),
     ])
 
     if (
@@ -270,12 +270,12 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
           (id, actor_user_id, actor_type, action, target_member_id, details, created_at)
          SELECT ?, ?, 'system_admin', ?, request.target_member_id, ?, ?
          FROM identity_link_requests request
-         JOIN members target ON target.id = request.target_member_id
+         JOIN app_users target ON target.id = request.target_member_id
          WHERE request.id = ?
            AND request.status = 'pending'
            AND target.id <> ?
            AND NOT EXISTS (
-             SELECT 1 FROM members WHERE user_id = request.requester_user_id
+             SELECT 1 FROM app_users WHERE user_id = request.requester_user_id
            )
            AND (
              SELECT COUNT(*) FROM account
@@ -290,12 +290,12 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
       )
       .bind(
         auditId,
-        adminMember.userId,
+        adminUser.userId,
         action,
         details,
         now,
         requestId,
-        adminMember.id,
+        adminUser.id,
         c.env.DISCORD_GUILD_ID
       ),
     c.env.shift_app
@@ -342,7 +342,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
          WHERE id = ?
            AND EXISTS (SELECT 1 FROM admin_audit_logs WHERE id = ?)`
       )
-      .bind(adminMember.id, now, requestId, auditId),
+      .bind(adminUser.id, now, requestId, auditId),
   ]
   const results = await c.env.shift_app.batch(statements)
 
