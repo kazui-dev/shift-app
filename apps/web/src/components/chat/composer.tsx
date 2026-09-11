@@ -252,7 +252,7 @@ export function ChatComposer({
         <Button
           type="submit"
           size="icon-sm"
-          className={`absolute right-2 bottom-2 size-8 rounded-full ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
+          className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
           aria-label="送信"
           disabled={disabled || (!draft.content.trim() && !draft.files.length)}
         >
