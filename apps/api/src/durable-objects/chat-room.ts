@@ -1,3 +1,5 @@
+import type { ChatAttachment } from "@workspace/shared/communications"
+import { ChatAttachments } from "./chat-attachments"
 import { DurableObject } from "cloudflare:workers"
 
 type ChatMessage = {
@@ -7,6 +9,7 @@ type ChatMessage = {
   memberDisplayName: string
   content: string
   createdAt: string
+  attachments: ChatAttachment[]
 }
 
 type StoredMessage = {
@@ -20,6 +23,7 @@ type StoredMessage = {
 
 export class ChatRoom extends DurableObject<CloudflareBindings> {
   private deleted = false
+  private attachments: ChatAttachments
 
   async deleteMessages(roomId: string) {
     const room = await this.env.shift_app
@@ -30,10 +34,12 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     this.deleted = true
     for (const socket of this.ctx.getWebSockets())
       socket.close(1000, "Room deleted")
+    await this.attachments.clean(true)
     this.ctx.storage.sql.exec("DELETE FROM messages")
   }
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {
     super(ctx, env)
+    this.attachments = new ChatAttachments(ctx.storage, env.CHAT_IMAGES)
     void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
   }
 
@@ -62,6 +68,40 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         CREATE INDEX messages_created_at_idx ON messages(created_at);
         INSERT INTO _sql_schema_migrations (id) VALUES (1);
       `)
+    }
+    if (version < 2) {
+      this.ctx.storage.transactionSync(() => {
+        this.attachments.migrate()
+        this.ctx.storage.sql.exec(
+          "INSERT INTO _sql_schema_migrations (id) VALUES (2)"
+        )
+      })
+    }
+  }
+
+  async reserveAttachment(roomId: string, memberId: string) {
+    if (this.deleted) return null
+    return this.attachments.reserve(roomId, memberId)
+  }
+  finishAttachment(
+    id: string,
+    memberId: string,
+    image: Omit<ChatAttachment, "id">
+  ) {
+    return !this.deleted && this.attachments.finish(id, memberId, image)
+  }
+  getAttachment(id: string, beforeTime: number | null) {
+    return this.attachments.readable(id, beforeTime)
+  }
+  deleteAttachment(id: string, memberId: string) {
+    return this.attachments.remove(id, memberId)
+  }
+  override async alarm() {
+    try {
+      await this.attachments.clean()
+    } catch (error) {
+      await this.ctx.storage.setAlarm(Date.now() + 300_000)
+      throw error
     }
   }
 
@@ -103,6 +143,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     memberDisplayName: string
     content: string
     createdAt: number
+    attachmentIds: string[]
   }): Promise<ChatMessage> {
     const permission = await this.env.shift_app
       .prepare(
@@ -122,23 +163,29 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       )
       .toArray()[0]
     if (existing) {
+      if (existing.memberId !== input.memberId)
+        throw new Error("MESSAGE_ID_CONFLICT")
       return this.toMessage(existing)
     }
-    const row = this.ctx.storage.sql
-      .exec<StoredMessage>(
-        `INSERT INTO messages
+    const row = this.ctx.storage.transactionSync(() => {
+      const inserted = this.ctx.storage.sql
+        .exec<StoredMessage>(
+          `INSERT INTO messages
           (id, member_id, member_display_name, content, created_at)
          VALUES (?, ?, ?, ?, ?)
          RETURNING sequence, id, member_id AS memberId,
                    member_display_name AS memberDisplayName, content,
                    created_at AS createdAt`,
-        input.id,
-        input.memberId,
-        input.memberDisplayName,
-        input.content,
-        input.createdAt
-      )
-      .one()
+          input.id,
+          input.memberId,
+          input.memberDisplayName,
+          input.content,
+          input.createdAt
+        )
+        .one()
+      this.attachments.claim(input.attachmentIds, input.memberId, input.id)
+      return inserted
+    })
     const message = this.toMessage(row)
     const payload = JSON.stringify({ type: "message", message })
     const allowed = await this.env.shift_app
@@ -200,6 +247,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     return {
       ...row,
       createdAt: new Date(row.createdAt).toISOString(),
+      attachments: this.attachments.forMessage(row.id),
     }
   }
 }

@@ -35,10 +35,38 @@ export const createChatRoomInputSchema = v.object({
   targets: v.pipe(v.array(chatTargetSchema), v.minLength(1), v.maxLength(100)),
 })
 
-export const sendChatMessageInputSchema = v.object({
+export const chatImageLimits = {
+  bytes: 10 * 1024 * 1024,
+  count: 4,
+  pixels: 40_000_000,
+} as const
+export const chatAttachmentSchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
-  content: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(2000)),
+  width: v.pipe(v.number(), v.integer(), v.gtValue(0)),
+  height: v.pipe(v.number(), v.integer(), v.gtValue(0)),
+  bytes: v.pipe(v.number(), v.integer(), v.gtValue(0)),
 })
+export type ChatAttachment = v.InferOutput<typeof chatAttachmentSchema>
+export const chatAttachmentEnvelopeSchema = v.object({
+  attachment: chatAttachmentSchema,
+})
+export const sendChatMessageInputSchema = v.pipe(
+  v.object({
+    id: v.pipe(v.string(), v.uuid()),
+    content: v.pipe(v.string(), v.trim(), v.maxLength(2000)),
+    attachmentIds: v.optional(
+      v.pipe(
+        v.array(v.pipe(v.string(), v.uuid())),
+        v.maxLength(chatImageLimits.count)
+      ),
+      []
+    ),
+  }),
+  v.check(
+    (value) => value.content.length > 0 || value.attachmentIds.length > 0,
+    "本文または画像を追加してください。"
+  )
+)
 
 export const chatRoomResponseSchema = v.object({
   kind: v.picklist(["custom", "global", "shift"]),
@@ -75,6 +103,7 @@ export const chatMessageResponseSchema = v.object({
   memberId: v.pipe(v.string(), v.uuid()),
   memberDisplayName: v.string(),
   content: v.string(),
+  attachments: v.optional(v.array(chatAttachmentSchema), []),
   createdAt: instantSchema,
 })
 
@@ -136,4 +165,14 @@ export const roomSettingsInputSchema = v.strictObject({
 export const roomSettingsResponseSchema = v.object({
   ...roomSettingsInputSchema.entries,
   kind: v.picklist(["custom", "global", "shift"]),
+})
+
+export const chatMembersResponseSchema = v.object({
+  members: v.array(
+    v.object({
+      id: v.string(),
+      displayName: v.string(),
+      canManage: v.boolean(),
+    })
+  ),
 })

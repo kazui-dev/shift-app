@@ -40,6 +40,8 @@ import { Button } from "@workspace/ui/components/button"
 vp run cf-typegen
 ```
 
+チャットの画像には非公開R2 bucket `shift-app-chat-images` とImages bindingを使う。別環境を作成する場合はbucketを作成し、`r2.dev`公開アクセスとカスタムドメインを有効にしない。`CHAT_IMAGES`と`IMAGES`のbindingは`apps/api/wrangler.jsonc`で管理する。local previewはローカルのR2/Imagesエミュレーターで検証できる。
+
 Hono では `CloudflareBindings` を使う。
 
 ```ts

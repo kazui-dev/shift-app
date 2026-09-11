@@ -44,9 +44,9 @@
 週ヘッダーへ描画する。各carouselはスクロール位置を直接同期せず、選択日だけを共有
 する。日のドラッグ中は週ヘッダー上の専用presentation layerへ進捗を描画する。
 
-Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャット送信は安定したmutation key、再構築可能な既定`mutationFn`、client生成UUIDを使い、オフラインで停止したmutationを再読み込み後に再開する。
+Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャットの下書きと送信待ちは専用のIndexedDB storeに利用者・ルーム別で保存し、画像のBlobも保持する。送信内容を永続化してからアップロードと送信を開始し、client生成UUIDで再送を冪等化する。既存の停止中text mutationは既定`mutationFn`で再開できる状態を保つ。新しい送信は専用outboxだけを使う。
 
-オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutationを破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
+オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutation、チャットの下書き・送信待ち画像を破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
 
 Push購読toggleはアプリ起動時に端末状態を一度だけ読み込む共有storeを使い、設定画面の初回描画前に確定させる。操作時は同期中も入力を受け付け、表示を即座に最新の選択へ合わせる。未確定の選択だけを認証利用者単位・短期有効のsession storage adapterへ保存し、再読み込み後も同じ同期coordinatorへ復元する。外部I/Oは直列化して最後の選択へ収束させ、成功時は表示をそのまま確定して一時状態を削除する。最終状態の同期に失敗した場合だけ、storeが保持する直前の確定状態へ戻してエラーを通知する。それ以外のoptimistic updateは、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
@@ -77,31 +77,35 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 
 主な route:
 
-| Route                                       | Responsibility                   |
-| ------------------------------------------- | -------------------------------- |
-| `/api/health`                               | Worker・D1のreadiness            |
-| `/api/auth/*`                               | Better Auth handler              |
-| `/api/account`                              | 認証状態取得・onboarding         |
-| `/api/admin/*`                              | system admin専用の管理・監査     |
-| `/api/me/assignments`                       | ログイン中 member の割当一覧     |
-| `/api/me/availability/:year`                | 本人の希望時間帯                 |
-| `/api/years`                                | 年度の一覧・作成                 |
-| `/api/years/:year/roles`                    | 年度別 role と機能権限           |
-| `/api/years/:year/roster`                   | 割当候補 member と年度別 role    |
-| `/api/years/:year/memberships`              | 年度参加者の一覧・有効化・無効化 |
-| `/api/years/:year/availability-submissions` | 管理者向け希望一覧               |
-| `/api/years/:year/availability-dates`       | 希望を入力できる日付の管理       |
-| `/api/years/:year/activities`               | 年度内 activity                  |
-| `/api/activities/:activityId`               | activity と割当                  |
-| `/api/assignments/:assignmentId/attendance` | 本人の出勤記録                   |
-| `/api/assignments/:assignmentId/report`     | 本人の遅刻・欠勤連絡             |
-| `/api/reports/:reportId`                    | 連絡状態の更新                   |
-| `/api/chat/rooms`                           | 閲覧可能ルームの一覧・作成       |
-| `/api/chat/targets`                         | 年度内のチャット対象候補         |
-| `/api/chat/rooms/:roomId/messages`          | メッセージ履歴・送信             |
-| `/api/chat/rooms/:roomId/ws`                | リアルタイム受信                 |
-| `/api/push/config`                          | VAPID公開鍵                      |
-| `/api/push/subscriptions`                   | 端末のPush購読登録・解除         |
+| Route                                               | Responsibility                     |
+| --------------------------------------------------- | ---------------------------------- |
+| `/api/health`                                       | Worker・D1のreadiness              |
+| `/api/auth/*`                                       | Better Auth handler                |
+| `/api/account`                                      | 認証状態取得・onboarding           |
+| `/api/admin/*`                                      | system admin専用の管理・監査       |
+| `/api/me/assignments`                               | ログイン中 member の割当一覧       |
+| `/api/me/availability/:year`                        | 本人の希望時間帯                   |
+| `/api/years`                                        | 年度の一覧・作成                   |
+| `/api/years/:year/roles`                            | 年度別 role と機能権限             |
+| `/api/years/:year/roster`                           | 割当候補 member と年度別 role      |
+| `/api/years/:year/memberships`                      | 年度参加者の一覧・有効化・無効化   |
+| `/api/years/:year/availability-submissions`         | 管理者向け希望一覧                 |
+| `/api/years/:year/availability-dates`               | 希望を入力できる日付の管理         |
+| `/api/years/:year/activities`                       | 年度内 activity                    |
+| `/api/activities/:activityId`                       | activity と割当                    |
+| `/api/assignments/:assignmentId/attendance`         | 本人の出勤記録                     |
+| `/api/assignments/:assignmentId/report`             | 本人の遅刻・欠勤連絡               |
+| `/api/reports/:reportId`                            | 連絡状態の更新                     |
+| `/api/chat/rooms`                                   | 閲覧可能ルームの一覧・作成         |
+| `/api/chat/targets`                                 | 年度内のチャット対象候補           |
+| `/api/chat/rooms/:roomId`                           | 直接リンク用のルーム情報           |
+| `/api/chat/rooms/:roomId/members`                   | 閲覧権限を持つメンバーの表示名     |
+| `/api/chat/rooms/:roomId/attachments`               | 画像の検証・アップロード           |
+| `/api/chat/rooms/:roomId/attachments/:attachmentId` | 認可付き画像配信・未送信画像の削除 |
+| `/api/chat/rooms/:roomId/messages`                  | メッセージ履歴・送信               |
+| `/api/chat/rooms/:roomId/ws`                        | リアルタイム受信                   |
+| `/api/push/config`                                  | VAPID公開鍵                        |
+| `/api/push/subscriptions`                           | 端末のPush購読登録・解除           |
 
 アプリ固有の変更系requestは同一originを必須にする。`/api/account`は認証済みだがonboarding前のuserを受け付け、`/api/admin/*`は毎回`system_admin`を再確認する。それ以外のshift APIはonboarding済みmemberを必須にし、対象年度の参加状態または権限を確認する。`/api/auth/*`はBetter Authのhandlerとresponse契約に委譲する。
 
@@ -250,3 +254,13 @@ Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`ex
 
 チャットの実効権限はD1のviewで年度参加、シフト、責任者、明示宛先を合算する。退出後は退出時点までの履歴だけを読める。シフト削除時には削除待ちテーブルを経由し、Durable Objectのメッセージ削除に失敗してもcronで再試行する。
 出勤訂正・連絡理由と履歴は本人または現在の責任者・全シフト管理者に限定し、参加者全体には公開しない。
+
+### チャット画面と画像
+
+`/chat`をルーム一覧、`/chat/:roomId`を会話の正規URLとする。roomIdは既存のUUIDを利用する。PCでは親routeに一覧を維持して会話だけを切り替え、スマートフォンでは一覧と会話を別画面として表示する。通知とカレンダーも同じルームURLを参照する。メッセージは吹き出しにせず、同一投稿者の連続投稿をまとめる。入力欄のサイズ変更はメッセージviewportの高さを変えず、末尾の余白で重なりを防ぐ。
+
+画像本体は非公開R2 bucket `shift-app-chat-images`（`CHAT_IMAGES` binding）に保存し、公開URL・署名付きURLは発行しない。Workerが毎回D1のルーム閲覧権限と退出時点を確認して配信する。応答は`private, no-store`、`nosniff`、same-origin resource policyとする。送信済み画像はオフラインキャッシュへ保存しない。
+
+アップロードは1枚10MB・4000万画素、1投稿4枚まで。Images bindingで実体を検査し、JPEG/PNG/WebP/HEIC/HEIF/AVIFを最大2400pxの静止WebPに変換する。EXIF・XMP・未知のmetadata chunkを除去し、原本は保存しない。利用者・ルーム単位の24時間100回の上限は失敗や取り消しでも減らさない。
+
+添付metadataは各ChatRoomのSQLite schema version 2で管理する。投稿者が所有する未送信画像だけを本文と同一transactionで確定し、未送信の画像は配信しない。24時間以上残った未送信画像はDurable Object alarmで削除し、失敗時は再試行する。ルーム削除時は既存の削除待ちcronから画像と本文を削除する。D1のschema変更はない。

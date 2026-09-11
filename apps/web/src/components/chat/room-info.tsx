@@ -1,0 +1,68 @@
+import { useQuery } from "@tanstack/react-query"
+import { getChatMembers, type getChatRoom } from "@/api/chat"
+import { ResponsiveSheet } from "../responsive-overlay"
+import { roomSchedule } from "./room-schedule"
+export function RoomInfo({
+  room,
+  onClose,
+}: {
+  room: Awaited<ReturnType<typeof getChatRoom>>["room"]
+  onClose: () => void
+}) {
+  const query = useQuery({
+    queryKey: ["chat-members", room.id],
+    queryFn: () => getChatMembers(room.id),
+    enabled: !room.historical,
+  })
+  return (
+    <ResponsiveSheet
+      open
+      title={room.name}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <div className="space-y-5">
+        {roomSchedule(room) && (
+          <p className="text-sm text-muted-foreground">{roomSchedule(room)}</p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {room.historical
+            ? "退出前の履歴を表示しています。"
+            : room.kind === "shift"
+              ? "参加者・責任者のアクセスはシフトに連動します。"
+              : room.kind === "global"
+                ? "この年度の全メンバーが閲覧できます。"
+                : "参加しているメンバーに届きます。"}
+        </p>
+        {!room.historical && (
+          <div>
+            <h3 className="mb-3 text-sm font-medium">
+              メンバー{query.data ? ` · ${query.data.members.length}` : ""}
+            </h3>
+            <ul className="space-y-4">
+              {query.data?.members.map((member) => (
+                <li key={member.id} className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium"
+                  >
+                    {member.displayName.slice(0, 1)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {member.displayName}
+                  </span>
+                  {member.canManage && (
+                    <span className="text-xs text-muted-foreground">
+                      設定変更可
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </ResponsiveSheet>
+  )
+}

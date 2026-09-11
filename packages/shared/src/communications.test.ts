@@ -74,3 +74,22 @@ describe("communication schemas", () => {
     ).toBe(true)
   })
 })
+
+it("accepts images without text but rejects empty messages and excessive attachments", () => {
+  const id = crypto.randomUUID(),
+    attachmentIds = [crypto.randomUUID()]
+  expect(
+    v.parse(sendChatMessageInputSchema, { id, content: "", attachmentIds })
+      .attachmentIds
+  ).toEqual(attachmentIds)
+  expect(
+    v.safeParse(sendChatMessageInputSchema, { id, content: "  " }).success
+  ).toBe(false)
+  expect(
+    v.safeParse(sendChatMessageInputSchema, {
+      id,
+      content: "",
+      attachmentIds: Array.from({ length: 5 }, () => crypto.randomUUID()),
+    }).success
+  ).toBe(false)
+})

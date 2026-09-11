@@ -1,5 +1,7 @@
 import {
   chatMessageEnvelopeSchema,
+  chatAttachmentEnvelopeSchema,
+  chatMembersResponseSchema,
   chatMessagesResponseSchema,
   chatRoomEnvelopeSchema,
   chatRoomsResponseSchema,
@@ -40,7 +42,7 @@ export const getChatMessages = (roomId: string, before: number | null = null) =>
 
 export const sendChatMessage = (
   roomId: string,
-  input: { id: string; content: string }
+  input: { id: string; content: string; attachmentIds?: string[] }
 ) =>
   apiJson(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/messages`,
@@ -80,3 +82,27 @@ export const leaveChatRoom = (id: string) =>
   apiVoid(`/api/me/chat-memberships/${encodeURIComponent(id)}`, {
     method: "DELETE",
   })
+
+export const getChatRoom = (roomId: string) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}`,
+    chatRoomEnvelopeSchema
+  )
+export const chatImageUrl = (roomId: string, id: string) =>
+  `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}`
+export const uploadChatImage = (roomId: string, blob: Blob) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments`,
+    chatAttachmentEnvelopeSchema,
+    {
+      method: "POST",
+      headers: { "Content-Type": blob.type || "application/octet-stream" },
+      body: blob,
+    }
+  )
+
+export const getChatMembers = (roomId: string) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/members`,
+    chatMembersResponseSchema
+  )

@@ -36,6 +36,10 @@
       "migrations_dir": "migrations",
     },
   ],
+  "r2_buckets": [
+    { "binding": "CHAT_IMAGES", "bucket_name": "shift-app-chat-images" },
+  ],
+  "images": { "binding": "IMAGES" },
   "durable_objects": {
     "bindings": [{ "name": "CHAT_ROOMS", "class_name": "ChatRoom" }],
   },
