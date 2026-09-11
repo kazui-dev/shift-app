@@ -2,61 +2,55 @@ import { activateAppUpdate } from "@/lib/app-update"
 import { toast } from "@workspace/ui/lib/toast"
 import { useEffect, useRef, useState } from "react"
 import { LoaderCircle, RefreshCw, X } from "lucide-react"
-import { useRegisterSW } from "virtual:pwa-register/react"
+import { registerSW } from "virtual:pwa-register"
+import { monitorUpdates } from "@/lib/update-monitor"
 
 import { Button } from "@workspace/ui/components/button"
 
-const updateCheckInterval = 60 * 60 * 1000
+const updateCheckInterval = 5 * 60 * 1000
 
 export function PwaUpdateNotice() {
   const [dismissed, setDismissed] = useState(false)
   const [updating, setUpdating] = useState(false)
   const updateAbort = useRef<AbortController | null>(null)
   const initialController = useRef(navigator.serviceWorker?.controller ?? null)
-  const {
-    needRefresh: [needsRefresh, setNeedsRefresh],
-  } = useRegisterSW({
-    immediate: true,
-    onNeedReload: () => setNeedsRefresh(true),
-  })
+  const [needsRefresh, setNeedsRefresh] = useState(false)
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return undefined
-
     let disposed = false
-    const checkForUpdate = async () => {
-      if (
-        disposed ||
-        !navigator.onLine ||
-        document.visibilityState !== "visible"
-      ) {
-        return
-      }
-      try {
-        const registration = await navigator.serviceWorker.getRegistration()
-        if (!disposed) await registration?.update()
-      } catch {}
+    let monitor: ReturnType<typeof monitorUpdates> | undefined
+    const check = () => {
+      void monitor?.check()
     }
-    const checkWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        void checkForUpdate()
-      }
-    }
-    const timer = window.setInterval(
-      () => void checkForUpdate(),
-      updateCheckInterval
-    )
-    window.addEventListener("focus", checkWhenVisible)
-    window.addEventListener("online", checkWhenVisible)
-    document.addEventListener("visibilitychange", checkWhenVisible)
-
+    registerSW({
+      immediate: true,
+      // A different tab activating its worker must not reload an editing page.
+      onNeedReload: () => {},
+      onRegisteredSW: (_url, registration) => {
+        if (disposed || !registration) return
+        monitor = monitorUpdates(
+          registration,
+          () => {
+            setNeedsRefresh(true)
+            setDismissed(false)
+          },
+          () => navigator.onLine && document.visibilityState === "visible"
+        )
+      },
+    })
+    const timer = window.setInterval(check, updateCheckInterval)
+    window.addEventListener("focus", check)
+    window.addEventListener("online", check)
+    document.addEventListener("visibilitychange", check)
     return () => {
       disposed = true
+      monitor?.dispose()
       updateAbort.current?.abort()
       window.clearInterval(timer)
-      window.removeEventListener("focus", checkWhenVisible)
-      window.removeEventListener("online", checkWhenVisible)
-      document.removeEventListener("visibilitychange", checkWhenVisible)
+      window.removeEventListener("focus", check)
+      window.removeEventListener("online", check)
+      document.removeEventListener("visibilitychange", check)
     }
   }, [])
 
