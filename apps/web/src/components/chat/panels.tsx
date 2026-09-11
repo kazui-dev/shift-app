@@ -217,7 +217,7 @@ export function ChatPanels({
           inert={!desktop && !showingRoom}
           ref={conversationPanel}
           data-chat-panel="conversation"
-          className="relative z-10 flex min-h-0 min-w-0 flex-[0_0_100%] flex-col bg-background px-4 pb-[env(safe-area-inset-bottom)] sm:px-6 md:border-l md:px-0 md:pb-0"
+          className="relative z-10 flex min-h-0 min-w-0 flex-[0_0_100%] flex-col bg-background pb-[env(safe-area-inset-bottom)] md:border-l md:pb-0"
         >
           {children}
         </div>

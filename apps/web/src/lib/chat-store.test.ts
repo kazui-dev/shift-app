@@ -114,7 +114,19 @@ it("does not send when durable local storage fails", async () => {
 it("restores persisted drafts and interrupted uploads after reload", async () => {
   vi.mocked(get).mockResolvedValue({
     version: 3,
-    drafts: { two: { content: "再開", files: [] } },
+    drafts: {
+      two: {
+        content: "再開",
+        files: [
+          {
+            id: "photo",
+            name: "写真.png",
+            blob: new Blob(["image"]),
+            dimensions: { width: 120, height: 80 },
+          },
+        ],
+      },
+    },
     queue: [
       {
         id: crypto.randomUUID(),
@@ -128,6 +140,10 @@ it("restores persisted drafts and interrupted uploads after reload", async () =>
   })
   const value = await store()
   expect(value.draft("two").content).toBe("再開")
+  expect(value.draft("two").files[0]?.dimensions).toEqual({
+    width: 120,
+    height: 80,
+  })
   vi.mocked(sendChatMessage).mockResolvedValue({
     message: {
       id: crypto.randomUUID(),

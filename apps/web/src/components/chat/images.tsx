@@ -3,6 +3,7 @@ import { ImageIcon } from "lucide-react"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { chatImageUrl } from "@/api/chat"
 import { ResponsiveDialog } from "../responsive-overlay"
+import { imageSize } from "./image-size"
 
 export function LocalImage({
   blob,
@@ -57,7 +58,8 @@ export function MessageImages({
             type="button"
             onClick={() => setOpened(image)}
             aria-label={`画像${index + 1}を拡大`}
-            className="w-fit overflow-hidden rounded-xl border text-left"
+            className="max-w-full overflow-hidden rounded-xl border text-left"
+            style={imageSize(image)}
           >
             <img
               src={chatImageUrl(roomId, image.id)}
@@ -65,7 +67,7 @@ export function MessageImages({
               height={image.height}
               alt={`添付画像 ${index + 1}`}
               loading="lazy"
-              className="max-h-80 w-auto max-w-full object-contain"
+              className="size-full object-contain"
             />
           </button>
         ))}
