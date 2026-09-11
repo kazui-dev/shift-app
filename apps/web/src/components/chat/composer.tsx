@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useEffectEvent,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react"
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { ArrowUp, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
@@ -12,6 +6,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import { chatImageLimits } from "@workspace/shared/communications"
 import type { ChatDraft, ChatFile } from "@/lib/chat-store"
 import { LocalImage } from "./images"
+import { useComposerLayout } from "./use-composer-layout"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 export function ChatComposer({
@@ -26,35 +21,27 @@ export function ChatComposer({
   onSend: () => void
 }) {
   const form = useRef<HTMLFormElement>(null)
-  const input = useRef<HTMLTextAreaElement>(null),
-    fileInput = useRef<HTMLInputElement>(null)
-  const [bodyHeight, setBodyHeight] = useState(48)
-  const [expanded, setExpanded] = useState(false),
-    [dragging, setDragging] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const picking = useRef(false)
+  const [focused, setFocused] = useState(false)
+  const { input, measure, body, expanded } = useComposerLayout(
+    draft.content,
+    focused,
+    !disabled
+  )
+  const [dragging, setDragging] = useState(false)
   const touch = useMediaQuery("(pointer: coarse)")
-  useLayoutEffect(() => {
-    const field = input.current
-    if (!field) return undefined
-    let width = field.clientWidth
-    const measure = () => {
-      field.style.height = "auto"
-      const height = field.scrollHeight
-      const bounded = Math.max(32, Math.min(height, 168))
-      field.style.height = `${bounded}px`
-      setBodyHeight(bounded + 8 + (expanded ? 44 : 8))
-      if (draft.content && (draft.content.includes("\n") || height > 32))
-        setExpanded(true)
-      else if (!draft.content) setExpanded(false)
-    }
-    measure()
-    const observer = new ResizeObserver(() => {
-      if (field.clientWidth === width) return
-      width = field.clientWidth
-      measure()
-    })
-    observer.observe(field)
-    return () => observer.disconnect()
-  }, [draft.content, expanded])
+  const textClass =
+    "min-h-0 [field-sizing:fixed] touch-pan-y touch-pinch-zoom resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none focus-visible:ring-0 md:text-sm dark:bg-transparent"
+  const finishPicking = useCallback(() => {
+    picking.current = false
+    input.current?.focus({ preventScroll: true })
+  }, [input])
+  useEffect(() => {
+    const field = fileInput.current
+    field?.addEventListener("cancel", finishPicking)
+    return () => field?.removeEventListener("cancel", finishPicking)
+  }, [finishPicking])
   function addFiles(incoming: File[]) {
     const accepted: ChatFile[] = []
     for (const file of incoming) {
@@ -116,11 +103,19 @@ export function ChatComposer({
       ref={form}
       data-chat-composer
       aria-label="メッセージを作成"
+      data-expanded={expanded}
+      onFocusCapture={() => setFocused(true)}
+      onBlurCapture={(event) => {
+        if (
+          !picking.current &&
+          !event.currentTarget.contains(event.relatedTarget)
+        )
+          setFocused(false)
+      }}
       onSubmit={(event) => {
         event.preventDefault()
         if (!disabled && (draft.content.trim() || draft.files.length)) {
           onSend()
-          setExpanded(false)
           input.current?.focus({ preventScroll: true })
         }
       }}
@@ -135,6 +130,7 @@ export function ChatComposer({
         onChange={(event) => {
           addFiles(Array.from(event.target.files ?? []))
           event.target.value = ""
+          finishPicking()
         }}
       />
       {draft.files.length > 0 && (
@@ -172,8 +168,8 @@ export function ChatComposer({
         </ul>
       )}
       <div
-        style={{ height: bodyHeight }}
-        className={`relative px-2 pt-2 transition-[height,padding-bottom] duration-200 ease-out motion-reduce:transition-none ${expanded ? "pb-11" : "pb-2"}`}
+        ref={body}
+        className="relative h-12 overflow-hidden px-2 pt-2 transition-[height] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none"
       >
         <Button
           type="button"
@@ -183,7 +179,10 @@ export function ChatComposer({
           className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground"
           aria-label="画像を添付"
           title="画像を添付"
-          onClick={() => fileInput.current?.click()}
+          onClick={() => {
+            picking.current = true
+            fileInput.current?.click()
+          }}
         >
           <Plus />
         </Button>
@@ -196,13 +195,10 @@ export function ChatComposer({
           disabled={disabled}
           value={draft.content}
           enterKeyHint={touch ? "enter" : "send"}
-          className={`min-h-0 touch-pan-y touch-pinch-zoom resize-none overscroll-contain rounded-none border-0 bg-transparent py-1 text-base leading-6 shadow-none transition-[padding] duration-200 ease-out focus-visible:ring-0 motion-reduce:transition-none md:text-sm dark:bg-transparent ${expanded ? "px-1" : "px-10"}`}
-          onChange={(event) => {
-            const content = event.currentTarget.value
-            if (!content) setExpanded(false)
-            else if (event.currentTarget.scrollHeight > 32) setExpanded(true)
-            onChange({ ...draft, content })
-          }}
+          className={textClass}
+          onChange={(event) =>
+            onChange({ ...draft, content: event.currentTarget.value })
+          }
           onPaste={(event) => {
             const images = Array.from(event.clipboardData.files)
             if (images.length) {
@@ -222,6 +218,15 @@ export function ChatComposer({
               event.currentTarget.form?.requestSubmit()
             }
           }}
+        />
+        <Textarea
+          ref={measure}
+          aria-hidden="true"
+          tabIndex={-1}
+          readOnly
+          value={draft.content}
+          rows={1}
+          className={`${textClass} pointer-events-none invisible absolute inset-x-2 top-2 h-0 w-[calc(100%-1rem)] overflow-hidden`}
         />
         <Button
           type="submit"

@@ -25,6 +25,7 @@ export function ChatPanels({
   showingRoom,
   hasRoom,
   list,
+  navigation,
   children,
   onBack,
   onResume,
@@ -32,6 +33,7 @@ export function ChatPanels({
   showingRoom: boolean
   hasRoom: boolean
   list: ReactNode
+  navigation: ReactNode
   children: ReactNode
   onBack: () => void
   onResume: () => void
@@ -41,6 +43,7 @@ export function ChatPanels({
   const viewport = useRef<HTMLElement>(null)
   const track = useRef<HTMLDivElement>(null)
   const listPanel = useRef<HTMLElement>(null)
+  const conversationPanel = useRef<HTMLDivElement>(null)
   const suppressClick = useRef(false)
   const first = useRef(true)
   const previousDesktop = useRef(desktop)
@@ -66,6 +69,13 @@ export function ChatPanels({
     [desktop, reducedMotion]
   )
   useLayoutEffect(() => {
+    const hidden = showingRoom ? listPanel.current : conversationPanel.current
+    if (
+      !desktop &&
+      document.activeElement instanceof HTMLElement &&
+      hidden?.contains(document.activeElement)
+    )
+      document.activeElement.blur()
     paint(
       showingRoom ? 1 : 0,
       !first.current && previousDesktop.current === desktop
@@ -196,12 +206,16 @@ export function ChatPanels({
           inert={!desktop && showingRoom}
           className="flex min-h-0 min-w-0 flex-[0_0_100%] flex-col md:pr-3"
         >
-          {list}
+          <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-6 md:px-0">
+            {list}
+          </div>
+          {navigation}
         </aside>
         <div
           inert={!desktop && !showingRoom}
+          ref={conversationPanel}
           data-chat-panel="conversation"
-          className="relative z-10 flex min-h-0 min-w-0 flex-[0_0_100%] flex-col bg-background md:border-l"
+          className="relative z-10 flex min-h-0 min-w-0 flex-[0_0_100%] flex-col bg-background px-4 pb-[env(safe-area-inset-bottom)] sm:px-6 md:border-l md:px-0 md:pb-0"
         >
           {children}
         </div>
