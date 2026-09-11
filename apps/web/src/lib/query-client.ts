@@ -1,3 +1,4 @@
+import { boundPersistedClient } from "@/data/persistence"
 import { QueryCache, QueryClient } from "@tanstack/react-query"
 import type {
   PersistedClient,
@@ -43,7 +44,8 @@ export const queryClient = new QueryClient({
 })
 
 export const persister: Persister = {
-  persistClient: (client: PersistedClient) => set(PERSISTED_QUERY_KEY, client),
+  persistClient: (client: PersistedClient) =>
+    set(PERSISTED_QUERY_KEY, boundPersistedClient(client)),
   restoreClient: () => get<PersistedClient>(PERSISTED_QUERY_KEY),
   removeClient: () => del(PERSISTED_QUERY_KEY),
 }

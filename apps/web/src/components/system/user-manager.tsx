@@ -1,15 +1,13 @@
+import { usersQuery } from "@/data/admin"
+import { yearsQuery } from "@/data/years"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AdminUser } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-import { getAdminUsers, updateAdminAccessLevel } from "@/api/admin"
-import {
-  getYears,
-  activateYearMembership,
-  deactivateYearMembership,
-} from "@/api/years"
+import { updateAdminAccessLevel } from "@/api/admin"
+import { activateYearMembership, deactivateYearMembership } from "@/api/years"
 import { errorMessage } from "@/api/client"
 import { ResponsiveSheet } from "@/components/responsive-overlay"
 import { nativeSelectClassName } from "@/components/form-styles"
@@ -21,10 +19,9 @@ const labels = {
 }
 export function UserManager() {
   const users = useQuery({
-    queryKey: ["admin", "users"],
-    queryFn: getAdminUsers,
+    ...usersQuery,
   })
-  const years = useQuery({ queryKey: ["years"], queryFn: getYears })
+  const years = useQuery({ ...yearsQuery })
   const [search, setSearch] = useState("")
   const [id, setId] = useState<string | null>(null)
   const selected = users.data?.users.find((user) => user.id === id)

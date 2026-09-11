@@ -1,3 +1,7 @@
+import {
+  availabilitySubmissionsQuery,
+  availabilityDatesQuery,
+} from "@/data/availability"
 import { MinuteInput } from "@/components/minute-input"
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -8,10 +12,8 @@ import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import {
   notifyAvailability,
-  getAvailabilityDates,
   saveAvailabilityDate,
   deleteAvailabilityDate,
-  getAvailabilitySubmissions,
 } from "@/api/availability"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -26,12 +28,10 @@ function minutes(value: string) {
 export function AvailabilitySummary({ year }: { year: number }) {
   const client = useQueryClient()
   const dates = useQuery({
-    queryKey: ["availability-dates", year],
-    queryFn: () => getAvailabilityDates(year),
+    ...availabilityDatesQuery(year),
   })
   const submissions = useQuery({
-    queryKey: ["availability-submissions", year],
-    queryFn: () => getAvailabilitySubmissions(year),
+    ...availabilitySubmissionsQuery(year),
   })
   const [editing, setEditing] = useState<FormDate | "new" | null>(null)
   const [removing, setRemoving] = useState<FormDate | null>(null)

@@ -1,4 +1,6 @@
-import { roomQuery } from "./queries"
+import { attendanceQuery } from "@/data/attendance"
+import { changeRoomMute } from "@/data/preferences"
+import { roomQuery, settingsQuery, membersQuery } from "@/data/chat"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -21,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@workspace/ui/components/dropdown-menu"
-import { getChatRoom, leaveChatRoom, updateChatPreferences } from "@/api/chat"
+import { getChatRoom, leaveChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
 import { useOfflineMode } from "../offline-mode-context"
 import { ChatSettings } from "../chat-settings"
@@ -73,7 +75,7 @@ export function ChatConversation({
   if (!query.data)
     return (
       <div className="flex flex-1 flex-col">
-        <div className="flex h-14 items-center gap-3 border-b px-3 md:px-5">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b px-1 pb-2 md:px-5">
           <Link
             to="/chat"
             onClick={(event) => {
@@ -128,7 +130,7 @@ function Conversation({
     navigate = useNavigate(),
     [settings, setSettings] = useState(false),
     [info, setInfo] = useState(false),
-    [attendance, setAttendance] = useState(!!report),
+    [attendance, setAttendance] = useState(false),
     [leaving, setLeaving] = useState(false)
   const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id),
@@ -137,8 +139,41 @@ function Conversation({
     seat = useRef<HTMLDivElement>(null),
     layout = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (report) setAttendance(true)
-  }, [report])
+    if (!report || !room.activityId) return undefined
+    let current = true
+    void client
+      .ensureQueryData(attendanceQuery(room.activityId))
+      .then(() => {
+        if (current) setAttendance(true)
+      })
+      .catch(() => {})
+    return () => {
+      current = false
+    }
+  }, [report, client, room.activityId])
+  function openAttendance() {
+    if (room.activityId)
+      void client
+        .ensureQueryData(attendanceQuery(room.activityId))
+        .then(() => setAttendance(true))
+        .catch(() => {})
+  }
+  function openInfo() {
+    if (room.historical) {
+      setInfo(true)
+      return
+    }
+    void client
+      .ensureQueryData(membersQuery(room.id))
+      .then(() => setInfo(true))
+      .catch(() => {})
+  }
+  function openSettings() {
+    void client
+      .ensureQueryData(settingsQuery(room.id))
+      .then(() => setSettings(true))
+      .catch(() => {})
+  }
   useLayoutEffect(() => {
     const element = seat.current,
       root = layout.current
@@ -150,14 +185,15 @@ function Conversation({
     observer.observe(element)
     return () => observer.disconnect()
   }, [room.canPost])
+  useEffect(() => {
+    if (!active || offline || room.historical) return
+    void client.prefetchQuery(membersQuery(room.id))
+    if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
+  }, [client, active, offline, room.id, room.historical, room.canManage])
   const rows = messageRows(history.messages, pending, member)
   async function mute() {
     try {
-      await updateChatPreferences(room.id, { muted: !room.muted })
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["chat-rooms"] }),
-        client.invalidateQueries({ queryKey: ["chat-room", room.id] }),
-      ])
+      await changeRoomMute(client, room.id, !room.muted)
     } catch (error) {
       toast.error(errorMessage(error))
     }
@@ -178,7 +214,7 @@ function Conversation({
         </Link>
         <button
           type="button"
-          onClick={() => setInfo(true)}
+          onClick={openInfo}
           className="min-w-0 flex-1 text-left"
           aria-label={`${room.name}の情報`}
         >
@@ -190,7 +226,7 @@ function Conversation({
           )}
         </button>
         {room.activityId && (
-          <Button variant="ghost" size="sm" onClick={() => setAttendance(true)}>
+          <Button variant="ghost" size="sm" onClick={openAttendance}>
             出勤・連絡
           </Button>
         )}
@@ -207,7 +243,7 @@ function Conversation({
             <MoreHorizontal />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onClick={() => setInfo(true)}>
+            <DropdownMenuItem onClick={openInfo}>
               <Users />
               ルーム情報
             </DropdownMenuItem>
@@ -216,10 +252,7 @@ function Conversation({
               {room.muted ? "通知をオンにする" : "ミュートする"}
             </DropdownMenuItem>
             {room.canManage && (
-              <DropdownMenuItem
-                disabled={offline}
-                onClick={() => setSettings(true)}
-              >
+              <DropdownMenuItem disabled={offline} onClick={openSettings}>
                 <Settings />
                 ルーム設定
               </DropdownMenuItem>

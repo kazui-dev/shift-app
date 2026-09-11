@@ -1,4 +1,4 @@
-import { prepareConversation } from "@/components/chat/queries"
+import { prepareConversation } from "@/data/chat"
 import {
   useNavigate,
   useParams,
@@ -6,7 +6,7 @@ import {
   useRouter,
 } from "@tanstack/react-router"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useLayoutEffect } from "react"
 import { getChatRoom, getChatRooms } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -34,24 +34,34 @@ export function ChatPage() {
     offline = useOfflineMode()
   const [closed, setClosed] = useState(false),
     [creating, setCreating] = useState(false)
+  const [visible, setVisible] = useState(!!roomId)
+  useLayoutEffect(() => setVisible(!!roomId), [roomId])
   const [lastRoomId, setLastRoomId] = useState(roomId)
-  if (roomId && roomId !== lastRoomId) setLastRoomId(roomId)
-  const retainedId = roomId ?? lastRoomId
+  useLayoutEffect(() => {
+    if (roomId) setLastRoomId(roomId)
+  }, [roomId])
+  const retainedId = visible ? (lastRoomId ?? roomId) : (roomId ?? lastRoomId)
   useEffect(() => {
     if (roomId && !offline) void prepareConversation(client, roomId)
   }, [client, roomId, offline])
+  function open(id: string) {
+    setLastRoomId(id)
+    setVisible(true)
+    void navigate({
+      to: "/chat/$roomId",
+      params: { roomId: id },
+      state: { chatFromList: true },
+    })
+  }
   function back() {
+    setVisible(false)
     if (router.history.location.state.chatFromList) router.history.back()
     else void navigate({ to: "/chat", replace: true })
   }
   function resume() {
-    if (retainedId)
-      void navigate({
-        to: "/chat/$roomId",
-        params: { roomId: retainedId },
-        state: { chatFromList: true },
-      })
+    if (retainedId) open(retainedId)
   }
+
   const room = useQuery({
     queryKey: ["chat-room", roomId],
     queryFn: roomId ? () => getChatRoom(roomId) : skipToken,
@@ -61,6 +71,7 @@ export function ChatPage() {
   const rooms = useQuery({
     queryKey: ["chat-rooms", year, false],
     queryFn: year === null ? skipToken : () => getChatRooms(year),
+    staleTime: 60_000,
     refetchInterval: offline ? false : 30_000,
     enabled: !offline,
   })
@@ -68,6 +79,7 @@ export function ChatPage() {
     queryKey: ["chat-rooms", year, true],
     queryFn: year === null ? skipToken : () => getChatRooms(year, true),
     enabled: !offline && closed,
+    staleTime: 60_000,
   })
   const first = rooms.data?.rooms[0]?.id
   useEffect(() => {
@@ -81,7 +93,7 @@ export function ChatPage() {
   return (
     <>
       <ChatPanels
-        showingRoom={!!roomId}
+        showingRoom={desktop ? !!roomId : visible}
         hasRoom={!!retainedId}
         onBack={back}
         onResume={resume}
@@ -95,6 +107,7 @@ export function ChatPage() {
             closedError={archived.isError}
             selectedId={retainedId ?? null}
             fromList={!roomId}
+            onOpen={open}
             offline={offline}
             onExpand={() => setClosed((value) => !value)}
             onCreate={() => setCreating(true)}
@@ -112,7 +125,7 @@ export function ChatPage() {
               ].find((item) => item.id === retainedId)?.name
             }
             report={report}
-            active={!!roomId}
+            active={desktop ? !!roomId : visible}
             onBack={back}
           />
         ) : (

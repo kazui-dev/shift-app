@@ -189,7 +189,7 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
       setSaved(JSON.stringify(plan))
       setBase({ ...plan, version: result.activity.version })
       setConflicted(false)
-      await Promise.all([
+      void Promise.all([
         client.invalidateQueries({
           queryKey: ["activities", data.activity.year],
         }),

@@ -1,10 +1,11 @@
+import { targetsQuery, roomQuery, roomsQuery } from "@/data/chat"
 import { useRef, useState, type FormEvent } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Search, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import { Input } from "@workspace/ui/components/input"
-import { createChatRoom, getChatTargets } from "@/api/chat"
+import { createChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 
@@ -23,8 +24,7 @@ export function CreateChat({
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<string[]>([])
   const targets = useQuery({
-    queryKey: ["chat-targets", year],
-    queryFn: () => getChatTargets(year),
+    ...targetsQuery(year),
   })
   const members =
     targets.data?.targets.filter((target) => target.targetType === "member") ??
@@ -48,8 +48,19 @@ export function CreateChat({
         })),
       }),
     onError: (error) => toast.error(errorMessage(error)),
-    onSuccess: async ({ room }) => {
-      await client.invalidateQueries({ queryKey: ["chat-rooms"] })
+    onSuccess: ({ room }) => {
+      client.setQueryData(roomQuery(room.id).queryKey, { room })
+      client.setQueryData(roomsQuery(year).queryKey, (current) =>
+        current
+          ? {
+              rooms: [
+                room,
+                ...current.rooms.filter((item) => item.id !== room.id),
+              ],
+            }
+          : undefined
+      )
+      void client.invalidateQueries({ queryKey: ["chat-rooms", year] })
       onCreated(room.id)
     },
   })

@@ -1,12 +1,11 @@
+import { displayYearQuery } from "@/data/years"
 import { useEffect, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "@workspace/ui/lib/toast"
-import { getDisplayYear } from "@/api/years"
 
 export function useDisplayYear() {
   const query = useQuery({
-    queryKey: ["display-year"],
-    queryFn: getDisplayYear,
+    ...displayYearQuery,
   })
   const notified = useRef(false)
   useEffect(() => {

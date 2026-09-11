@@ -1,3 +1,4 @@
+import { attendanceQuery } from "@/data/attendance"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -33,8 +34,7 @@ export function ShiftAttendance({
 }) {
   const client = useQueryClient()
   const query = useQuery({
-    queryKey: ["shift-attendance", activityId],
-    queryFn: () => getShiftAttendance(activityId),
+    ...attendanceQuery(activityId),
     refetchInterval: 30000,
   })
   const [editing, setEditing] = useState<string | null>(

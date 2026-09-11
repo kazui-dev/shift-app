@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState, type ComponentProps, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, RotateCcw } from "lucide-react"
@@ -112,6 +113,7 @@ function LoginView({ enabled }: { enabled: boolean }) {
 }
 
 function OnboardingView() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [studentId, setStudentId] = useState("")
   const [displayName, setDisplayName] = useState("")
@@ -132,7 +134,7 @@ function OnboardingView() {
     try {
       await createAccount(parsed.output)
       await queryClient.invalidateQueries({ queryKey: ["account"] })
-      window.location.assign("/calendar")
+      await navigate({ to: "/calendar", replace: true })
     } catch (caught) {
       toast.error(
         caught instanceof ApiError && caught.status === 409

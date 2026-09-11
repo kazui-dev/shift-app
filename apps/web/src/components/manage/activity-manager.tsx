@@ -1,5 +1,6 @@
+import { activitiesQuery } from "@/data/activities"
+import { rosterQuery, rolesQuery } from "@/data/years"
 import { TargetPicker } from "@/components/shifts/target-picker"
-import { getYearRoles, getRoster } from "@/api/years"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { cn } from "@workspace/ui/lib/utils"
 import { useState, type FormEvent } from "react"
@@ -8,7 +9,7 @@ import { Link } from "@tanstack/react-router"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-import { getActivities, createActivity } from "@/api/activities"
+import { createActivity } from "@/api/activities"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { nativeSelectClassName } from "@/components/form-styles"
@@ -18,16 +19,13 @@ import { timeLabel } from "@/components/shifts/time-label"
 export function ActivityManager({ year }: { year: number }) {
   const client = useQueryClient()
   const query = useQuery({
-    queryKey: ["activities", year],
-    queryFn: () => getActivities(year),
+    ...activitiesQuery(year),
   })
   const roles = useQuery({
-    queryKey: ["year-roles", year],
-    queryFn: () => getYearRoles(year),
+    ...rolesQuery(year),
   })
   const roster = useQuery({
-    queryKey: ["roster", year],
-    queryFn: () => getRoster(year),
+    ...rosterQuery(year),
   })
   const [responsibles, setResponsibles] = useState<
     ActivityEditorInput["responsibles"]
@@ -45,7 +43,7 @@ export function ActivityManager({ year }: { year: number }) {
     event.preventDefault()
     setPending(true)
     try {
-      await createActivity(year, {
+      const { activity } = await createActivity(year, {
         name,
         place,
         startsAt: new Date(japanLocalDateTime(from)).toISOString(),
@@ -56,7 +54,17 @@ export function ActivityManager({ year }: { year: number }) {
         responsibles,
         candidateRoleIds,
       })
-      await client.invalidateQueries({ queryKey: ["activities", year] })
+      client.setQueryData(activitiesQuery(year).queryKey, (current) =>
+        current
+          ? {
+              activities: [
+                ...current.activities,
+                { ...activity, assignmentCount: 0 },
+              ],
+            }
+          : undefined
+      )
+      void client.invalidateQueries({ queryKey: ["activities", year] })
       setCreating(false)
       setName("")
       toast.success("シフトを作成しました。")

@@ -1,3 +1,4 @@
+import { settingsQuery, targetsQuery } from "@/data/chat"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -17,12 +18,10 @@ export function ChatSettings({
   onClose: () => void
 }) {
   const settings = useQuery({
-    queryKey: ["chat-settings", id],
-    queryFn: () => getRoomSettings(id),
+    ...settingsQuery(id),
   })
   const targets = useQuery({
-    queryKey: ["chat-targets", year],
-    queryFn: () => getChatTargets(year),
+    ...targetsQuery(year),
   })
   return (
     <ResponsiveDialog

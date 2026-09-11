@@ -1,3 +1,4 @@
+import { displayYearQuery } from "@/data/years"
 import { cn } from "@workspace/ui/lib/utils"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@workspace/ui/lib/toast"
@@ -13,10 +14,20 @@ export function SettingsPage() {
   const client = useQueryClient()
   const changeYear = useMutation({
     mutationFn: setDisplayYear,
+    onMutate: async (year) => {
+      await client.cancelQueries({ queryKey: ["display-year"] })
+      const previous = client.getQueryData(displayYearQuery.queryKey)
+      if (previous)
+        client.setQueryData(displayYearQuery.queryKey, { ...previous, year })
+      return previous
+    },
     onSuccess: (data) => {
       client.setQueryData(["display-year"], data)
     },
-    onError: (error) => toast.error(errorMessage(error)),
+    onError: (error, _year, previous) => {
+      if (previous) client.setQueryData(displayYearQuery.queryKey, previous)
+      toast.error(errorMessage(error))
+    },
   })
   const { theme, setTheme } = useTheme()
 
@@ -27,7 +38,9 @@ export function SettingsPage() {
         <label htmlFor="display-year" className="font-medium">
           表示年度
         </label>
-        {display.year === null ? (
+        {display.isPending ? (
+          <span className="h-9 w-24" />
+        ) : display.year === null ? (
           <span className="text-sm text-muted-foreground">
             参加年度がありません
           </span>
