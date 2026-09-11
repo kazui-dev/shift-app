@@ -14,6 +14,7 @@ import { useOfflineMode } from "@/components/offline-mode-context"
 import { RoomList } from "@/components/chat/room-list"
 import { MessageCircle } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { BottomNavigation } from "@/components/app-navigation"
 import { ChatPanels } from "@/components/chat/panels"
 import { ChatConversation } from "@/components/chat/conversation"
 import { CreateChat } from "@/components/chat/create-chat"
@@ -99,6 +100,7 @@ export function ChatPage() {
   return (
     <>
       <ChatPanels
+        navigation={<BottomNavigation offline={offline} />}
         showingRoom={!!roomId}
         hasRoom={!!retainedId}
         onBack={back}
