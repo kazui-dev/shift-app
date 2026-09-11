@@ -1,3 +1,5 @@
+import { refreshMemberships } from "@/data/sync"
+import { rolesQuery } from "@/data/years"
 import { ArrowUp, ArrowDown } from "lucide-react"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useState, type FormEvent } from "react"
@@ -8,7 +10,6 @@ import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import {
   createYearRole,
-  getYearRoles,
   updateRole,
   reorderRoles,
   deleteRole,
@@ -29,8 +30,7 @@ type Role = {
 }
 export function YearRoleManager({ year }: { year: number }) {
   const query = useQuery({
-    queryKey: ["year-roles", year],
-    queryFn: () => getYearRoles(year),
+    ...rolesQuery(year),
   })
   const client = useQueryClient()
   const [ordering, setOrdering] = useState(false)
@@ -286,7 +286,7 @@ function RoleEditor({
             setPending(true)
             void deleteRole(role.id)
               .then(async () => {
-                await client.invalidateQueries()
+                await refreshMemberships(client)
                 onClose()
               })
               .catch((error) => toast.error(errorMessage(error)))

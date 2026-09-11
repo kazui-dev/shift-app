@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { prepareConversation } from "./queries"
+import { prepareConversation } from "@/data/chat"
 import { useState } from "react"
 import { Link } from "@tanstack/react-router"
 import {
@@ -27,6 +27,7 @@ export function RoomList({
   offline,
   onExpand,
   onCreate,
+  onOpen,
 }: {
   rooms: Room[]
   closedRooms: Room[]
@@ -38,6 +39,7 @@ export function RoomList({
   fromList: boolean
   offline: boolean
   onExpand: () => void
+  onOpen: (id: string) => void
   onCreate: () => void
 }) {
   const client = useQueryClient()
@@ -66,7 +68,19 @@ export function RoomList({
                     if (event.pointerType === "mouse") prepare(room.id)
                   }}
                   onFocus={() => prepare(room.id)}
-                  onClick={() => prepare(room.id)}
+                  onClick={(event) => {
+                    if (
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return
+                    event.preventDefault()
+                    prepare(room.id)
+                    onOpen(room.id)
+                  }}
                   aria-current={selectedId === room.id ? "page" : undefined}
                   className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted ${selectedId === room.id ? "bg-muted/70" : ""}`}
                 >
@@ -161,11 +175,6 @@ export function RoomList({
               </button>
               {expanded && (
                 <div id="archived-chat-rooms" className="mt-1">
-                  {loadingClosed && (
-                    <output className="block px-3 py-2 text-xs text-muted-foreground">
-                      読み込み中…
-                    </output>
-                  )}
                   {!loadingClosed && !closedError && !closedRooms.length && (
                     <p className="px-3 py-2 text-xs text-muted-foreground">
                       アーカイブはありません

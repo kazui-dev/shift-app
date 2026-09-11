@@ -1,3 +1,5 @@
+import { refreshMemberships } from "@/data/sync"
+import { rosterQuery, rolesQuery } from "@/data/years"
 import { cn } from "@workspace/ui/lib/utils"
 import { AddMembers } from "./add-members"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -6,12 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-import {
-  getRoster,
-  getYearRoles,
-  changeMemberRoles,
-  deactivateYearMembership,
-} from "@/api/years"
+import { changeMemberRoles, deactivateYearMembership } from "@/api/years"
 import { errorMessage } from "@/api/client"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -19,12 +16,10 @@ import { ResponsiveDialog } from "@/components/responsive-overlay"
 export function MemberManager({ year }: { year: number }) {
   const client = useQueryClient()
   const roster = useQuery({
-    queryKey: ["roster", year],
-    queryFn: () => getRoster(year),
+    ...rosterQuery(year),
   })
   const roles = useQuery({
-    queryKey: ["year-roles", year],
-    queryFn: () => getYearRoles(year),
+    ...rolesQuery(year),
   })
   const [adding, setAdding] = useState(false)
   const [leaving, setLeaving] = useState<string | null>(null)
@@ -154,7 +149,7 @@ export function MemberManager({ year }: { year: number }) {
             const id = leaving
             setLeaving(null)
             void deactivateYearMembership(year, id)
-              .then(() => client.invalidateQueries())
+              .then(() => refreshMemberships(client))
               .catch((error) => toast.error(errorMessage(error)))
           }}
         />

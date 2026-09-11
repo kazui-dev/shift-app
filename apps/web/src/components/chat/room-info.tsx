@@ -1,5 +1,6 @@
+import { membersQuery } from "@/data/chat"
 import { useQuery } from "@tanstack/react-query"
-import { getChatMembers, type getChatRoom } from "@/api/chat"
+import { type getChatRoom } from "@/api/chat"
 import { ResponsiveSheet } from "../responsive-overlay"
 import { MemberAvatar } from "../member-avatar"
 import { roomSchedule } from "./room-schedule"
@@ -11,8 +12,7 @@ export function RoomInfo({
   onClose: () => void
 }) {
   const query = useQuery({
-    queryKey: ["chat-members", room.id],
-    queryFn: () => getChatMembers(room.id),
+    ...membersQuery(room.id),
     enabled: !room.historical,
   })
   return (

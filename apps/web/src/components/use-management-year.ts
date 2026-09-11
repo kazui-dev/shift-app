@@ -1,14 +1,14 @@
+import { yearsQuery } from "@/data/years"
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 import { toast } from "@workspace/ui/lib/toast"
-import { getYears } from "@/api/years"
 
 const route = getRouteApi("/_app")
 export function useManagementYear() {
   const { state } = route.useRouteContext()
   const key = `management-year:${state.member.studentId}`
-  const query = useQuery({ queryKey: ["years"], queryFn: getYears })
+  const query = useQuery({ ...yearsQuery })
   const [saved, setSaved] = useState<number | null>(() => {
     try {
       const value = localStorage.getItem(key)

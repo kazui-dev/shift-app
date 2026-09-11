@@ -1,14 +1,13 @@
+import { linksQuery, auditQuery } from "@/data/admin"
 import { useQuery } from "@tanstack/react-query"
 
-import { getAdminAuditLogs, getDiscordLinkRequests } from "@/api/admin"
 import { AuditLogList } from "@/components/admin/audit-log-list"
 import { DiscordLinkRequestCard } from "@/components/admin/discord-link-request-card"
 import { EmptyState } from "@/components/page-layout"
 
 export function DiscordLinkRequestManager() {
   const requests = useQuery({
-    queryKey: ["admin", "discord-link-requests"],
-    queryFn: getDiscordLinkRequests,
+    ...linksQuery,
     meta: { persist: false },
   })
   if (requests.isPending) return null
@@ -26,8 +25,7 @@ export function DiscordLinkRequestManager() {
 
 export function AuditLogManager() {
   const logs = useQuery({
-    queryKey: ["admin", "audit-logs"],
-    queryFn: getAdminAuditLogs,
+    ...auditQuery,
     meta: { persist: false },
   })
   if (logs.isPending) return null

@@ -83,7 +83,7 @@ export function AppNavigation({
                     to={to}
                     preload="render"
                     aria-label={label}
-                    className={`flex min-h-14 min-w-0 flex-1 items-center justify-center overflow-hidden py-1.5 text-muted-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] md:min-h-12 md:flex-none md:justify-start md:rounded-lg md:py-0 md:hover:bg-muted ${to === "/settings" ? "md:mt-auto" : ""}`}
+                    className={`flex min-h-17 min-w-0 flex-1 items-center justify-center overflow-hidden py-2 text-muted-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] md:min-h-12 md:flex-none md:justify-start md:rounded-lg md:py-0 md:hover:bg-muted ${to === "/settings" ? "md:mt-auto" : ""}`}
                     activeProps={{
                       className:
                         "text-foreground md:bg-muted md:font-medium [&_svg]:stroke-[2.5] [&_[data-nav-icon]]:bg-muted md:[&_[data-nav-icon]]:bg-transparent",
@@ -91,10 +91,10 @@ export function AppNavigation({
                   />
                 }
               >
-                <span className="flex shrink-0 flex-col items-center gap-0.5 md:w-48 md:flex-row md:gap-0">
+                <span className="flex shrink-0 flex-col items-center gap-1 md:w-48 md:flex-row md:gap-0">
                   <span
                     data-nav-icon
-                    className="flex h-7 w-12 shrink-0 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none md:size-12"
+                    className="flex h-8 w-12 shrink-0 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none md:size-12"
                   >
                     <Icon className="size-5" />
                   </span>

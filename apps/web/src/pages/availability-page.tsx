@@ -16,6 +16,7 @@ export function AvailabilityPage() {
   const display = useDisplayYear(),
     year = display.year
   const query = useQuery({
+    staleTime: 60_000,
     queryKey: ["availability", year],
     queryFn: year === null ? skipToken : () => getAvailability(year),
   })
@@ -117,7 +118,10 @@ function AvailabilityForm({
     const timer = window.setTimeout(() => {
       queue.current = queue.current.then(async () => {
         try {
-          await replaceAvailability(year, { answers, submit: false })
+          client.setQueryData(
+            ["availability", year],
+            await replaceAvailability(year, { answers, submit: false })
+          )
           toast.dismiss("availability-save")
           lastSaved.current = json
           try {
@@ -132,20 +136,26 @@ function AvailabilityForm({
       })
     }, 500)
     return () => window.clearTimeout(timer)
-  }, [answers, year, recoveryKey])
+  }, [answers, year, recoveryKey, client])
   useEffect(
     () => () => {
       const current = latest.current
       if (JSON.stringify(current) !== lastSaved.current)
         queue.current = queue.current.then(async () => {
           try {
-            await replaceAvailability(year, { answers: current, submit: false })
+            client.setQueryData(
+              ["availability", year],
+              await replaceAvailability(year, {
+                answers: current,
+                submit: false,
+              })
+            )
           } catch {
             /* The recovery copy is restored when this page is reopened. */
           }
         })
     },
-    [year]
+    [year, client]
   )
   function update(
     date: FormDate,
@@ -175,7 +185,10 @@ function AvailabilityForm({
     setPending(true)
     await queue.current
     try {
-      await replaceAvailability(year, { answers, submit: true })
+      client.setQueryData(
+        ["availability", year],
+        await replaceAvailability(year, { answers, submit: true })
+      )
       toast.dismiss("availability-save")
       lastSaved.current = JSON.stringify(answers)
       try {
@@ -184,7 +197,6 @@ function AvailabilityForm({
         /* No persistent browser storage. */
       }
       setSubmitted(true)
-      await client.invalidateQueries({ queryKey: ["availability", year] })
       toast.success("希望を提出しました。")
     } catch (error) {
       toast.error(errorMessage(error), { id: "availability-save" })

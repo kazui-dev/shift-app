@@ -1,3 +1,4 @@
+import { membershipsQuery, yearsQuery } from "@/data/years"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -6,7 +7,6 @@ import { toast } from "@workspace/ui/lib/toast"
 import {
   activateYearMembership,
   getYearMemberships,
-  getYears,
   getRoster,
   getYearRoles,
   createYearRole,
@@ -23,15 +23,14 @@ export function AddMembers({
   onClose: () => void
 }) {
   const client = useQueryClient()
-  const years = useQuery({ queryKey: ["years"], queryFn: getYears })
+  const years = useQuery({ ...yearsQuery })
   const [source, setSource] = useState(year)
   const query = useQuery({
     queryKey: ["year-memberships", source],
     queryFn: () => getYearMemberships(source),
   })
   const current = useQuery({
-    queryKey: ["year-memberships", year],
-    queryFn: () => getYearMemberships(year),
+    ...membershipsQuery(year),
   })
   const [copyRoleIds, setCopyRoleIds] = useState<string[]>([])
   const sourceRoles = useQuery({

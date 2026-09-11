@@ -1,3 +1,4 @@
+import { yearsQuery } from "@/data/years"
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -5,12 +6,12 @@ import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
-import { createYear, getYears, setDefaultYear } from "@/api/years"
+import { createYear, setDefaultYear } from "@/api/years"
 import { SectionHeader } from "@/components/page-layout"
 
 export function YearSettingsPanel() {
   const queryClient = useQueryClient()
-  const years = useQuery({ queryKey: ["years"], queryFn: getYears })
+  const years = useQuery({ ...yearsQuery })
   const [yearNumber, setYearNumber] = useState(new Date().getFullYear())
   const [pending, setPending] = useState(false)
 

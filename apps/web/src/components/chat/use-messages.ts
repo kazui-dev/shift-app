@@ -1,4 +1,5 @@
-import { messagesQuery } from "./queries"
+import { receiveMessage, updateRoom } from "@/data/chat-cache"
+import { messagesQuery, membersQuery } from "@/data/chat"
 import {
   useCallback,
   useEffect,
@@ -44,8 +45,14 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
       readSequence.current = sequence
       void updateChatPreferences(room.id, { lastRead: sequence })
         .then(() => {
-          void client.invalidateQueries({ queryKey: ["chat-rooms"] })
-          void client.invalidateQueries({ queryKey: ["chat-room", room.id] })
+          updateRoom(client, room.id, (current) => ({
+            ...current,
+            lastRead: Math.max(current.lastRead, sequence),
+            unreadCount: Math.max(
+              0,
+              current.lastSequence - Math.max(current.lastRead, sequence)
+            ),
+          }))
         })
         .catch(() => {
           readSequence.current = room.lastRead
@@ -117,10 +124,24 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
             JSON.parse(String(event.data))
           )
           if (parsed.success) {
-            void client.invalidateQueries({
-              queryKey: ["chat-messages", room.id],
-            })
-            void client.invalidateQueries({ queryKey: ["chat-rooms"] })
+            const message = parsed.output.message
+            const known = client
+              .getQueryData(messagesQuery(room.id).queryKey)
+              ?.pages.flatMap((page) => page.messages)
+              .find((item) => item.memberId === message.memberId)
+            const profile = client
+              .getQueryData(membersQuery(room.id).queryKey)
+              ?.members.find((item) => item.id === message.memberId)
+            if (
+              (!known && !profile) ||
+              !receiveMessage(client, room.id, {
+                ...message,
+                memberImage: known?.memberImage ?? profile?.image ?? null,
+              })
+            )
+              void client.invalidateQueries({
+                queryKey: ["chat-messages", room.id],
+              })
           }
         } catch {
           /* Ignore invalid events. */

@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vite-plus/test"
 import { QueryClient } from "@tanstack/react-query"
-import { prepareConversation } from "./queries"
+import { prepareConversation } from "@/data/chat"
 import { getChatMessages, getChatRoom } from "@/api/chat"
 vi.mock("@/api/chat", () => ({
   getChatMessages: vi.fn<typeof getChatMessages>(),

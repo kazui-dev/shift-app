@@ -1,13 +1,13 @@
+import { activityQuery } from "@/data/activities"
 import { getRouteApi } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { getActivity } from "@/api/activities"
+
 import { ShiftEditor } from "@/components/shifts/shift-editor"
 const route = getRouteApi("/_app/manage/shifts_/$shiftId")
 export function ShiftEditorPage() {
   const { shiftId: id } = route.useParams()
   const query = useQuery({
-    queryKey: ["activity-editor", id],
-    queryFn: () => getActivity(id),
+    ...activityQuery(id),
     refetchOnWindowFocus: false,
   })
   if (query.isPending)
