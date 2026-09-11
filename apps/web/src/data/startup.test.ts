@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vite-plus/test"
 import { QueryClient } from "@tanstack/react-query"
 import { prepareApp } from "./startup"
+import { calendarViewKey, saveCalendarView } from "@/lib/calendar-view"
 import { apiJson, apiVoid } from "@/api/client"
 
 vi.mock("@/api/client", () => ({
@@ -52,5 +53,41 @@ it("does not hold a warm calendar transition behind background revalidation", as
   await prepareApp(client, "/settings", "test", false)
   expect(client.isFetching()).toBe(2)
   await client.cancelQueries()
+  client.clear()
+})
+
+it.each([
+  ["2026-11-04", "2026-10-31T15:00:00.000Z"],
+  [undefined, "2026-09-30T15:00:00.000Z"],
+])("prefetches the resolved calendar month for %s", async (date, from) => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  client.setQueryData(["display-year"], {
+    year: 2026,
+    defaultYear: 2026,
+    years: [2026],
+    unavailableSelection: false,
+  })
+  client.setQueryData(["years"], { years: [] })
+  saveCalendarView(calendarViewKey("startup-month", 2026), {
+    date: "2026-10-03",
+    scrollTop: null,
+  })
+  const requests: string[] = []
+  vi.mocked(apiJson).mockImplementation(async (path) => {
+    requests.push(path)
+    return {}
+  })
+  await prepareApp(client, "/calendar", "startup-month", false, date)
+  const assignments = requests.filter((path) =>
+    path.startsWith("/api/me/assignments?")
+  )
+  expect(assignments).toHaveLength(1)
+  expect(
+    new URL(assignments[0] ?? "", "https://example.test").searchParams.get(
+      "from"
+    )
+  ).toBe(from)
   client.clear()
 })

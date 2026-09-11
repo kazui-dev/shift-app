@@ -5,7 +5,19 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # These versions are coupled to Vite+ and are updated with its catalog.
+      - dependency-name: "@vitest/*"
+        versions: ["*"]
+      - dependency-name: "vitest"
+        versions: ["*"]
+      # Match the Node major declared in .node-version.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
+      tanstack-query:
+        patterns:
+          ["@tanstack/react-query", "@tanstack/react-query-persist-client"]
       vite-plus-toolchain:
         patterns:
           - vite
@@ -14,9 +26,11 @@ updates:
           - vitest
           - "@vitest/*"
           - "@cloudflare/vite-plugin"
+          - wrangler
           - "@vitejs/*"
           - "@tailwindcss/vite"
           - "@tanstack/router-plugin"
+          - "@tanstack/react-router"
           - vite-plugin-pwa
 
   - package-ecosystem: github-actions

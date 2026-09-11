@@ -78,6 +78,11 @@ Dependabotの`vite-plus-toolchain` groupでまとめて更新する。更新PR�
 `/api/me/assignments`のJSON 401を確認し、最後にdry-run deployまで通す。
 Vite+更新時は`pnpm-workspace.yaml`の`vite` aliasと`vite-plus`を同じversionへ
 更新する。peer許可versionはYAML anchorで`vite-plus`と常に同期する。
+VitestとcoverageはVite+が内包するversionに合わせ、単独のmajor更新は適用しない。
+Nodeの型はルートと全workspaceで`.node-version`のmajorに揃え、Viteのpeer解決が
+複数の実体に分かれないようにする。TanStack Queryとpersist-client、
+Router本体とplugin、Cloudflare Vite PluginとWranglerはそれぞれ揃えて検証する。
+ビルド成功だけでは採用せず、Worker previewの起動まで確認する。
 
 `voidzero-dev/setup-vp`はGitHub Actions側の`vite-plus-actions` groupで更新する。
 package更新と同時期に更新された場合は、両方のPRを同じ検証結果が揃ってから

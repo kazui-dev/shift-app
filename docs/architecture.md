@@ -44,6 +44,12 @@
 週ヘッダーへ描画する。各carouselはスクロール位置を直接同期せず、選択日だけを共有
 する。日のドラッグ中は週ヘッダー上の専用presentation layerへ進捗を描画する。
 
+カレンダーの表示日は、正規URLの`date=YYYY-MM-DD`、利用者・表示年度ごとの
+sessionStorage、日本時間の今日の順で解決する。日付の実在性を検証し、不正・重複した
+`date`はreplaceでURLから除去する。他のqueryは維持する。日・月送りもreplaceを使い、
+履歴を増やさない。表示日・縦スクロール位置・月末移動の基準日を同じsession adapterで
+保存し、起動時の取得対象月と画面の初期日を同じ解決関数で決める。
+
 Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャットの下書きと送信待ちは専用のIndexedDB storeに利用者・ルーム別で保存し、画像のBlobも保持する。送信内容を永続化してからアップロードと送信を開始し、client生成UUIDで再送を冪等化する。送信は専用outboxだけを使い、TanStack Queryのmutationは永続化しない。保存形式が異なるcacheやoutboxは破棄し、旧形式への読み替えは行わない。
 
 オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutation、チャットの下書き・送信待ち画像を破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
@@ -280,6 +286,8 @@ Discordのプロフィール画像はOAuthログイン時に認証userへ同期�
 ルーム一覧から開いた会話はhistory stateに戻り先の種別を記録し、戻る操作で
 既存の一覧履歴へ戻す。直接開いた会話では一覧へreplaceする。スワイプも戻るリンクも
 同じnavigation操作を使い、ブラウザーの戻る・進むとパネル位置を同期する。
+パネルの表示と操作可否は即時のhistory locationを購読して決め、非同期loaderの
+完了を待たない。一覧へ戻った直後の再タップも同じnavigationへ渡す。
 画面両端24pxはOSの操作用に残し、フォーム・ボタン・選択中のテキストからは
 スワイプを始めない。縦スクロールとピンチズームを維持し、motion reductionにも従う。
 
