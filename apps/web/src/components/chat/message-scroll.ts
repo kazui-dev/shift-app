@@ -41,14 +41,14 @@ export class MessageScroll {
       this.initialized = true
       this.following = this.saved?.following ?? initialTop === undefined
       this.anchor = this.saved?.anchor ?? null
-      view.move(this.saved?.top ?? initialTop ?? view.extent(), false)
+      this.move(this.saved?.top ?? initialTop ?? view.extent(), false)
     }
     if (this.following || this.jumping) {
-      view.move(view.extent(), this.jumping)
+      this.move(view.extent(), this.jumping)
     } else if (this.anchor) {
       const offset = view.locate(this.anchor.id)
       if (offset !== null)
-        view.move(view.top() + offset - this.anchor.offset, false)
+        this.move(view.top() + offset - this.anchor.offset, false)
     }
     this.remember()
     this.publish()
@@ -57,7 +57,7 @@ export class MessageScroll {
   scroll() {
     const distance = this.distance()
     if (this.jumping && distance <= 1) this.jumping = false
-    if (!this.jumping && distance <= 48) this.following = true
+    if (!this.jumping && distance <= 1) this.following = true
     this.remember()
     this.publish()
   }
@@ -65,7 +65,7 @@ export class MessageScroll {
   latest(smooth: boolean) {
     this.jumping = smooth
     this.following = !smooth
-    this.surface.move(this.surface.extent(), smooth)
+    this.move(this.surface.extent(), smooth)
     this.scroll()
   }
 
@@ -109,6 +109,16 @@ export class MessageScroll {
 
   private remember() {
     this.anchor = this.surface.anchor()
+  }
+
+  private move(top: number, smooth: boolean) {
+    const destination = Math.max(
+      0,
+      Math.min(top, this.surface.extent() - this.surface.height())
+    )
+    // Even a same-position scrollTo can interrupt a native gesture or momentum.
+    if (Math.abs(destination - this.surface.top()) > 0.5)
+      this.surface.move(top, smooth)
   }
 
   private publish() {

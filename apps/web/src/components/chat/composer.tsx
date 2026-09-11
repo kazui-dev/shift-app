@@ -10,12 +10,14 @@ import { useComposerLayout } from "./use-composer-layout"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 export function ChatComposer({
+  roomName,
   draft,
   disabled,
   onChange,
   onAddFiles,
   onSend,
 }: {
+  roomName: string
   draft: ChatDraft
   disabled: boolean
   onChange: (draft: ChatDraft) => void
@@ -210,7 +212,7 @@ export function ChatComposer({
           rows={1}
           maxLength={2000}
           aria-label="メッセージ"
-          placeholder={dragging ? "画像をドロップ" : "メッセージを入力…"}
+          placeholder={roomName}
           disabled={disabled}
           value={draft.content}
           enterKeyHint={touch ? "enter" : "send"}
@@ -250,7 +252,7 @@ export function ChatComposer({
         <Button
           type="submit"
           size="icon-sm"
-          className={`absolute right-2 bottom-2 size-8 rounded-full ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
+          className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
           aria-label="送信"
           disabled={disabled || (!draft.content.trim() && !draft.files.length)}
         >
