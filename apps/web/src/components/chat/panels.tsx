@@ -18,6 +18,7 @@ type Gesture = {
   velocity: number
   width: number
   start: ChatPanel
+  origin: number
   locked: boolean
 }
 
@@ -91,7 +92,7 @@ export function ChatPanels({
     if (!root || desktop) return undefined
     let gesture: Gesture | null = null
     const cancel = () => {
-      if (gesture?.locked) paint(gesture.start, true)
+      if (gesture) paint(gesture.start, true)
       gesture = null
     }
     const down = (event: TouchEvent) => {
@@ -115,6 +116,13 @@ export function ChatPanels({
       )
         return
       if (window.getSelection()?.toString()) return
+      const element = track.current
+      if (!element) return
+      // Take over an unfinished transition at its visible position.
+      const origin =
+        -new DOMMatrixReadOnly(getComputedStyle(element).transform).m41 /
+        root.clientWidth
+      paint(origin, false)
       gesture = {
         id: touch.identifier,
         x: touch.clientX,
@@ -124,6 +132,7 @@ export function ChatPanels({
         velocity: 0,
         width: root.clientWidth,
         start: showingRoom ? 1 : 0,
+        origin,
         locked: false,
       }
     }
@@ -142,7 +151,7 @@ export function ChatPanels({
         const intent = swipeIntent(gesture.start, dx, dy)
         if (intent === "pending") return
         if (intent === "native") {
-          gesture = null
+          cancel()
           return
         }
         gesture.locked = true
@@ -159,7 +168,10 @@ export function ChatPanels({
         gesture.velocity = (touch.clientX - gesture.lastX) / elapsed
       gesture.lastX = touch.clientX
       gesture.lastTime = event.timeStamp
-      paint(Math.max(0, Math.min(1, gesture.start - dx / gesture.width)), false)
+      paint(
+        Math.max(0, Math.min(1, gesture.origin - dx / gesture.width)),
+        false
+      )
     }
     const finish = (event: TouchEvent) => {
       if (!gesture) return
@@ -169,7 +181,10 @@ export function ChatPanels({
       if (!touch) return
       const current = gesture
       gesture = null
-      if (!current.locked) return
+      if (!current.locked) {
+        paint(current.start, true)
+        return
+      }
       const velocity =
         event.timeStamp - current.lastTime > 100 ? 0 : current.velocity
       const destination = swipeDestination(

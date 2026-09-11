@@ -29,6 +29,7 @@ export function ChatComposer({
   const picking = useRef(false)
   const [focused, setFocused] = useState(false)
   const [pressed, setPressed] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const { input, measure, body, expanded } = useComposerLayout(
     draft.content,
     focused,
@@ -40,6 +41,7 @@ export function ChatComposer({
     "min-h-0 [field-sizing:fixed] touch-pan-y touch-pinch-zoom resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none focus-visible:ring-0 md:text-sm dark:bg-transparent"
   const finishPicking = useCallback(() => {
     picking.current = false
+    setPickerOpen(false)
     input.current?.focus({ preventScroll: true })
   }, [input])
   useEffect(() => {
@@ -192,8 +194,8 @@ export function ChatComposer({
           variant="ghost"
           size="icon-sm"
           disabled={disabled}
-          className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-[background-color,scale] active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted motion-reduce:transition-none"
-          data-pressed={pressed}
+          className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted"
+          data-pressed={pressed || pickerOpen}
           onPointerDown={() => setPressed(true)}
           onPointerUp={() => setPressed(false)}
           onPointerCancel={() => setPressed(false)}
@@ -202,6 +204,7 @@ export function ChatComposer({
           title="画像を添付"
           onClick={() => {
             picking.current = true
+            setPickerOpen(true)
             fileInput.current?.click()
           }}
         >
@@ -212,11 +215,11 @@ export function ChatComposer({
           rows={1}
           maxLength={2000}
           aria-label="メッセージ"
-          placeholder={roomName}
+          placeholder={`${roomName} へメッセージを送信`}
           disabled={disabled}
           value={draft.content}
           enterKeyHint={touch ? "enter" : "send"}
-          className={textClass}
+          className={`${textClass} placeholder:truncate`}
           onChange={(event) =>
             onChange({ ...draft, content: event.currentTarget.value })
           }
