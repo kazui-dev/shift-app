@@ -10,12 +10,14 @@ export const Route = createFileRoute("/_app")({
     if (state.status !== "active") {
       throw redirect({ to: "/" })
     }
+    const dates = new URLSearchParams(location.searchStr).getAll("date")
     if (!offline)
       await prepareApp(
         context.queryClient,
         location.pathname,
         state.member.studentId,
-        state.member.accessLevel === "system_admin"
+        state.member.accessLevel === "system_admin",
+        dates.length === 1 ? dates[0] : undefined
       )
     return { state, offline }
   },

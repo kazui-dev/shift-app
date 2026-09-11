@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { usersQuery, auditQuery, linksQuery } from "./admin"
 import { assignmentMonthQuery } from "@/api/assignments"
-import { japanDateTime } from "@/lib/japan-time"
+import { calendarViewKey, resolveCalendarView } from "@/lib/calendar-view"
 import { displayYearQuery, yearsQuery, rolesQuery, rosterQuery } from "./years"
 import { roomsQuery, targetsQuery, prepareConversation } from "./chat"
 import { activitiesQuery, activityQuery } from "./activities"
@@ -15,14 +15,18 @@ export async function prepareApp(
   client: QueryClient,
   pathname: string,
   studentId: string,
-  admin: boolean
+  admin: boolean,
+  explicitDate?: unknown
 ) {
   const [display, available] = await Promise.all([
     client.ensureQueryData({ ...displayYearQuery, revalidateIfStale: true }),
     client.ensureQueryData({ ...yearsQuery, revalidateIfStale: true }),
   ])
   const year = display.year
-  const month = japanDateTime(new Date()).date.slice(0, 7)
+  const month = resolveCalendarView(
+    calendarViewKey(studentId, year),
+    pathname === "/calendar" ? explicitDate : undefined
+  ).date.slice(0, 7)
   const work: Promise<unknown>[] = []
   const wait = (key: readonly unknown[], request: Promise<unknown>) => {
     if (client.getQueryData(key) === undefined) work.push(request)
