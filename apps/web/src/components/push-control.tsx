@@ -53,7 +53,11 @@ async function syncSubscription(enabled: boolean): Promise<void> {
 function reportSyncFailure(synchronization: Promise<void> | null): void {
   if (!synchronization) return
   void synchronization.catch((error: unknown) =>
-    toast.error(errorMessage(error))
+    toast.error(
+      error instanceof DOMException
+        ? `通知を登録できませんでした（${error.name}: ${error.message}）`
+        : errorMessage(error)
+    )
   )
 }
 

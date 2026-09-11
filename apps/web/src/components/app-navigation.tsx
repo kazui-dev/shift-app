@@ -112,7 +112,7 @@ function NavigationItems({
                 to={to}
                 preload="render"
                 aria-label={label}
-                className={`flex min-h-17 min-w-0 flex-1 items-center justify-center overflow-hidden py-2 text-muted-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] md:min-h-12 md:flex-none md:justify-start md:rounded-lg md:py-0 md:hover:bg-muted ${to === "/settings" ? "md:mt-auto" : ""}`}
+                className={`flex min-h-[calc(var(--app-bottom-bar-height)-1px)] min-w-0 flex-1 items-center justify-center overflow-hidden py-2 text-muted-foreground transition-colors focus-visible:outline-2 focus-visible:outline-offset-[-2px] md:min-h-12 md:flex-none md:justify-start md:rounded-lg md:py-0 md:hover:bg-muted ${to === "/settings" ? "md:mt-auto" : ""}`}
                 activeProps={{
                   className:
                     "text-foreground md:bg-muted md:font-medium [&_svg]:stroke-[2.5] [&_[data-nav-icon]]:bg-muted md:[&_[data-nav-icon]]:bg-transparent",
