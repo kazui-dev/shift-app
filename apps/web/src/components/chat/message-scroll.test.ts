@@ -82,7 +82,12 @@ it("separates following from the jump affordance and avoids threshold flicker", 
   scroll.scroll()
   view.extent += 50
   scroll.layout()
-  expect(view.top).toBe(1450)
+  expect(view.top).toBe(1390)
+  view.top = 1450
+  scroll.scroll()
+  view.extent += 50
+  scroll.layout()
+  expect(view.top).toBe(1500)
 })
 
 it("smoothly jumps without marking distant messages read, and allows interruption", () => {
@@ -154,4 +159,24 @@ it("does not mistake image layout scroll events for the reader moving away", () 
   view.extent += 80
   scroll.layout()
   expect(view.top).toBe(reading)
+})
+
+it("does not write scroll position during reading or affordance-only rerenders", () => {
+  const { view, scroll, moves } = fixture()
+  scroll.layout()
+  const count = moves.length
+  scroll.read()
+  view.top -= 20
+  scroll.scroll()
+  scroll.layout()
+  expect(view.top).toBe(1380)
+  expect(moves).toHaveLength(count)
+  view.top -= 400
+  scroll.scroll()
+  scroll.layout()
+  expect(moves).toHaveLength(count)
+  view.top -= 10
+  scroll.scroll()
+  scroll.layout()
+  expect(moves).toHaveLength(count)
 })

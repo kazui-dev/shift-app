@@ -4,13 +4,14 @@ import {
   type ScrollPosition,
   type ScrollStatus,
 } from "./message-scroll"
+import type { MessageRow } from "./message-list"
 
 const positions = new Map<string, ScrollPosition>()
 
 export function useMessageScroll(
   roomId: string,
   active: boolean,
-  hasRows: boolean,
+  rows: MessageRow[],
   initialRead: number,
   markRead: () => void
 ) {
@@ -137,7 +138,7 @@ export function useMessageScroll(
   useLayoutEffect(() => {
     const list = viewport.current,
       scroll = controller.current
-    if (!list || !scroll || !hasRows) return
+    if (!active || !list || !scroll || !rows.length) return
     if (followNext.current) {
       scroll.follow()
       followNext.current = false
@@ -153,7 +154,7 @@ export function useMessageScroll(
             list.getBoundingClientRect().top
         : undefined
     )
-  })
+  }, [rows, active, initialRead])
 
   useEffect(() => {
     if (controller.current?.isAtBottom()) markRead()

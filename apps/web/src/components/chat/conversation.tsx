@@ -2,7 +2,7 @@ import { useMessageScroll } from "./use-message-scroll"
 import { attendanceQuery } from "@/data/attendance"
 import { changeRoomMute } from "@/data/preferences"
 import { roomQuery, settingsQuery, membersQuery } from "@/data/chat"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -136,8 +136,7 @@ function Conversation({
     [attendance, setAttendance] = useState(false),
     [leaving, setLeaving] = useState(false)
   const { store, member, ready, queue } = useChatStore(),
-    draft = store.draft(room.id),
-    pending = queue.filter((item) => item.roomId === room.id)
+    draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
     seat = useRef<HTMLDivElement>(null),
     layout = useRef<HTMLDivElement>(null)
@@ -193,11 +192,19 @@ function Conversation({
     void client.prefetchQuery(membersQuery(room.id))
     if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
   }, [client, active, offline, room.id, room.historical, room.canManage])
-  const rows = messageRows(history.messages, pending, member)
+  const rows = useMemo(
+    () =>
+      messageRows(
+        history.messages,
+        queue.filter((item) => item.roomId === room.id),
+        member
+      ),
+    [history.messages, queue, room.id, member]
+  )
   const scroll = useMessageScroll(
     room.id,
     active,
-    rows.length > 0,
+    rows,
     history.initialRead,
     history.markRead
   )
