@@ -1,13 +1,8 @@
 import { prepareConversation } from "@/data/chat"
-import { useNavigate, useSearch, useRouter } from "@tanstack/react-router"
+import { useSearch } from "@tanstack/react-router"
+import { useChatNavigation } from "@/components/chat/use-chat-navigation"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  useEffect,
-  useState,
-  useLayoutEffect,
-  useSyncExternalStore,
-  useCallback,
-} from "react"
+import { useEffect, useState } from "react"
 import { getChatRoom, getChatRooms } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -19,55 +14,18 @@ import { ChatPanels } from "@/components/chat/panels"
 import { ChatConversation } from "@/components/chat/conversation"
 import { CreateChat } from "@/components/chat/create-chat"
 
-declare module "@tanstack/react-router" {
-  interface HistoryState {
-    chatFromList?: boolean
-  }
-}
-
 export function ChatPage() {
   const client = useQueryClient()
   const desktop = useMediaQuery("(min-width: 768px)")
-  const router = useRouter()
   const { report } = useSearch({ strict: false })
-  const subscribe = useCallback(
-    (changed: () => void) => router.history.subscribe(changed),
-    [router]
-  )
-  // History changes before async loaders settle; the panels must accept input immediately.
-  const pathname = useSyncExternalStore(
-    subscribe,
-    () => router.history.location.pathname
-  )
-  const roomId = /^\/chat\/([^/]+)$/.exec(pathname)?.[1]
-  const navigate = useNavigate(),
-    display = useDisplayYear(),
+  const { roomId, retainedId, open, back, resume } = useChatNavigation()
+  const display = useDisplayYear(),
     offline = useOfflineMode()
   const [closed, setClosed] = useState(false),
     [creating, setCreating] = useState(false)
-  const [lastRoomId, setLastRoomId] = useState(roomId)
-  useLayoutEffect(() => {
-    if (roomId) setLastRoomId(roomId)
-  }, [roomId])
-  const retainedId = roomId ?? lastRoomId
   useEffect(() => {
     if (roomId && !offline) void prepareConversation(client, roomId)
   }, [client, roomId, offline])
-  function open(id: string) {
-    setLastRoomId(id)
-    void navigate({
-      to: "/chat/$roomId",
-      params: { roomId: id },
-      state: { chatFromList: true },
-    })
-  }
-  function back() {
-    if (router.history.location.state.chatFromList) router.history.back()
-    else void navigate({ to: "/chat", replace: true })
-  }
-  function resume() {
-    if (retainedId) open(retainedId)
-  }
 
   const room = useQuery({
     queryKey: ["chat-room", roomId],
@@ -90,13 +48,8 @@ export function ChatPage() {
   })
   const first = rooms.data?.rooms[0]?.id
   useEffect(() => {
-    if (desktop && pathname === "/chat" && !roomId && first)
-      void navigate({
-        to: "/chat/$roomId",
-        params: { roomId: first },
-        replace: true,
-      })
-  }, [desktop, pathname, roomId, first, navigate])
+    if (desktop && !roomId && first) open(first, true)
+  }, [desktop, roomId, first, open])
   return (
     <>
       <ChatPanels
@@ -148,11 +101,7 @@ export function ChatPage() {
           onClose={() => setCreating(false)}
           onCreated={(id) => {
             setCreating(false)
-            void navigate({
-              to: "/chat/$roomId",
-              params: { roomId: id },
-              state: { chatFromList: !roomId },
-            })
+            open(id)
           }}
         />
       )}
