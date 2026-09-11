@@ -1,3 +1,4 @@
+import { useMessageScroll } from "./use-message-scroll"
 import { attendanceQuery } from "@/data/attendance"
 import { changeRoomMute } from "@/data/preferences"
 import { roomQuery, settingsQuery, membersQuery } from "@/data/chat"
@@ -37,6 +38,8 @@ import { RoomInfo } from "./room-info"
 import { MemberAvatar } from "../member-avatar"
 import { messageRows } from "./message-list"
 import { roomSchedule } from "./room-schedule"
+import { chatImageLimits } from "@workspace/shared/communications"
+import { imageSize } from "./image-size"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 function date(value: string) {
@@ -75,7 +78,7 @@ export function ChatConversation({
   if (!query.data)
     return (
       <div className="flex flex-1 flex-col">
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b px-1 pb-2 md:px-5">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3 pb-2 md:px-4">
           <Link
             to="/chat"
             onClick={(event) => {
@@ -191,6 +194,13 @@ function Conversation({
     if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
   }, [client, active, offline, room.id, room.historical, room.canManage])
   const rows = messageRows(history.messages, pending, member)
+  const scroll = useMessageScroll(
+    room.id,
+    active,
+    rows.length > 0,
+    history.initialRead,
+    history.markRead
+  )
   async function mute() {
     try {
       await changeRoomMute(client, room.id, !room.muted)
@@ -200,7 +210,7 @@ function Conversation({
   }
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-1 pb-2 md:px-5">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-3 pb-2 md:px-4">
         <Link
           onClick={(event) => {
             event.preventDefault()
@@ -275,177 +285,197 @@ function Conversation({
       </header>
       <div
         ref={layout}
-        className="relative min-h-0 flex-1 [--composer-height:52px]"
+        className="relative min-h-0 flex-1 [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] [--composer-height:50px]"
       >
-        <div
-          ref={history.viewport}
-          onScroll={history.onScroll}
-          className={`absolute inset-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto px-3 pt-4 md:px-5 ${room.canPost ? "pb-[calc(var(--composer-height)+2.5rem)]" : "pb-6"}`}
+        <section
+          ref={scroll.viewport}
+          onScroll={scroll.onScroll}
+          aria-label="メッセージ履歴"
+          className={`absolute inset-x-0 top-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden ${room.canPost ? "bottom-[calc(var(--composer-height)+var(--composer-bottom))]" : "bottom-0"}`}
         >
-          {history.query.hasNextPage && (
-            <div className="mb-4 text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={history.query.isFetchingNextPage}
-                onClick={history.older}
-              >
-                以前のメッセージ
-              </Button>
-            </div>
-          )}
-          <ol aria-label="メッセージ" className="min-w-0">
-            {rows.map((message, index) => {
-              const previous = rows[index - 1],
-                dayChanged =
-                  !previous ||
-                  date(previous.createdAt) !== date(message.createdAt),
-                unread =
-                  history.initialRead > 0 &&
-                  message.memberId !== member.id &&
-                  message.sequence === history.initialRead + 1
-              const grouped =
-                previous?.memberId === message.memberId &&
-                !dayChanged &&
-                !unread &&
-                Date.parse(message.createdAt) - Date.parse(previous.createdAt) <
-                  300_000
-              return (
-                <li
-                  key={message.id}
-                  data-message-id={message.id}
-                  data-sequence={message.sequence ?? undefined}
-                  data-delivery={message.status}
-                  className={grouped ? "pt-0.5" : "pt-4 first:pt-0"}
+          <div ref={scroll.content} className="px-[var(--chat-gutter)] py-4">
+            {history.query.hasNextPage && (
+              <div className="mb-4 text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={history.query.isFetchingNextPage}
+                  onClick={() => void history.query.fetchNextPage()}
                 >
-                  {dayChanged && (
-                    <div className="mb-5 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="h-px flex-1 bg-border" />
-                      <span>{date(message.createdAt)}</span>
-                      <span className="h-px flex-1 bg-border" />
-                    </div>
-                  )}
-                  {unread && (
-                    <div className="my-4 flex items-center gap-3 text-xs font-medium">
-                      <span className="h-px flex-1 bg-border" />
-                      ここから未読
-                      <span className="h-px flex-1 bg-border" />
-                    </div>
-                  )}
-                  <div className="group grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 rounded-md hover:bg-muted/25">
-                    {!grouped ? (
-                      <MemberAvatar
-                        name={message.memberDisplayName}
-                        image={message.memberImage}
-                        className="mt-0.5"
-                      />
-                    ) : (
-                      <span className="self-start pt-1 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">
-                        {time(message.createdAt)}
-                      </span>
+                  以前のメッセージ
+                </Button>
+              </div>
+            )}
+            <ol aria-label="メッセージ" className="min-w-0">
+              {rows.map((message, index) => {
+                const previous = rows[index - 1],
+                  dayChanged =
+                    !previous ||
+                    date(previous.createdAt) !== date(message.createdAt),
+                  unread =
+                    history.initialRead > 0 &&
+                    message.memberId !== member.id &&
+                    message.sequence === history.initialRead + 1
+                const grouped =
+                  previous?.memberId === message.memberId &&
+                  !dayChanged &&
+                  !unread &&
+                  Date.parse(message.createdAt) -
+                    Date.parse(previous.createdAt) <
+                    300_000
+                return (
+                  <li
+                    key={message.id}
+                    data-message-id={message.id}
+                    data-sequence={message.sequence ?? undefined}
+                    data-delivery={message.status}
+                    className={grouped ? "pt-0.5" : "pt-4 first:pt-0"}
+                  >
+                    {dayChanged && (
+                      <div className="mb-5 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="h-px flex-1 bg-border" />
+                        <span>{date(message.createdAt)}</span>
+                        <span className="h-px flex-1 bg-border" />
+                      </div>
                     )}
-                    <div className="min-w-0">
-                      {!grouped && (
-                        <p className="flex items-baseline gap-2">
-                          <span className="text-sm font-semibold">
-                            {message.memberDisplayName}
-                          </span>
-                          <time
-                            dateTime={message.createdAt}
-                            className="text-[11px] text-muted-foreground"
+                    {unread && (
+                      <div className="my-4 flex items-center gap-3 text-xs font-medium">
+                        <span className="h-px flex-1 bg-border" />
+                        ここから未読
+                        <span className="h-px flex-1 bg-border" />
+                      </div>
+                    )}
+                    <div className="group grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 rounded-md hover:bg-muted/25">
+                      {!grouped ? (
+                        <MemberAvatar
+                          name={message.memberDisplayName}
+                          image={message.memberImage}
+                          className="mt-0.5"
+                        />
+                      ) : (
+                        <span className="self-start pt-1 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">
+                          {time(message.createdAt)}
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        {!grouped && (
+                          <p className="flex items-baseline gap-2">
+                            <span className="text-sm font-semibold">
+                              {message.memberDisplayName}
+                            </span>
+                            <time
+                              dateTime={message.createdAt}
+                              className="text-[11px] text-muted-foreground"
+                            >
+                              {time(message.createdAt)}
+                            </time>
+                          </p>
+                        )}
+                        {message.content && (
+                          <p className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        )}
+                        <MessageImages
+                          roomId={room.id}
+                          images={message.attachments}
+                        />
+                        {message.files.length > 0 && (
+                          <div
+                            className={`mt-2 grid max-w-lg gap-2 ${message.files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
                           >
-                            {time(message.createdAt)}
-                          </time>
-                        </p>
-                      )}
-                      {message.content && (
-                        <p className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap">
-                          {message.content}
-                        </p>
-                      )}
-                      <MessageImages
-                        roomId={room.id}
-                        images={message.attachments}
-                      />
-                      {message.files.length > 0 && (
-                        <div
-                          className={`mt-2 grid max-w-lg gap-2 ${message.files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
-                        >
-                          {message.files.map((file) => (
-                            <div
-                              key={file.id}
-                              className="w-fit overflow-hidden rounded-xl border"
-                            >
-                              <LocalImage
-                                blob={file.blob}
-                                alt={file.name}
-                                className="max-h-80 w-auto max-w-full object-contain"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {(message.status === "failed" ||
-                        (offline && message.status !== "sent")) && (
-                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                          {message.status === "failed" ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => store.retry(message.id)}
-                            >
-                              再送
-                            </Button>
-                          ) : (
-                            "接続後に送信"
-                          )}
-                          {message.status !== "sending" && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => store.cancel(message.id)}
-                            >
-                              取り消す
-                            </Button>
-                          )}
-                        </div>
-                      )}
+                            {message.files.map((file) => (
+                              <div
+                                key={file.id}
+                                className="max-w-full overflow-hidden rounded-xl border"
+                                style={imageSize(
+                                  file.uploaded ?? file.dimensions
+                                )}
+                              >
+                                <LocalImage
+                                  blob={file.blob}
+                                  alt={file.name}
+                                  className="size-full object-contain"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {(message.status === "failed" ||
+                          (offline && message.status !== "sent")) && (
+                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            {message.status === "failed" ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => store.retry(message.id)}
+                              >
+                                再送
+                              </Button>
+                            ) : (
+                              "接続後に送信"
+                            )}
+                            {message.status !== "sending" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => store.cancel(message.id)}
+                              >
+                                取り消す
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              )
-            })}
-          </ol>
-          {room.historical && (
-            <p className="mt-5 text-center text-xs text-muted-foreground">
-              退出前の履歴です
-            </p>
-          )}
-        </div>
-        {!history.atBottom && (
+                  </li>
+                )
+              })}
+            </ol>
+            {room.historical && (
+              <p className="mt-5 text-center text-xs text-muted-foreground">
+                退出前の履歴です
+              </p>
+            )}
+          </div>
+        </section>
+        {scroll.showLatest && (
           <Button
             variant="outline"
-            size="sm"
-            className="absolute bottom-[calc(var(--composer-height)+2rem)] left-1/2 -translate-x-1/2 rounded-full bg-background shadow-sm"
-            onClick={history.latest}
+            size="icon"
+            aria-label="最新のメッセージへ"
+            className={`absolute right-[var(--chat-gutter)] size-9 rounded-full bg-background shadow-sm ${room.canPost ? "bottom-[calc(var(--composer-height)+var(--composer-bottom)+var(--chat-gutter))]" : "bottom-[var(--chat-gutter)]"}`}
+            onClick={scroll.latest}
           >
-            <ArrowDown className="size-3.5" />
-            最新へ
+            <ArrowDown className="size-4" />
           </Button>
         )}
         {room.canPost && (
           <div
             ref={seat}
-            className="absolute inset-x-2 bottom-[calc(var(--app-bottom-bar-height)-50px)] md:inset-x-5"
+            className="absolute inset-x-[var(--chat-gutter)] bottom-[var(--composer-bottom)]"
           >
             <ChatComposer
               draft={draft}
               disabled={!ready}
               onChange={(value) => store.edit(room.id, value)}
+              onAddFiles={(files) => {
+                const current = store.draft(room.id)
+                if (
+                  current.files.length + files.length >
+                  chatImageLimits.count
+                ) {
+                  toast.error("画像は1回に4枚まで添付できます。")
+                  return
+                }
+                store.edit(room.id, {
+                  ...current,
+                  files: [...current.files, ...files],
+                })
+              }}
               onSend={() => {
-                void store
-                  .enqueue(room.id)
-                  .then(() => requestAnimationFrame(history.latest))
+                scroll.follow()
+                void store.enqueue(room.id)
               }}
             />
           </div>

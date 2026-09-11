@@ -24,7 +24,7 @@ const plugins = lazyPlugins(() => {
         lang: "ja",
         theme_color: "#ffffff",
         background_color: "#ffffff",
-        display: "standalone",
+        display: "minimal-ui",
         start_url: "/",
         scope: "/",
         icons: [

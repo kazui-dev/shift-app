@@ -9,6 +9,12 @@ const fileSchema = v.object({
   id: v.string(),
   name: v.string(),
   blob: v.instance(Blob),
+  dimensions: v.optional(
+    v.object({
+      width: v.pipe(v.number(), v.integer(), v.minValue(1)),
+      height: v.pipe(v.number(), v.integer(), v.minValue(1)),
+    })
+  ),
   uploaded: v.optional(chatAttachmentSchema),
 })
 const draftSchema = v.object({

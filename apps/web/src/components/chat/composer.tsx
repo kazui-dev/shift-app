@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
-import { ArrowUp, Plus, X } from "lucide-react"
+import { SendHorizontal, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { toast } from "@workspace/ui/lib/toast"
@@ -13,17 +13,20 @@ export function ChatComposer({
   draft,
   disabled,
   onChange,
+  onAddFiles,
   onSend,
 }: {
   draft: ChatDraft
   disabled: boolean
   onChange: (draft: ChatDraft) => void
+  onAddFiles: (files: ChatFile[]) => void
   onSend: () => void
 }) {
   const form = useRef<HTMLFormElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const picking = useRef(false)
   const [focused, setFocused] = useState(false)
+  const [pressed, setPressed] = useState(false)
   const { input, measure, body, expanded } = useComposerLayout(
     draft.content,
     focused,
@@ -42,7 +45,11 @@ export function ChatComposer({
     field?.addEventListener("cancel", finishPicking)
     return () => field?.removeEventListener("cancel", finishPicking)
   }, [finishPicking])
-  function addFiles(incoming: File[]) {
+  async function addFiles(incoming: File[]) {
+    if (incoming.length > chatImageLimits.count) {
+      toast.error("画像は1回に4枚まで添付できます。")
+      return
+    }
     const accepted: ChatFile[] = []
     for (const file of incoming) {
       if (
@@ -58,17 +65,24 @@ export function ChatComposer({
       }
       accepted.push({ id: crypto.randomUUID(), name: file.name, blob: file })
     }
-    if (draft.files.length + accepted.length > chatImageLimits.count) {
-      toast.error("画像は1回に4枚まで添付できます。")
-      return
-    }
-    onChange({ ...draft, files: [...draft.files, ...accepted] })
+    await Promise.all(
+      accepted.map(async (selected) => {
+        try {
+          const bitmap = await createImageBitmap(selected.blob)
+          selected.dimensions = { width: bitmap.width, height: bitmap.height }
+          bitmap.close()
+        } catch {
+          // Some accepted formats (e.g. HEIC) can only be decoded by the server.
+        }
+      })
+    )
+    if (accepted.length) onAddFiles(accepted)
   }
   const receiveDrop = useEffectEvent((event: DragEvent) => {
     event.preventDefault()
     setDragging(false)
     if (!disabled && event.dataTransfer)
-      addFiles(Array.from(event.dataTransfer.files))
+      void addFiles(Array.from(event.dataTransfer.files))
   })
   useEffect(() => {
     const element = form.current
@@ -125,10 +139,10 @@ export function ChatComposer({
         ref={fileInput}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,.heic,.heif"
+        accept="image/*"
         className="hidden"
         onChange={(event) => {
-          addFiles(Array.from(event.target.files ?? []))
+          void addFiles(Array.from(event.target.files ?? []))
           event.target.value = ""
           finishPicking()
         }}
@@ -176,7 +190,12 @@ export function ChatComposer({
           variant="ghost"
           size="icon-sm"
           disabled={disabled}
-          className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground"
+          className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-[background-color,scale] active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted motion-reduce:transition-none"
+          data-pressed={pressed}
+          onPointerDown={() => setPressed(true)}
+          onPointerUp={() => setPressed(false)}
+          onPointerCancel={() => setPressed(false)}
+          onPointerLeave={() => setPressed(false)}
           aria-label="画像を添付"
           title="画像を添付"
           onClick={() => {
@@ -203,7 +222,7 @@ export function ChatComposer({
             const images = Array.from(event.clipboardData.files)
             if (images.length) {
               event.preventDefault()
-              addFiles(images)
+              void addFiles(images)
             }
           }}
           onKeyDown={(event) => {
@@ -231,11 +250,11 @@ export function ChatComposer({
         <Button
           type="submit"
           size="icon-sm"
-          className="absolute right-2 bottom-2 size-8 rounded-full"
+          className={`absolute right-2 bottom-2 size-8 rounded-full ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
           aria-label="送信"
           disabled={disabled || (!draft.content.trim() && !draft.files.length)}
         >
-          <ArrowUp />
+          <SendHorizontal />
         </Button>
       </div>
     </form>
