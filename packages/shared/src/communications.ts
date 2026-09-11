@@ -54,12 +54,9 @@ export const sendChatMessageInputSchema = v.pipe(
   v.object({
     id: v.pipe(v.string(), v.uuid()),
     content: v.pipe(v.string(), v.trim(), v.maxLength(2000)),
-    attachmentIds: v.optional(
-      v.pipe(
-        v.array(v.pipe(v.string(), v.uuid())),
-        v.maxLength(chatImageLimits.count)
-      ),
-      []
+    attachmentIds: v.pipe(
+      v.array(v.pipe(v.string(), v.uuid())),
+      v.maxLength(chatImageLimits.count)
     ),
   }),
   v.check(
@@ -103,7 +100,7 @@ export const chatMessageResponseSchema = v.object({
   memberId: v.pipe(v.string(), v.uuid()),
   memberDisplayName: v.string(),
   content: v.string(),
-  attachments: v.optional(v.array(chatAttachmentSchema), []),
+  attachments: v.array(chatAttachmentSchema),
   createdAt: instantSchema,
 })
 

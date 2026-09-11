@@ -23,6 +23,7 @@ const queuedSchema = v.object({
   status: v.picklist(["waiting", "sending", "failed"]),
 })
 const stateSchema = v.object({
+  version: v.literal(2),
   drafts: v.record(v.string(), draftSchema),
   queue: v.array(queuedSchema),
 })
@@ -39,7 +40,7 @@ function db() {
 }
 
 export class ChatStore {
-  private state: State = { drafts: {}, queue: [], ready: false }
+  private state: State = { version: 2, drafts: {}, queue: [], ready: false }
   private listeners = new Set<() => void>()
   private writing = Promise.resolve()
   private running = false
@@ -71,9 +72,12 @@ export class ChatStore {
       )
       if (this.active)
         this.publish({
-          ...(parsed.success ? parsed.output : { drafts: {}, queue: [] }),
+          ...(parsed.success
+            ? parsed.output
+            : { version: 2, drafts: {}, queue: [] }),
           ready: true,
         })
+      if (!parsed.success && this.active) await this.persist()
     } catch {
       this.publish({ ...this.state, ready: true })
       toast.error("下書きを読み込めませんでした。")
@@ -85,7 +89,11 @@ export class ChatStore {
       .catch(() => undefined)
       .then(() =>
         this.active
-          ? set(this.userId, { drafts: state.drafts, queue: state.queue }, db())
+          ? set(
+              this.userId,
+              { version: 2, drafts: state.drafts, queue: state.queue },
+              db()
+            )
           : undefined
       )
     this.writing = task

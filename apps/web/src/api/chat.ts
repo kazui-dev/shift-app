@@ -42,7 +42,7 @@ export const getChatMessages = (roomId: string, before: number | null = null) =>
 
 export const sendChatMessage = (
   roomId: string,
-  input: { id: string; content: string; attachmentIds?: string[] }
+  input: { id: string; content: string; attachmentIds: string[] }
 ) =>
   apiJson(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/messages`,
