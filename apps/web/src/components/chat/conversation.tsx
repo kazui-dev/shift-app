@@ -463,6 +463,7 @@ function Conversation({
             className="absolute inset-x-[var(--chat-gutter)] bottom-[var(--composer-bottom)]"
           >
             <ChatComposer
+              roomName={room.name}
               draft={draft}
               disabled={!ready}
               onChange={(value) => store.edit(room.id, value)}
