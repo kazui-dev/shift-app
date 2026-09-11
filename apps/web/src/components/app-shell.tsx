@@ -129,7 +129,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
         <ChatDelivery />
         <CalendarViewStateProvider>
           <main
-            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] transition-[padding-bottom] duration-200 ease-out motion-reduce:transition-none sm:px-6 md:pt-6 ${isChat ? "md:pl-2" : ""} ${composing ? "pb-[env(safe-area-inset-bottom)]" : fitted ? "pb-[calc(3rem+1px+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-8"}`}
+            className={`flex min-h-0 min-w-0 flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)] transition-[padding-bottom] duration-200 ease-out motion-reduce:transition-none sm:px-6 md:pt-6 ${isChat ? "md:pl-2" : ""} ${composing ? "pb-[env(safe-area-inset-bottom)]" : fitted ? "pb-[calc(3.5rem+1px+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(4.5rem+1px+env(safe-area-inset-bottom))] md:pb-8"}`}
           >
             {unsafeOfflineRoute ? null : <Outlet />}
           </main>
