@@ -109,7 +109,7 @@ export function RoomList({
   )
   return (
     <>
-      <div className="flex shrink-0 items-start gap-1 px-1 pb-3">
+      <div className="flex h-15 shrink-0 items-center gap-1 border-b px-4">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -134,7 +134,7 @@ export function RoomList({
           </Button>
         )}
       </div>
-      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto px-1 pb-3">
+      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto p-4">
         {loading ? (
           <output className="block px-3 py-4 text-sm text-muted-foreground">
             読み込み中…

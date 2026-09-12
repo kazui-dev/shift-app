@@ -32,9 +32,9 @@ export function SettingsPage() {
   const { theme, setTheme } = useTheme()
 
   return (
-    <section className="w-full min-w-0 space-y-8">
-      <PageHeader title="設定" className="min-h-0" />
-      <div className="flex min-h-18 items-center justify-between gap-4 border-y py-3">
+    <section className="w-full min-w-0 space-y-8 py-6">
+      <PageHeader title="設定" className="min-h-0 px-4 sm:px-6" />
+      <div className="flex min-h-18 items-center justify-between gap-4 border-y px-4 py-3 sm:px-6">
         <label htmlFor="display-year" className="font-medium">
           表示年度
         </label>
@@ -62,8 +62,10 @@ export function SettingsPage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-xs font-medium text-muted-foreground">外観</h2>
-        <div className="flex min-h-18 items-center justify-between gap-4 border-y py-3">
+        <h2 className="mb-3 px-4 text-xs font-medium text-muted-foreground sm:px-6">
+          外観
+        </h2>
+        <div className="flex min-h-18 items-center justify-between gap-4 border-y px-4 py-3 sm:px-6">
           <span className="shrink-0 font-medium">テーマ</span>
           <div
             className="flex gap-1 rounded-lg bg-muted p-1"
@@ -91,7 +93,9 @@ export function SettingsPage() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-xs font-medium text-muted-foreground">通知</h2>
+        <h2 className="mb-3 px-4 text-xs font-medium text-muted-foreground sm:px-6">
+          通知
+        </h2>
         <PushControl />
       </div>
     </section>
