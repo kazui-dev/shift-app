@@ -1,4 +1,8 @@
-import { publishChatEvent, publishRoomChange } from "../services/chat-directory"
+import {
+  publishChatEvent,
+  publishRoomChange,
+  roomChangeRecipients,
+} from "../services/chat-directory"
 import { editChatMessageInputSchema } from "@workspace/shared/communications"
 import { saveRoomSettings } from "../services/chat-settings"
 import { deleteRoom } from "../services/chat-deletion"
@@ -81,17 +85,11 @@ chatApp.delete("/rooms/:roomId", async (c) => {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
   if (!room.canManage)
     return apiError(c, 403, "FORBIDDEN", "ルームの管理権限が必要です。")
-  const previous = await roomRecipients(c.env, room.id)
+  const previous = await roomChangeRecipients(c.env, room.id)
   const deleted = await deleteRoom(c.env.shift_app, room.id, actor.id)
   if (!deleted)
     return apiError(c, 409, "CHAT_SETTINGS_CHANGED", "権限が変更されました。")
-  c.executionCtx.waitUntil(
-    publishRoomChange(
-      c.env,
-      room.id,
-      previous.map((member) => member.id)
-    )
-  )
+  c.executionCtx.waitUntil(publishRoomChange(c.env, room.id, previous))
   return c.body(null, 204)
 })
 
