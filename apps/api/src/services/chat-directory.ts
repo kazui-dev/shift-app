@@ -15,28 +15,22 @@ export async function roomChangeRecipients(
   env: CloudflareBindings,
   roomId: string
 ) {
-  const [members, former] = await Promise.all([
-    roomRecipients(env, roomId),
-    env.shift_app
-      .prepare("SELECT member_id AS id FROM chat_room_exits WHERE room_id=?")
-      .bind(roomId)
-      .all<{ id: string }>(),
-  ])
-  return [
-    ...new Set([
-      ...members.map((member) => member.id),
-      ...former.results.map((member) => member.id),
-    ]),
-  ]
+  const members = await roomRecipients(env, roomId)
+  return members.map((member) => member.id)
 }
+
 export async function publishRoomChange(
   env: CloudflareBindings,
   roomId: string,
   previous: string[] = []
 ) {
   const recipients = await roomChangeRecipients(env, roomId)
-  await env.CHAT_DIRECTORY.getByName("rooms").publish(
-    [...new Set([...previous, ...recipients])],
-    { type: "room_changed", roomId }
-  )
+  const removed = previous.filter((id) => !recipients.includes(id))
+  const directory = env.CHAT_DIRECTORY.getByName("rooms")
+  await Promise.all([
+    directory.publish(recipients, { type: "room_changed", roomId }),
+    ...(removed.length
+      ? [directory.publish(removed, { type: "room_removed", roomId })]
+      : []),
+  ])
 }

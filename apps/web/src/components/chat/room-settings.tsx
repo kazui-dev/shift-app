@@ -71,7 +71,7 @@ export function RoomSettings({
 function RoomActions({ room, onLeave, onDelete }: Actions) {
   return (
     <div className="space-y-1">
-      {room.allowExit && !room.historical && (
+      {room.allowExit && (
         <Button
           type="button"
           variant="ghost"

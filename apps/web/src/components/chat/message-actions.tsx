@@ -47,7 +47,6 @@ export function MessageActions({
     authorId: message.memberId,
     canPost: room.canPost,
     canManage: room.canManage,
-    historical: room.historical,
     deleted: !!message.deleted,
   })
   const available =

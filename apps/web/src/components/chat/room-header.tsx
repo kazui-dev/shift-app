@@ -41,7 +41,7 @@ function RoomControls({
       >
         {room.muted ? <BellOff /> : <Bell />}
       </Button>
-      {(room.canManage || (room.allowExit && !room.historical)) && (
+      {(room.canManage || room.allowExit) && (
         <Button
           variant="ghost"
           size="icon-sm"

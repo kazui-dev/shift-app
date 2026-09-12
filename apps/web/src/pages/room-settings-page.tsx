@@ -22,7 +22,7 @@ export function RoomSettingsPage() {
 function RoomSettingsScreen({ roomId }: { roomId: string }) {
   const router = useRouter(),
     client = useQueryClient()
-  const { store, queue } = useChatStore()
+  const { store } = useChatStore()
   const [action, setAction] = useState<"leave" | "delete">()
   const [pending, setPending] = useState(false)
   const close = () => {
@@ -43,30 +43,15 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
     if (!action || pending) return
     setPending(true)
     try {
-      if (action === "delete") {
-        await deleteChatRoom(roomId)
-        for (const queued of queue.filter((item) => item.roomId === roomId))
-          store.cancel(queued.id)
-        store.edit(roomId, { content: "", files: [] })
-        await router.navigate({
-          to: "/chat",
-          replace: true,
-          state: { chatList: true },
-        })
-        removeRoom(client, roomId)
-      } else {
-        await leaveChatRoom(roomId)
-        await router.navigate({
-          to: "/chat",
-          replace: true,
-          state: { chatList: true },
-        })
-        await Promise.all([
-          client.invalidateQueries({ queryKey: ["chat-rooms"] }),
-          client.invalidateQueries({ queryKey: ["chat-room", roomId] }),
-          client.invalidateQueries({ queryKey: ["chat-members", roomId] }),
-        ])
-      }
+      if (action === "delete") await deleteChatRoom(roomId)
+      else await leaveChatRoom(roomId)
+      await router.navigate({
+        to: "/chat",
+        replace: true,
+        state: { chatList: true, chatRemoved: roomId },
+      })
+      removeRoom(client, roomId)
+      await store.removeRoom(roomId)
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {

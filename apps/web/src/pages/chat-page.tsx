@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router"
 import { useChatNavigation } from "@/components/chat/use-chat-navigation"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { getChatRoom } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -33,7 +33,6 @@ export function ChatPage() {
   const explicitList = useRouterState({
     select: (state) => !!state.location.state.chatList,
   })
-  const previousRoom = useRef<{ id: string; historical: boolean } | null>(null)
   const creating = pathname === "/chat/new"
   const desktop = useMediaQuery("(min-width: 768px)")
   const { report } = useSearch({ strict: false })
@@ -55,19 +54,10 @@ export function ChatPage() {
   })
   const missing = room.error instanceof ApiError && room.error.status === 404
   useEffect(() => {
-    const current = room.data?.room
-    const previous = previousRoom.current
-    const exited =
-      current?.id === previous?.id &&
-      current?.historical &&
-      !previous?.historical
-    previousRoom.current = current
-      ? { id: current.id, historical: current.historical }
-      : null
-    if ((!missing && !exited) || offline || !retainedId) return
+    if (!missing || offline || !retainedId) return
     remove(retainedId)
-    if (missing) removeRoom(client, retainedId)
-  }, [client, missing, offline, retainedId, room.data?.room, remove])
+    removeRoom(client, retainedId)
+  }, [client, missing, offline, retainedId, remove])
   const year = (roomId ? room.data?.room.year : undefined) ?? display.year
   const rooms = useQuery({
     ...roomsQuery(year),

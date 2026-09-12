@@ -33,7 +33,6 @@ const room: RoomRow = {
   muted: 0,
   lastRead: 0,
   lastSequence: 0,
-  exitedAt: null,
 }
 const databases: DatabaseSync[] = []
 beforeEach(() => {
@@ -123,7 +122,7 @@ it("persists replies and edits and removes deleted reply text without changing s
       editedAt: expect.any(String),
     },
   })
-  expect(value.getMessages(null, 100, null).messages[1]?.reply?.content).toBe(
+  expect(value.getMessages(null, 100).messages[1]?.reply?.content).toBe(
     "edited"
   )
   expect(
@@ -140,7 +139,7 @@ it("persists replies and edits and removes deleted reply text without changing s
       id: "first",
     })
   ).toMatchObject({ message: { deleted: true, content: "" } })
-  const messages = value.getMessages(null, 100, null).messages
+  const messages = value.getMessages(null, 100).messages
   expect(messages.map((m) => m.sequence)).toEqual([1, 2])
   expect(messages[1]?.reply).toMatchObject({ deleted: true, content: "" })
   await expect(
@@ -150,7 +149,7 @@ it("persists replies and edits and removes deleted reply text without changing s
     value.sendMessage({ ...input("fourth"), replyToId: "another-room-message" })
   ).rejects.toThrow("INVALID_CHAT_REPLY")
 })
-it("enforces authorship, manager deletion, revoked access and historical access inside the room", async () => {
+it("enforces authorship, manager deletion, revoked access inside the room", async () => {
   const { value } = fixture()
   await value.sendMessage(input("first"))
   expect(
@@ -175,14 +174,6 @@ it("enforces authorship, manager deletion, revoked access and historical access 
       memberId: "other",
       id: "first",
       content: "bad",
-    })
-  ).toEqual({ error: "forbidden" })
-  vi.mocked(findAccessibleRoom).mockResolvedValue({ ...room, exitedAt: 150 })
-  expect(
-    await value.changeMessage({
-      roomId: "room",
-      memberId: "author",
-      id: "first",
     })
   ).toEqual({ error: "forbidden" })
   vi.mocked(findAccessibleRoom).mockResolvedValue(null)
@@ -212,7 +203,7 @@ it("denies image reads immediately after deletion and removes their objects on t
     bytes: 50,
   })
   await value.sendMessage({ ...input("first"), attachmentIds: [reserved.id] })
-  expect(value.getAttachment(reserved.id, null)).not.toBeNull()
+  expect(value.getAttachment(reserved.id)).not.toBeNull()
   expect(
     await value.changeMessage({
       roomId: "room",
@@ -222,7 +213,7 @@ it("denies image reads immediately after deletion and removes their objects on t
     })
   ).toMatchObject({ message: { content: "" } })
   await value.changeMessage({ roomId: "room", memberId: "author", id: "first" })
-  expect(value.getAttachment(reserved.id, null)).toBeNull()
+  expect(value.getAttachment(reserved.id)).toBeNull()
   await value.alarm()
   expect(bucket.delete).toHaveBeenCalledWith(reserved.objectKey)
 })

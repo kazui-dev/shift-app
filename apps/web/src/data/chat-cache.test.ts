@@ -86,7 +86,6 @@ it("reorders rooms immediately on new delivery without letting old acknowledgeme
     activityId: null,
     activityStartsAt: null,
     activityEndsAt: null,
-    historical: false,
     canPost: true,
     canManage: true,
     muted: false,

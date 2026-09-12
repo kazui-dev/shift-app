@@ -27,7 +27,6 @@ const room: RoomRow = {
   muted: 0,
   lastRead: 0,
   lastSequence: 0,
-  exitedAt: null,
 }
 const getAttachment =
   vi.fn<
@@ -86,8 +85,7 @@ it("does not touch storage when room access is denied", async () => {
   expect(getAttachment).not.toHaveBeenCalled()
   expect(reserveAttachment).not.toHaveBeenCalled()
 })
-it("applies the exit cutoff and never caches protected images publicly", async () => {
-  vi.mocked(findAccessibleRoom).mockResolvedValue({ ...room, exitedAt: 123 })
+it("never caches protected images publicly", async () => {
   getAttachment.mockResolvedValue({ objectKey: "private" })
   bucketGet.mockResolvedValue({ body: new Blob(["image"]).stream(), size: 5 })
   const response = await app.request(
@@ -96,7 +94,7 @@ it("applies the exit cutoff and never caches protected images publicly", async (
     env
   )
   expect(response.status).toBe(200)
-  expect(getAttachment).toHaveBeenCalledWith(imageId, 123)
+  expect(getAttachment).toHaveBeenCalledWith(imageId)
   expect(response.headers.get("Cache-Control")).toBe("private, no-store")
   expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff")
   expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe(

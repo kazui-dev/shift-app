@@ -133,7 +133,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       authorId: row.memberId,
       canPost: room.canPost === 1,
       canManage: room.canManage === 1,
-      historical: room.exitedAt !== null,
       deleted: !deleting && row.deleted === 1,
     })
     if (!(deleting ? permission.delete : permission.edit))
@@ -180,8 +179,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   ) {
     return !this.deleted && this.attachments.finish(id, memberId, image)
   }
-  getAttachment(id: string, beforeTime: number | null) {
-    return this.attachments.readable(id, beforeTime)
+  getAttachment(id: string) {
+    return this.attachments.readable(id)
   }
   deleteAttachment(id: string, memberId: string) {
     return this.attachments.remove(id, memberId)
@@ -197,8 +196,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
 
   getMessages(
     beforeSequence: number | null,
-    limit: number,
-    beforeTime: number | null
+    limit: number
   ): { messages: ChatMessage[]; hasMore: boolean } {
     const boundedLimit = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
@@ -207,13 +205,11 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
                 member_display_name AS memberDisplayName, content,
                 created_at AS createdAt, reply_to_id AS replyToId, edited_at AS editedAt, deleted
          FROM messages
-         WHERE (? IS NULL OR sequence < ?) AND (? IS NULL OR created_at <= ?)
+         WHERE (? IS NULL OR sequence < ?)
          ORDER BY sequence DESC
          LIMIT ?`,
         beforeSequence,
         beforeSequence,
-        beforeTime,
-        beforeTime,
         boundedLimit + 1
       )
       .toArray()

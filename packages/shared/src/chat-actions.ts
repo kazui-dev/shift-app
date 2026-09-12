@@ -3,10 +3,9 @@ export function messagePermissions(input: {
   authorId: string
   canPost: boolean
   canManage: boolean
-  historical: boolean
   deleted: boolean
 }) {
-  const active = !input.historical && !input.deleted
+  const active = !input.deleted
   const own = input.memberId === input.authorId
   return {
     reply: active && input.canPost,

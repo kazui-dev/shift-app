@@ -39,7 +39,7 @@ createRoot(rootElement).render(
       client={queryClient}
       persistOptions={{
         persister,
-        buster: "shift-app-cache-2026-09-chat-v6",
+        buster: "shift-app-cache-2026-09-chat-v7",
         dehydrateOptions: {
           shouldDehydrateMutation: () => false,
           shouldDehydrateQuery: (query) =>

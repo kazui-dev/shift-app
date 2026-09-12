@@ -1,3 +1,4 @@
+import { chatImagesApp } from "../../src/routes/chat-images"
 import { activityActionsApp } from "../../src/routes/activity-actions"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
@@ -128,6 +129,7 @@ function fixture() {
   })
   app.route("/activities", activityActionsApp)
   app.route("/chat", chatApp)
+  app.route("/chat", chatImagesApp)
   app.route("/me/chat-memberships", chatMembershipsApp)
   app.route("/years", yearLifecycleApp)
   app.route("/years", yearActivitiesApp)
@@ -310,10 +312,14 @@ it("treats the year room as editable grants, validates scopes, and preserves a m
   expect(
     (await f.request(`/chat/rooms/${id}/settings`, "PUT", settings)).status
   ).toBe(204)
-  expect(f.published).toHaveBeenLastCalledWith(
-    expect.arrayContaining([admin, member, other]),
-    { type: "room_changed", roomId: id }
-  )
+  expect(f.published).toHaveBeenCalledWith([member], {
+    type: "room_changed",
+    roomId: id,
+  })
+  expect(f.published).toHaveBeenLastCalledWith([admin, other], {
+    type: "room_removed",
+    roomId: id,
+  })
   expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
   f.as(member)
   expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
@@ -324,7 +330,7 @@ it("treats the year room as editable grants, validates scopes, and preserves a m
   )
 })
 
-it("allows explicit exit history but excludes exits from current recipients", async () => {
+it("revokes exited members from lists, direct links, history and current recipients", async () => {
   const f = fixture()
   const room = yearRoom(2026, admin)
   room.allowExit = true
@@ -333,13 +339,15 @@ it("allows explicit exit history but excludes exits from current recipients", as
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
     204
   )
-  expect(f.published).toHaveBeenLastCalledWith(
-    expect.arrayContaining([admin, member, other]),
+  expect(f.published).toHaveBeenCalledWith(
+    expect.arrayContaining([admin, other]),
     { type: "room_changed", roomId: id }
   )
-  expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
-    room: { historical: true, canPost: false, unreadCount: 0 },
+  expect(f.published).toHaveBeenLastCalledWith([member], {
+    type: "room_removed",
+    roomId: id,
   })
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
   expect(
     f.db
       .prepare(
@@ -348,8 +356,15 @@ it("allows explicit exit history but excludes exits from current recipients", as
       .get(id, member)
   ).toBeUndefined()
   expect((await f.request(`/chat/rooms/${id}/members`)).status).toBe(404)
+  expect((await f.request(`/chat/rooms/${id}/messages`)).status).toBe(404)
+  expect(
+    (await f.request(`/chat/rooms/${id}/attachments/${other}`)).status
+  ).toBe(404)
+  expect(await (await f.request("/chat/rooms?year=2026")).json()).toEqual({
+    rooms: [],
+  })
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
-    204
+    404
   )
 })
 
@@ -373,9 +388,7 @@ it("allows the last manager to leave only when no other resolved readers remain"
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
     204
   )
-  expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
-    room: { historical: true, canManage: false },
-  })
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
 })
 
 it("deletes a managed room, revokes all readers and queues message and image cleanup", async () => {
@@ -387,15 +400,14 @@ it("deletes a managed room, revokes all readers and queues message and image cle
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
     204
   )
-  expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
-    room: { historical: true },
-  })
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
   f.as(admin)
   expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(204)
   expect(f.published).toHaveBeenLastCalledWith(
-    expect.arrayContaining([admin, member, other]),
-    { type: "room_changed", roomId: id }
+    expect.arrayContaining([admin, other]),
+    { type: "room_removed", roomId: id }
   )
+  expect(f.published.mock.calls.at(-1)?.[0]).not.toContain(member)
   expect(
     f.db
       .prepare("SELECT room_id FROM chat_room_deletions WHERE room_id=?")
@@ -518,9 +530,7 @@ it("re-invites an exited member only when an explicit grant is newly added", asy
     (await f.request(`/chat/rooms/${id}/settings`, "PUT", settings)).status
   ).toBe(204)
   f.as(member)
-  expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
-    room: { historical: true },
-  })
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
   f.as(admin)
   expect(
     (
@@ -541,7 +551,7 @@ it("re-invites an exited member only when an explicit grant is newly added", asy
   ).toBe(204)
   f.as(member)
   expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
-    room: { historical: false, canPost: false },
+    room: { canPost: false },
   })
 })
 

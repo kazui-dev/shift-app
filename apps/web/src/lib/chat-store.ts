@@ -151,6 +151,17 @@ export class ChatStore {
       toast.error("送信待ちを保存できませんでした。")
     )
   }
+  async removeRoom(roomId: string) {
+    await this.loading
+    const drafts = { ...this.state.drafts }
+    delete drafts[roomId]
+    this.publish({
+      ...this.state,
+      drafts,
+      queue: this.state.queue.filter((item) => item.roomId !== roomId),
+    })
+    await this.persist()
+  }
   stop() {
     this.active = false
     this.listeners.clear()

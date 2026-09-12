@@ -106,8 +106,7 @@ chatImagesApp.get("/rooms/:roomId/attachments/:attachmentId", async (c) => {
   )
   if (!room) return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
   const attachment = await c.env.CHAT_ROOMS.getByName(room.id).getAttachment(
-    id.output,
-    room.exitedAt
+    id.output
   )
   if (!attachment)
     return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
