@@ -16,7 +16,10 @@ export function ResponsivePage({
   const container = useRef<HTMLDivElement>(null)
   const popup = useRef<HTMLDivElement>(null)
   return (
-    <div ref={container} className="contents">
+    <div
+      ref={container}
+      className="pointer-events-none absolute inset-0 z-50 overflow-clip md:contents"
+    >
       <Dialog.Root
         open={open}
         onOpenChange={(value) => {
@@ -24,11 +27,11 @@ export function ResponsivePage({
         }}
       >
         <Dialog.Portal container={container}>
-          <Dialog.Backdrop className="fixed inset-0 z-50 hidden bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs motion-reduce:animate-none md:block data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+          <Dialog.Backdrop className="pointer-events-auto fixed inset-0 z-50 hidden bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs motion-reduce:animate-none md:block data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
           <Dialog.Popup
             ref={popup}
             initialFocus={() => popup.current}
-            className="absolute inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none motion-reduce:animate-none md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:h-[min(44rem,85dvh)] md:w-[38rem] md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bg-popover md:pt-0 md:text-popover-foreground md:ring-1 md:ring-foreground/10 md:duration-100 data-open:animate-in data-open:slide-in-from-right-full md:data-open:fade-in-0 md:data-open:slide-in-from-right-0 md:data-open:zoom-in-95 data-closed:animate-out data-closed:slide-out-to-right-full md:data-closed:fade-out-0 md:data-closed:slide-out-to-right-0 md:data-closed:zoom-out-95"
+            className="pointer-events-auto absolute inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none motion-reduce:animate-none md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:h-[min(44rem,85dvh)] md:w-[38rem] md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bg-popover md:pt-0 md:text-popover-foreground md:ring-1 md:ring-foreground/10 md:duration-100 data-open:animate-in data-open:slide-in-from-right-full md:data-open:fade-in-0 md:data-open:slide-in-from-right-0 md:data-open:zoom-in-95 data-closed:animate-out data-closed:slide-out-to-right-full md:data-closed:fade-out-0 md:data-closed:slide-out-to-right-0 md:data-closed:zoom-out-95"
           >
             {children}
           </Dialog.Popup>
