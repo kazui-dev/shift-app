@@ -525,3 +525,27 @@ it("rolls back a settings write if authority is revoked after validation", async
       .all(id)
   ).toEqual([{ target_type: "year" }])
 })
+
+it("keeps room settings changes out of latest-post ordering", async () => {
+  const f = fixture()
+  const older = yearRoom(2026, admin),
+    newer = yearRoom(2026, admin)
+  f.create(older)
+  f.create(newer)
+  f.db
+    .prepare("UPDATE chat_rooms SET updated_at=200,last_sequence=1 WHERE id=?")
+    .run(newer.id)
+  const response = await f.request(`/chat/rooms/${older.id}/settings`, "PUT", {
+    name: "変更後",
+    allowExit: true,
+    targets: older.targets,
+  })
+  expect(response.status).toBe(204)
+  expect(
+    f.db.prepare("SELECT updated_at FROM chat_rooms WHERE id=?").get(older.id)
+      ?.updated_at
+  ).toBe(100)
+  expect(await (await f.request("/chat/rooms?year=2026")).json()).toMatchObject(
+    { rooms: [{ id: newer.id }, { id: older.id }] }
+  )
+})

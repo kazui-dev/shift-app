@@ -94,6 +94,7 @@ export const getChatRoom = (roomId: string) =>
     `/api/chat/rooms/${encodeURIComponent(roomId)}`,
     chatRoomEnvelopeSchema
   )
+export type ChatRoom = Awaited<ReturnType<typeof getChatRoom>>["room"]
 const chatImageUrl = (roomId: string, id: string) =>
   `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}`
 export const uploadChatImage = (roomId: string, blob: Blob) =>

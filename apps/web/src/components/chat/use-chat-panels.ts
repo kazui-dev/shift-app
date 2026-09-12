@@ -12,11 +12,17 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 export function useChatPanels({
   showingRoom,
   hasRoom,
+  showingMembers,
+  onMembers,
+  onConversation,
   onBack,
   onResume,
 }: {
   showingRoom: boolean
   hasRoom: boolean
+  showingMembers: boolean
+  onMembers: () => void
+  onConversation: () => void
   onBack: () => void
   onResume: () => void
 }) {
@@ -26,6 +32,7 @@ export function useChatPanels({
   const requested = useRef(initial.current)
   const list = useRef<HTMLElement>(null)
   const conversation = useRef<HTMLDivElement>(null)
+  const members = useRef<HTMLElement>(null)
   const available = useRef(hasRoom)
   useLayoutEffect(() => {
     available.current = hasRoom
@@ -39,6 +46,7 @@ export function useChatPanels({
   const [viewport, api] = useEmblaCarousel({
     active: !desktop,
     align: "start",
+    slides: "[data-chat-panel]",
     containScroll: false,
     startIndex: initial.current,
     watchDrag,
@@ -46,16 +54,20 @@ export function useChatPanels({
     duration: reducedMotion ? 0 : 20,
   })
   const activate = useEffectEvent((next: number) => {
-    const hidden = next === 1 ? list.current : conversation.current
-    if (
-      !desktop &&
-      document.activeElement instanceof HTMLElement &&
-      hidden?.contains(document.activeElement)
-    )
-      document.activeElement.blur()
-    if (list.current) list.current.inert = !desktop && next === 1
-    if (conversation.current)
-      conversation.current.inert = !desktop && next === 0
+    for (const [index, element] of [
+      list.current,
+      conversation.current,
+      members.current,
+    ].entries()) {
+      const hidden = !desktop && index !== next
+      if (
+        hidden &&
+        document.activeElement instanceof HTMLElement &&
+        element?.contains(document.activeElement)
+      )
+        document.activeElement.blur()
+      if (element) element.inert = hidden
+    }
   })
   const select = useEffectEvent(() => {
     if (!api) return
@@ -64,7 +76,11 @@ export function useChatPanels({
     if (next === requested.current) return
     requested.current = next
     if (next === 0) onBack()
-    else onResume()
+    else if (next === 2) onMembers()
+    else {
+      onConversation()
+      if (!showingRoom) onResume()
+    }
   })
   useEffect(() => {
     if (!api || desktop) return undefined
@@ -72,7 +88,7 @@ export function useChatPanels({
     let restoreBounds: (() => void) | undefined
     const paint = () => {
       if (element)
-        element.style.transform = `translate3d(${api.scrollProgress() * 75}%,0,0)`
+        element.style.transform = `translate3d(${api.scrollProgress() * (api.scrollSnapList().length - 1) * 75}%,0,0)`
     }
     const reInit = () => {
       restoreBounds?.()
@@ -93,12 +109,12 @@ export function useChatPanels({
     }
   }, [api, desktop])
   useLayoutEffect(() => {
-    const next = showingRoom ? 1 : 0
+    const next = showingRoom ? (showingMembers ? 2 : 1) : 0
     requested.current = next
     activate(next)
     // A route acknowledgement must not restart a gesture already moving away.
     if (!desktop && api && api.selectedScrollSnap() !== next)
       api.scrollTo(next, reducedMotion)
-  }, [api, showingRoom, desktop, reducedMotion])
-  return { viewport, list, conversation }
+  }, [api, showingRoom, showingMembers, desktop, reducedMotion])
+  return { viewport, list, conversation, members }
 }

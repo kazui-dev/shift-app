@@ -1,12 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import {
-  CalendarDays,
-  MessageCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Settings,
-  Users,
-} from "lucide-react"
+import { CalendarDays, MessageCircle, Settings, Users } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -27,50 +20,21 @@ const hintClass =
 export function AppNavigation({
   offline,
   desktopOnly,
-  expanded,
-  onToggle,
 }: {
   offline: boolean
   desktopOnly: boolean
-  expanded: boolean
-  onToggle: () => void
 }) {
-  const toggleLabel = expanded ? "サイドバーを閉じる" : "サイドバーを開く"
-  const ToggleIcon = expanded ? PanelLeftClose : PanelLeftOpen
-
   return (
     <TooltipProvider delay={0}>
       <nav
         aria-label="メインナビゲーション"
-        data-expanded={expanded}
-        className={`${desktopOnly ? "hidden md:flex" : ""} group/nav fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md transition-[width] duration-200 ease-out motion-reduce:transition-none md:inset-y-0 md:right-auto md:left-0 md:flex md:w-(--app-sidebar-width) md:flex-col md:border-t-0 md:border-r md:bg-background md:px-2 md:py-4 md:backdrop-blur-none`}
+        className={`${desktopOnly ? "hidden md:flex" : ""} fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:inset-y-0 md:right-auto md:left-0 md:flex md:w-(--app-sidebar-width) md:flex-col md:border-t-0 md:border-r md:bg-background md:px-2 md:py-3 md:backdrop-blur-none`}
       >
-        <div className="mb-4 hidden md:block">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  aria-label={toggleLabel}
-                  aria-expanded={expanded}
-                  aria-controls="app-navigation-items"
-                  onClick={onToggle}
-                  className="flex size-12 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
-                />
-              }
-            >
-              <ToggleIcon className="size-5" />
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8} className={hintClass}>
-              {toggleLabel}
-            </TooltipContent>
-          </Tooltip>
-        </div>
         <div
           id="app-navigation-items"
           className="flex px-1 md:min-h-0 md:flex-1 md:flex-col md:gap-1 md:overflow-y-auto md:px-0"
         >
-          <NavigationItems offline={offline} expanded={expanded} />
+          <NavigationItems offline={offline} />
         </div>
       </nav>
     </TooltipProvider>
@@ -85,27 +49,20 @@ export function BottomNavigation({ offline }: { offline: boolean }) {
         className="shrink-0 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         <div className="flex px-1">
-          <NavigationItems offline={offline} expanded />
+          <NavigationItems offline={offline} />
         </div>
       </nav>
     </TooltipProvider>
   )
 }
-function NavigationItems({
-  offline,
-  expanded,
-}: {
-  offline: boolean
-  expanded: boolean
-}) {
+function NavigationItems({ offline }: { offline: boolean }) {
   const items = offline
     ? navigation.filter((item) => item.to !== "/manage")
     : navigation
   return (
     <>
-      {" "}
       {items.map(({ to, label, icon: Icon }) => (
-        <Tooltip key={to} disabled={expanded}>
+        <Tooltip key={to}>
           <TooltipTrigger
             render={
               <Link
@@ -120,14 +77,14 @@ function NavigationItems({
               />
             }
           >
-            <span className="flex shrink-0 flex-col items-center gap-1 md:w-48 md:flex-row md:gap-0">
+            <span className="flex shrink-0 flex-col items-center gap-1 md:gap-0">
               <span
                 data-nav-icon
                 className="flex h-8 w-12 shrink-0 items-center justify-center rounded-full transition-colors duration-200 motion-reduce:transition-none md:size-12"
               >
                 <Icon className="size-5" />
               </span>
-              <span className="text-[11px] leading-3.5 font-medium whitespace-nowrap md:pr-3 md:text-sm md:font-normal">
+              <span className="text-[11px] leading-3.5 font-medium whitespace-nowrap md:hidden">
                 {label}
               </span>
             </span>

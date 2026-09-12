@@ -16,13 +16,12 @@ export async function saveRoomSettings(
         JOIN year_memberships ym ON ym.year=s.year AND ym.member_id=s.member_id AND ym.status='active'
         WHERE s.year=chat_rooms.year AND json_extract(j.value,'$.canManage')=1
         AND NOT EXISTS(SELECT 1 FROM chat_room_exits x WHERE x.room_id=chat_rooms.id AND x.member_id=s.member_id))
-      THEN ? ELSE NULL END,allow_exit=?,updated_at=? WHERE id=?`)
+      THEN ? ELSE NULL END,allow_exit=? WHERE id=?`)
       .bind(
         actorId,
         JSON.stringify(input.targets),
         input.name,
         input.allowExit ? 1 : 0,
-        now,
         roomId
       ),
     db

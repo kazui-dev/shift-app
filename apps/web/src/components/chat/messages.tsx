@@ -1,50 +1,19 @@
-import { useMessageScroll } from "./use-message-scroll"
-import { attendanceQuery } from "@/data/attendance"
-import { changeRoomMute } from "@/data/preferences"
-import { roomQuery, settingsQuery, membersQuery } from "@/data/chat"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { Link, useNavigate } from "@tanstack/react-router"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  ArrowDown,
-  Bell,
-  BellOff,
-  ChevronLeft,
-  LogOut,
-  MoreHorizontal,
-  Settings,
-  Users,
-  Trash2,
-} from "lucide-react"
+import { useLayoutEffect, useMemo, useRef } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { ArrowDown } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@workspace/ui/components/dropdown-menu"
-import { getChatRoom, leaveChatRoom, deleteChatRoom } from "@/api/chat"
-import { ApiError, errorMessage } from "@/api/client"
-import { removeRoom } from "@/data/chat-cache"
-import { useOfflineMode } from "../offline-mode-context"
-import { ChatSettings } from "../chat-settings"
-import { ShiftAttendance } from "../shifts/shift-attendance"
-import { ConfirmDialog } from "../confirm-dialog"
+import type { ChatRoom } from "@/api/chat"
 import { ChatComposer } from "./composer"
 import { useChatStore } from "./use-chat-store"
 import { useMessages } from "./use-messages"
+import { useMessageScroll } from "./use-message-scroll"
 import { MessageImages, LocalImage } from "./images"
-import { RoomInfo } from "./room-info"
 import { MemberAvatar } from "../member-avatar"
 import { messageRows } from "./message-list"
-import { roomSchedule } from "./room-schedule"
 import { chatImageLimits } from "@workspace/shared/communications"
 import { imageSize } from "./image-size"
 import { RoutedImage } from "./routed-image"
-
-type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 function date(value: string) {
   return new Date(value).toLocaleDateString("ja-JP", {
     timeZone: "Asia/Tokyo",
@@ -60,133 +29,21 @@ function time(value: string) {
     minute: "2-digit",
   })
 }
-export function ChatConversation({
-  roomId,
-  name,
-  report,
-  active,
-  onBack,
-}: {
-  active: boolean
-  onBack: () => void
-  roomId: string
-  name?: string | undefined
-  report?: string | undefined
-}) {
-  const client = useQueryClient()
-  const offline = useOfflineMode(),
-    query = useQuery({
-      ...roomQuery(roomId),
-      enabled: !offline && active,
-    })
-  const missing = query.error instanceof ApiError && query.error.status === 404
-  useEffect(() => {
-    if (!missing || offline) return
-    removeRoom(client, roomId)
-    if (active) onBack()
-  }, [client, missing, offline, roomId, active, onBack])
-  if (!query.data || missing)
-    return (
-      <div className="flex flex-1 flex-col">
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3 pb-2 md:px-4">
-          <Link
-            to="/chat"
-            onClick={(event) => {
-              event.preventDefault()
-              onBack()
-            }}
-            className="md:hidden"
-            aria-label="チャット一覧へ"
-          >
-            <ChevronLeft />
-          </Link>
-          <span className="truncate text-sm font-semibold">{name}</span>
-        </div>
-        {query.isError && (
-          <div className="px-5 py-4">
-            <Button variant="ghost" onClick={() => void query.refetch()}>
-              再試行
-            </Button>
-          </div>
-        )}
-        {query.isLoading && (
-          <output className="px-5 text-sm text-muted-foreground">
-            <span className="sr-only">会話を取得しています</span>
-          </output>
-        )}
-      </div>
-    )
-  return (
-    <Conversation
-      room={query.data.room}
-      offline={offline}
-      report={report}
-      active={active}
-      onBack={onBack}
-    />
-  )
-}
-function Conversation({
+export function ChatMessages({
   room,
   offline,
-  report,
   active,
-  onBack,
 }: {
-  room: Room
-  active: boolean
-  onBack: () => void
+  room: ChatRoom
   offline: boolean
-  report?: string | undefined
+  active: boolean
 }) {
-  const client = useQueryClient(),
-    navigate = useNavigate(),
-    [settings, setSettings] = useState(false),
-    [info, setInfo] = useState(false),
-    [attendance, setAttendance] = useState(false),
-    [leaving, setLeaving] = useState(false),
-    [deleting, setDeleting] = useState(false)
+  const navigate = useNavigate()
   const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
     seat = useRef<HTMLDivElement>(null),
     layout = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!report || !room.activityId) return undefined
-    let current = true
-    void client
-      .ensureQueryData(attendanceQuery(room.activityId))
-      .then(() => {
-        if (current) setAttendance(true)
-      })
-      .catch(() => {})
-    return () => {
-      current = false
-    }
-  }, [report, client, room.activityId])
-  function openAttendance() {
-    if (room.activityId)
-      void client
-        .ensureQueryData(attendanceQuery(room.activityId))
-        .then(() => setAttendance(true))
-        .catch(() => {})
-  }
-  function openInfo() {
-    if (room.historical) {
-      setInfo(true)
-      return
-    }
-    void client
-      .ensureQueryData(membersQuery(room.id))
-      .then(() => setInfo(true))
-      .catch(() => {})
-  }
-  function openSettings() {
-    void client
-      .ensureQueryData(settingsQuery(room.id))
-      .then(() => setSettings(true))
-      .catch(() => {})
-  }
   useLayoutEffect(() => {
     const element = seat.current,
       root = layout.current
@@ -205,11 +62,6 @@ function Conversation({
     if (input) observer.observe(input)
     return () => observer.disconnect()
   }, [room.canPost])
-  useEffect(() => {
-    if (!active || offline || room.historical) return
-    void client.prefetchQuery(membersQuery(room.id))
-    if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
-  }, [client, active, offline, room.id, room.historical, room.canManage])
   const rows = useMemo(
     () =>
       messageRows(
@@ -226,98 +78,8 @@ function Conversation({
     history.initialRead,
     history.markRead
   )
-  async function mute() {
-    try {
-      await changeRoomMute(client, room.id, !room.muted)
-    } catch (error) {
-      toast.error(errorMessage(error))
-    }
-  }
   return (
     <>
-      <header className="flex shrink-0 items-center gap-2 border-b px-3 pb-3 md:px-4">
-        <Link
-          onClick={(event) => {
-            event.preventDefault()
-            onBack()
-          }}
-          to="/chat"
-          aria-label="チャット一覧へ"
-          className="flex size-8 items-center justify-center md:hidden"
-        >
-          <ChevronLeft className="size-5" />
-        </Link>
-        <button
-          type="button"
-          onClick={openInfo}
-          className="min-w-0 flex-1 text-left"
-          aria-label={`${room.name}の情報`}
-        >
-          <h1 className="truncate text-sm font-semibold">{room.name}</h1>
-          {roomSchedule(room) && (
-            <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-              {roomSchedule(room)}
-            </span>
-          )}
-        </button>
-        {room.activityId && (
-          <Button variant="ghost" size="sm" onClick={openAttendance}>
-            出勤・連絡
-          </Button>
-        )}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="チャットの操作"
-              />
-            }
-          >
-            <MoreHorizontal />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onClick={openInfo}>
-              <Users />
-              チャット情報
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={offline} onClick={() => void mute()}>
-              {room.muted ? <Bell /> : <BellOff />}
-              {room.muted ? "通知をオンにする" : "ミュートする"}
-            </DropdownMenuItem>
-            {room.canManage && (
-              <DropdownMenuItem disabled={offline} onClick={openSettings}>
-                <Settings />
-                チャット設定
-              </DropdownMenuItem>
-            )}
-            {room.allowExit && !room.historical && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={offline}
-                  onClick={() => setLeaving(true)}
-                >
-                  <LogOut />
-                  退出する
-                </DropdownMenuItem>
-              </>
-            )}
-            {room.canManage && (
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={offline}
-                onClick={() => setDeleting(true)}
-              >
-                <Trash2 />
-                チャットを削除
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </header>
       <div
         ref={layout}
         className="relative min-h-0 flex-1 [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] [--composer-height:50px] [--composer-input-height:50px]"
@@ -531,73 +293,6 @@ function Conversation({
         )}
       </div>
       {active && <RoutedImage roomId={room.id} messages={history.messages} />}
-      {active && info && (
-        <RoomInfo room={room} onClose={() => setInfo(false)} />
-      )}
-      {active && settings && (
-        <ChatSettings
-          id={room.id}
-          year={room.year}
-          onClose={() => setSettings(false)}
-        />
-      )}
-      {active && attendance && room.activityId && (
-        <ShiftAttendance
-          activityId={room.activityId}
-          onClose={() => {
-            setAttendance(false)
-            void navigate({
-              to: "/chat/$roomId",
-              params: { roomId: room.id },
-              search: {},
-              replace: true,
-            })
-          }}
-        />
-      )}
-      {active && leaving && (
-        <ConfirmDialog
-          title="チャットから退出しますか"
-          description="退出するまでの履歴は引き続き確認できます。"
-          confirmLabel="退出"
-          onCancel={() => setLeaving(false)}
-          onConfirm={() => {
-            setLeaving(false)
-            void leaveChatRoom(room.id)
-              .then(() =>
-                Promise.all([
-                  client.invalidateQueries({ queryKey: ["chat-rooms"] }),
-                  client.invalidateQueries({
-                    queryKey: ["chat-room", room.id],
-                  }),
-                ])
-              )
-              .catch((error) => toast.error(errorMessage(error)))
-          }}
-        />
-      )}
-      {active && deleting && (
-        <ConfirmDialog
-          title="チャットを削除しますか"
-          description="全員の一覧から消え、メッセージと画像も削除されます。この操作は取り消せません。"
-          confirmLabel="削除"
-          onCancel={() => setDeleting(false)}
-          onConfirm={() => {
-            setDeleting(false)
-            void deleteChatRoom(room.id)
-              .then(async () => {
-                for (const queued of queue.filter(
-                  (item) => item.roomId === room.id
-                ))
-                  store.cancel(queued.id)
-                store.edit(room.id, { content: "", files: [] })
-                removeRoom(client, room.id)
-                await navigate({ to: "/chat", replace: true })
-              })
-              .catch((error) => toast.error(errorMessage(error)))
-          }}
-        />
-      )}
     </>
   )
 }

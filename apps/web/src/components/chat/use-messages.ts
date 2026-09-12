@@ -86,13 +86,11 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
             const profile = client
               .getQueryData(membersQuery(room.id).queryKey)
               ?.members.find((item) => item.id === message.memberId)
-            if (
-              (!known && !profile) ||
-              !receiveMessage(client, room.id, {
-                ...message,
-                memberImage: known?.memberImage ?? profile?.image ?? null,
-              })
-            )
+            const continuous = receiveMessage(client, room.id, {
+              ...message,
+              memberImage: known?.memberImage ?? profile?.image ?? null,
+            })
+            if ((!known && !profile) || !continuous)
               void client.invalidateQueries({
                 queryKey: ["chat-messages", room.id],
               })
