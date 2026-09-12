@@ -69,13 +69,14 @@ export function PwaUpdateNotice() {
       )
       window.location.reload()
     } catch (error) {
-      if (!abort.signal.aborted)
+      if (!abort.signal.aborted) {
+        setUpdating(false)
         toast.error(
           error instanceof Error ? error.message : "更新に失敗しました。"
         )
+      }
     } finally {
       updateAbort.current = null
-      setUpdating(false)
     }
   }
 

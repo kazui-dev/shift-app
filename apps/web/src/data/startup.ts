@@ -1,3 +1,4 @@
+import { chatRoomId } from "@/lib/chat-location"
 import type { QueryClient } from "@tanstack/react-query"
 import { usersQuery, auditQuery, linksQuery } from "./admin"
 import { assignmentMonthQuery } from "@/api/assignments"
@@ -90,7 +91,7 @@ export async function prepareApp(
       activityQuery(activity).queryKey,
       client.prefetchQuery(activityQuery(activity))
     )
-  const room = /^\/chat\/([^/]+)$/.exec(pathname)?.[1]
+  const room = chatRoomId(pathname)
   if (room) void prepareConversation(client, room)
   await Promise.all(work)
 }

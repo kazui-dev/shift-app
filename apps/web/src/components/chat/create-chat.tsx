@@ -1,50 +1,78 @@
-import { targetsQuery, roomQuery, roomsQuery } from "@/data/chat"
-import { useRef, useState, type FormEvent } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Search, X } from "lucide-react"
+import {
+  useEffect,
+  useCallback,
+  useLayoutEffect,
+  useEffectEvent,
+  useRef,
+  type FormEvent,
+} from "react"
+import {
+  skipToken,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import useEmblaCarousel from "embla-carousel-react"
+import { ArrowLeft } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
 import { createChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
-import { ResponsiveDialog } from "@/components/responsive-overlay"
+import { targetsQuery, roomQuery, roomsQuery } from "@/data/chat"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { TargetPicker } from "./target-picker"
+import { targetKey } from "./target-key"
+import { boundPages, pageDrag } from "./page-motion"
 
 export function CreateChat({
   year,
+  open,
   onClose,
   onCreated,
 }: {
   year: number
+  open: boolean
   onClose: () => void
   onCreated: (id: string) => void
 }) {
+  const desktop = useMediaQuery("(min-width: 768px)")
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
   const client = useQueryClient()
-  const nameInput = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState("")
-  const [search, setSearch] = useState("")
-  const [selected, setSelected] = useState<string[]>([])
-  const targets = useQuery({
-    ...targetsQuery(year),
+  const draftKey = ["chat-draft", year]
+  const { data: draft = { name: "", selected: [] } } = useQuery({
+    queryKey: draftKey,
+    queryFn: skipToken,
+    initialData: (): { name: string; selected: string[] } => ({
+      name: "",
+      selected: [],
+    }),
   })
-  const members =
-    targets.data?.targets.filter((target) => target.targetType === "member") ??
-    []
-  const selectedMembers = members.filter((member) =>
-    selected.includes(member.targetId)
-  )
-  const candidates = members.filter((member) =>
-    member.displayName
-      .toLocaleLowerCase()
-      .includes(search.trim().toLocaleLowerCase())
-  )
+  const { name, selected } = draft
+  const setName = (nextName: string) =>
+    client.setQueryData(draftKey, { ...draft, name: nextName })
+  const setSelected = (nextSelected: string[]) =>
+    client.setQueryData(draftKey, { ...draft, selected: nextSelected })
+  const nameInput = useRef<HTMLInputElement>(null)
+  const page = useRef<HTMLDivElement>(null)
+  const targets = useQuery(targetsQuery(year))
+  const chosen =
+    targets.data?.targets.filter((target) =>
+      selected.includes(targetKey(target))
+    ) ?? []
   const create = useMutation({
     mutationFn: () =>
       createChatRoom({
         year,
         name: name.trim(),
-        targets: selectedMembers.map((member) => ({
-          targetType: "member",
-          targetId: member.targetId,
+        targets: chosen.map(({ targetType, targetId }) => ({
+          targetType,
+          targetId,
         })),
       }),
     onError: (error) => toast.error(errorMessage(error)),
@@ -58,153 +86,176 @@ export function CreateChat({
                 ...current.rooms.filter((item) => item.id !== room.id),
               ],
             }
-          : undefined
+          : { rooms: [room] }
       )
       void client.invalidateQueries({ queryKey: ["chat-rooms", year] })
+      client.setQueryData(draftKey, { name: "", selected: [] })
       onCreated(room.id)
     },
   })
-  function toggle(id: string) {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((item) => item !== id)
-        : [...current, id]
+  const closing = useRef(false)
+  useLayoutEffect(() => {
+    if (open) closing.current = false
+  }, [open])
+  const requestClose = useCallback(() => {
+    if (closing.current || create.isPending) return
+    closing.current = true
+    onClose()
+  }, [create.isPending, onClose])
+  const close = useEffectEvent(requestClose)
+  const shown = useRef(open)
+  useLayoutEffect(() => {
+    shown.current = open
+  }, [open])
+  const pending = useRef(create.isPending)
+  useLayoutEffect(() => {
+    pending.current = create.isPending
+  }, [create.isPending])
+  const watchDrag = useCallback(
+    (_api: unknown, event: MouseEvent | TouchEvent) =>
+      shown.current && !pending.current && pageDrag(event),
+    []
+  )
+  const [viewport, carousel] = useEmblaCarousel({
+    active: !desktop,
+    startIndex: 0,
+    align: "start",
+    containScroll: false,
+    watchDrag,
+    watchFocus: false,
+    duration: reducedMotion ? 0 : 20,
+  })
+  useEffect(() => {
+    if (!carousel || desktop) return undefined
+    let restore = boundPages(carousel)
+    const select = () => {
+      if (shown.current && carousel.selectedScrollSnap() === 0) close()
+    }
+    const reset = () => {
+      restore()
+      restore = boundPages(carousel)
+      carousel.scrollTo(shown.current ? 1 : 0, true)
+    }
+    carousel.on("select", select).on("reInit", reset)
+    return () => {
+      carousel.off("select", select).off("reInit", reset)
+      restore()
+    }
+  }, [carousel, desktop])
+  useLayoutEffect(() => {
+    if (
+      !desktop &&
+      carousel &&
+      carousel.selectedScrollSnap() !== (open ? 1 : 0)
     )
-  }
+      carousel.scrollTo(open ? 1 : 0, reducedMotion)
+  }, [carousel, desktop, open, reducedMotion])
+  useEffect(() => {
+    if (open && !desktop) page.current?.focus({ preventScroll: true })
+  }, [open, desktop])
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (name.trim() && selectedMembers.length && !create.isPending)
-      create.mutate()
+    if (name.trim() && chosen.length && !create.isPending) create.mutate()
   }
-  return (
-    <ResponsiveDialog
-      open
-      title="新しいチャット"
-      initialFocus={nameInput}
-      onOpenChange={(open) => {
-        if (!open && !create.isPending) onClose()
-      }}
-    >
-      <form onSubmit={submit} className="space-y-5">
+  const title = desktop ? (
+    <DialogTitle className="truncate text-center text-base font-semibold">
+      新しいチャット
+    </DialogTitle>
+  ) : (
+    <h1 className="truncate text-center text-base font-semibold">
+      新しいチャット
+    </h1>
+  )
+  const form = (
+    <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+      <header className="grid h-16 shrink-0 grid-cols-[4rem_minmax(0,1fr)_4rem] items-center gap-2 border-b px-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="戻る"
+          disabled={create.isPending}
+          onClick={requestClose}
+        >
+          <ArrowLeft />
+        </Button>
+        {title}
+        <Button
+          type="submit"
+          size="sm"
+          disabled={
+            !name.trim() ||
+            !chosen.length ||
+            create.isPending ||
+            targets.isError
+          }
+        >
+          {create.isPending ? "作成中" : "作成"}
+        </Button>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:[scrollbar-width:none]">
         <fieldset disabled={create.isPending} className="min-w-0 space-y-5">
-          <label
-            htmlFor="new-chat-name"
-            className="block space-y-2 text-sm font-medium"
-          >
-            チャット名
+          <div className="space-y-2.5">
+            <label
+              htmlFor="new-chat-name"
+              className="block text-sm font-medium"
+            >
+              チャット名
+            </label>
             <Input
-              id="new-chat-name"
               ref={nameInput}
-              autoComplete="off"
-              maxLength={120}
-              required
+              id="new-chat-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
+              required
+              maxLength={120}
+              autoComplete="off"
             />
-          </label>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <label htmlFor="new-chat-search" className="font-medium">
-                メンバー
-              </label>
-              {selectedMembers.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {selectedMembers.length}人を選択中
-                </span>
-              )}
-            </div>
-            {selectedMembers.length > 0 && (
-              <ul
-                aria-label="選択したメンバー"
-                className="flex max-h-24 flex-wrap gap-2 overflow-y-auto"
-              >
-                {selectedMembers.map((member) => (
-                  <li
-                    key={member.targetId}
-                    className="flex max-w-full min-w-0 items-center gap-1 rounded-md bg-muted py-1 pl-2 text-xs"
-                  >
-                    <span className="truncate">{member.displayName}</span>
-                    <button
-                      type="button"
-                      aria-label={`${member.displayName}の選択を解除`}
-                      onClick={() => toggle(member.targetId)}
-                      className="flex size-6 shrink-0 items-center justify-center rounded hover:bg-foreground/10"
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="relative">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input
-                id="new-chat-search"
-                type="search"
-                placeholder="名前で検索"
-                autoComplete="off"
-                className="pl-9"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </div>
-            <div className="max-h-56 overflow-y-auto">
-              {targets.isPending && (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  読み込み中…
-                </p>
-              )}
-              {targets.isSuccess && !candidates.length && (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  該当するメンバーはいません
-                </p>
-              )}
-              <ul>
-                {candidates.map((member) => (
-                  <li key={member.targetId}>
-                    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-muted/50">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(member.targetId)}
-                        disabled={
-                          !selected.includes(member.targetId) &&
-                          selected.length >= 100
-                        }
-                        onChange={() => toggle(member.targetId)}
-                      />
-                      <span className="truncate">{member.displayName}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
+          <TargetPicker
+            targets={targets.data?.targets ?? []}
+            selected={selected}
+            onChange={setSelected}
+          />
         </fieldset>
-        <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={create.isPending}
-            onClick={onClose}
-          >
-            キャンセル
-          </Button>
-          <Button
-            type="submit"
-            disabled={
-              !name.trim() ||
-              !selectedMembers.length ||
-              create.isPending ||
-              targets.isError
-            }
-          >
-            {create.isPending ? "作成中…" : "作成"}
-          </Button>
+      </div>
+    </form>
+  )
+  if (desktop)
+    return (
+      <Dialog
+        open={open}
+        onOpenChange={(value) => {
+          if (!value) requestClose()
+        }}
+      >
+        <DialogContent
+          initialFocus={nameInput}
+          showCloseButton={false}
+          className="flex h-[min(44rem,85dvh)] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[38rem]"
+        >
+          {form}
+        </DialogContent>
+      </Dialog>
+    )
+  return (
+    <div
+      ref={viewport}
+      inert={!open}
+      aria-hidden={!open}
+      className={`absolute inset-0 z-30 overflow-clip ${open ? "" : "pointer-events-none"}`}
+      aria-label="新しいチャット"
+    >
+      <div className="flex h-full touch-pan-y touch-pinch-zoom">
+        <div aria-hidden className="min-w-0 flex-[0_0_100%]" />
+        <div
+          ref={page}
+          tabIndex={-1}
+          className="flex h-full min-w-0 flex-[0_0_100%] flex-col bg-background pt-[env(safe-area-inset-top)] outline-none"
+        >
+          {form}
         </div>
-      </form>
-    </ResponsiveDialog>
+      </div>
+    </div>
   )
 }

@@ -1,3 +1,4 @@
+import { TargetAvatar } from "./chat/target-avatar"
 import { settingsQuery, targetsQuery } from "@/data/chat"
 import { Plus, X } from "lucide-react"
 import { useState } from "react"
@@ -26,7 +27,7 @@ export function ChatSettings({
   return (
     <ResponsiveDialog
       open
-      title="ルーム設定"
+      title="チャット設定"
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
@@ -75,7 +76,7 @@ function SettingsForm({
     <fieldset disabled={pending} className="min-w-0 space-y-5">
       {initial.kind === "custom" ? (
         <label htmlFor="chat-room-name" className="block space-y-2 text-sm">
-          ルーム名
+          チャット名
           <Input
             id="chat-room-name"
             value={value.name}
@@ -152,7 +153,10 @@ function SettingsForm({
                         setAdding(false)
                       }}
                     >
-                      <span className="truncate">{target.displayName}</span>
+                      <TargetAvatar target={target} />
+                      <span className="min-w-0 flex-1 truncate">
+                        {target.displayName}
+                      </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
                         {target.targetType === "member"
                           ? "メンバー"

@@ -32,7 +32,7 @@ export function ChatPanels({
       <div className="flex h-full min-h-0 touch-pan-y touch-pinch-zoom md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
         <aside
           ref={listPanel}
-          aria-label="ルーム一覧"
+          aria-label="チャット一覧"
           className="flex min-h-0 min-w-0 flex-[0_0_100%] flex-col md:pr-3"
         >
           <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-6 md:px-0">

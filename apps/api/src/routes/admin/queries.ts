@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import type { AdminEnv } from "./context"
 
 type AdminUserRow = {
+  image: string | null
   years: string | null
   discordLinked: number
   id: string
@@ -65,13 +66,14 @@ adminQueriesApp.get("/users", async (c) => {
         (SELECT GROUP_CONCAT(ym.year) FROM year_memberships ym WHERE ym.member_id = m.id AND ym.status = 'active') AS years,
         EXISTS (SELECT 1 FROM account a WHERE a.user_id = m.user_id AND a.provider_id = 'discord') AS discordLinked,
         m.id AS id,
+        identity.image,
         m.display_name AS displayName,
         m.student_id AS studentId,
         m.access_level AS accessLevel,
         CASE WHEN m.user_id = ? THEN 1 ELSE 0 END AS isCurrentUser,
         (SELECT COUNT(*) FROM session s WHERE s.user_id = m.user_id) AS sessionCount,
         m.created_at AS createdAt
-      FROM app_users m
+      FROM app_users m LEFT JOIN user identity ON identity.id = m.user_id
       ORDER BY m.student_id`
     )
     .bind(adminUser.userId)

@@ -56,9 +56,10 @@ yearMembershipsApp.get("/:year/memberships", async (c) => {
 
   const result = await c.env.shift_app
     .prepare(
-      `SELECT member.id, member.display_name AS displayName, member.student_id AS studentId,
+      `SELECT member.id, identity.image, member.display_name AS displayName, member.student_id AS studentId,
             membership.status, membership.updated_at AS updatedAt
      FROM app_users member
+     LEFT JOIN user identity ON identity.id = member.user_id
      LEFT JOIN year_memberships membership
        ON membership.member_id = member.id AND membership.year = ?
      ORDER BY CASE membership.status WHEN 'active' THEN 0 WHEN 'inactive' THEN 1 ELSE 2 END,
@@ -67,6 +68,7 @@ yearMembershipsApp.get("/:year/memberships", async (c) => {
     .bind(year)
     .all<{
       id: string
+      image: string | null
       displayName: string
       studentId: string
       status: "active" | "inactive" | null
@@ -79,6 +81,7 @@ yearMembershipsApp.get("/:year/memberships", async (c) => {
       member: {
         id: row.id,
         displayName: row.displayName,
+        image: row.image,
         studentId: row.studentId,
       },
       status: row.status,

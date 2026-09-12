@@ -10,6 +10,7 @@ export const chatTargetSchema = v.object({
 export const chatTargetOptionSchema = v.variant("targetType", [
   v.strictObject({
     targetType: v.literal("member"),
+    image: v.nullable(v.pipe(v.string(), v.url())),
     targetId: v.pipe(v.string(), v.uuid()),
     displayName: v.string(),
   }),

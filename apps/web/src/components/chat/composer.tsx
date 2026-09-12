@@ -42,8 +42,7 @@ export function ChatComposer({
   const finishPicking = useCallback(() => {
     picking.current = false
     setPickerOpen(false)
-    input.current?.focus({ preventScroll: true })
-  }, [input])
+  }, [])
   useEffect(() => {
     const field = fileInput.current
     field?.addEventListener("cancel", finishPicking)

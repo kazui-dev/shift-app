@@ -1,3 +1,4 @@
+import { MemberAvatar } from "@/components/member-avatar"
 import { ListFilter } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { timeLabel } from "./time-label"
@@ -224,6 +225,11 @@ export function TimeGrid({
                 aria-label={`${member.displayName}のシフトを編集`}
                 className="sticky left-0 z-10 flex w-32 shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm sm:w-40"
               >
+                <MemberAvatar
+                  name={member.displayName}
+                  image={member.image}
+                  className="size-6 text-[10px]"
+                />
                 <span className="min-w-0">
                   <span className="block truncate">{member.displayName}</span>
                   {data.submittedMemberIds.includes(member.id) &&

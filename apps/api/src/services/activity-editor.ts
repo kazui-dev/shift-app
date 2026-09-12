@@ -62,10 +62,15 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .all<{ id: string; slotId: string; memberId: string }>(),
     db
       .prepare(
-        "SELECT m.id, m.display_name AS displayName, m.student_id AS studentId FROM year_memberships ym JOIN app_users m ON m.id = ym.member_id WHERE ym.year = ? AND ym.status = 'active' ORDER BY m.student_id"
+        "SELECT m.id, identity.image, m.display_name AS displayName, m.student_id AS studentId FROM year_memberships ym JOIN app_users m ON m.id = ym.member_id LEFT JOIN user identity ON identity.id = m.user_id WHERE ym.year = ? AND ym.status = 'active' ORDER BY m.student_id"
       )
       .bind(activity.year)
-      .all<{ id: string; displayName: string; studentId: string }>(),
+      .all<{
+        id: string
+        image: string | null
+        displayName: string
+        studentId: string
+      }>(),
     db
       .prepare(
         "SELECT id, name, color FROM year_roles WHERE year = ? ORDER BY position DESC"

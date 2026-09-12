@@ -86,7 +86,7 @@ export function ChatConversation({
               onBack()
             }}
             className="md:hidden"
-            aria-label="ルーム一覧へ"
+            aria-label="チャット一覧へ"
           >
             <ChevronLeft />
           </Link>
@@ -224,7 +224,7 @@ function Conversation({
             onBack()
           }}
           to="/chat"
-          aria-label="ルーム一覧へ"
+          aria-label="チャット一覧へ"
           className="flex size-8 items-center justify-center md:hidden"
         >
           <ChevronLeft className="size-5" />
@@ -253,7 +253,7 @@ function Conversation({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="ルームの操作"
+                aria-label="チャットの操作"
               />
             }
           >
@@ -262,7 +262,7 @@ function Conversation({
           <DropdownMenuContent align="end" className="min-w-48">
             <DropdownMenuItem onClick={openInfo}>
               <Users />
-              ルーム情報
+              チャット情報
             </DropdownMenuItem>
             <DropdownMenuItem disabled={offline} onClick={() => void mute()}>
               {room.muted ? <Bell /> : <BellOff />}
@@ -271,7 +271,7 @@ function Conversation({
             {room.canManage && (
               <DropdownMenuItem disabled={offline} onClick={openSettings}>
                 <Settings />
-                ルーム設定
+                チャット設定
               </DropdownMenuItem>
             )}
             {room.kind === "custom" && !room.historical && (
@@ -515,7 +515,7 @@ function Conversation({
       )}
       {active && leaving && (
         <ConfirmDialog
-          title="ルームから退出しますか"
+          title="チャットから退出しますか"
           description="退出するまでの履歴は引き続き確認できます。"
           confirmLabel="退出"
           onCancel={() => setLeaving(false)}

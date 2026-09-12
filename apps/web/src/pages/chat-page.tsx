@@ -1,5 +1,5 @@
 import { prepareConversation } from "@/data/chat"
-import { useSearch } from "@tanstack/react-router"
+import { useSearch, useRouter, useRouterState } from "@tanstack/react-router"
 import { useChatNavigation } from "@/components/chat/use-chat-navigation"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
@@ -16,13 +16,20 @@ import { CreateChat } from "@/components/chat/create-chat"
 
 export function ChatPage() {
   const client = useQueryClient()
+  const router = useRouter()
+  const creating = useRouterState({
+    select: (state) => state.location.pathname === "/chat/new",
+  })
   const desktop = useMediaQuery("(min-width: 768px)")
   const { report } = useSearch({ strict: false })
   const { roomId, retainedId, open, back, resume } = useChatNavigation()
   const display = useDisplayYear(),
     offline = useOfflineMode()
-  const [closed, setClosed] = useState(false),
-    [creating, setCreating] = useState(false)
+  const [closed, setClosed] = useState(false)
+  const closeCreate = () => {
+    if (router.history.location.state.chatCreate) router.history.back()
+    else void router.navigate({ to: "/chat", replace: true })
+  }
   useEffect(() => {
     if (roomId && !offline) void prepareConversation(client, roomId)
   }, [client, roomId, offline])
@@ -48,60 +55,71 @@ export function ChatPage() {
   })
   const first = rooms.data?.rooms[0]?.id
   useEffect(() => {
-    if (desktop && !roomId && first) open(first, true)
-  }, [desktop, roomId, first, open])
+    if (desktop && !creating && !roomId && first) open(first, true)
+  }, [desktop, creating, roomId, first, open])
   return (
     <>
-      <ChatPanels
-        navigation={<BottomNavigation offline={offline} />}
-        showingRoom={!!roomId}
-        hasRoom={!!retainedId}
-        onBack={back}
-        onResume={resume}
-        list={
-          <RoomList
-            rooms={rooms.data?.rooms ?? []}
-            closedRooms={archived.data?.rooms ?? []}
-            expanded={closed}
-            loading={!rooms.data && (display.isPending || rooms.isLoading)}
-            loadingClosed={archived.isLoading}
-            closedError={archived.isError}
-            selectedId={retainedId ?? null}
-            fromList={!roomId}
-            onOpen={open}
-            offline={offline}
-            onExpand={() => setClosed((value) => !value)}
-            onCreate={() => setCreating(true)}
-          />
-        }
+      <div
+        inert={creating && !desktop}
+        className="flex min-h-0 flex-1 flex-col"
       >
-        {retainedId ? (
-          <ChatConversation
-            key={retainedId}
-            roomId={retainedId}
-            name={
-              [
-                ...(rooms.data?.rooms ?? []),
-                ...(archived.data?.rooms ?? []),
-              ].find((item) => item.id === retainedId)?.name
-            }
-            report={report}
-            active={!!roomId}
-            onBack={back}
-          />
-        ) : (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">
-            <MessageCircle className="size-8" aria-label="ルームを選択" />
-          </div>
-        )}
-      </ChatPanels>
-      {creating && year !== null && (
+        <ChatPanels
+          navigation={<BottomNavigation offline={offline} />}
+          showingRoom={!!roomId}
+          hasRoom={!!retainedId}
+          onBack={back}
+          onResume={resume}
+          list={
+            <RoomList
+              rooms={rooms.data?.rooms ?? []}
+              closedRooms={archived.data?.rooms ?? []}
+              expanded={closed}
+              loading={!rooms.data && (display.isPending || rooms.isLoading)}
+              loadingClosed={archived.isLoading}
+              closedError={archived.isError}
+              selectedId={retainedId ?? null}
+              fromList={!roomId}
+              onOpen={open}
+              offline={offline}
+              onExpand={() => setClosed((value) => !value)}
+              onCreate={() => {
+                void router.navigate({
+                  to: "/chat/new",
+                  state: { chatCreate: true },
+                })
+              }}
+            />
+          }
+        >
+          {retainedId ? (
+            <ChatConversation
+              key={retainedId}
+              roomId={retainedId}
+              name={
+                [
+                  ...(rooms.data?.rooms ?? []),
+                  ...(archived.data?.rooms ?? []),
+                ].find((item) => item.id === retainedId)?.name
+              }
+              report={report}
+              active={!!roomId}
+              onBack={back}
+            />
+          ) : (
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
+              <MessageCircle className="size-8" aria-label="チャットを選択" />
+            </div>
+          )}
+        </ChatPanels>
+      </div>
+      {year !== null && (
         <CreateChat
+          key={year}
           year={year}
-          onClose={() => setCreating(false)}
+          open={creating}
+          onClose={closeCreate}
           onCreated={(id) => {
-            setCreating(false)
-            open(id)
+            open(id, true)
           }}
         />
       )}

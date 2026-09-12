@@ -1,3 +1,4 @@
+import { MemberAvatar } from "@/components/member-avatar"
 import { usersQuery } from "@/data/admin"
 import { yearsQuery } from "@/data/years"
 import { useState } from "react"
@@ -47,6 +48,7 @@ export function UserManager() {
                 aria-label={`${user.displayName}の詳細`}
                 onClick={() => setId(user.id)}
               >
+                <MemberAvatar name={user.displayName} image={user.image} />
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{user.displayName}</span>
                   <span className="block text-xs text-muted-foreground">

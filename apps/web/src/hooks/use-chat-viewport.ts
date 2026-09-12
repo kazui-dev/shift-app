@@ -15,20 +15,13 @@ export function useChatViewport(isChat: boolean) {
           "--chat-viewport-height",
           `${viewport.height}px`
         )
-        element.style.setProperty(
-          "--chat-viewport-top",
-          `${viewport.offsetTop}px`
-        )
       }
     }
     measure()
     viewport?.addEventListener("resize", measure)
-    viewport?.addEventListener("scroll", measure)
     return () => {
       viewport?.removeEventListener("resize", measure)
-      viewport?.removeEventListener("scroll", measure)
       element.style.removeProperty("--chat-viewport-height")
-      element.style.removeProperty("--chat-viewport-top")
     }
   }, [isChat, mobile])
   return shell

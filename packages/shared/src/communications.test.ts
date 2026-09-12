@@ -27,6 +27,7 @@ describe("communication schemas", () => {
   it("keeps chat target discovery limited to display identity", () => {
     const target = {
       targetType: "member",
+      image: null,
       targetId: "6632fe2d-1064-442c-8884-3b674f564e60",
       displayName: "旭祭 太郎",
     } as const

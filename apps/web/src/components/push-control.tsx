@@ -1,16 +1,11 @@
+import { useOfflineMode } from "./offline-mode-context"
 import { useEffect, useSyncExternalStore } from "react"
 
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 
-import { errorMessage } from "@/api/client"
-import {
-  base64UrlBytes,
-  getPushConfig,
-  removePushSubscription,
-  savePushSubscription,
-} from "@/api/push"
-import { useOfflineMode } from "@/components/offline-mode-context"
+import { ApiError, errorMessage } from "@/api/client"
+import { syncSubscription } from "@/lib/push-subscription"
 import {
   getPushControlState,
   pushNotificationsSupported,
@@ -19,44 +14,15 @@ import {
   synchronizePushControl,
 } from "@/lib/push-control-store"
 
-async function syncSubscription(enabled: boolean): Promise<void> {
-  const registration = await navigator.serviceWorker.ready
-  const current = await registration.pushManager.getSubscription()
-  if (!enabled) {
-    if (current) {
-      await removePushSubscription(current.endpoint)
-      await current.unsubscribe()
-    }
-    return
-  }
-  if (current) {
-    await savePushSubscription(current.toJSON())
-    return
-  }
-  const permission = await Notification.requestPermission()
-  if (permission !== "granted") {
-    throw new Error("通知が許可されていません。")
-  }
-  const { publicKey } = await getPushConfig()
-  const subscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: base64UrlBytes(publicKey),
-  })
-  try {
-    await savePushSubscription(subscription.toJSON())
-  } catch (error) {
-    await subscription.unsubscribe()
-    throw error
-  }
-}
-
 function reportSyncFailure(synchronization: Promise<void> | null): void {
   if (!synchronization) return
   void synchronization.catch((error: unknown) =>
     toast.error(
       error instanceof DOMException
         ? `通知を登録できませんでした（${error.name}: ${error.message}）`
-        : errorMessage(error)
+        : error instanceof Error && !(error instanceof ApiError)
+          ? error.message
+          : errorMessage(error)
     )
   )
 }

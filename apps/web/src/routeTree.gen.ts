@@ -19,6 +19,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppSystemRouteImport } from './routes/_app.system'
 import { Route as AppChatIndexRouteImport } from './routes/_app.chat.index'
 import { Route as AppChatRoomIdRouteImport } from './routes/_app.chat.$roomId'
+import { Route as AppChatNewRouteImport } from './routes/_app.chat.new'
 import { Route as AppManageIndexRouteImport } from './routes/_app.manage.index'
 import { Route as AppManageAuditRouteImport } from './routes/_app.manage.audit'
 import { Route as AppManageAvailabilityRouteImport } from './routes/_app.manage.availability'
@@ -77,6 +78,11 @@ const AppChatIndexRoute = AppChatIndexRouteImport.update({
 const AppChatRoomIdRoute = AppChatRoomIdRouteImport.update({
   id: '/$roomId',
   path: '/$roomId',
+  getParentRoute: () => AppChatRoute,
+} as any)
+const AppChatNewRoute = AppChatNewRouteImport.update({
+  id: '/new',
+  path: '/new',
   getParentRoute: () => AppChatRoute,
 } as any)
 const AppManageIndexRoute = AppManageIndexRouteImport.update({
@@ -140,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/system': typeof AppSystemRoute
   '/chat/$roomId': typeof AppChatRoomIdRoute
+  '/chat/new': typeof AppChatNewRoute
   '/manage/audit': typeof AppManageAuditRoute
   '/manage/availability': typeof AppManageAvailabilityRoute
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
@@ -159,6 +166,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/system': typeof AppSystemRoute
   '/chat/$roomId': typeof AppChatRoomIdRoute
+  '/chat/new': typeof AppChatNewRoute
   '/manage/audit': typeof AppManageAuditRoute
   '/manage/availability': typeof AppManageAvailabilityRoute
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/system': typeof AppSystemRoute
   '/_app/chat/$roomId': typeof AppChatRoomIdRoute
+  '/_app/chat/new': typeof AppChatNewRoute
   '/_app/manage/audit': typeof AppManageAuditRoute
   '/_app/manage/availability': typeof AppManageAvailabilityRoute
   '/_app/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/system'
     | '/chat/$roomId'
+    | '/chat/new'
     | '/manage/audit'
     | '/manage/availability'
     | '/manage/discord-link-requests'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/system'
     | '/chat/$roomId'
+    | '/chat/new'
     | '/manage/audit'
     | '/manage/availability'
     | '/manage/discord-link-requests'
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/system'
     | '/_app/chat/$roomId'
+    | '/_app/chat/new'
     | '/_app/manage/audit'
     | '/_app/manage/availability'
     | '/_app/manage/discord-link-requests'
@@ -336,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChatRoomIdRouteImport
       parentRoute: typeof AppChatRoute
     }
+    '/_app/chat/new': {
+      id: '/_app/chat/new'
+      path: '/new'
+      fullPath: '/chat/new'
+      preLoaderRoute: typeof AppChatNewRouteImport
+      parentRoute: typeof AppChatRoute
+    }
     '/_app/manage/': {
       id: '/_app/manage/'
       path: '/'
@@ -411,11 +430,13 @@ declare module '@tanstack/react-router' {
 
 interface AppChatRouteChildren {
   AppChatRoomIdRoute: typeof AppChatRoomIdRoute
+  AppChatNewRoute: typeof AppChatNewRoute
   AppChatIndexRoute: typeof AppChatIndexRoute
 }
 
 const AppChatRouteChildren: AppChatRouteChildren = {
   AppChatRoomIdRoute: AppChatRoomIdRoute,
+  AppChatNewRoute: AppChatNewRoute,
   AppChatIndexRoute: AppChatIndexRoute,
 }
 

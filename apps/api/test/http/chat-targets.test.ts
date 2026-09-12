@@ -53,7 +53,12 @@ describe("migrated chat and calendar queries", () => {
       expect(targets.status).toBe(200)
       expect(await targets.json()).toEqual({
         targets: [
-          { targetType: "member", targetId: "m", displayName: "Test" },
+          {
+            targetType: "member",
+            image: null,
+            targetId: "m",
+            displayName: "Test",
+          },
           { targetType: "activity", targetId: "a", displayName: "受付" },
         ],
       })
@@ -71,7 +76,14 @@ describe("migrated chat and calendar queries", () => {
       db.exec("UPDATE activities SET active=0 WHERE id='a'")
       const inactive = await app.request("/chat/targets?year=2026", {}, env)
       expect(await inactive.json()).toEqual({
-        targets: [{ targetType: "member", targetId: "m", displayName: "Test" }],
+        targets: [
+          {
+            targetType: "member",
+            image: null,
+            targetId: "m",
+            displayName: "Test",
+          },
+        ],
       })
       const calendar = await app.request(
         "/me/assignments?year=2026&from=2026-09-01T00:00:00Z&to=2026-10-01T00:00:00Z",

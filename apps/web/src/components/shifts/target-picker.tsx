@@ -1,3 +1,4 @@
+import { MemberAvatar } from "@/components/member-avatar"
 import { useState } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { Input } from "@workspace/ui/components/input"
@@ -11,7 +12,7 @@ export function TargetPicker({
 }: {
   label: string
   roles: { id: string; name: string }[]
-  members: { id: string; displayName: string }[]
+  members: { id: string; displayName: string; image: string | null }[]
   value: Targets
   onChange: (value: Targets) => void
 }) {
@@ -26,6 +27,7 @@ export function TargetPicker({
       targetType: "member" as const,
       targetId: member.id,
       name: member.displayName,
+      image: member.image,
     })),
   ]
   const names = targets
@@ -85,6 +87,9 @@ export function TargetPicker({
                     )
                   }
                 />
+                {target.targetType === "member" && (
+                  <MemberAvatar name={target.name} image={target.image} />
+                )}
                 {target.name}
                 <span className="ml-auto text-xs text-muted-foreground">
                   {target.targetType === "role" ? "ロール" : "メンバー"}

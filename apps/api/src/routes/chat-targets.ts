@@ -30,14 +30,15 @@ chatTargetsApp.get("/targets", async (c) => {
 
   const members = await c.env.shift_app
     .prepare(
-      `SELECT member.id AS targetId, member.display_name AS displayName
+      `SELECT member.id AS targetId, member.display_name AS displayName, identity.image
        FROM year_memberships membership
        JOIN app_users member ON member.id = membership.member_id
+       LEFT JOIN user identity ON identity.id = member.user_id
        WHERE membership.year = ? AND membership.status = 'active'
        ORDER BY lower(member.display_name), member.id`
     )
     .bind(year)
-    .all<{ targetId: string; displayName: string }>()
+    .all<{ targetId: string; displayName: string; image: string | null }>()
 
   const targets: ChatTargetOption[] = members.results.map(
     (target) =>

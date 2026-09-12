@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react"
+import { pageDrag, boundPages } from "./page-motion"
 import useEmblaCarousel from "embla-carousel-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
@@ -31,21 +32,7 @@ export function useChatPanels({
   }, [hasRoom])
   const watchDrag = useCallback(
     (_api: unknown, event: MouseEvent | TouchEvent) => {
-      if (!(event instanceof TouchEvent) || !available.current) return false
-      const touch = event.touches.item(0)
-      if (
-        !touch ||
-        touch.clientX < 24 ||
-        touch.clientX > window.innerWidth - 24
-      )
-        return false
-      if (window.getSelection()?.toString()) return false
-      return !(
-        event.target instanceof Element &&
-        event.target.closest(
-          "form,input,textarea,button,select,[contenteditable=true],[role=dialog]"
-        )
-      )
+      return available.current && pageDrag(event)
     },
     []
   )
@@ -82,11 +69,14 @@ export function useChatPanels({
   useEffect(() => {
     if (!api || desktop) return undefined
     const element = list.current
+    let restoreBounds: (() => void) | undefined
     const paint = () => {
       if (element)
         element.style.transform = `translate3d(${api.scrollProgress() * 75}%,0,0)`
     }
     const reInit = () => {
+      restoreBounds?.()
+      restoreBounds = boundPages(api)
       api.scrollTo(requested.current, true)
       paint()
     }
@@ -98,6 +88,7 @@ export function useChatPanels({
       api.off("select", select)
       api.off("scroll", paint)
       api.off("reInit", reInit)
+      restoreBounds?.()
       element?.style.removeProperty("transform")
     }
   }, [api, desktop])
