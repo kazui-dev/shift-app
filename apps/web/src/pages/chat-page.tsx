@@ -1,3 +1,4 @@
+import { ResponsivePage } from "@workspace/ui/components/responsive-page"
 import { prepareConversation } from "@/data/chat"
 import { useSearch, useRouter, useRouterState } from "@tanstack/react-router"
 import { useChatNavigation } from "@/components/chat/use-chat-navigation"
@@ -112,7 +113,8 @@ export function ChatPage() {
           )}
         </ChatPanels>
       </div>
-      {year !== null && creating && (
+      {year !== null && (
+        <ResponsivePage open={creating} onClose={closeCreate}>
         <CreateChat
           key={year}
           year={year}
@@ -121,6 +123,7 @@ export function ChatPage() {
             open(id, true)
           }}
         />
+        </ResponsivePage>
       )}
     </>
   )
