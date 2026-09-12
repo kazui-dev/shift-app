@@ -67,6 +67,7 @@ export function MessageImages({
         {images.map((image, index) => (
           <button
             key={image.id}
+            data-page-swipe
             type="button"
             onClick={() => setOpened(image)}
             aria-label={`画像${index + 1}を拡大`}
@@ -79,6 +80,7 @@ export function MessageImages({
               height={image.height}
               alt={`添付画像 ${index + 1}`}
               loading="lazy"
+              draggable={false}
               className="size-full object-contain"
             />
           </button>

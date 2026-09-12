@@ -11,7 +11,7 @@ export function pageDrag(event: MouseEvent | TouchEvent): boolean {
   return !(
     event.target instanceof Element &&
     event.target.closest(
-      "input,textarea,button,select,[contenteditable=true],[role=dialog],[data-horizontal-scroll]"
+      "input,textarea,button:not([data-page-swipe]),select,[contenteditable=true],[role=dialog],[data-horizontal-scroll]"
     )
   )
 }

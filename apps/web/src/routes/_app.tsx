@@ -1,3 +1,4 @@
+import { preparePushControl } from "@/lib/push-control-store"
 import { prepareApp } from "@/data/startup"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/_app")({
     if (state.status !== "active") {
       throw redirect({ to: "/" })
     }
+    if (!offline) void preparePushControl(state.member.studentId)
     const dates = new URLSearchParams(location.searchStr).getAll("date")
     if (!offline)
       await prepareApp(

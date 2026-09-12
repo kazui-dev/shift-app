@@ -126,7 +126,7 @@ export function TargetPicker({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex h-9 items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
               aria-hidden
@@ -150,7 +150,7 @@ export function TargetPicker({
                     variant="ghost"
                     size="icon"
                     aria-label="メンバーを絞り込む"
-                    className={filters.length ? "bg-muted" : ""}
+                    className={`size-9 ${filters.length ? "bg-muted" : ""}`}
                   />
                 }
               >
