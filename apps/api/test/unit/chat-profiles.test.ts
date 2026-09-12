@@ -12,10 +12,13 @@ it("resolves current profile images without modifying stored posts", async () =>
     const env = {
       shift_app: {
         prepare: (sql: string) => ({
-          bind: (...values: SQLInputValue[]) => ({
-            all: () =>
-              Promise.resolve({ results: db.prepare(sql).all(...values) }),
-          }),
+          bind: (...values: SQLInputValue[]) => {
+            if (values.length > 100) throw Error("Too many bound parameters")
+            return {
+              all: () =>
+                Promise.resolve({ results: db.prepare(sql).all(...values) }),
+            }
+          },
         }),
       },
     }
@@ -30,6 +33,13 @@ it("resolves current profile images without modifying stored posts", async () =>
     ]
     const app = new Hono<ApiEnv>()
     app.get("/", async (c) => c.json(await withMemberImages(c.env, messages)))
+    const page = Array.from({ length: 100 }, (_, index) => ({
+      memberId: `writer-${index}`,
+      reply: { memberId: `target-${index}`, content: "返信元" },
+    }))
+    app.get("/history", async (c) =>
+      c.json(await withMemberImages(c.env, page))
+    )
     expect(await (await app.request("/", {}, env)).json()).toEqual([
       {
         ...messages[0],
@@ -67,6 +77,9 @@ it("resolves current profile images without modifying stored posts", async () =>
       memberId: "m",
       content: "既存の本文",
     })
+    const response = await app.request("/history", {}, env)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toHaveLength(100)
   } finally {
     db.close()
   }

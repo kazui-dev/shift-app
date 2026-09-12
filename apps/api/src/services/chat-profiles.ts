@@ -14,9 +14,9 @@ export async function withMemberImages<
   if (!ids.length) return []
   const profiles = await env.shift_app
     .prepare(
-      `SELECT m.id,u.image FROM app_users m LEFT JOIN user u ON u.id=m.user_id WHERE m.id IN (${ids.map(() => "?").join(",")})`
+      "SELECT m.id,u.image FROM app_users m LEFT JOIN user u ON u.id=m.user_id WHERE m.id IN (SELECT value FROM json_each(?))"
     )
-    .bind(...ids)
+    .bind(JSON.stringify(ids))
     .all<{ id: string; image: string | null }>()
   const images = new Map(
     profiles.results.map((profile) => [profile.id, profile.image])
