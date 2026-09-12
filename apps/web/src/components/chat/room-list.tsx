@@ -82,10 +82,10 @@ export function RoomList({
                     onOpen(room.id)
                   }}
                   aria-current={selectedId === room.id ? "page" : undefined}
-                  className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted ${selectedId === room.id ? "bg-muted/70" : ""}`}
+                  className={`flex min-h-14 items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted ${selectedId === room.id ? "bg-muted/70" : ""}`}
                 >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground">
-                    <MessageCircle className="size-4" aria-hidden />
+                  <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+                    <MessageCircle className="size-5" aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span
@@ -132,8 +132,8 @@ export function RoomList({
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            aria-label="ルームを検索"
-            placeholder="ルームを検索"
+            aria-label="チャットを検索"
+            placeholder="チャットを検索"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="h-9 border-transparent bg-muted/40 pl-8 text-sm shadow-none"

@@ -1,3 +1,4 @@
+import { MemberAvatar } from "@/components/member-avatar"
 import { refreshMemberships } from "@/data/sync"
 import { rosterQuery, rolesQuery } from "@/data/years"
 import { cn } from "@workspace/ui/lib/utils"
@@ -115,6 +116,7 @@ export function MemberManager({ year }: { year: number }) {
                 )
               }
             />
+            <MemberAvatar name={member.displayName} image={member.image} />
             <div className="min-w-0 flex-1">
               <p className="font-medium">{member.displayName}</p>
               <p className="text-xs text-muted-foreground">

@@ -1,3 +1,4 @@
+import { MemberAvatar } from "@/components/member-avatar"
 import { membershipsQuery, yearsQuery } from "@/data/years"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -57,7 +58,8 @@ export function AddMembers({
                 existing.member.id === item.member.id &&
                 existing.status === "active"
             )) &&
-        `${item.member.displayName} ${item.member.studentId}`
+        `$<MemberAvatar name={item.member.displayName} image={item.member.image} />
+                  {item.member.displayName} ${item.member.studentId}`
           .toLowerCase()
           .includes(search.toLowerCase())
     ) ?? []
@@ -181,7 +183,11 @@ export function AddMembers({
                     )
                   }
                 />
-                <span className="text-sm">
+                <span className="flex min-w-0 items-center gap-3 text-sm">
+                  <MemberAvatar
+                    name={item.member.displayName}
+                    image={item.member.image}
+                  />
                   {item.member.displayName}
                   <span className="ml-2 text-xs text-muted-foreground">
                     {item.member.studentId}

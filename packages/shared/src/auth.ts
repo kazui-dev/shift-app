@@ -76,6 +76,7 @@ export const authStateSchema = v.variant("status", [
 ])
 
 export const adminUserSchema = v.object({
+  image: v.nullable(v.pipe(v.string(), v.url())),
   years: v.array(v.number()),
   discordLinked: v.boolean(),
   id: v.pipe(v.string(), v.uuid()),

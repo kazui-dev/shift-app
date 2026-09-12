@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react"
+import { pageDrag, boundPages } from "./page-motion"
 import useEmblaCarousel from "embla-carousel-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
@@ -31,21 +32,7 @@ export function useChatPanels({
   }, [hasRoom])
   const watchDrag = useCallback(
     (_api: unknown, event: MouseEvent | TouchEvent) => {
-      if (!(event instanceof TouchEvent) || !available.current) return false
-      const touch = event.touches.item(0)
-      if (
-        !touch ||
-        touch.clientX < 24 ||
-        touch.clientX > window.innerWidth - 24
-      )
-        return false
-      if (window.getSelection()?.toString()) return false
-      return !(
-        event.target instanceof Element &&
-        event.target.closest(
-          "form,input,textarea,button,select,[contenteditable=true],[role=dialog]"
-        )
-      )
+      return available.current && pageDrag(event)
     },
     []
   )
@@ -89,22 +76,7 @@ export function useChatPanels({
     }
     const reInit = () => {
       restoreBounds?.()
-      const engine = api.internalEngine()
-      const translate = engine.translate.to
-      // Bound every render, including settled frames that emit no scroll event.
-      engine.translate.to = (value) => {
-        for (const position of [
-          engine.target,
-          engine.location,
-          engine.previousLocation,
-          engine.offsetLocation,
-        ])
-          position.set(engine.limit.constrain(position.get()))
-        translate(engine.limit.constrain(value))
-      }
-      restoreBounds = () => {
-        engine.translate.to = translate
-      }
+      restoreBounds = boundPages(api)
       api.scrollTo(requested.current, true)
       paint()
     }

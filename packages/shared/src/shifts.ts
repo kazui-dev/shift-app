@@ -293,6 +293,7 @@ export const yearRoleResponseSchema = v.object({
 })
 
 export const yearMemberResponseSchema = v.object({
+  image: v.nullable(v.pipe(v.string(), v.url())),
   id: v.pipe(v.string(), v.uuid()),
   displayName: v.string(),
   studentId: v.string(),
@@ -308,6 +309,7 @@ export const yearMemberResponseSchema = v.object({
 export const yearMembershipResponseSchema = v.object({
   year: operatingYearSchema,
   member: v.object({
+    image: v.nullable(v.pipe(v.string(), v.url())),
     id: v.pipe(v.string(), v.uuid()),
     displayName: v.string(),
     studentId: v.string(),
