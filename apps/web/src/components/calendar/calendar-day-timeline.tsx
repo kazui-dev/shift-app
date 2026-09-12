@@ -47,7 +47,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
         ))}
         {showNow && (
           <span
-            className="pointer-events-none absolute inset-x-0 z-10 -translate-y-1/2 rounded-full bg-blue-500 py-0.5 text-center text-[0.625rem] font-semibold text-white"
+            className="pointer-events-none absolute -right-2 z-10 -translate-y-1/2 rounded-full bg-blue-500 px-2 py-0.5 text-white"
             style={{
               top: calendarInset + (nowMinute / 60) * calendarHourHeight,
             }}
