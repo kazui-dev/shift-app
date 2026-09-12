@@ -108,7 +108,7 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
       ref={shell}
       data-chat-shell={isChat ? "" : undefined}
       data-sidebar-open={sidebarOpen}
-      className={`${isChat ? "overflow-clip max-md:fixed max-md:inset-x-0 max-md:top-[var(--chat-viewport-top,0px)] max-md:h-[var(--chat-viewport-height,100dvh)]" : fitted ? "overflow-hidden" : ""} ${
+      className={`${isChat ? "relative max-md:h-[var(--chat-viewport-height,100dvh)]" : fitted ? "overflow-hidden" : ""} ${
         fitted
           ? "flex h-dvh w-full min-w-0 flex-col overscroll-x-none overscroll-y-auto transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
           : "min-h-svh w-full min-w-0 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"

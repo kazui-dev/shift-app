@@ -31,10 +31,7 @@
   }
 }
 
-/* A conversation owns its message scroller; the document is not a second one. */
-html:has([data-chat-shell]),
-html:has([data-chat-shell]) body,
-html:has([data-chat-shell]) #root {
-  height: 100%;
-  overflow: clip;
+/* Keep the root eligible for native pull-to-refresh. Only message content scrolls. */
+html:has([data-chat-shell]) {
+  overscroll-behavior-y: auto;
 }
