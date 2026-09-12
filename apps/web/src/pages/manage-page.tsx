@@ -100,7 +100,7 @@ export function ManagePage({ view }: { view: ManageView }) {
     ]
 
     return (
-      <section className="w-full min-w-0 space-y-6 pt-3">
+      <section className="w-full min-w-0 space-y-6">
         {!years.isPending && (
           <div className="space-y-6">
             {year !== null && (

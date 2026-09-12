@@ -217,7 +217,7 @@ function Conversation({
   }
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-3 pb-2 md:px-4">
+      <header className="flex shrink-0 items-center gap-2 border-b px-3 pb-3 md:px-4">
         <Link
           onClick={(event) => {
             event.preventDefault()
