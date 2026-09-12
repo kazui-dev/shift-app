@@ -201,30 +201,34 @@ export function CalendarWeekHeader({
       ref={rootRef}
       className="relative overflow-hidden border-b bg-background"
     >
-      <div
-        ref={viewportRef}
-        className="touch-pan-y overflow-hidden"
-        aria-label="週を切り替え"
-        aria-roledescription="カルーセル"
-        style={{ opacity: "calc(1 - var(--calendar-day-progress-active, 0))" }}
-      >
-        <div className="flex">
-          {loopCarouselSlots.map((slotId, slot) => {
-            const weekDate = values[slot]
-            if (!weekDate) return null
-            return (
-              <WeekPage
-                key={slotId}
-                animateIndicator={animatedDate === date}
-                date={weekDate}
-                selectedDate={date}
-                onDateChange={selectWeekDate}
-              />
-            )
-          })}
+      <div className="relative mx-4 mb-3 overflow-hidden sm:mx-6">
+        <div
+          ref={viewportRef}
+          className="touch-pan-y overflow-hidden"
+          aria-label="週を切り替え"
+          aria-roledescription="カルーセル"
+          style={{
+            opacity: "calc(1 - var(--calendar-day-progress-active, 0))",
+          }}
+        >
+          <div className="flex">
+            {loopCarouselSlots.map((slotId, slot) => {
+              const weekDate = values[slot]
+              if (!weekDate) return null
+              return (
+                <WeekPage
+                  key={slotId}
+                  animateIndicator={animatedDate === date}
+                  date={weekDate}
+                  selectedDate={date}
+                  onDateChange={selectWeekDate}
+                />
+              )
+            })}
+          </div>
         </div>
+        <DayProgressOverlay date={date} />
       </div>
-      <DayProgressOverlay date={date} />
     </div>
   )
 }
