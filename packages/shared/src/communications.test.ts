@@ -24,10 +24,12 @@ describe("communication schemas", () => {
     ).toBe("本部連絡")
   })
 
-  it("keeps chat target discovery limited to display identity", () => {
+  it("includes filter memberships without exposing student identifiers", () => {
     const target = {
       targetType: "member",
       image: null,
+      roleIds: [],
+      activityIds: [],
       targetId: "6632fe2d-1064-442c-8884-3b674f564e60",
       displayName: "旭祭 太郎",
     } as const
