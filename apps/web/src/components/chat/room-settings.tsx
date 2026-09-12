@@ -1,3 +1,4 @@
+import { ResponsivePageForm } from "@workspace/ui/components/responsive-page-form"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LogOut, Trash2 } from "lucide-react"
@@ -110,74 +111,70 @@ function SettingsEditor({
   onClose: () => void
 }) {
   const client = useQueryClient()
-  const [value, setValue] = useState(initial),
-    [pending, setPending] = useState(false)
+  const [value, setValue] = useState(initial)
   async function save() {
-    if (pending) return
-    setPending(true)
-    try {
-      await saveRoomSettings(room.id, value)
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["chat-rooms"] }),
-        client.invalidateQueries({ queryKey: ["chat-room", room.id] }),
-        client.invalidateQueries({ queryKey: ["chat-settings", room.id] }),
-        client.invalidateQueries({ queryKey: ["chat-members", room.id] }),
-      ])
-      onClose()
-    } catch (failure) {
-      toast.error(errorMessage(failure))
-    } finally {
-      setPending(false)
-    }
+    await saveRoomSettings(room.id, value)
+    await Promise.all([
+      client.invalidateQueries({ queryKey: ["chat-rooms"] }),
+      client.invalidateQueries({ queryKey: ["chat-room", room.id] }),
+      client.invalidateQueries({ queryKey: ["chat-settings", room.id] }),
+      client.invalidateQueries({ queryKey: ["chat-members", room.id] }),
+    ])
   }
   return (
-    <form
-      className="flex min-h-0 flex-1 flex-col"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void save()
-      }}
+    <ResponsivePageForm
+      onSave={save}
+      onClose={onClose}
+      onError={(error) => toast.error(errorMessage(error))}
+      closeOnSave={false}
+      disabled={!value.name.trim()}
     >
-      <ResponsivePageHeader
-        title="チャット設定"
-        onBack={onClose}
-        backDisabled={pending}
-        action={
-          <Button
-            type="submit"
-            size="sm"
-            disabled={pending || !value.name.trim()}
-          >
-            {pending ? "保存中" : "保存"}
-          </Button>
-        }
-      />
-      <ResponsivePageBody>
-        <fieldset disabled={pending} className="min-w-0 space-y-6">
-          <ChatNameField
-            id="chat-room-name"
-            value={value.name}
-            onChange={(name) => setValue({ ...value, name })}
+      {(pending) => (
+        <>
+          <ResponsivePageHeader
+            title="チャット設定"
+            onBack={onClose}
+            backDisabled={pending}
+            action={
+              <Button
+                type="submit"
+                size="sm"
+                disabled={pending || !value.name.trim()}
+              >
+                {pending ? "保存中" : "保存"}
+              </Button>
+            }
           />
-          <label
-            htmlFor="chat-room-exit"
-            className="flex items-center justify-between gap-4 text-sm"
-          >
-            メンバーの退出を許可
-            <Switch
-              id="chat-room-exit"
-              checked={value.allowExit}
-              onCheckedChange={(allowExit) => setValue({ ...value, allowExit })}
-            />
-          </label>
-          <RoomGrants
-            value={value.targets}
-            targets={targets}
-            onChange={(grants) => setValue({ ...value, targets: grants })}
-          />
-          <RoomActions room={room} onLeave={onLeave} onDelete={onDelete} />
-        </fieldset>
-      </ResponsivePageBody>
-    </form>
+          <ResponsivePageBody>
+            <fieldset disabled={pending} className="min-w-0 space-y-6">
+              <ChatNameField
+                id="chat-room-name"
+                value={value.name}
+                onChange={(name) => setValue({ ...value, name })}
+              />
+              <label
+                htmlFor="chat-room-exit"
+                className="flex items-center justify-between gap-4 text-sm"
+              >
+                メンバーの退出を許可
+                <Switch
+                  id="chat-room-exit"
+                  checked={value.allowExit}
+                  onCheckedChange={(allowExit) =>
+                    setValue({ ...value, allowExit })
+                  }
+                />
+              </label>
+              <RoomGrants
+                value={value.targets}
+                targets={targets}
+                onChange={(grants) => setValue({ ...value, targets: grants })}
+              />
+              <RoomActions room={room} onLeave={onLeave} onDelete={onDelete} />
+            </fieldset>
+          </ResponsivePageBody>
+        </>
+      )}
+    </ResponsivePageForm>
   )
 }

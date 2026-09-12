@@ -437,7 +437,7 @@ chatApp.get("/rooms/:roomId/settings", async (c) => {
     c.get("member").id
   )
   if (!room?.canManage)
-    return apiError(c, 403, "FORBIDDEN", "Room management is required")
+    return apiError(c, 403, "FORBIDDEN", "チャットの管理権限が必要です。")
   const targets = await c.env.shift_app
     .prepare(
       "SELECT target_type AS targetType,target_id AS targetId,can_read AS canRead,can_post AS canPost,can_manage AS canManage FROM chat_room_targets WHERE room_id=?"
@@ -468,7 +468,7 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
   const actor = c.get("member"),
     room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
   if (!room?.canManage)
-    return apiError(c, 403, "FORBIDDEN", "Room management is required")
+    return apiError(c, 403, "FORBIDDEN", "チャットの管理権限が必要です。")
   const valid = await Promise.all(
     input.output.targets.map((target) => targetExists(c.env, room.year, target))
   )
@@ -499,7 +499,7 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
       c,
       409,
       "LAST_CHAT_MANAGER",
-      "設定変更できるメンバーを残してください。"
+      "管理権限を持つメンバーを残してください。"
     )
   if (
     new Set(
