@@ -88,3 +88,19 @@ it("removes a new subscription when server registration fails so retry can regis
   await syncSubscription(false)
   expect(removePushSubscription).toHaveBeenCalledOnce()
 })
+
+it("requests permission before waiting for service worker or subscription lookup", async () => {
+  const { notification } = device()
+  notification.permission = "default"
+  notification.requestPermission.mockImplementation(async () => {
+    notification.permission = "granted"
+    return "granted"
+  })
+  const registration = vi.spyOn(navigator.serviceWorker, "getRegistration")
+  const sync = syncSubscription(true)
+  expect(notification.requestPermission).toHaveBeenCalledOnce()
+  expect(registration).not.toHaveBeenCalled()
+  await sync
+  expect(registration).toHaveBeenCalledOnce()
+  expect(savePushSubscription).toHaveBeenCalledOnce()
+})
