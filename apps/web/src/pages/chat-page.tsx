@@ -1,6 +1,11 @@
 import { ResponsivePage } from "@workspace/ui/components/responsive-page"
 import { prepareConversation, roomsQuery } from "@/data/chat"
-import { useSearch, useRouter, useRouterState } from "@tanstack/react-router"
+import {
+  getRouteApi,
+  useSearch,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router"
 import { useChatNavigation } from "@/components/chat/use-chat-navigation"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
@@ -14,9 +19,12 @@ import { ChatWorkspace } from "@/components/chat/workspace"
 import { ApiError } from "@/api/client"
 import { removeRoom } from "@/data/chat-cache"
 import { CreateChat } from "@/components/chat/create-chat"
+import { restoreChatView, saveChatView } from "@/lib/chat-view"
 
 export function ChatPage() {
   const client = useQueryClient()
+  const { state: account } = getRouteApi("/_app").useRouteContext()
+  const memberId = account.member.id
   const router = useRouter()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -52,10 +60,18 @@ export function ChatPage() {
     refetchInterval: offline ? false : 30_000,
     enabled: !offline,
   })
-  const first = rooms.data?.rooms[0]?.id
+  const autoRoom =
+    desktop && pathname === "/chat" && !roomId && year !== null
+      ? restoreChatView(memberId, year, rooms.data?.rooms ?? [])
+      : undefined
+  const loadedId = room.data?.room.id
   useEffect(() => {
-    if (desktop && pathname === "/chat" && !roomId && first) open(first, true)
-  }, [desktop, pathname, roomId, first, open])
+    if (roomId && loadedId === roomId && year !== null && !missing)
+      saveChatView(memberId, year, roomId)
+  }, [memberId, roomId, loadedId, year, missing])
+  useEffect(() => {
+    if (autoRoom) open(autoRoom, true)
+  }, [autoRoom, open])
   return (
     <>
       <div
@@ -81,7 +97,7 @@ export function ChatPage() {
             <RoomList
               rooms={rooms.data?.rooms ?? []}
               loading={!rooms.data && (display.isPending || rooms.isLoading)}
-              selectedId={retainedId ?? null}
+              selectedId={autoRoom ?? retainedId ?? null}
               fromList={!roomId}
               onOpen={open}
               offline={offline}
