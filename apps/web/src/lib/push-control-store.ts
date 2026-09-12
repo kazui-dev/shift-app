@@ -29,7 +29,7 @@ let edit = 0
 let confirmed = false
 let registered = false
 let permission: NotificationPermission | null = null
-let requesting = false
+let requesting: Promise<boolean> | null = null
 let writes: Promise<void> = Promise.resolve()
 let preparation: Promise<void> | null = null
 let syncing: Promise<void> | null = null
@@ -55,7 +55,7 @@ export function resetPushControl() {
   confirmed = false
   registered = false
   permission = null
-  requesting = false
+  requesting = null
   writes = Promise.resolve()
   preparation = null
   syncing = null
@@ -97,7 +97,11 @@ export function preparePushControl(memberId: string): Promise<void> {
           : subscription && device.endpoint === subscription.endpoint
       )
       if (current) deviceId = current.id
-      confirmed = current?.enabled ?? false
+      confirmed = permission !== "denied" && (current?.enabled ?? false)
+      if (current?.enabled && !confirmed) {
+        await saveNotificationPreference(deviceId, false)
+        if (account !== generation) return
+      }
       registered = !!subscription && current?.endpoint === subscription.endpoint
       publish({ enabled: confirmed })
     } catch {
@@ -118,6 +122,7 @@ async function syncSubscription(report = false): Promise<void> {
   if (syncing) return syncing
   if (!owner || !state.enabled || permission !== "granted" || registered) return
   const account = generation,
+    revision = edit,
     id = deviceId
   syncing = (async () => {
     try {
@@ -142,53 +147,75 @@ async function syncSubscription(report = false): Promise<void> {
       const denied =
         error instanceof DOMException &&
         (error.name === "NotAllowedError" || error.name === "SecurityError")
-      if (account === generation && report && !denied)
-        publish({ error: "通知の登録に失敗しました" })
+      if (account !== generation || revision !== edit) return
+      if (denied) {
+        registered = false
+        publish({ enabled: false, error: null })
+        writes = writes.then(() =>
+          persistPreference(false, account, revision, false)
+        )
+        await writes
+      } else if (report) publish({ error: "通知の登録に失敗しました" })
     } finally {
-      if (account === generation) syncing = null
+      if (account === generation) {
+        syncing = null
+        if (revision !== edit) void syncSubscription(report)
+      }
     }
   })()
   return syncing
 }
-async function enableNotifications(): Promise<void> {
-  if (!owner || requesting) return
+function requestPermission(): Promise<boolean> {
+  if (requesting) return requesting
   const account = generation
-  requesting = true
-  try {
-    const next =
-      permission === "granted" && Notification.permission === "granted"
-        ? "granted"
-        : await Notification.requestPermission()
-    if (account !== generation) return
-    permissionChanged(next)
-  } catch {
-    // Permission refusal or dismissal does not change the app preference.
-  } finally {
-    if (account === generation) {
-      requesting = false
-      void syncSubscription(true)
+  requesting = (async () => {
+    try {
+      const next = await Notification.requestPermission()
+      if (account !== generation) return false
+      permissionChanged(next)
+      return next === "granted"
+    } catch {
+      return false
     }
+  })().finally(() => {
+    if (account === generation) requesting = null
+  })
+  return requesting
+}
+async function persistPreference(
+  enabled: boolean,
+  account: number,
+  revision: number,
+  fallback: boolean
+): Promise<void> {
+  if (account !== generation) return
+  try {
+    await saveNotificationPreference(deviceId, enabled)
+    if (account === generation) confirmed = enabled
+  } catch {
+    if (account === generation && revision === edit)
+      publish({ enabled: fallback, error: "通知設定を保存できませんでした" })
   }
 }
 export function setPushEnabled(enabled: boolean): Promise<void> {
   if (!owner || state.enabled === null) return Promise.resolve()
   const account = generation,
-    revision = ++edit,
-    id = deviceId
+    revision = ++edit
   publish({ enabled, error: null })
+  // Start the native prompt within the user gesture, before queued saves.
+  const decision = enabled ? requestPermission() : Promise.resolve(false)
   writes = writes.then(async () => {
+    const accepted = await decision
     if (account !== generation) return
-    try {
-      await saveNotificationPreference(id, enabled)
-      if (account === generation) confirmed = enabled
-    } catch {
-      if (account === generation && revision === edit)
-        publish({
-          enabled: confirmed,
-          error: "通知設定を保存できませんでした",
-        })
-    }
+    if (revision === edit) publish({ enabled: accepted })
+    await persistPreference(
+      accepted,
+      account,
+      revision,
+      enabled && !accepted ? false : confirmed
+    )
   })
-  if (enabled) void enableNotifications()
-  return writes
+  return writes.then(() => {
+    if (account === generation && revision === edit) void syncSubscription(true)
+  })
 }
