@@ -479,9 +479,6 @@ export const chatRooms = sqliteTable(
     }),
     lastSequence: integer("last_sequence").notNull().default(0),
     name: text("name").notNull(),
-    status: text("status", { enum: ["active", "archived"] })
-      .notNull()
-      .default("active"),
     createdBy: text("created_by")
       .notNull()
       .references(() => appUsers.id, { onDelete: "restrict" }),
@@ -493,11 +490,7 @@ export const chatRooms = sqliteTable(
     uniqueIndex("chat_rooms_global_year_uidx")
       .on(table.year)
       .where(sql`${table.kind} = 'global'`),
-    index("chat_rooms_year_status_updatedAt_idx").on(
-      table.year,
-      table.status,
-      table.updatedAt
-    ),
+    index("chat_rooms_year_updatedAt_idx").on(table.year, table.updatedAt),
   ]
 )
 

@@ -33,7 +33,7 @@ it("prepares primary destinations without fetching all conversations or privileg
     true
   )
   expect(requests).toContain("/api/me/availability/2026")
-  expect(requests).toContain("/api/chat/rooms?year=2026&closed=false")
+  expect(requests).toContain("/api/chat/rooms?year=2026")
   expect(requests.some((path) => /messages|roster|\/admin\//.test(path))).toBe(
     false
   )

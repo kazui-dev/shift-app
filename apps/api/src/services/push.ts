@@ -173,7 +173,7 @@ export async function notifyRoomMessage(
 ) {
   const recipients = await env.shift_app
     .prepare(
-      `SELECT e.member_id AS memberId FROM chat_effective_permissions e JOIN chat_rooms r ON r.id=e.room_id LEFT JOIN chat_room_preferences p ON p.room_id=e.room_id AND p.member_id=e.member_id WHERE e.room_id=? AND e.can_read=1 AND e.member_id<>? AND COALESCE(p.muted,0)=0 AND r.status='active'`
+      `SELECT e.member_id AS memberId FROM chat_effective_permissions e LEFT JOIN chat_room_preferences p ON p.room_id=e.room_id AND p.member_id=e.member_id WHERE e.room_id=? AND e.can_read=1 AND e.member_id<>? AND COALESCE(p.muted,0)=0`
     )
     .bind(roomId, senderId)
     .all<{ memberId: string }>()

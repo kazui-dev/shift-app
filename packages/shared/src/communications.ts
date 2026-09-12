@@ -80,7 +80,6 @@ export const chatRoomResponseSchema = v.object({
   lastRead: v.number(),
   lastSequence: v.number(),
   unreadCount: v.number(),
-  status: v.picklist(["active", "archived"]),
   id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
   name: v.string(),
@@ -162,7 +161,6 @@ export const chatPreferencesInputSchema = v.strictObject({
 })
 export const roomSettingsInputSchema = v.strictObject({
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
-  closed: v.boolean(),
   targets: v.pipe(
     v.array(
       v.object({

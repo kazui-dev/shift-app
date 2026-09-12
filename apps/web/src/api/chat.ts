@@ -12,11 +12,8 @@ import {
 
 import { apiJson, apiVoid } from "./client"
 
-export const getChatRooms = (year: number, closed = false) =>
-  apiJson(
-    `/api/chat/rooms?year=${year}&closed=${closed}`,
-    chatRoomsResponseSchema
-  )
+export const getChatRooms = (year: number) =>
+  apiJson(`/api/chat/rooms?year=${year}`, chatRoomsResponseSchema)
 
 export const getChatTargets = (year: number) =>
   apiJson(`/api/chat/targets?year=${year}`, chatTargetsResponseSchema)
@@ -73,7 +70,6 @@ export const saveRoomSettings = (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: input.name,
-      closed: input.closed,
       targets: input.targets,
     }),
   })

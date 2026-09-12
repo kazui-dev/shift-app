@@ -201,7 +201,6 @@ assignmentごとに本人の出勤時刻を一件保持する。`assignment_id` 
 | `id`         | text    | PK                         |
 | `year`       | integer | FK, `operating_years.year` |
 | `name`       | text    | ルーム名                   |
-| `status`     | text    | `active`, `archived`       |
 | `created_by` | text    | FK, 作成した`members.id`   |
 | `created_at` | integer | UNIX time milliseconds     |
 | `updated_at` | integer | UNIX time milliseconds     |
