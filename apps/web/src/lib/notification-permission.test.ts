@@ -1,18 +1,6 @@
 import { afterEach, expect, it, vi } from "vite-plus/test"
-import {
-  readNotificationPermission,
-  watchNotificationPermission,
-} from "./notification-permission"
+import { watchNotificationPermission } from "./notification-permission"
 afterEach(() => vi.unstubAllGlobals())
-it("reads the current notification getter", () => {
-  const notification: { permission: NotificationPermission } = {
-    permission: "denied",
-  }
-  vi.stubGlobal("Notification", notification)
-  expect(readNotificationPermission()).toBe("denied")
-  notification.permission = "granted"
-  expect(readNotificationPermission()).toBe("granted")
-})
 it("uses permission events even when Notification.permission disagrees and re-queries on return", async () => {
   const status = Object.assign(new EventTarget(), { state: "denied" })
   const next = Object.assign(new EventTarget(), { state: "granted" })
