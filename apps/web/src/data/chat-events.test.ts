@@ -47,20 +47,14 @@ it("updates order in unopened rooms and atomically keeps visible own posts read 
       roomId: "second",
       message: { ...message, memberId: "other" },
     },
-    "me",
-    "first"
+    "me"
   )
   expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
     "second",
     "first",
   ])
   expect(client.getQueryData(key)?.rooms[0]?.unreadCount).toBe(1)
-  applyChatEvent(
-    client,
-    { type: "message", roomId: "first", message },
-    "me",
-    "first"
-  )
+  applyChatEvent(client, { type: "message", roomId: "first", message }, "me")
   expect(
     client.getQueryData(key)?.rooms.find((item) => item.id === "first")
       ?.unreadCount
@@ -68,8 +62,7 @@ it("updates order in unopened rooms and atomically keeps visible own posts read 
   applyChatEvent(
     client,
     { type: "preferences_changed", roomId: "second", lastRead: 2, muted: true },
-    "me",
-    "first"
+    "me"
   )
   expect(
     client.getQueryData(key)?.rooms.find((item) => item.id === "second")
@@ -77,8 +70,7 @@ it("updates order in unopened rooms and atomically keeps visible own posts read 
   applyChatEvent(
     client,
     { type: "preferences_changed", roomId: "second", lastRead: 1, muted: true },
-    "me",
-    "first"
+    "me"
   )
   expect(
     client.getQueryData(key)?.rooms.find((item) => item.id === "second")
@@ -101,19 +93,40 @@ it("applies edited content immediately and refreshes room access and history on 
       roomId: "room",
       message: { ...message, content: "編集" },
     },
-    "me",
-    null
+    "me"
   )
   expect(client.getQueryData(key)?.pages[0]?.messages[0]?.content).toBe("編集")
   expect(invalidate).toHaveBeenCalledWith({
     queryKey: ["chat-image-message", "room"],
   })
-  applyChatEvent(client, { type: "room_changed", roomId: "room" }, "me", null)
+  applyChatEvent(client, { type: "room_changed", roomId: "room" }, "me")
   expect(invalidate).toHaveBeenCalledWith({
     queryKey: ["chat-members", "room"],
   })
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chat-room", "room"] })
-  applyChatEvent(client, null, "me", null)
+  applyChatEvent(client, null, "me")
   expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chat-messages"] })
+  client.clear()
+})
+
+it("never publishes an unread badge for an own post received from another device", () => {
+  const client = new QueryClient()
+  const key = roomsQuery(2026).queryKey
+  client.setQueryData(key, { rooms: [room("room", "2026-09-13T00:00:00Z")] })
+  const unread: number[] = []
+  const unsubscribe = client.getQueryCache().subscribe(() => {
+    const count = client.getQueryData(key)?.rooms[0]?.unreadCount
+    if (count !== undefined) unread.push(count)
+  })
+  applyChatEvent(client, { type: "message", roomId: "room", message }, "me")
+  applyChatEvent(
+    client,
+    { type: "preferences_changed", roomId: "room", lastRead: 1, muted: false },
+    "me"
+  )
+  expect(unread.length).toBeGreaterThan(0)
+  expect(unread.every((count) => count === 0)).toBe(true)
+  expect(client.getQueryData(key)?.rooms[0]?.lastRead).toBe(2)
+  unsubscribe()
   client.clear()
 })

@@ -1,4 +1,4 @@
-import { ResponsivePage } from "@workspace/ui/components/responsive-page"
+import { RoutePage } from "@/components/route-page"
 import { prepareConversation, roomsQuery } from "@/data/chat"
 import {
   Outlet,
@@ -111,8 +111,8 @@ export function ChatPage() {
           }
         />
       </div>
-      {year !== null && (
-        <ResponsivePage open={creating} onClose={closeCreate}>
+      {year !== null && creating && (
+        <RoutePage path="/chat/new" onClose={closeCreate}>
           <CreateChat
             key={year}
             year={year}
@@ -121,7 +121,7 @@ export function ChatPage() {
               open(id, true)
             }}
           />
-        </ResponsivePage>
+        </RoutePage>
       )}
       <Outlet />
     </>

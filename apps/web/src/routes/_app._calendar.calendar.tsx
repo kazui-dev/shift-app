@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { calendarDate } from "@/lib/calendar-view"
 
 export const Route = createFileRoute("/_app/_calendar/calendar")({
@@ -17,5 +17,5 @@ export const Route = createFileRoute("/_app/_calendar/calendar")({
         replace: true,
       })
   },
-  component: () => null,
+  component: Outlet,
 })

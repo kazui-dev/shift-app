@@ -3,7 +3,6 @@ import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import {
-  ResponsivePage,
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
@@ -14,7 +13,7 @@ import { removeRoom } from "@/data/chat-cache"
 import { RoomSettings } from "@/components/chat/room-settings"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useChatStore } from "@/components/chat/use-chat-store"
-import { usePageClose } from "@/components/use-page-close"
+import { RoutePage } from "@/components/route-page"
 
 export function RoomSettingsPage() {
   const { roomId } = getRouteApi("/_app/chat/$roomId/settings").useParams()
@@ -26,7 +25,7 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
   const { store, queue } = useChatStore()
   const [action, setAction] = useState<"leave" | "delete">()
   const [pending, setPending] = useState(false)
-  const page = usePageClose(() => {
+  const close = () => {
     if (router.history.location.state.chatSettings) router.history.back()
     else
       void router.navigate({
@@ -34,7 +33,7 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
         params: { roomId },
         replace: true,
       })
-  })
+  }
   const query = useQuery({
     queryKey: ["chat-room", roomId],
     queryFn: () => getChatRoom(roomId),
@@ -67,24 +66,18 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
     }
   }
   return (
-    <>
+    <RoutePage onClose={close}>
       {room ? (
         <RoomSettings
           key={roomId}
           room={room}
-          open={page.open}
-          onClose={page.close}
-          onClosed={page.onClosed}
+          onClose={close}
           onLeave={() => setAction("leave")}
           onDelete={() => setAction("delete")}
         />
       ) : (
-        <ResponsivePage
-          open={page.open}
-          onClose={page.close}
-          onClosed={page.onClosed}
-        >
-          <ResponsivePageHeader title="チャット設定" onBack={page.close} />
+        <>
+          <ResponsivePageHeader title="チャット設定" onBack={close} />
           <ResponsivePageBody>
             {query.isError ? (
               <Button onClick={() => void query.refetch()}>再読み込み</Button>
@@ -92,7 +85,7 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
               <p>読み込み中…</p>
             )}
           </ResponsivePageBody>
-        </ResponsivePage>
+        </>
       )}
       {action && (
         <ConfirmDialog
@@ -113,6 +106,6 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
           onConfirm={() => void confirm()}
         />
       )}
-    </>
+    </RoutePage>
   )
 }

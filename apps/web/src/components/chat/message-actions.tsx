@@ -183,7 +183,7 @@ export function MessageActions({
       data-message-actions
       data-active={opened || pressed || undefined}
       data-editing={editing || undefined}
-      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:bg-muted/25 [@media(hover:hover)]:hover:bg-muted/25"} ${!editing && (opened || pressed) ? "bg-muted/25" : ""}`}
+      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:bg-foreground/5 [@media(hover:hover)]:hover:bg-foreground/5"} ${!editing && (opened || pressed) ? "bg-foreground/5" : ""}`}
     >
       {available && (
         <button

@@ -1,7 +1,6 @@
 import { MemberAvatar } from "@/components/member-avatar"
 import { refreshMemberships } from "@/data/sync"
 import { rosterQuery, rolesQuery } from "@/data/years"
-import { cn } from "@workspace/ui/lib/utils"
 import { AddMembers } from "./add-members"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useState } from "react"
@@ -11,7 +10,7 @@ import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import { changeMemberRoles, deactivateYearMembership } from "@/api/years"
 import { errorMessage } from "@/api/client"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 
 export function MemberManager({ year }: { year: number }) {
@@ -79,19 +78,19 @@ export function MemberManager({ year }: { year: number }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select
+        <SelectField
           aria-label="ロールで絞り込み"
-          className={cn(nativeSelectClassName, "w-auto")}
+          className="w-auto"
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        >
-          <option value="">すべてのロール</option>
-          {roles.data?.roles.map((role) => (
-            <option key={role.id} value={role.id}>
-              {role.name}
-            </option>
-          ))}
-        </select>
+          onValueChange={(value) => setFilter(value)}
+          options={[
+            { value: "", label: "すべてのロール" },
+            ...(roles.data?.roles ?? []).map((role) => ({
+              value: role.id,
+              label: role.name,
+            })),
+          ]}
+        />
       </div>
       {selected.length > 0 && (
         <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
@@ -176,8 +175,8 @@ export function MemberManager({ year }: { year: number }) {
                 className="flex items-center justify-between gap-3"
               >
                 <span>{role.name}</span>
-                <select
-                  className={cn(nativeSelectClassName, "w-auto")}
+                <SelectField
+                  className="w-auto"
                   value={
                     add.includes(role.id)
                       ? "add"
@@ -185,21 +184,22 @@ export function MemberManager({ year }: { year: number }) {
                         ? "remove"
                         : "keep"
                   }
-                  onChange={(e) => {
+                  onValueChange={(value) => {
                     setAdd((ids) => [
                       ...ids.filter((id) => id !== role.id),
-                      ...(e.target.value === "add" ? [role.id] : []),
+                      ...(value === "add" ? [role.id] : []),
                     ])
                     setRemove((ids) => [
                       ...ids.filter((id) => id !== role.id),
-                      ...(e.target.value === "remove" ? [role.id] : []),
+                      ...(value === "remove" ? [role.id] : []),
                     ])
                   }}
-                >
-                  <option value="keep">変更しない</option>
-                  <option value="add">追加</option>
-                  <option value="remove">解除</option>
-                </select>
+                  options={[
+                    { value: "keep", label: "変更しない" },
+                    { value: "add", label: "追加" },
+                    { value: "remove", label: "解除" },
+                  ]}
+                />
               </label>
             ))}
             <Button

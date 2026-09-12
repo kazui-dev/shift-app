@@ -5,8 +5,7 @@ import { receiveMessage, updateRoom } from "./chat-cache"
 export function applyChatEvent(
   client: QueryClient,
   event: ChatEvent | null,
-  memberId: string,
-  visibleRoomId: string | null
+  memberId: string
 ) {
   if (!event || event.type === "access_changed") {
     for (const key of [
@@ -49,9 +48,7 @@ export function applyChatEvent(
     client,
     id,
     event.message,
-    event.type === "message" &&
-      event.message.memberId === memberId &&
-      visibleRoomId === id
+    event.type === "message" && event.message.memberId === memberId
   )
   if (!continuous || event.type === "message_changed")
     void client.invalidateQueries({ queryKey: ["chat-messages", id] })

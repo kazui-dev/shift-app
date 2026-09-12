@@ -1,4 +1,3 @@
-import { cn } from "@workspace/ui/lib/utils"
 import { UserManager } from "@/components/system/user-manager"
 import { useManagementYear } from "@/components/use-management-year"
 import { getRouteApi, Link, Outlet, useNavigate } from "@tanstack/react-router"
@@ -15,7 +14,7 @@ import {
   AuditLogManager,
   DiscordLinkRequestManager,
 } from "@/components/admin-panel"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
 import { EmptyState } from "@/components/page-layout"
@@ -24,11 +23,10 @@ import { MemberManager } from "@/components/system/member-manager"
 import { YearRoleManager } from "@/components/system/year-role-manager"
 
 import {
-  ResponsivePage,
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
-import { usePageClose } from "@/components/use-page-close"
+import { RoutePage } from "@/components/route-page"
 
 const routeApi = getRouteApi("/_app")
 
@@ -56,10 +54,11 @@ const viewTitles: Record<Exclude<ManageView, "home">, string> = {
 
 export function ManagePage({ view }: { view: ManageView }) {
   const navigate = useNavigate()
-  const page = usePageClose(
-    () => void navigate({ to: "/manage", replace: true }),
-    view === "shifts" ? "page" : "dialog"
-  )
+  const close = () =>
+    void navigate({
+      to: view === "availability" ? "/manage/shifts" : "/manage",
+      replace: true,
+    })
   const { state } = routeApi.useRouteContext()
   const systemAdmin = state.member.accessLevel === "system_admin"
   const years = useManagementYear()
@@ -119,20 +118,16 @@ export function ManagePage({ view }: { view: ManageView }) {
                     管理
                   </h2>
                   {manageableYears.length > 1 && (
-                    <select
+                    <SelectField
                       aria-label="年度"
-                      className={cn(nativeSelectClassName, "w-auto")}
+                      className="w-auto"
                       value={year ?? ""}
-                      onChange={(event) =>
-                        setSelectedYear(Number(event.target.value))
-                      }
-                    >
-                      {manageableYears.map((item) => (
-                        <option key={item.year} value={item.year}>
-                          {item.year}年度
-                        </option>
-                      ))}
-                    </select>
+                      onValueChange={(value) => setSelectedYear(Number(value))}
+                      options={manageableYears.map((item) => ({
+                        value: item.year,
+                        label: `${item.year}年度`,
+                      }))}
+                    />
                   )}
                   {manageableYears.length === 1 && (
                     <span className="text-xs text-muted-foreground">
@@ -191,33 +186,27 @@ export function ManagePage({ view }: { view: ManageView }) {
 
   return (
     <div className="fixed inset-0 z-40 md:contents">
-      <ResponsivePage
-        open={page.open}
-        onClose={page.close}
-        onClosed={page.onClosed}
+      <RoutePage
+        onClose={close}
         desktop={view === "shifts" ? "page" : "dialog"}
       >
-        <ResponsivePageHeader title={viewTitles[view]} onBack={page.close} />
+        <ResponsivePageHeader title={viewTitles[view]} onBack={close} />
         <ResponsivePageBody>
           <div className="space-y-6">
             {yearScoped && (
               <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-muted-foreground">年度</span>
                 {manageableYears.length > 1 ? (
-                  <select
+                  <SelectField
                     aria-label="年度"
-                    className={cn(nativeSelectClassName, "w-auto")}
+                    className="w-auto"
                     value={year ?? ""}
-                    onChange={(event) =>
-                      setSelectedYear(Number(event.target.value))
-                    }
-                  >
-                    {manageableYears.map((item) => (
-                      <option key={item.year} value={item.year}>
-                        {item.year}年度
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(value) => setSelectedYear(Number(value))}
+                    options={manageableYears.map((item) => ({
+                      value: item.year,
+                      label: `${item.year}年度`,
+                    }))}
+                  />
                 ) : (
                   <span>{year ?? "—"}年度</span>
                 )}
@@ -245,7 +234,7 @@ export function ManagePage({ view }: { view: ManageView }) {
           </div>
         </ResponsivePageBody>
         <Outlet />
-      </ResponsivePage>
+      </RoutePage>
     </div>
   )
 }

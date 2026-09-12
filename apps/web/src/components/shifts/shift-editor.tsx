@@ -3,7 +3,7 @@ import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useBlocker, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { Settings2, MoreHorizontal } from "lucide-react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { Button } from "@workspace/ui/components/button"
@@ -19,7 +19,7 @@ import {
 import { ApiError, errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 import { japanDateTime, japanLocalDateTime } from "@/lib/japan-time"
 import { change, undo, redo, type EditHistory } from "./editor-history"
 import { TimeGrid, type EditorData } from "./time-grid"
@@ -28,11 +28,7 @@ import {
   type ShiftSelection,
 } from "./shift-selection-panel"
 
-import {
-  ResponsivePage,
-  ResponsivePageHeader,
-} from "@workspace/ui/components/responsive-page"
-import { usePageClose } from "@/components/use-page-close"
+import { ResponsivePageHeader } from "@workspace/ui/components/responsive-page"
 
 function local(value: string) {
   const date = japanDateTime(value)
@@ -46,13 +42,15 @@ function initial(data: EditorData): ActivityEditorInput {
     responsibles: data.responsibles,
   }
 }
-export function ShiftEditor({ data: source }: { data: EditorData }) {
+export function ShiftEditor({
+  data: source,
+  onStatusChange,
+}: {
+  data: EditorData
+  onStatusChange: (status: { dirty: boolean; pending: boolean }) => void
+}) {
   const client = useQueryClient()
   const navigate = useNavigate()
-  const page = usePageClose(
-    () => void navigate({ to: "/manage/shifts", replace: true }),
-    "page"
-  )
   const [actions, setActions] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -81,6 +79,10 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
   const [warning, setWarning] = useState(false)
   const plan = history.present,
     dirty = JSON.stringify(plan) !== saved
+  useEffect(
+    () => onStatusChange({ dirty, pending }),
+    [dirty, pending, onStatusChange]
+  )
   const data = {
     ...source,
     availability: source.availability.filter(
@@ -89,11 +91,6 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
         Date.parse(window.endsAt) > Date.parse(plan.startsAt)
     ),
   }
-  const blocker = useBlocker({
-    shouldBlockFn: () => dirty,
-    enableBeforeUnload: dirty,
-    withResolver: true,
-  })
   function update(value: ActivityEditorInput) {
     setHistory((current) => change(current, value))
   }
@@ -241,358 +238,338 @@ export function ShiftEditor({ data: source }: { data: EditorData }) {
   }
   const close = () => {
     if (pending) return
-    if (dirty) void navigate({ to: "/manage/shifts" })
-    else page.close()
+    void navigate({ to: "/manage/shifts", replace: true })
   }
   return (
-    <div className="fixed inset-0 z-40 md:contents">
-      <ResponsivePage
-        open={page.open}
-        onClose={close}
-        onClosed={page.onClosed}
-        desktop="page"
-      >
-        <ResponsivePageHeader
-          title={plan.name}
-          onBack={close}
-          backDisabled={pending}
-          action={
-            <Button
-              size="sm"
-              disabled={pending || (!dirty && !conflicted)}
-              onClick={() =>
-                conflicted
-                  ? void action(async () =>
-                      setLatest(await getActivity(data.activity.id))
-                    )
-                  : void save()
-              }
-            >
-              保存
-            </Button>
-          }
-        />
-        <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-muted-foreground">
-              {new Intl.DateTimeFormat("ja-JP", {
-                month: "long",
-                day: "numeric",
-                weekday: "short",
-                timeZone: "Asia/Tokyo",
-              }).format(new Date(plan.startsAt))}
-            </p>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="シフトの操作"
-              disabled={pending}
-              onClick={() => setActions(true)}
-            >
-              <MoreHorizontal />
-            </Button>
-          </div>
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
-            <fieldset
-              disabled={pending}
-              className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:pr-4"
-            >
-              <div className="flex flex-wrap items-center gap-2 pl-38 sm:pl-46">
-                <div className="mr-auto flex w-full items-center gap-4 text-xs text-muted-foreground sm:w-auto">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-3 w-[22px] rounded-[3px] bg-[#e7edf3] dark:bg-slate-800" />
-                    希望時間
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span
-                      className="h-3 w-[22px] rounded-[3px]"
-                      style={{
-                        backgroundColor: `color-mix(in oklab, ${plan.color} 22%, var(--background))`,
-                      }}
-                    />
-                    シフト
-                  </span>
-                </div>
-              </div>
-              <TimeGrid
-                data={data}
-                plan={plan}
-                role={role}
-                search={search}
-                includeUnavailable={includeUnavailable}
-                selection={selection}
-                onSelect={setSelection}
-                onCommit={(value) => {
-                  const error = applySelection(value)
-                  if (error) toast.error(error)
-                }}
-                onMember={(memberId) =>
-                  setSelection({
-                    memberId,
-                    slotId: null,
-                    startsAt: plan.startsAt,
-                    endsAt: plan.endsAt,
-                  })
-                }
-                onFilter={() => setFiltersOpen(true)}
-              />
-            </fieldset>
-            {selection && (
-              <ShiftSelectionPanel
-                key={selection.memberId}
-                selection={selection}
-                slots={plan.slots}
-                startsAt={plan.startsAt}
-                endsAt={plan.endsAt}
-                data={data}
-                pending={pending}
-                onClose={() => setSelection(null)}
-                onApply={applySelection}
-                onRemove={(slotId) => {
-                  update({
-                    ...plan,
-                    slots: plan.slots.map((slot) =>
-                      slot.id === slotId
-                        ? {
-                            ...slot,
-                            memberIds: slot.memberIds.filter(
-                              (id) => id !== selection.memberId
-                            ),
-                          }
-                        : slot
-                    ),
-                  })
-                }}
-              />
-            )}
-          </div>
-        </div>
-        {filtersOpen && (
-          <ResponsiveDialog
-            open
-            title="メンバーを絞り込む"
-            onOpenChange={setFiltersOpen}
+    <>
+      <ResponsivePageHeader
+        title={plan.name}
+        onBack={close}
+        backDisabled={pending}
+        action={
+          <Button
+            size="sm"
+            disabled={pending || (!dirty && !conflicted)}
+            onClick={() =>
+              conflicted
+                ? void action(async () =>
+                    setLatest(await getActivity(data.activity.id))
+                  )
+                : void save()
+            }
           >
-            <div className="space-y-4">
-              <label
-                htmlFor="member-search"
-                className="block space-y-2 text-sm"
-              >
-                名前・学番
-                <Input
-                  id="member-search"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
-              <label className="block space-y-2 text-sm">
-                ロール
-                <select
-                  className={nativeSelectClassName}
-                  value={role}
-                  onChange={(event) => setRole(event.target.value)}
-                >
-                  <option value="">すべて</option>
-                  {plan.candidateRoleIds.length > 1 && (
-                    <option value="candidates">シフトに設定したロール</option>
-                  )}
-                  {data.roles.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={includeUnavailable}
-                  onChange={(event) =>
-                    setIncludeUnavailable(event.target.checked)
-                  }
-                />
-                参加不可・未回答のメンバーも表示
-              </label>
-              <div className="flex justify-between">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setRole("")
-                    setSearch("")
-                    setIncludeUnavailable(true)
-                  }}
-                >
-                  解除
-                </Button>
-                <Button onClick={() => setFiltersOpen(false)}>表示する</Button>
+            保存
+          </Button>
+        }
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {new Intl.DateTimeFormat("ja-JP", {
+              month: "long",
+              day: "numeric",
+              weekday: "short",
+              timeZone: "Asia/Tokyo",
+            }).format(new Date(plan.startsAt))}
+          </p>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="シフトの操作"
+            disabled={pending}
+            onClick={() => setActions(true)}
+          >
+            <MoreHorizontal />
+          </Button>
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
+          <fieldset
+            disabled={pending}
+            className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:pr-4"
+          >
+            <div className="flex flex-wrap items-center gap-2 pl-38 sm:pl-46">
+              <div className="mr-auto flex w-full items-center gap-4 text-xs text-muted-foreground sm:w-auto">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3 w-[22px] rounded-[3px] bg-[#e7edf3] dark:bg-slate-800" />
+                  希望時間
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="h-3 w-[22px] rounded-[3px]"
+                    style={{
+                      backgroundColor: `color-mix(in oklab, ${plan.color} 22%, var(--background))`,
+                    }}
+                  />
+                  シフト
+                </span>
               </div>
             </div>
-          </ResponsiveDialog>
-        )}
-        {actions && (
-          <ResponsiveDialog
-            open
-            title="シフトの操作"
-            onOpenChange={(open) => {
-              if (!open) setActions(false)
-            }}
-          >
-            <div className="space-y-5">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setActions(false)
-                    setSettings(true)
-                  }}
-                >
-                  <Settings2 />
-                  シフトの設定
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setActions(false)
-                    setAttendanceOpen(true)
-                  }}
-                >
-                  出勤・連絡
-                </Button>
-              </div>
-              <Button
-                variant="outline"
-                disabled={pending || dirty || !plan.active}
-                onClick={() =>
-                  void action(async () => {
-                    await notifyActivity(data.activity.id)
-                    toast.success("更新を通知しました。")
-                  })
+            <TimeGrid
+              data={data}
+              plan={plan}
+              role={role}
+              search={search}
+              includeUnavailable={includeUnavailable}
+              selection={selection}
+              onSelect={setSelection}
+              onCommit={(value) => {
+                const error = applySelection(value)
+                if (error) toast.error(error)
+              }}
+              onMember={(memberId) =>
+                setSelection({
+                  memberId,
+                  slotId: null,
+                  startsAt: plan.startsAt,
+                  endsAt: plan.endsAt,
+                })
+              }
+              onFilter={() => setFiltersOpen(true)}
+            />
+          </fieldset>
+          {selection && (
+            <ShiftSelectionPanel
+              key={selection.memberId}
+              selection={selection}
+              slots={plan.slots}
+              startsAt={plan.startsAt}
+              endsAt={plan.endsAt}
+              data={data}
+              pending={pending}
+              onClose={() => setSelection(null)}
+              onApply={applySelection}
+              onRemove={(slotId) => {
+                update({
+                  ...plan,
+                  slots: plan.slots.map((slot) =>
+                    slot.id === slotId
+                      ? {
+                          ...slot,
+                          memberIds: slot.memberIds.filter(
+                            (id) => id !== selection.memberId
+                          ),
+                        }
+                      : slot
+                  ),
+                })
+              }}
+            />
+          )}
+        </div>
+      </div>
+      {filtersOpen && (
+        <ResponsiveDialog
+          open
+          title="メンバーを絞り込む"
+          onOpenChange={setFiltersOpen}
+        >
+          <div className="space-y-4">
+            <label htmlFor="member-search" className="block space-y-2 text-sm">
+              名前・学番
+              <Input
+                id="member-search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <label htmlFor="shift-role" className="block space-y-2 text-sm">
+              ロール
+              <SelectField
+                id="shift-role"
+                value={role}
+                onValueChange={(value) => setRole(value)}
+                options={[
+                  { value: "", label: "すべて" },
+                  ...(plan.candidateRoleIds.length > 1
+                    ? [{ value: "candidates", label: "シフトに設定したロール" }]
+                    : []),
+                  ...data.roles.map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                  })),
+                ]}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={includeUnavailable}
+                onChange={(event) =>
+                  setIncludeUnavailable(event.target.checked)
                 }
-              >
-                更新を通知する
-              </Button>
-              {dirty && (
-                <p className="text-xs text-muted-foreground">
-                  通知・複製の前に変更を保存してください。
-                </p>
-              )}
-              <form
-                className="flex items-center gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  void action(async () => {
-                    const copy = await copyActivity(data.activity.id, copyDate)
-                    await navigate({
-                      to: "/manage/shifts/$shiftId",
-                      params: { shiftId: copy.id },
-                    })
-                  })
-                }}
-              >
-                <Input
-                  type="date"
-                  aria-label="複製先の日付"
-                  required
-                  value={copyDate}
-                  onChange={(e) => setCopyDate(e.target.value)}
-                />
-                <Button disabled={pending || dirty || !copyDate}>複製</Button>
-              </form>
+              />
+              参加不可・未回答のメンバーも表示
+            </label>
+            <div className="flex justify-between">
               <Button
                 variant="ghost"
-                className="text-destructive"
-                disabled={pending || dirty}
                 onClick={() => {
-                  setActions(false)
-                  setDeleting(true)
+                  setRole("")
+                  setSearch("")
+                  setIncludeUnavailable(true)
                 }}
               >
-                シフトを削除
+                解除
+              </Button>
+              <Button onClick={() => setFiltersOpen(false)}>表示する</Button>
+            </div>
+          </div>
+        </ResponsiveDialog>
+      )}
+      {actions && (
+        <ResponsiveDialog
+          open
+          title="シフトの操作"
+          onOpenChange={(open) => {
+            if (!open) setActions(false)
+          }}
+        >
+          <div className="space-y-5">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setActions(false)
+                  setSettings(true)
+                }}
+              >
+                <Settings2 />
+                シフトの設定
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setActions(false)
+                  setAttendanceOpen(true)
+                }}
+              >
+                出勤・連絡
               </Button>
             </div>
-          </ResponsiveDialog>
-        )}
-        {deleting && (
-          <ConfirmDialog
-            title="シフトを削除しますか"
-            description="勤務時間・出勤・連絡・チャットも削除されます。この操作は元に戻せません。"
-            confirmLabel="削除する"
-            onCancel={() => setDeleting(false)}
-            onConfirm={() => {
-              setDeleting(false)
-              void action(async () => {
-                await deleteActivity(data.activity.id)
-                await navigate({ to: "/manage/shifts" })
-              })
-            }}
-          />
-        )}
-        {latest && (
-          <ShiftConflicts
-            base={base}
-            data={latest}
-            local={plan}
-            latest={initial(latest)}
-            onClose={() => setLatest(null)}
-            onMerge={(merged) => {
-              client.setQueryData(["activity-editor", data.activity.id], latest)
-              setVersion(latest.activity.version)
-              setBase(initial(latest))
-              setSaved(JSON.stringify(initial(latest)))
-              setHistory((current) => ({
-                past: current.past.map(
-                  (item) => mergePlan(base, item, initial(latest)).plan
-                ),
-                present: merged,
-                future: current.future.map(
-                  (item) => mergePlan(base, item, initial(latest)).plan
-                ),
-              }))
-              setLatest(null)
-              setConflicted(false)
-            }}
-          />
-        )}
-        {attendanceOpen && (
-          <ShiftAttendance
-            activityId={data.activity.id}
-            onClose={() => setAttendanceOpen(false)}
-          />
-        )}
-        {settings && (
-          <ShiftSettings
-            plan={plan}
-            data={data}
-            onClose={() => setSettings(false)}
-            onSave={(value) => {
-              update(value)
-              setSettings(false)
-            }}
-          />
-        )}
-        {warning && (
-          <ConfirmDialog
-            title="希望時間外の勤務を含みます"
-            description="希望未提出または参加可能時間外のメンバーがいます。この内容で保存しますか。"
-            confirmLabel="保存する"
-            onCancel={() => setWarning(false)}
-            onConfirm={() => {
-              setWarning(false)
-              void save(true)
-            }}
-          />
-        )}
-        {blocker.status === "blocked" && (
-          <ConfirmDialog
-            title="変更を破棄しますか"
-            description="保存していない変更があります。"
-            confirmLabel="破棄して移動"
-            onCancel={() => blocker.reset()}
-            onConfirm={() => blocker.proceed()}
-          />
-        )}
-      </ResponsivePage>
-    </div>
+            <Button
+              variant="outline"
+              disabled={pending || dirty || !plan.active}
+              onClick={() =>
+                void action(async () => {
+                  await notifyActivity(data.activity.id)
+                  toast.success("更新を通知しました。")
+                })
+              }
+            >
+              更新を通知する
+            </Button>
+            {dirty && (
+              <p className="text-xs text-muted-foreground">
+                通知・複製の前に変更を保存してください。
+              </p>
+            )}
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void action(async () => {
+                  const copy = await copyActivity(data.activity.id, copyDate)
+                  await navigate({
+                    to: "/manage/shifts/$shiftId",
+                    params: { shiftId: copy.id },
+                  })
+                })
+              }}
+            >
+              <Input
+                type="date"
+                aria-label="複製先の日付"
+                required
+                value={copyDate}
+                onChange={(e) => setCopyDate(e.target.value)}
+              />
+              <Button disabled={pending || dirty || !copyDate}>複製</Button>
+            </form>
+            <Button
+              variant="ghost"
+              className="text-destructive"
+              disabled={pending || dirty}
+              onClick={() => {
+                setActions(false)
+                setDeleting(true)
+              }}
+            >
+              シフトを削除
+            </Button>
+          </div>
+        </ResponsiveDialog>
+      )}
+      {deleting && (
+        <ConfirmDialog
+          title="シフトを削除しますか"
+          description="勤務時間・出勤・連絡・チャットも削除されます。この操作は元に戻せません。"
+          confirmLabel="削除する"
+          onCancel={() => setDeleting(false)}
+          onConfirm={() => {
+            setDeleting(false)
+            void action(async () => {
+              await deleteActivity(data.activity.id)
+              await navigate({ to: "/manage/shifts" })
+            })
+          }}
+        />
+      )}
+      {latest && (
+        <ShiftConflicts
+          base={base}
+          data={latest}
+          local={plan}
+          latest={initial(latest)}
+          onClose={() => setLatest(null)}
+          onMerge={(merged) => {
+            client.setQueryData(["activity-editor", data.activity.id], latest)
+            setVersion(latest.activity.version)
+            setBase(initial(latest))
+            setSaved(JSON.stringify(initial(latest)))
+            setHistory((current) => ({
+              past: current.past.map(
+                (item) => mergePlan(base, item, initial(latest)).plan
+              ),
+              present: merged,
+              future: current.future.map(
+                (item) => mergePlan(base, item, initial(latest)).plan
+              ),
+            }))
+            setLatest(null)
+            setConflicted(false)
+          }}
+        />
+      )}
+      {attendanceOpen && (
+        <ShiftAttendance
+          activityId={data.activity.id}
+          onClose={() => setAttendanceOpen(false)}
+        />
+      )}
+      {settings && (
+        <ShiftSettings
+          plan={plan}
+          data={data}
+          onClose={() => setSettings(false)}
+          onSave={(value) => {
+            update(value)
+            setSettings(false)
+          }}
+        />
+      )}
+      {warning && (
+        <ConfirmDialog
+          title="希望時間外の勤務を含みます"
+          description="希望未提出または参加可能時間外のメンバーがいます。この内容で保存しますか。"
+          confirmLabel="保存する"
+          onCancel={() => setWarning(false)}
+          onConfirm={() => {
+            setWarning(false)
+            void save(true)
+          }}
+        />
+      )}
+    </>
   )
 }
 function ShiftSettings({
@@ -776,7 +753,7 @@ function ShiftSettings({
             </label>
           ))}
         </fieldset>
-        <Button>適用</Button>
+        <Button type="submit">適用</Button>
       </form>
     </ResponsiveDialog>
   )

@@ -8,7 +8,7 @@ import {
 } from "@workspace/ui/components/responsive-page"
 import type { ChatTargetOption } from "@workspace/shared/communications"
 import type { getRoomSettings } from "@/api/chat"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 import { TargetAvatar } from "./target-avatar"
 import { TargetPicker } from "./target-picker"
 import { targetKey } from "./target-key"
@@ -99,12 +99,11 @@ export function RoomGrants({
               >
                 <X />
               </Button>
-              <select
+              <SelectField
                 aria-label={`${name}の権限`}
-                className={`${nativeSelectClassName} col-span-2 col-start-2`}
+                className="col-span-2 col-start-2"
                 value={permission}
-                onChange={(event) => {
-                  const level = event.target.value
+                onValueChange={(level) => {
                   onChange(
                     value.map((item) =>
                       targetKey(item) === key
@@ -118,12 +117,13 @@ export function RoomGrants({
                     )
                   )
                 }}
-              >
-                <option value="read">閲覧のみ</option>
-                <option value="post">閲覧・投稿</option>
-                <option value="manage">管理</option>
-                <option value="none">権限なし</option>
-              </select>
+                options={[
+                  { value: "read", label: "閲覧のみ" },
+                  { value: "post", label: "閲覧・投稿" },
+                  { value: "manage", label: "管理" },
+                  { value: "none", label: "権限なし" },
+                ]}
+              />
             </li>
           )
         })}

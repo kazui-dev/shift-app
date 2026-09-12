@@ -91,3 +91,26 @@ it.each([
   ).toBe(from)
   client.clear()
 })
+
+it("loads form settings under shifts without treating availability as an activity ID", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  client.setQueryData(["display-year"], {
+    year: null,
+    defaultYear: 2026,
+    years: [],
+    unavailableSelection: false,
+  })
+  client.setQueryData(["years"], { years: [{ year: 2026, canManage: true }] })
+  const requests: string[] = []
+  vi.mocked(apiJson).mockImplementation(async (path) => {
+    requests.push(path)
+    return {}
+  })
+  await prepareApp(client, "/manage/shifts/availability", "test", true)
+  expect(requests).toContain("/api/years/2026/availability-dates")
+  expect(requests).toContain("/api/years/2026/availability-submissions")
+  expect(requests).not.toContain("/api/activities/availability")
+  client.clear()
+})

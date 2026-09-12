@@ -1,6 +1,4 @@
 import { useMessageEdit } from "./use-message-edit"
-import { MessageEditor } from "./message-editor"
-import { useMediaQuery } from "@/hooks/use-media-query"
 import { MessageActions } from "./message-actions"
 import { useLayoutEffect, useMemo, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
@@ -44,8 +42,7 @@ export function ChatMessages({
 }) {
   const navigate = useNavigate()
   const edit = useMessageEdit(room.id)
-  const mobile = useMediaQuery("(max-width: 767px)")
-  const composerEdit = mobile ? edit.editing : null
+  const composerEdit = edit.editing
   const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
@@ -161,7 +158,13 @@ export function ChatMessages({
                       memberId={member.id}
                       offline={offline}
                       editing={edit.editing?.id === message.id}
-                      onEdit={() => edit.start(message)}
+                      onEdit={() => {
+                        store.edit(room.id, {
+                          ...store.draft(room.id),
+                          reply: undefined,
+                        })
+                        edit.start(message)
+                      }}
                       onReply={() => {
                         edit.cancel()
                         if (message.sequence !== null)
@@ -171,6 +174,7 @@ export function ChatMessages({
                               id: message.id,
                               sequence: message.sequence,
                               memberDisplayName: message.memberDisplayName,
+                              memberImage: message.memberImage,
                               content: message.content,
                             },
                           })
@@ -178,16 +182,32 @@ export function ChatMessages({
                     >
                       <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
                         {message.reply && (
-                          <div className="col-start-2 mb-1 flex gap-2 text-xs text-muted-foreground">
-                            <span className="shrink-0">
-                              ↪ {message.reply.memberDisplayName}
-                            </span>
-                            <span className="truncate">
-                              {message.reply.deleted
-                                ? "削除されたメッセージ"
-                                : message.reply.content || "画像"}
-                            </span>
-                          </div>
+                          <>
+                            <div
+                              aria-hidden
+                              className="relative col-start-1 row-start-1"
+                            >
+                              <span className="pointer-events-none absolute top-2 bottom-[-2px] left-4 w-6 rounded-tl-md border-t border-l border-muted-foreground/40" />
+                            </div>
+                            <div
+                              data-message-reply
+                              className="col-start-2 mb-1 flex h-4 min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground"
+                            >
+                              <MemberAvatar
+                                name={message.reply.memberDisplayName}
+                                image={message.reply.memberImage ?? null}
+                                className="size-4 text-[8px]"
+                              />
+                              <span className="max-w-32 shrink-0 truncate">
+                                {message.reply.memberDisplayName}
+                              </span>
+                              <span className="truncate">
+                                {message.reply.deleted
+                                  ? "削除されたメッセージ"
+                                  : message.reply.content || "画像"}
+                              </span>
+                            </div>
+                          </>
                         )}
                         {!grouped ? (
                           <MemberAvatar
@@ -222,17 +242,7 @@ export function ChatMessages({
                               削除されたメッセージ
                             </p>
                           )}
-                          {edit.editing?.id === message.id && !mobile ? (
-                            <MessageEditor
-                              content={edit.editing.content}
-                              hasImages={edit.editing.hasImages}
-                              pending={edit.pending}
-                              onChange={edit.change}
-                              onSave={(value) => void edit.save(value)}
-                              onCancel={edit.cancel}
-                            />
-                          ) : (
-                            !message.deleted &&
+                          {!message.deleted &&
                             (message.content || message.editedAt) && (
                               <p
                                 data-message-body
@@ -245,8 +255,7 @@ export function ChatMessages({
                                   </span>
                                 )}
                               </p>
-                            )
-                          )}
+                            )}
                           <MessageImages
                             roomId={room.id}
                             images={message.attachments}

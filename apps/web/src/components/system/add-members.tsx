@@ -15,7 +15,7 @@ import {
 } from "@/api/years"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 export function AddMembers({
   year,
   onClose,
@@ -143,25 +143,21 @@ export function AddMembers({
       }}
     >
       <div className="space-y-4">
-        <select
+        <SelectField
           aria-label="追加元"
-          className={nativeSelectClassName}
           value={source}
-          onChange={(e) => {
-            setSource(Number(e.target.value))
+          onValueChange={(value) => {
+            setSource(Number(value))
             setSelected([])
             setCopyRoleIds([])
           }}
-        >
-          <option value={year}>未参加のユーザー</option>
-          {years.data?.years
-            .filter((y) => y.year < year && y.canManage)
-            .map((y) => (
-              <option value={y.year} key={y.year}>
-                {y.year}から選ぶ
-              </option>
-            ))}
-        </select>
+          options={[
+            { value: year, label: "未参加のユーザー" },
+            ...(years.data?.years ?? [])
+              .filter((y) => y.year < year && y.canManage)
+              .map((y) => ({ value: y.year, label: `${y.year}から選ぶ` })),
+          ]}
+        />
         <Input
           placeholder="名前・学籍番号で検索"
           aria-label="ユーザーを検索"

@@ -3,7 +3,6 @@ import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { FormDate } from "@workspace/shared/availability"
 import {
-  ResponsivePage,
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
@@ -13,7 +12,7 @@ import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 import { MinuteInput } from "@/components/minute-input"
 import { useManagementYear } from "@/components/use-management-year"
-import { usePageClose } from "@/components/use-page-close"
+import { RoutePage } from "@/components/route-page"
 import { availabilityDatesQuery } from "@/data/availability"
 import { saveAvailabilityDate } from "@/api/availability"
 import { errorMessage } from "@/api/client"
@@ -21,9 +20,8 @@ import { errorMessage } from "@/api/client"
 export function AvailabilityDatePage({ date }: { date?: string }) {
   const { year } = useManagementYear()
   const navigate = useNavigate()
-  const page = usePageClose(
-    () => void navigate({ to: "/manage/availability", replace: true })
-  )
+  const close = () =>
+    void navigate({ to: "/manage/shifts/availability", replace: true })
   const query = useQuery({
     ...availabilityDatesQuery(year ?? 0),
     enabled: year !== null,
@@ -31,21 +29,17 @@ export function AvailabilityDatePage({ date }: { date?: string }) {
   const initial = query.data?.dates.find((item) => item.date === date)
   return (
     <div className="fixed inset-0 z-50 md:contents">
-      <ResponsivePage
-        open={page.open}
-        onClose={page.close}
-        onClosed={page.onClosed}
-      >
+      <RoutePage onClose={close}>
         {year !== null && (!date || initial) ? (
           <DateEditor
             key={`${year}:${date ?? "new"}`}
             year={year}
             initial={initial}
-            onClose={page.close}
+            onClose={close}
           />
         ) : (
           <>
-            <ResponsivePageHeader title="日程を編集" onBack={page.close} />
+            <ResponsivePageHeader title="日程を編集" onBack={close} />
             <ResponsivePageBody>
               <p className="text-sm text-muted-foreground">
                 {query.isPending ? "読み込み中…" : "日程を取得できませんでした"}
@@ -53,7 +47,7 @@ export function AvailabilityDatePage({ date }: { date?: string }) {
             </ResponsivePageBody>
           </>
         )}
-      </ResponsivePage>
+      </RoutePage>
     </div>
   )
 }
@@ -174,6 +168,8 @@ function DateEditor({
 }
 
 export function EditAvailabilityDatePage() {
-  const { date } = getRouteApi("/_app/manage/availability/$date").useParams()
+  const { date } = getRouteApi(
+    "/_app/manage/shifts/availability/$date"
+  ).useParams()
   return <AvailabilityDatePage key={date} date={date} />
 }

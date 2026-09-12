@@ -1,6 +1,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useRef,
   useSyncExternalStore,
   type ReactNode,
@@ -38,11 +39,14 @@ export function ResponsivePage({
     desktop === "page"
   const container = useRef<HTMLDivElement>(null)
   const popup = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (inline && !open) onClosed?.()
+  }, [inline, open, onClosed])
   if (inline)
     return (
       <PageContext value={true}>
         <section className="flex h-dvh min-h-0 min-w-0 flex-col bg-background">
-          {open && children}
+          {children}
         </section>
       </PageContext>
     )
@@ -50,7 +54,7 @@ export function ResponsivePage({
     <PageContext value={false}>
       <div
         ref={container}
-        className="pointer-events-none absolute inset-0 z-50 overflow-clip md:contents"
+        className={`absolute inset-0 z-50 overflow-clip md:contents ${open ? "pointer-events-auto" : "pointer-events-none"}`}
       >
         <Dialog.Root
           open={open}
@@ -62,7 +66,7 @@ export function ResponsivePage({
           }}
         >
           <Dialog.Portal container={container}>
-            <Dialog.Backdrop className="pointer-events-auto fixed inset-0 z-50 hidden bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs motion-reduce:animate-none md:block data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+            <Dialog.Backdrop className="pointer-events-auto fixed inset-0 z-50 hidden bg-black/10 duration-100 motion-reduce:animate-none md:block data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
             <Dialog.Popup
               ref={popup}
               initialFocus={() => popup.current}

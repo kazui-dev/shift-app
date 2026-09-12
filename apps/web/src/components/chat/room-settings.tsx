@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LogOut, Trash2 } from "lucide-react"
 import {
-  ResponsivePage,
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
@@ -23,22 +22,20 @@ import { RoomGrants } from "./room-grants"
 type Actions = { room: ChatRoom; onLeave: () => void; onDelete: () => void }
 export function RoomSettings({
   room,
-  open,
   onClose,
-  onClosed,
   onLeave,
   onDelete,
-}: Actions & { open: boolean; onClose: () => void; onClosed: () => void }) {
+}: Actions & { onClose: () => void }) {
   const settings = useQuery({
     ...settingsQuery(room.id),
-    enabled: open && room.canManage,
+    enabled: room.canManage,
   })
   const targets = useQuery({
     ...targetsQuery(room.year),
-    enabled: open && room.canManage,
+    enabled: room.canManage,
   })
   return (
-    <ResponsivePage open={open} onClose={onClose} onClosed={onClosed}>
+    <>
       {room.canManage && settings.data && targets.data ? (
         <SettingsEditor
           room={room}
@@ -67,7 +64,7 @@ export function RoomSettings({
           </ResponsivePageBody>
         </>
       )}
-    </ResponsivePage>
+    </>
   )
 }
 

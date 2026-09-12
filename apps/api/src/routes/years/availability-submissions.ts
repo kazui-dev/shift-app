@@ -115,7 +115,7 @@ availabilitySubmissionsApp.post(
           item.memberId,
           "シフト希望を受け付けています",
           `${year}のシフト希望を確認してください。`,
-          "/availability",
+          "/calendar/availability",
           `availability-${year}`
         )
       )

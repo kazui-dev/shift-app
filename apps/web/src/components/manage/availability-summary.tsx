@@ -74,7 +74,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
             </Button>
             <Button
               size="sm"
-              render={<Link to="/manage/availability/new" />}
+              render={<Link to="/manage/shifts/availability/new" />}
               nativeButton={false}
             >
               <Plus />
@@ -103,7 +103,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
                   }
                 />
                 <Link
-                  to="/manage/availability/$date"
+                  to="/manage/shifts/availability/$date"
                   params={{ date: date.date }}
                   className="flex min-w-0 flex-1 items-center gap-3"
                 >
