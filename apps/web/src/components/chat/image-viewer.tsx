@@ -5,7 +5,7 @@ import {
   DialogTitle,
   DialogClose,
 } from "@workspace/ui/components/dialog"
-import { Minus, Plus, RotateCcw, X } from "lucide-react"
+import { Minus, Plus, Download, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   initialImageView,
@@ -19,11 +19,13 @@ export function ImageViewer({
   width,
   height,
   onClose,
+  caption,
 }: {
   src: string
   width: number
   height: number
   onClose: () => void
+  caption: { author: string; content: string; createdAt: string }
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
@@ -68,44 +70,55 @@ export function ImageViewer({
     >
       <DialogContent
         showCloseButton={false}
-        className="inset-0 top-0 left-0 flex h-dvh min-h-0 w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-background p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:max-w-none"
+        className="inset-0 top-0 left-0 flex h-dvh min-h-0 w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none bg-black/95 p-0 text-white ring-0 duration-0 sm:max-w-none data-open:animate-none data-closed:animate-none"
       >
-        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b p-3">
-          <DialogTitle className="mr-auto font-semibold">画像</DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="縮小"
-            disabled={view.scale === 1}
-            onClick={() => magnify(1 / 1.5)}
-          >
-            <Minus />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="拡大"
-            disabled={view.scale === 5}
-            onClick={() => magnify(1.5)}
-          >
-            <Plus />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="拡大をリセット"
-            onClick={() => update(initialImageView)}
-          >
-            <RotateCcw />
-          </Button>
+        <DialogTitle className="sr-only">
+          {caption.author}の添付画像
+        </DialogTitle>
+        <div className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-10 flex items-start justify-between px-3 md:justify-end md:gap-3">
           <DialogClose
             render={
-              <Button variant="ghost" size="icon" aria-label="画像を閉じる" />
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="画像を閉じる"
+                className="pointer-events-auto rounded-full bg-black/65 text-white hover:bg-white/20 md:order-last"
+              />
             }
           >
             <X />
           </DialogClose>
-        </header>
+          <div className="pointer-events-auto flex items-center rounded-full bg-black/65 p-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="縮小"
+              className="hidden text-white hover:bg-white/20 md:inline-flex"
+              disabled={view.scale === 1}
+              onClick={() => magnify(1 / 1.5)}
+            >
+              <Minus />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="拡大"
+              className="hidden text-white hover:bg-white/20 md:inline-flex"
+              disabled={view.scale === 5}
+              onClick={() => magnify(1.5)}
+            >
+              <Plus />
+            </Button>
+            <a
+              href={src}
+              download="chat-image.webp"
+              aria-label="画像を保存"
+              className="flex size-9 items-center justify-center rounded-full text-white hover:bg-white/20"
+            >
+              <Download className="size-5" />
+            </a>
+          </div>
+        </div>
         <div
           ref={frame}
           className="relative min-h-0 flex-1 touch-none overflow-hidden select-none"
@@ -169,6 +182,22 @@ export function ImageViewer({
               transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
             }}
           />
+        </div>
+        <div className="max-h-[25dvh] shrink-0 overflow-y-auto px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-sm">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-semibold">{caption.author}</span>
+            <time
+              className="text-xs text-white/60"
+              dateTime={caption.createdAt}
+            >
+              {new Date(caption.createdAt).toLocaleString("ja-JP")}
+            </time>
+          </div>
+          {caption.content && (
+            <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
+              {caption.content}
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

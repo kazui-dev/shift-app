@@ -1,61 +1,31 @@
-import { clear, createStore, get, set } from "idb-keyval"
 import * as v from "valibot"
 import { toast } from "@workspace/ui/lib/toast"
-import { chatAttachmentSchema } from "@workspace/shared/communications"
 import { sendChatMessage, uploadChatImage } from "@/api/chat"
 import { ApiError, errorMessage } from "@/api/client"
 
-const fileSchema = v.object({
-  id: v.string(),
-  name: v.string(),
-  blob: v.instance(Blob),
-  dimensions: v.optional(
-    v.object({
-      width: v.pipe(v.number(), v.integer(), v.minValue(1)),
-      height: v.pipe(v.number(), v.integer(), v.minValue(1)),
-    })
-  ),
-  uploaded: v.optional(chatAttachmentSchema),
-})
-const draftSchema = v.object({
-  content: v.string(),
-  files: v.array(fileSchema),
-})
-const queuedSchema = v.object({
-  id: v.string(),
-  roomId: v.string(),
-  createdAt: v.string(),
-  content: v.string(),
-  files: v.array(fileSchema),
-  status: v.picklist(["waiting", "sending", "failed"]),
-})
-const stateSchema = v.object({
-  version: v.literal(4),
-  drafts: v.record(v.string(), draftSchema),
-  queue: v.array(queuedSchema),
-})
-export type ChatFile = v.InferOutput<typeof fileSchema>
-export type ChatDraft = v.InferOutput<typeof draftSchema>
-export type QueuedMessage = v.InferOutput<typeof queuedSchema>
-type State = v.InferOutput<typeof stateSchema> & { ready: boolean }
+import {
+  stateSchema,
+  type SavedChat,
+  type ChatDraft,
+  type QueuedMessage,
+} from "./chat-state"
+import { loadChat, saveChat, clearChat } from "./chat-storage"
+export type { ChatFile, ChatDraft, QueuedMessage } from "./chat-state"
+type State = SavedChat & { ready: boolean }
 const empty: ChatDraft = { content: "", files: [] }
 const stores = new Map<string, ChatStore>()
-let database: ReturnType<typeof createStore> | undefined
-function db() {
-  database ??= createStore("shift-chat", "messages")
-  return database
-}
-
 export class ChatStore {
   private state: State = { version: 4, drafts: {}, queue: [], ready: false }
   private listeners = new Set<() => void>()
   private writing = Promise.resolve()
+  private saved: State | undefined
   private running = false
   private active = true
   private userId: string
+  private loading: Promise<void>
   constructor(userId: string) {
     this.userId = userId
-    void this.load()
+    this.loading = this.load()
   }
   snapshot = () => this.state
   subscribe = (listener: () => void) => {
@@ -73,10 +43,7 @@ export class ChatStore {
   }
   private async load() {
     try {
-      const parsed = v.safeParse(
-        stateSchema,
-        await get<unknown>(this.userId, db())
-      )
+      const parsed = v.safeParse(stateSchema, await loadChat(this.userId))
       if (this.active)
         this.publish({
           ...(parsed.success
@@ -85,34 +52,36 @@ export class ChatStore {
           ready: true,
         })
       if (!parsed.success && this.active) await this.persist()
-    } catch {
-      this.publish({ ...this.state, ready: true })
-      toast.error("下書きを読み込めませんでした。")
+    } catch (error) {
+      console.error("Chat restoration failed", error)
+      toast.error("入力内容を復元できません。ページを再読み込みしてください。")
     }
   }
   private persist() {
-    const state = this.state
     const task = this.writing
       .catch(() => undefined)
-      .then(() =>
-        this.active
-          ? set(
-              this.userId,
-              { version: 4, drafts: state.drafts, queue: state.queue },
-              db()
-            )
-          : undefined
-      )
+      .then(async () => {
+        const state = this.state
+        if (!this.active || state === this.saved) return
+        await saveChat(this.userId, state)
+        this.saved = state
+      })
     this.writing = task
     return task
+  }
+  async settle() {
+    await this.loading
+    if (!this.state.ready)
+      throw new Error("入力内容を復元できないため、更新を中止しました。")
+    await this.persist()
   }
   edit(roomId: string, draft: ChatDraft) {
     this.publish({
       ...this.state,
       drafts: { ...this.state.drafts, [roomId]: draft },
     })
-    void this.persist().catch(() => {
-      toast.error("下書きを保存できませんでした", { id: "chat-storage" })
+    void this.persist().catch((error: unknown) => {
+      toast.error(storageMessage(error), { id: "chat-storage" })
     })
   }
   async enqueue(roomId: string) {
@@ -139,13 +108,25 @@ export class ChatStore {
     })
     try {
       await this.persist()
-    } catch {
+    } catch (error) {
+      const newer = this.draft(roomId)
       this.publish({
         ...this.state,
-        drafts: { ...this.state.drafts, [roomId]: draft },
+        drafts: {
+          ...this.state.drafts,
+          [roomId]:
+            newer === empty
+              ? draft
+              : {
+                  content: [draft.content, newer.content]
+                    .filter(Boolean)
+                    .join("\n"),
+                  files: [...draft.files, ...newer.files],
+                },
+        },
         queue: this.state.queue.filter((item) => item.id !== message.id),
       })
-      toast.error("送信内容を端末に保存できませんでした。")
+      toast.error(storageMessage(error))
       return
     }
   }
@@ -271,5 +252,15 @@ export function chatStore(userId: string) {
 export async function clearChatStorage() {
   for (const store of stores.values()) store.stop()
   stores.clear()
-  await clear(db())
+  await clearChat()
+}
+
+export async function settleChatStorage() {
+  await Promise.all([...stores.values()].map((store) => store.settle()))
+}
+function storageMessage(error: unknown) {
+  console.error("Chat persistence failed", error)
+  if (error instanceof DOMException && error.name === "QuotaExceededError")
+    return "端末の空き容量が足りず、入力内容を保存できません。"
+  return "入力内容を端末に保存できません。入力は画面に残っています。"
 }

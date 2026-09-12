@@ -1,3 +1,4 @@
+import { settleChatStorage } from "@/lib/chat-store"
 import { activateAppUpdate } from "@/lib/app-update"
 import { toast } from "@workspace/ui/lib/toast"
 import { useEffect, useRef, useState } from "react"
@@ -62,11 +63,13 @@ export function PwaUpdateNotice() {
     const abort = new AbortController()
     updateAbort.current = abort
     try {
+      await settleChatStorage()
       await activateAppUpdate(
         navigator.serviceWorker,
         initialController.current,
         abort.signal
       )
+      await settleChatStorage()
       window.location.reload()
     } catch (error) {
       if (!abort.signal.aborted) {

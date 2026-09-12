@@ -66,18 +66,28 @@ export function ChatComposer({
       }
       accepted.push({ id: crypto.randomUUID(), name: file.name, blob: file })
     }
-    await Promise.all(
+    const readable = await Promise.all(
       accepted.map(async (selected) => {
+        try {
+          selected.blob = new Blob([await selected.blob.arrayBuffer()], {
+            type: selected.blob.type,
+          })
+        } catch {
+          toast.error("画像を読み込めませんでした。もう一度選択してください。")
+          return null
+        }
         try {
           const bitmap = await createImageBitmap(selected.blob)
           selected.dimensions = { width: bitmap.width, height: bitmap.height }
           bitmap.close()
         } catch {
-          // Some accepted formats (e.g. HEIC) can only be decoded by the server.
+          // HEIC can still be decoded by the upload service.
         }
+        return selected
       })
     )
-    if (accepted.length) onAddFiles(accepted)
+    const files = readable.filter((file) => file !== null)
+    if (files.length) onAddFiles(files)
   }
   const receiveDrop = useEffectEvent((event: DragEvent) => {
     event.preventDefault()

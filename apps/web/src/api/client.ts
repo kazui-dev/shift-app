@@ -84,3 +84,9 @@ export function errorMessage(error: unknown): string {
     ? error.message
     : "予期しないエラーが発生しました。"
 }
+
+export async function apiBlob(url: string, signal?: AbortSignal) {
+  const response = await apiFetch(url, signal ? { signal } : undefined)
+  if (!response.ok) throw await responseError(response)
+  return response.blob()
+}
