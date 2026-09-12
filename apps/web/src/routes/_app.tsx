@@ -11,7 +11,10 @@ export const Route = createFileRoute("/_app")({
     if (state.status !== "active") {
       throw redirect({ to: "/" })
     }
-    if (!offline) void preparePushControl(state.member.studentId)
+    if (!offline) {
+      const push = preparePushControl(state.member.studentId)
+      if (location.pathname === "/settings") await push
+    }
     const dates = new URLSearchParams(location.searchStr).getAll("date")
     if (!offline)
       await prepareApp(

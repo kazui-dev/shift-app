@@ -6,7 +6,6 @@
       "ignoreDependencies": ["cloudflare"]
     },
     "apps/web": {
-      "ignore": ["public/push-sw.js"],
       "ignoreDependencies": ["shadcn"]
     }
   }

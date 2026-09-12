@@ -6,21 +6,16 @@ import {
 
 afterEach(() => vi.unstubAllGlobals())
 
-it("queries permission afresh and falls back when notification queries are unsupported", async () => {
-  vi.stubGlobal("Notification", { permission: "denied" })
-  const query = vi
-    .fn<() => Promise<{ state: PermissionState }>>()
-    .mockResolvedValue({ state: "granted" })
-  vi.stubGlobal("navigator", { permissions: { query } })
-  expect(await readNotificationPermission()).toBe("granted")
-  query.mockResolvedValue({ state: "prompt" })
-  expect(await readNotificationPermission()).toBe("default")
-  query.mockResolvedValue({ state: "denied" })
-  expect(await readNotificationPermission()).toBe("denied")
-  query.mockRejectedValue(new TypeError("unsupported"))
-  expect(await readNotificationPermission()).toBe("denied")
-  vi.stubGlobal("navigator", {})
-  expect(await readNotificationPermission()).toBe("denied")
+it("reads the browser's current notification permission instead of storing a copy", () => {
+  const notification: { permission: NotificationPermission } = {
+    permission: "denied",
+  }
+  vi.stubGlobal("Notification", notification)
+  expect(readNotificationPermission()).toBe("denied")
+  notification.permission = "granted"
+  expect(readNotificationPermission()).toBe("granted")
+  notification.permission = "denied"
+  expect(readNotificationPermission()).toBe("denied")
 })
 
 it("observes permission changes and visible app restoration and removes listeners on disposal", async () => {

@@ -1,3 +1,4 @@
+import { resetPushControl } from "./push-control-store"
 import { boundPersistedClient } from "@/data/persistence"
 import { QueryCache, QueryClient } from "@tanstack/react-query"
 import type {
@@ -53,6 +54,7 @@ export const persister: Persister = {
 export async function clearPersistedUserData(
   client: QueryClient
 ): Promise<void> {
+  resetPushControl()
   client.removeQueries({
     predicate: (query) => query.queryKey[0] !== "account",
   })
