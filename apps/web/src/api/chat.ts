@@ -1,3 +1,4 @@
+import type { ChatTargetOption } from "@workspace/shared/communications"
 import {
   chatMessageEnvelopeSchema,
   chatAttachmentEnvelopeSchema,
@@ -22,7 +23,7 @@ export const createChatRoom = (input: {
   year: number
   name: string
   targets: Array<{
-    targetType: "member" | "role" | "activity"
+    targetType: ChatTargetOption["targetType"]
     targetId: string
   }>
 }) =>
@@ -70,6 +71,7 @@ export const saveRoomSettings = (
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       name: input.name,
+      allowExit: input.allowExit,
       targets: input.targets,
     }),
   })

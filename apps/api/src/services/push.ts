@@ -1,3 +1,4 @@
+import { roomRecipients } from "./chat-permissions"
 import webpush from "web-push"
 import { clearPushTransport } from "./notification-devices"
 
@@ -171,17 +172,14 @@ export async function notifyRoomMessage(
   name: string,
   content: string
 ) {
-  const recipients = await env.shift_app
-    .prepare(
-      `SELECT e.member_id AS memberId FROM chat_effective_permissions e LEFT JOIN chat_room_preferences p ON p.room_id=e.room_id AND p.member_id=e.member_id WHERE e.room_id=? AND e.can_read=1 AND e.member_id<>? AND COALESCE(p.muted,0)=0`
-    )
-    .bind(roomId, senderId)
-    .all<{ memberId: string }>()
+  const recipients = (await roomRecipients(env, roomId)).filter(
+    (member) => member.id !== senderId && member.muted === 0
+  )
   await Promise.all(
-    recipients.results.map((item) =>
+    recipients.map((item) =>
       sendMemberNotification(
         env,
-        item.memberId,
+        item.id,
         name,
         content,
         `/chat/${roomId}`,

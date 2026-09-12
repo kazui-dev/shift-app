@@ -19,6 +19,7 @@ const kinds = [
   { type: "member", name: "メンバー" },
   { type: "role", name: "ロール" },
   { type: "activity", name: "シフト" },
+  { type: "condition", name: "条件" },
 ] as const
 
 export function TargetPicker({
@@ -30,7 +31,7 @@ export function TargetPicker({
   selected: string[]
   onChange: (value: string[]) => void
 }) {
-  const [kind, setKind] = useState<ChatTargetOption["targetType"]>("member")
+  const [kind, setKind] = useState<(typeof kinds)[number]["type"]>("member")
   const [search, setSearch] = useState("")
   const [filters, setFilters] = useState<string[]>([])
   const toggleFilter = (key: string) =>
@@ -59,7 +60,9 @@ export function TargetPicker({
     )
   const candidates = targets.filter(
     (target) =>
-      target.targetType === kind &&
+      (kind === "condition"
+        ? !["member", "role", "activity"].includes(target.targetType)
+        : target.targetType === kind) &&
       (target.targetType !== "member" ||
         matchesMemberFilter(target, roleIds, activityIds)) &&
       target.displayName
@@ -78,7 +81,11 @@ export function TargetPicker({
             .flatMap((group) =>
               targets.filter(
                 (target) =>
-                  target.targetType === group.type &&
+                  (group.type === "condition"
+                    ? !["member", "role", "activity"].includes(
+                        target.targetType
+                      )
+                    : target.targetType === group.type) &&
                   selected.includes(targetKey(target))
               )
             )
@@ -158,7 +165,10 @@ export function TargetPicker({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="max-h-80 w-64">
                 {kinds
-                  .filter((group) => group.type !== "member")
+                  .filter(
+                    (group) =>
+                      group.type === "role" || group.type === "activity"
+                  )
                   .map((group) => (
                     <DropdownMenuGroup key={group.type}>
                       <DropdownMenuLabel>{group.name}</DropdownMenuLabel>

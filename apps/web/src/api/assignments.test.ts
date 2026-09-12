@@ -21,6 +21,7 @@ function assignment(
 ): CalendarAssignment {
   return {
     id,
+    roomId: null,
     activityId: "00000000-0000-4000-8000-000000000010",
     memberId: "00000000-0000-4000-8000-000000000020",
     memberDisplayName: "テスト利用者",

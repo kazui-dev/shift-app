@@ -236,6 +236,7 @@ export const activityResponseSchema = v.object({
 
 export const assignmentResponseSchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
+  roomId: v.nullable(v.pipe(v.string(), v.uuid())),
   activityId: v.pipe(v.string(), v.uuid()),
   memberId: v.pipe(v.string(), v.uuid()),
   memberDisplayName: v.string(),

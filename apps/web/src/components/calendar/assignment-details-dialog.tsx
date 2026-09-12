@@ -45,11 +45,11 @@ export function AssignmentDetailsDialog({
               {pending && <LoaderCircle className="animate-spin" />}出勤
             </Button>
           )}
-          {!offline && (
+          {!offline && assignment.roomId && (
             <Link
               className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted"
               to="/chat/$roomId"
-              params={{ roomId: assignment.activityId }}
+              params={{ roomId: assignment.roomId }}
               search={{ report: assignment.id }}
             >
               遅刻・欠勤連絡

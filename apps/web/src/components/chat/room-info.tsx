@@ -30,11 +30,7 @@ export function RoomInfo({
         <p className="text-sm text-muted-foreground">
           {room.historical
             ? "退出前の履歴を表示しています。"
-            : room.kind === "shift"
-              ? "参加者・責任者のアクセスはシフトに連動します。"
-              : room.kind === "global"
-                ? "この年度の全メンバーが閲覧できます。"
-                : "参加しているメンバーに届きます。"}
+            : "参加しているメンバーに届きます。"}
         </p>
         {!room.historical && (
           <div>

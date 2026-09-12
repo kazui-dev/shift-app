@@ -168,12 +168,22 @@ activitiesApp.delete("/:activityId", async (c) => {
       ),
     c.env.shift_app
       .prepare(
-        "DELETE FROM chat_room_targets WHERE target_type='activity' AND target_id=?"
+        "DELETE FROM chat_room_targets WHERE target_type IN ('activity','responsible') AND target_id=?"
       )
       .bind(id),
     c.env.shift_app
       .prepare(
         "DELETE FROM shift_assignments WHERE slot_id IN (SELECT id FROM shift_slots WHERE activity_id=?)"
+      )
+      .bind(id),
+    c.env.shift_app
+      .prepare(
+        "INSERT OR IGNORE INTO chat_room_deletions(room_id,created_at) SELECT id,? FROM chat_rooms WHERE id IN (SELECT room_id FROM activity_chat_rooms WHERE activity_id=?)"
+      )
+      .bind(Date.now(), id),
+    c.env.shift_app
+      .prepare(
+        "DELETE FROM chat_rooms WHERE id IN (SELECT room_id FROM activity_chat_rooms WHERE activity_id=?)"
       )
       .bind(id),
     c.env.shift_app.prepare("DELETE FROM activities WHERE id=?").bind(id),

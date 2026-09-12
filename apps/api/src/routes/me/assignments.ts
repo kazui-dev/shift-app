@@ -10,6 +10,7 @@ const MAX_ASSIGNMENT_RANGE_MS = 31 * 24 * 60 * 60 * 1000
 type AssignmentRow = {
   id: string
   activityId: string
+  roomId: string | null
   memberId: string
   memberDisplayName: string
   startsAt: number
@@ -58,6 +59,7 @@ meAssignmentsApp.get("/assignments", async (c) => {
       `SELECT
          assignment.id,
          slot.activity_id AS activityId,
+         chat.room_id AS roomId,
          assignment.member_id AS memberId,
          member.display_name AS memberDisplayName,
          slot.starts_at AS startsAt,
@@ -71,6 +73,7 @@ meAssignmentsApp.get("/assignments", async (c) => {
        FROM shift_assignments assignment
        JOIN shift_slots slot ON slot.id = assignment.slot_id
        JOIN activities activity ON activity.id = slot.activity_id
+       LEFT JOIN activity_chat_rooms chat ON chat.activity_id=activity.id
        JOIN year_memberships year_membership
          ON year_membership.year = activity.year
         AND year_membership.member_id = assignment.member_id

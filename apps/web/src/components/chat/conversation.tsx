@@ -281,7 +281,7 @@ function Conversation({
                 チャット設定
               </DropdownMenuItem>
             )}
-            {room.kind === "custom" && !room.historical && (
+            {room.allowExit && !room.historical && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

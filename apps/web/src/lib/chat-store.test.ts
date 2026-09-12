@@ -114,7 +114,7 @@ it("does not send when durable local storage fails", async () => {
 })
 it("restores persisted drafts and interrupted uploads after reload", async () => {
   vi.mocked(get).mockResolvedValue({
-    version: 3,
+    version: 4,
     drafts: {
       two: {
         content: "再開",

@@ -1,3 +1,4 @@
+import { activityRoom, roomStatements } from "../services/chat-creation"
 import { Hono } from "hono"
 import * as v from "valibot"
 import { apiError, type ApiEnv, readJson } from "../lib/http"
@@ -80,6 +81,16 @@ activityActionsApp.post("/:activityId/copies", async (c) => {
         now,
         now
       ),
+    ...roomStatements(
+      c.env.shift_app,
+      activityRoom({
+        id,
+        year: old.activity.year,
+        name: old.activity.name,
+        createdBy: actor.id,
+      }),
+      now
+    ),
     ...old.responsibles.map((r) =>
       c.env.shift_app
         .prepare("INSERT INTO activity_responsibles VALUES (?,?,?)")
