@@ -1,4 +1,5 @@
 import webpush from "web-push"
+import { clearPushTransport } from "./push-devices"
 
 import { dueReminderWindow } from "../domain/reminder-window"
 
@@ -104,12 +105,13 @@ async function claimAndSend(
       )
       .bind(Date.now(), assignment.assignmentId, subscription.id, kind)
       .run()
-  } else if (result === "dead") {
-    await env.shift_app
-      .prepare("DELETE FROM push_subscriptions WHERE id = ?")
-      .bind(subscription.id)
-      .run()
   } else {
+    if (result === "dead")
+      await clearPushTransport(
+        env.shift_app,
+        subscription.id,
+        subscription.endpoint
+      )
     await env.shift_app
       .prepare(
         `DELETE FROM notification_deliveries
@@ -128,7 +130,7 @@ async function subscriptionsForMember(
   const result = await env.shift_app
     .prepare(
       `SELECT id, endpoint, expiration_time AS expirationTime, p256dh, auth
-       FROM push_subscriptions WHERE member_id = ?`
+       FROM push_devices WHERE member_id = ? AND enabled=1 AND endpoint IS NOT NULL AND p256dh IS NOT NULL AND auth IS NOT NULL`
     )
     .bind(memberId)
     .all<SubscriptionRow>()
@@ -152,10 +154,11 @@ export async function sendMemberNotification(
         JSON.stringify({ title, body, tag, data: { url } })
       )
       if (result === "dead")
-        await env.shift_app
-          .prepare("DELETE FROM push_subscriptions WHERE id=?")
-          .bind(subscription.id)
-          .run()
+        await clearPushTransport(
+          env.shift_app,
+          subscription.id,
+          subscription.endpoint
+        )
       return result !== "retry"
     })
   )
@@ -209,8 +212,10 @@ export async function sendDueAssignmentReminders(
          ON year_membership.year = activity.year
         AND year_membership.member_id = assignment.member_id
         AND year_membership.status = 'active'
-       JOIN push_subscriptions subscription
+       JOIN push_devices subscription
          ON subscription.member_id = assignment.member_id
+         AND subscription.enabled=1 AND subscription.endpoint IS NOT NULL
+         AND subscription.p256dh IS NOT NULL AND subscription.auth IS NOT NULL
        WHERE assignment.status = 'active' AND activity.active = 1
          AND slot.starts_at > ? AND slot.starts_at <= ?`
     )

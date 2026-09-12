@@ -1,162 +1,97 @@
-import { readNotificationPermission } from "./notification-permission"
+import { ApiError } from "@/api/client"
+import { createPushDevice, getPushDevice, updatePushDevice } from "@/api/push"
+import { prepareBrowserPush, pushSupported } from "./push-browser"
 import {
-  pushControlInitialState,
-  reducePushControl,
-  type PushControlEvent,
-  type PushControlState,
-} from "./push-control-state"
-import {
-  clearPushControlIntent,
-  loadPushControlIntent,
-  savePushControlIntent,
-} from "./push-control-intent"
+  emptyPushState,
+  PushController,
+  PushError,
+  type PushState,
+} from "./push-controller"
+import { readPushDeviceId, savePushDeviceId } from "./push-device-storage"
+import { recordPushStep } from "./push-diagnostics"
 
-type Listener = () => void
-
-const listeners = new Set<Listener>()
-let state = pushControlInitialState
-let refreshing: Promise<void> | null = null
-let refreshRequested = false
-let synchronization: Promise<void> | null = null
-let activeOwner: string | null = null
-
-export function pushNotificationsSupported(): boolean {
-  return (
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window
-  )
-}
-
-function dispatch(event: PushControlEvent): void {
-  const nextState = reducePushControl(state, event)
-  if (nextState === state) return
-  state = nextState
+const listeners = new Set<() => void>()
+let controller: PushController | null = null
+let initial: PushState = emptyPushState
+let preparation: Promise<void> | null = null
+let owner: string | null = null
+let generation = 0
+const changed = () => {
   for (const listener of listeners) listener()
 }
-
-async function readPushControl(): Promise<void> {
-  if (!refreshRequested || state.syncing) return
-  refreshRequested = false
-  const snapshot = state
-  try {
-    const [permission, subscription] = await Promise.all([
-      readNotificationPermission(),
-      navigator.serviceWorker
-        .getRegistration()
-        .then((registration) =>
-          registration ? registration.pushManager.getSubscription() : null
-        ),
-    ])
-    if (!refreshRequested && state === snapshot)
-      dispatch({
-        type: "loaded",
-        enabled: permission === "granted" && subscription !== null,
-      })
-  } catch {
-    if (!refreshRequested && state === snapshot && state.enabled === null)
-      dispatch({ type: "loaded", enabled: false })
-  }
-  if (refreshRequested) await readPushControl()
-}
-
-export function refreshPushControl(): Promise<void> {
-  if (!pushNotificationsSupported() || state.syncing) return Promise.resolve()
-  refreshRequested = true
-  if (refreshing) return refreshing
-  refreshing = readPushControl().finally(() => {
-    refreshing = null
-  })
-  return refreshing
-}
-
-export function initializePushControl(): Promise<void> {
-  return (
-    refreshing ??
-    (state.enabled === null ? refreshPushControl() : Promise.resolve())
-  )
-}
-
-function intentStorage(): Storage | null {
-  try {
-    return window.sessionStorage
-  } catch {
-    return null
-  }
-}
-
-function clearIntent(owner: string | null): void {
-  const storage = intentStorage()
-  if (storage && owner) clearPushControlIntent(storage, owner)
-}
-
-export async function preparePushControl(owner: string): Promise<void> {
-  await refreshPushControl()
-  activeOwner = owner
-  const storage = intentStorage()
-  if (!storage) return
-  const enabled = loadPushControlIntent(storage, owner)
-  if (enabled === null) return
-  if (state.confirmedEnabled === enabled) {
-    clearPushControlIntent(storage, owner)
-    return
-  }
-  dispatch({ type: "requested", enabled })
-}
-
-export function getPushControlState(): PushControlState {
-  return state
-}
-
-export function subscribePushControl(listener: Listener): () => void {
+export const getPushControlState = () => controller?.snapshot() ?? initial
+export function subscribePushControl(listener: () => void) {
   listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
-export function requestPushControlState(enabled: boolean): boolean {
-  const previous = state
-  dispatch({ type: "requested", enabled })
-  const storage = intentStorage()
-  if (state !== previous && storage && activeOwner) {
-    savePushControlIntent(storage, activeOwner, enabled)
+  return () => {
+    listeners.delete(listener)
   }
-  return state !== previous
 }
-
-async function syncLatestPushControl(
-  sync: (enabled: boolean) => Promise<void>
-): Promise<void> {
-  const target = state.enabled
-  if (target === null || target === state.confirmedEnabled) return
-  try {
-    await sync(target)
-    dispatch({ type: "synced", enabled: target })
-    if (state.enabled === state.confirmedEnabled) clearIntent(activeOwner)
-  } catch (error) {
-    const latestRequestFailed = state.enabled === target
-    dispatch({ type: "failed", enabled: target })
-    if (latestRequestFailed) {
-      clearIntent(activeOwner)
-      throw error
+export function preparePushControl(memberId: string): Promise<void> {
+  if (!pushSupported()) return Promise.resolve()
+  if (owner === memberId && controller) return controller.refresh()
+  if (owner === memberId && preparation) return preparation
+  controller?.dispose()
+  controller = null
+  owner = memberId
+  const revision = ++generation
+  initial = emptyPushState
+  changed()
+  const previousPreparation = preparation
+  const task = async () => {
+    await previousPreparation
+    if (generation !== revision) return
+    try {
+      const browser = await prepareBrowserPush()
+      if (generation !== revision) return
+      const stored = readPushDeviceId()
+      if (stored && stored.owner !== memberId) await browser.unsubscribe()
+      let device = null
+      if (stored?.owner === memberId) {
+        try {
+          device = await getPushDevice(stored.id)
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 404) throw error
+        }
+      }
+      if (!device) {
+        const observed = await browser.read()
+        device = await createPushDevice(observed.subscription?.endpoint ?? null)
+      }
+      if (generation !== revision) return
+      savePushDeviceId(memberId, device.id)
+      const id = device.id
+      controller = new PushController(
+        {
+          browser,
+          record: recordPushStep,
+          read: () => getPushDevice(id),
+          save: (value) => updatePushDevice(id, value),
+        },
+        device,
+        changed
+      )
+      changed()
+      await controller.refresh()
+    } catch (cause) {
+      if (generation !== revision) return
+      recordPushStep("prepare-failed", cause)
+      initial = { ...emptyPushState, error: new PushError("prepare", cause) }
+      changed()
     }
   }
-  return syncLatestPushControl(sync)
-}
-
-export function synchronizePushControl(
-  sync: (enabled: boolean) => Promise<void>
-): Promise<void> | null {
-  if (synchronization) return null
-  if (state.enabled === state.confirmedEnabled) {
-    if (state.syncing && state.enabled !== null) {
-      dispatch({ type: "synced", enabled: state.enabled })
-      clearIntent(activeOwner)
-    }
-    return null
-  }
-
-  synchronization = syncLatestPushControl(sync).finally(() => {
-    synchronization = null
+  const current = task().finally(() => {
+    if (preparation === current) preparation = null
   })
-  return synchronization
+  preparation = current
+  return current
+}
+export const refreshPushControl = () =>
+  controller?.refresh() ??
+  (owner ? preparePushControl(owner) : Promise.resolve())
+export function setPushEnabled(enabled: boolean): Promise<void> {
+  recordPushStep(enabled ? "enable-tap" : "disable-tap")
+  return (
+    controller?.setEnabled(enabled) ??
+    Promise.reject(new PushError("prepare", new Error("Not ready")))
+  )
 }

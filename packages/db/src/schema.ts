@@ -528,23 +528,24 @@ export const chatRoomTargets = sqliteTable(
   ]
 )
 
-export const pushSubscriptions = sqliteTable(
-  "push_subscriptions",
+export const pushDevices = sqliteTable(
+  "push_devices",
   {
     id: text("id").primaryKey(),
     memberId: text("member_id")
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
-    endpoint: text("endpoint").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+    endpoint: text("endpoint"),
     expirationTime: integer("expiration_time", { mode: "timestamp_ms" }),
-    p256dh: text("p256dh").notNull(),
-    auth: text("auth").notNull(),
+    p256dh: text("p256dh"),
+    auth: text("auth"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
-    uniqueIndex("push_subscriptions_endpoint_uidx").on(table.endpoint),
-    index("push_subscriptions_member_idx").on(table.memberId),
+    uniqueIndex("push_devices_endpoint_uidx").on(table.endpoint),
+    index("push_devices_member_idx").on(table.memberId),
   ]
 )
 
@@ -556,7 +557,7 @@ export const notificationDeliveries = sqliteTable(
       .references(() => shiftAssignments.id, { onDelete: "cascade" }),
     subscriptionId: text("subscription_id")
       .notNull()
-      .references(() => pushSubscriptions.id, { onDelete: "cascade" }),
+      .references(() => pushDevices.id, { onDelete: "cascade" }),
     kind: text("kind", { enum: ["assigned", "ten_minute"] }).notNull(),
     status: text("status", { enum: ["claimed", "sent"] })
       .notNull()

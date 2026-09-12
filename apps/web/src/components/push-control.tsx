@@ -1,70 +1,85 @@
-import { watchNotificationPermission } from "@/lib/notification-permission"
-import { useOfflineMode } from "./offline-mode-context"
+import { RefreshCw } from "lucide-react"
+import { Button } from "@workspace/ui/components/button"
 import { useEffect, useSyncExternalStore } from "react"
-
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
-
-import { ApiError, errorMessage } from "@/api/client"
-import { syncSubscription } from "@/lib/push-subscription"
+import { useOfflineMode } from "./offline-mode-context"
+import { watchNotificationPermission } from "@/lib/notification-permission"
+import { pushSupported } from "@/lib/push-browser"
+import { pushDiagnosticText } from "@/lib/push-diagnostics"
 import {
   getPushControlState,
   refreshPushControl,
-  pushNotificationsSupported,
-  requestPushControlState,
+  setPushEnabled,
   subscribePushControl,
-  synchronizePushControl,
 } from "@/lib/push-control-store"
-
-function reportSyncFailure(synchronization: Promise<void> | null): void {
-  if (!synchronization) return
-  void synchronization
-    .catch((error: unknown) =>
-      toast.error(
-        error instanceof DOMException
-          ? `通知を登録できませんでした（${error.name}: ${error.message}）`
-          : error instanceof Error && !(error instanceof ApiError)
-            ? error.message
-            : errorMessage(error)
-      )
-    )
-    .finally(refreshPushControl)
-}
 
 export function PushControl() {
   const offline = useOfflineMode()
-  const supported = pushNotificationsSupported()
+  const supported = pushSupported()
   const state = useSyncExternalStore(subscribePushControl, getPushControlState)
-
-  function toggle(nextEnabled: boolean): void {
-    if (!requestPushControlState(nextEnabled)) return
-    reportSyncFailure(synchronizePushControl(syncSubscription))
-  }
-
   useEffect(() => {
-    if (offline) return
-    reportSyncFailure(synchronizePushControl(syncSubscription))
-  }, [offline])
-
-  useEffect(() => {
-    if (!supported) return undefined
+    if (!supported || offline) return undefined
     return watchNotificationPermission(() => {
       void refreshPushControl()
     })
-  }, [supported])
-
+  }, [supported, offline])
+  useEffect(() => {
+    if (!state.error) return
+    const cause = state.error.cause
+    const denied =
+      cause instanceof DOMException && cause.name === "NotAllowedError"
+    toast.error(
+      denied
+        ? "ブラウザーが通知の購読を許可しませんでした。"
+        : state.error.message,
+      {
+        action: {
+          label: "詳細をコピー",
+          onClick: () => {
+            void navigator.clipboard
+              .writeText(pushDiagnosticText())
+              .catch(() => toast.error("詳細をコピーできませんでした。"))
+          },
+        },
+      }
+    )
+  }, [state.error])
   if (!supported) return null
-
   return (
-    <Switch
-      className="after:right-0"
-      id="push-notifications"
-      aria-label="通知"
-      aria-busy={state.syncing}
-      checked={state.enabled ?? false}
-      disabled={offline}
-      title={offline ? "オンライン時に変更できます" : undefined}
-      onCheckedChange={toggle}
-    />
+    <div className="flex items-center gap-2">
+      {state.enabled && state.hasSubscription === false && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="通知の接続を再設定"
+          title="通知の接続を再設定"
+          disabled={offline || state.pending}
+          onClick={() => {
+            void setPushEnabled(true).catch(() => undefined)
+          }}
+        >
+          <RefreshCw />
+        </Button>
+      )}
+      <Switch
+        className={`after:right-0 ${state.enabled === null ? "invisible" : ""}`}
+        id="push-notifications"
+        aria-label="通知"
+        aria-busy={state.pending}
+        checked={state.enabled ?? false}
+        disabled={offline || state.enabled === null}
+        title={
+          offline
+            ? "オンライン時に変更できます"
+            : state.permission === "denied"
+              ? "ブラウザーの通知許可がブロックされています"
+              : undefined
+        }
+        onCheckedChange={(enabled) => {
+          void setPushEnabled(enabled).catch(() => undefined)
+        }}
+      />
+    </div>
   )
 }

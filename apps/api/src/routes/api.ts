@@ -13,7 +13,7 @@ import { chatImagesApp } from "./chat-images"
 import { chatApp } from "./chat"
 import { chatTargetsApp } from "./chat-targets"
 import { meApp } from "./me/index"
-import { pushApp } from "./push"
+import { pushApp, pushDevicesApp } from "./push"
 import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
 import { yearSettingsApp } from "./year-settings"
@@ -45,6 +45,7 @@ apiApp.use("*", requireSameOriginForMutation)
 
 apiApp.route("/me", meApp)
 apiApp.route("/push", pushApp)
+apiApp.route("/me/push-devices", pushDevicesApp)
 apiApp.route("/years", yearsApp)
 apiApp.route("/year-settings", yearSettingsApp)
 apiApp.route("/roles", rolesApp)

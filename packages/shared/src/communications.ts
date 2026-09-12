@@ -137,9 +137,25 @@ export const pushSubscriptionInputSchema = v.object({
   }),
 })
 
-export const deletePushSubscriptionInputSchema = v.object({
-  endpoint: v.pipe(v.string(), v.url(), v.maxLength(4096)),
+export const pushDeviceCreateSchema = v.strictObject({
+  endpoint: v.nullable(v.pipe(v.string(), v.url(), v.maxLength(4096))),
 })
+
+export const pushDeviceUpdateSchema = v.variant("enabled", [
+  v.strictObject({
+    enabled: v.literal(true),
+    subscription: pushSubscriptionInputSchema,
+  }),
+  v.strictObject({ enabled: v.literal(false) }),
+])
+
+export const pushDeviceSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  enabled: v.boolean(),
+  subscription: v.nullable(pushSubscriptionInputSchema),
+})
+export type PushDevice = v.InferOutput<typeof pushDeviceSchema>
+export type PushDeviceUpdate = v.InferOutput<typeof pushDeviceUpdateSchema>
 
 export const pushConfigResponseSchema = v.object({
   publicKey: v.pipe(v.string(), v.minLength(1)),
