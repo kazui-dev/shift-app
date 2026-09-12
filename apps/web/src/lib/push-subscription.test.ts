@@ -62,7 +62,7 @@ it("registers again after permission, on, block, off, permission, on", async () 
   await syncSubscription(true)
   expect(subscribe).toHaveBeenCalledTimes(2)
   expect(savePushSubscription).toHaveBeenCalledTimes(2)
-  expect(notification.requestPermission).not.toHaveBeenCalled()
+  expect(notification.requestPermission).toHaveBeenCalledTimes(2)
 })
 it("checks permission even when a subscription remains", async () => {
   const { notification } = device()
@@ -98,6 +98,7 @@ it("requests permission before waiting for service worker or subscription lookup
   })
   const registration = vi.spyOn(navigator.serviceWorker, "getRegistration")
   const sync = syncSubscription(true)
+  expect(notification.requestPermission).toHaveBeenCalledOnce()
   expect(registration).not.toHaveBeenCalled()
   await sync
   expect(notification.requestPermission).toHaveBeenCalledOnce()
@@ -105,22 +106,40 @@ it("requests permission before waiting for service worker or subscription lookup
   expect(savePushSubscription).toHaveBeenCalledOnce()
 })
 
-it("uses freshly queried permission after changing settings without restarting", async () => {
-  const { notification, subscribe } = device()
-  notification.permission = "denied"
-  let state: PermissionState = "granted"
-  Object.defineProperty(navigator, "permissions", {
-    value: { query: async () => ({ state }) },
-  })
+it("requests permission through the full on, block, off, allow, on sequence even if both read APIs stay denied", async () => {
+  const { notification, subscription, subscribe } = device()
+  let devicePermission = "granted"
+  notification.requestPermission.mockImplementation(
+    async () => devicePermission
+  )
+  let cachedPermission: PermissionState = "granted"
+  const query = vi.fn<() => Promise<{ state: PermissionState }>>(async () => ({
+    state: cachedPermission,
+  }))
+  Object.defineProperty(navigator, "permissions", { value: { query } })
+
   await syncSubscription(true)
-  expect(subscribe).toHaveBeenCalledOnce()
-  state = "denied"
+  devicePermission = "denied"
+  notification.permission = "denied"
+  cachedPermission = "denied"
+  await syncSubscription(false)
+  expect(subscription.unsubscribe).toHaveBeenCalledOnce()
+  expect(notification.requestPermission).toHaveBeenCalledOnce()
+
+  devicePermission = "granted"
+  await syncSubscription(true)
+  expect(subscribe).toHaveBeenCalledTimes(2)
+  expect(savePushSubscription).toHaveBeenCalledTimes(2)
+  expect(notification.requestPermission).toHaveBeenCalledTimes(2)
+  expect(query).not.toHaveBeenCalled()
+})
+
+it("does not register when the permission request itself is denied, including after a previously granted reading", async () => {
+  const { notification, subscribe } = device()
+  notification.requestPermission.mockResolvedValue("denied")
   await expect(syncSubscription(true)).rejects.toThrow(
     "通知が許可されていません"
   )
-  await syncSubscription(false)
-  state = "granted"
-  await syncSubscription(true)
-  expect(subscribe).toHaveBeenCalledTimes(2)
-  expect(notification.requestPermission).not.toHaveBeenCalled()
+  expect(subscribe).not.toHaveBeenCalled()
+  expect(savePushSubscription).not.toHaveBeenCalled()
 })
