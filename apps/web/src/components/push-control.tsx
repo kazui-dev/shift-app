@@ -17,7 +17,7 @@ export function PushControl() {
   }, [state.error])
   if (!pushSupported()) return null
   return (
-    <div className="flex min-h-18 items-center justify-between gap-4 border-y py-3">
+    <div className="flex min-h-18 items-center justify-between gap-4 border-y px-4 py-3 sm:px-6">
       <label htmlFor="push-notifications" className="shrink-0 font-medium">
         通知
       </label>

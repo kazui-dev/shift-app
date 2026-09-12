@@ -60,7 +60,7 @@ export function ManagePage({ view }: { view: ManageView }) {
 
   if (!years.isPending && year === null && !systemAdmin) {
     return (
-      <section className="w-full min-w-0 space-y-6">
+      <section className="w-full min-w-0 space-y-6 py-6">
         <EmptyState>管理できる年度がありません</EmptyState>
       </section>
     )
@@ -100,12 +100,12 @@ export function ManagePage({ view }: { view: ManageView }) {
     ]
 
     return (
-      <section className="w-full min-w-0 space-y-6">
+      <section className="w-full min-w-0 space-y-6 py-6">
         {!years.isPending && (
           <div className="space-y-6">
             {year !== null && (
               <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="mb-2 flex items-center justify-between gap-3 px-4 sm:px-6">
                   <h2 className="text-xs font-medium text-muted-foreground">
                     管理
                   </h2>
@@ -136,7 +136,7 @@ export function ManagePage({ view }: { view: ManageView }) {
                     <li key={to}>
                       <Link
                         to={to}
-                        className="flex min-h-14 items-center gap-3 py-3 font-medium"
+                        className="flex min-h-14 items-center gap-3 px-4 py-3 font-medium sm:px-6"
                       >
                         <Icon className="size-5 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1">{name}</span>
@@ -149,7 +149,7 @@ export function ManagePage({ view }: { view: ManageView }) {
             )}
             {systemAdmin && (
               <section>
-                <h2 className="mb-2 text-xs font-medium text-muted-foreground">
+                <h2 className="mb-2 px-4 text-xs font-medium text-muted-foreground sm:px-6">
                   システム管理
                 </h2>
                 <ul className="divide-y border-y">
@@ -157,7 +157,7 @@ export function ManagePage({ view }: { view: ManageView }) {
                     <li key={to}>
                       <Link
                         to={to}
-                        className="flex min-h-14 items-center gap-3 py-3 font-medium"
+                        className="flex min-h-14 items-center gap-3 px-4 py-3 font-medium sm:px-6"
                       >
                         <Icon className="size-5 shrink-0 text-muted-foreground" />
                         <span className="min-w-0 flex-1">{name}</span>
@@ -181,8 +181,9 @@ export function ManagePage({ view }: { view: ManageView }) {
     view === "roles"
 
   return (
-    <section className="w-full min-w-0 space-y-6">
+    <section className="w-full min-w-0 space-y-6 py-6">
       <PageHeader
+        className="px-4 sm:px-6"
         title={viewTitles[view]}
         back={
           <Button
@@ -215,22 +216,24 @@ export function ManagePage({ view }: { view: ManageView }) {
         )}
       </PageHeader>
 
-      {view === "shifts" && year !== null && (
-        <ActivityManager key={year} year={year} />
-      )}
-      {view === "availability" && year !== null && (
-        <AvailabilitySummary year={year} />
-      )}
-      {view === "users" && <UserManager />}
-      {view === "years" && <YearSettingsPanel />}
-      {view === "members" && year !== null && (
-        <MemberManager key={year} year={year} />
-      )}
-      {view === "roles" && year !== null && (
-        <YearRoleManager key={year} year={year} />
-      )}
-      {view === "discordLinks" && <DiscordLinkRequestManager />}
-      {view === "audit" && <AuditLogManager />}
+      <div className="space-y-6 px-4 sm:px-6">
+        {view === "shifts" && year !== null && (
+          <ActivityManager key={year} year={year} />
+        )}
+        {view === "availability" && year !== null && (
+          <AvailabilitySummary year={year} />
+        )}
+        {view === "users" && <UserManager />}
+        {view === "years" && <YearSettingsPanel />}
+        {view === "members" && year !== null && (
+          <MemberManager key={year} year={year} />
+        )}
+        {view === "roles" && year !== null && (
+          <YearRoleManager key={year} year={year} />
+        )}
+        {view === "discordLinks" && <DiscordLinkRequestManager />}
+        {view === "audit" && <AuditLogManager />}
+      </div>
     </section>
   )
 }

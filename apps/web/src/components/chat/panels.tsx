@@ -55,9 +55,7 @@ export function ChatPanels({
           aria-label="チャット一覧"
           className="flex min-h-0 min-w-0 flex-[0_0_100%] flex-col md:col-start-1 md:row-span-2 md:row-start-1"
         >
-          <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-6 md:px-0">
-            {list}
-          </div>
+          <div className="flex min-h-0 flex-1 flex-col">{list}</div>
           {navigation}
         </aside>
         <div

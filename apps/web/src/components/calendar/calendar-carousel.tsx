@@ -45,7 +45,7 @@ export function CalendarCarousel({
           return (
             <section
               key={slotId}
-              className="min-w-0 flex-[0_0_100%]"
+              className="min-w-0 flex-[0_0_100%] px-4 sm:px-6"
               aria-label={slideDate}
               aria-roledescription="日"
               inert={slideDate !== date}

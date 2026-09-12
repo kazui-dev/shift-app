@@ -12,7 +12,7 @@ function HeaderRow({
 }) {
   return (
     <header
-      className={`flex h-12 shrink-0 items-center gap-2 border-b px-3 ${mobile ? "md:hidden" : ""}`}
+      className={`flex h-15 shrink-0 items-center gap-2 border-b px-4 pt-3 ${mobile ? "md:hidden" : ""}`}
     >
       {children}
     </header>
