@@ -54,9 +54,9 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 
 オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutation、チャットの下書き・送信待ち画像を破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
 
-通知は単一のトグルで操作する。認証後の起動処理でブラウザーの許可・購読と本人の配信登録を読み取り、設定画面の初回表示にはその結果を使う。未確認状態をOFFとして描画しない。復帰・許可変更時は既存の表示を保持して再確認し、許可の取得をサーバー通信待ちに巻き込まない。許可の読み取り値はOSの設定そのものとは限らないため、Android実機での確認を模擬テストと区別する。
+通知のON/OFF、ブラウザーの許可、Push購読を独立して扱う。端末ごとの設定は`notification_devices`に保持し、端末IDを利用者別のlocalStorageへ保存する。既存の購読に対応する登録がある場合は同じIDを使用する。起動時は設定を取得し、未確認状態を仮のOFFとして描画しない。許可監視は購読やHTTPの完了を待たずに開始する。Permissions APIのchangeイベントの値を反映し、画面復帰では再取得する。API非対応時はNotification.permissionを使用する。
 
-ON操作時に現在のNotification.permissionを読み、許可済みならPush購読とサーバー登録へ進む。未許可・ブロックの場合だけNotification.requestPermissionを呼び、許可された場合に登録する。古いdeniedの読み取り値でON操作を打ち切らない。OFFはサーバーの配信停止後にブラウザー購読を解除する。変更処理中は重複操作を受け付けず、成功時に表示を確定する。処理の再開待ち行列、端末IDのlocalStorage保存、再接続アイコン、診断コピーは設けない。起動・復帰時に許可を要求したり、通知未使用の端末レコードを作成したりしない。購読の識別にはendpointを使い、既存のDBレコードIDと配信履歴は保持する。
+トグルは操作直後に切り替わり、設定を順番に保存する。保存失敗時だけ直前の確定値へ戻す。ON操作では必要ならその場で許可を要求し、拒否されてもONを保持する。ブロックされている場合はON/OFFに関係なく許可案内を表示する。未選択の場合はON操作後に案内を表示し、「有効にする」から再要求できる。許可操作自体では通知設定を変えない。許可済みかつONなら購読を登録するが、購読登録は設定や許可案内の操作を待たせない。OFFはサーバー配信だけを停止し、ブラウザー購読を解除しない。許可要求は起動・復帰・OFFでは行わない。デバッグ用のコピー操作や診断表示は設けない。
 
 それ以外のoptimistic updateは、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
@@ -115,7 +115,7 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/chat/rooms/:roomId/messages`                  | メッセージ履歴・送信               |
 | `/api/chat/rooms/:roomId/ws`                        | リアルタイム受信                   |
 | `/api/push/config`                                  | VAPID公開鍵                        |
-| `/api/me/push-subscriptions`                        | 端末の配信設定・購読情報           |
+| `/api/me/notification-devices`                      | 端末の配信設定・購読情報           |
 
 アプリ固有の変更系requestは同一originを必須にする。`/api/account`は認証済みだがonboarding前のuserを受け付け、`/api/admin/*`は毎回`system_admin`を再確認する。それ以外のshift APIはonboarding済みmemberを必須にし、対象年度の参加状態または権限を確認する。`/api/auth/*`はBetter Authのhandlerとresponse契約に委譲する。
 
@@ -129,7 +129,7 @@ route名は複数形のresource名を使い、年度がcanonical parentである
 
 個人のチャット対象候補はactiveな年度参加者にだけ公開し、memberのUUIDと表示名に限定する。`shift.manage`を持つ利用者には役割と活動も対象候補として返す。学籍番号を含む管理用`roster`はチャット対象の検索には流用しない。チャットではD1にルームmetadataと対象member・role・activityを置き、各requestで現在の所属からアクセスを再計算する。メッセージ本文と単調増加するsequenceはルームごとのDurable Object SQLiteに置く。送信は認証・認可済みHTTP POST、リアルタイム受信は同一originを検証したHibernation WebSocketとし、client生成UUIDで再送を冪等化する。
 
-Push購読はmemberごと・端末ごとにD1へ保持する。新規割当後は`waitUntil`で即時通知し、開始前通知は毎分のCron Triggerが「9分超10分以内に開始する割当」を処理する。配送前にassignment・subscription・通知種別の一意なdeliveryをclaimするため、Cronの重複実行で二重送信しない。Push serviceが404/410を返した購読は削除する。VAPID秘密鍵はWorker secretだけに置く。
+Push購読はmemberごと・端末ごとにD1へ保持する。チャット新着は`waitUntil`で通知し、開始前通知は毎分のCron Triggerが「9分超10分以内に開始する割当」を処理する。配送前にassignment・subscription・通知種別の一意なdeliveryをclaimするため、Cronの重複実行で二重送信しない。Push serviceが404/410を返した場合はendpointと鍵を消し、端末の設定と通知履歴は保持する。VAPID秘密鍵はWorker secretだけに置く。
 
 ## Authentication Architecture
 

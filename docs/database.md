@@ -233,19 +233,19 @@ D1との分散transactionは作らない。WorkerがD1でアクセスを検証�
 
 ## Push Notifications
 
-### `push_subscriptions`
+### `notification_devices`
 
-| Column            | Type    | Note                                  |
-| ----------------- | ------- | ------------------------------------- |
-| `id`              | text    | PK                                    |
-| `member_id`       | text    | FK, `app_users.id`                    |
-| `enabled`         | integer | 配信状態。ON操作で購読を登録し1にする |
-| `endpoint`        | text    | nullable、unique、Push service URL    |
-| `expiration_time` | integer | nullable                              |
-| `p256dh`          | text    | nullable、公開鍵                      |
-| `auth`            | text    | nullable、認証シークレット            |
-| `created_at`      | integer | UNIX time milliseconds                |
-| `updated_at`      | integer | UNIX time milliseconds                |
+| Column            | Type    | Note                               |
+| ----------------- | ------- | ---------------------------------- |
+| `id`              | text    | PK                                 |
+| `member_id`       | text    | FK, `app_users.id`                 |
+| `enabled`         | integer | 通知設定。許可・購読の有無とは独立 |
+| `endpoint`        | text    | nullable、unique、Push service URL |
+| `expiration_time` | integer | nullable                           |
+| `p256dh`          | text    | nullable、公開鍵                   |
+| `auth`            | text    | nullable、認証シークレット         |
+| `created_at`      | integer | UNIX time milliseconds             |
+| `updated_at`      | integer | UNIX time milliseconds             |
 
 endpointはPush serviceのcapability URLとして扱い、ログへ出さない。同一endpointを別memberへ上書きすることはできない。Push serviceが404/410を返した場合は一致する古いendpointと鍵だけを消し、登録IDと配信ON/OFFは保持する。OFFの登録とendpointがない登録には配信しない。
 
@@ -290,8 +290,8 @@ erDiagram
     operating_years ||--o{ chat_rooms : contains
     members ||--o{ chat_rooms : creates
     chat_rooms ||--o{ chat_room_targets : targets
-    members ||--o{ push_subscriptions : subscribes
-    push_subscriptions ||--o{ notification_deliveries : receives
+    members ||--o{ notification_devices : subscribes
+    notification_devices ||--o{ notification_deliveries : receives
     shift_assignments ||--o{ notification_deliveries : notifies
 ```
 

@@ -1,5 +1,5 @@
 import webpush from "web-push"
-import { clearPushTransport } from "./push-subscriptions"
+import { clearPushTransport } from "./notification-devices"
 
 import { dueReminderWindow } from "../domain/reminder-window"
 
@@ -129,7 +129,7 @@ async function subscriptionsForMember(
   const result = await env.shift_app
     .prepare(
       `SELECT id, endpoint, expiration_time AS expirationTime, p256dh, auth
-       FROM push_subscriptions WHERE member_id = ? AND enabled=1 AND endpoint IS NOT NULL AND p256dh IS NOT NULL AND auth IS NOT NULL`
+       FROM notification_devices WHERE member_id = ? AND enabled=1 AND endpoint IS NOT NULL AND p256dh IS NOT NULL AND auth IS NOT NULL`
     )
     .bind(memberId)
     .all<SubscriptionRow>()
@@ -211,7 +211,7 @@ export async function sendDueAssignmentReminders(
          ON year_membership.year = activity.year
         AND year_membership.member_id = assignment.member_id
         AND year_membership.status = 'active'
-       JOIN push_subscriptions subscription
+       JOIN notification_devices subscription
          ON subscription.member_id = assignment.member_id
          AND subscription.enabled=1 AND subscription.endpoint IS NOT NULL
          AND subscription.p256dh IS NOT NULL AND subscription.auth IS NOT NULL

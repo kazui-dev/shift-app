@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
+import { beforeEach, afterEach, expect, it, vi } from "vite-plus/test"
 import {
-  disablePushSubscription,
-  getPushSubscriptions,
-  savePushSubscription,
+  getNotificationDevices,
+  saveNotificationPreference,
+  saveDeviceSubscription,
 } from "@/api/push"
 import { readPushSubscription, subscribePush } from "./push-browser"
 import {
@@ -12,15 +12,14 @@ import {
 import {
   getPushControlState,
   preparePushControl,
-  refreshPushControl,
   resetPushControl,
   setPushEnabled,
+  enableNotifications,
 } from "./push-control-store"
-
 vi.mock("@/api/push", () => ({
-  getPushSubscriptions: vi.fn<typeof getPushSubscriptions>(),
-  savePushSubscription: vi.fn<typeof savePushSubscription>(),
-  disablePushSubscription: vi.fn<typeof disablePushSubscription>(),
+  getNotificationDevices: vi.fn<typeof getNotificationDevices>(),
+  saveNotificationPreference: vi.fn<typeof saveNotificationPreference>(),
+  saveDeviceSubscription: vi.fn<typeof saveDeviceSubscription>(),
 }))
 vi.mock("./push-browser", () => ({
   pushSupported: () => true,
@@ -32,7 +31,7 @@ vi.mock("./notification-permission", () => ({
   watchNotificationPermission: vi.fn<typeof watchNotificationPermission>(),
 }))
 const sub = {
-  endpoint: "https://push.example/one",
+  endpoint: "https://push.example/1",
   expirationTime: null,
   keys: { p256dh: "key", auth: "auth" },
 }
@@ -41,139 +40,139 @@ beforeEach(() => {
   resetPushControl()
   vi.resetAllMocks()
   vi.stubGlobal("Notification", { requestPermission: request })
-  request.mockResolvedValue("granted")
-  vi.mocked(readNotificationPermission).mockReturnValue("granted")
+  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} })
+  vi.mocked(readNotificationPermission).mockReturnValue("default")
+  vi.mocked(getNotificationDevices).mockResolvedValue([])
   vi.mocked(readPushSubscription).mockResolvedValue(null)
-  vi.mocked(getPushSubscriptions).mockResolvedValue([])
   vi.mocked(subscribePush).mockResolvedValue(sub)
+  request.mockResolvedValue("denied")
 })
 afterEach(() => {
   resetPushControl()
   vi.unstubAllGlobals()
 })
-it("does not invent an initial OFF state or create records and prompts during startup", async () => {
-  expect(getPushControlState().enabled).toBeNull()
-  await preparePushControl("member")
-  expect(getPushControlState().enabled).toBe(false)
-  expect(request).not.toHaveBeenCalled()
-  expect(getPushSubscriptions).not.toHaveBeenCalled()
-  expect(savePushSubscription).not.toHaveBeenCalled()
-})
-it("requests permission synchronously from ON even after a denied observation", async () => {
-  vi.mocked(readNotificationPermission).mockReturnValue("denied")
-  await preparePushControl("member")
-  const enabling = setPushEnabled(true)
-  expect(request).toHaveBeenCalledOnce()
-  await enabling
-  expect(savePushSubscription).toHaveBeenCalledWith(sub)
-  expect(getPushControlState()).toMatchObject({
-    enabled: true,
-    permission: "granted",
-    pending: false,
-  })
-})
-it("does not subscribe after denial or dismissal and keeps the action available", async () => {
-  vi.mocked(readNotificationPermission).mockReturnValue("denied")
-  await preparePushControl("member")
-  request.mockResolvedValueOnce("denied")
-  await setPushEnabled(true)
-  expect(getPushControlState()).toMatchObject({
-    enabled: false,
-    pending: false,
-    error: "通知を許可してください",
-  })
-  request.mockResolvedValueOnce("default")
-  await setPushEnabled(true)
-  expect(getPushControlState().error).toBeNull()
-  expect(subscribePush).not.toHaveBeenCalled()
-})
-it("does not call a subscription failure a user denial or turn ON before server confirmation", async () => {
-  await preparePushControl("member")
-  vi.mocked(subscribePush).mockRejectedValueOnce(
-    new DOMException("Failed", "NotAllowedError")
-  )
-  await setPushEnabled(true)
-  expect(getPushControlState()).toMatchObject({
-    enabled: false,
-    error: "通知設定を変更できませんでした",
-  })
-  vi.mocked(savePushSubscription).mockRejectedValueOnce(new Error("network"))
-  await setPushEnabled(true)
-  expect(getPushControlState().enabled).toBe(false)
-})
-it("reads permission changes in both directions without prompting or changing delivery preferences", async () => {
-  await preparePushControl("member")
-  vi.mocked(readNotificationPermission).mockReturnValue("denied")
-  await refreshPushControl()
-  expect(getPushControlState().permission).toBe("denied")
-  vi.mocked(readNotificationPermission).mockReturnValue("granted")
-  await refreshPushControl()
-  expect(getPushControlState()).toMatchObject({
-    permission: "granted",
-    enabled: false,
-  })
-  expect(request).not.toHaveBeenCalled()
-  expect(savePushSubscription).not.toHaveBeenCalled()
-})
-it("ignores late enable results after account disposal", async () => {
-  let resolve: (value: NotificationPermission) => void = () => undefined
-  vi.mocked(readNotificationPermission).mockReturnValue("denied")
-  request.mockReturnValueOnce(
-    new Promise((done) => {
-      resolve = done
+it("observes permission before startup I/O finishes and does not prompt", async () => {
+  let finish: (value: []) => void = () => {}
+  vi.mocked(getNotificationDevices).mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve
     })
   )
-  await preparePushControl("member")
-  const enabling = setPushEnabled(true)
-  resetPushControl()
-  resolve("granted")
-  await enabling
-  expect(savePushSubscription).not.toHaveBeenCalled()
+  const initial = preparePushControl("member")
+  expect(watchNotificationPermission).toHaveBeenCalledOnce()
   expect(getPushControlState().enabled).toBeNull()
-})
-
-it("initializes an enabled subscription as ON and stops server delivery before unsubscribing", async () => {
-  const unsubscribe = vi.fn<() => Promise<boolean>>(async () => true)
-  const native: PushSubscription = {
-    endpoint: sub.endpoint,
-    expirationTime: null,
-    options: { applicationServerKey: null, userVisibleOnly: true },
-    getKey: () => null,
-    toJSON: () => sub,
-    unsubscribe,
-  }
-  vi.mocked(readPushSubscription).mockResolvedValue(native)
-  vi.mocked(getPushSubscriptions).mockResolvedValue([
-    { endpoint: sub.endpoint, enabled: true },
-  ])
-  await preparePushControl("member")
-  expect(getPushControlState().enabled).toBe(true)
-  vi.mocked(disablePushSubscription).mockImplementationOnce(async () => {
-    expect(unsubscribe).not.toHaveBeenCalled()
-  })
-  await setPushEnabled(false)
-  expect(disablePushSubscription).toHaveBeenCalledWith(sub.endpoint)
-  expect(unsubscribe).toHaveBeenCalledOnce()
-  expect(getPushControlState()).toMatchObject({
-    enabled: false,
-    pending: false,
-  })
+  finish([])
+  await initial
   expect(request).not.toHaveBeenCalled()
 })
-
-it("retries a failed initial read when settings are opened again", async () => {
-  vi.mocked(readPushSubscription).mockRejectedValueOnce(
-    new Error("unavailable")
+it("turns ON immediately and saves ON even when permission is denied", async () => {
+  await preparePushControl("member")
+  let finish: () => void = () => {}
+  vi.mocked(saveNotificationPreference).mockReturnValue(
+    new Promise((resolve) => {
+      finish = resolve
+    })
   )
-  await preparePushControl("member")
-  expect(getPushControlState().enabled).toBeNull()
-  await preparePushControl("member")
-  expect(getPushControlState()).toMatchObject({ enabled: false, error: null })
+  const saving = setPushEnabled(true)
+  expect(getPushControlState().enabled).toBe(true)
+  expect(request).toHaveBeenCalledOnce()
+  await vi.waitFor(() =>
+    expect(saveNotificationPreference).toHaveBeenCalledWith(
+      expect.any(String),
+      true
+    )
+  )
+  finish()
+  await saving
+  expect(getPushControlState().enabled).toBe(true)
+  expect(subscribePush).not.toHaveBeenCalled()
 })
-
-it("does not request permission again when the browser already grants notifications", async () => {
+it("permission changes in either direction never change the saved preference", async () => {
   await preparePushControl("member")
   await setPushEnabled(true)
+  const observe = vi.mocked(watchNotificationPermission).mock.calls[0]?.[0]
+  observe?.("granted")
+  expect(getPushControlState().enabled).toBe(true)
+  observe?.("denied")
+  expect(getPushControlState().enabled).toBe(true)
+  await setPushEnabled(false)
+  observe?.("granted")
+  expect(getPushControlState().enabled).toBe(false)
+  expect(saveNotificationPreference).toHaveBeenCalledTimes(2)
+})
+it("OFF neither requests permission nor removes the browser subscription", async () => {
+  await preparePushControl("member")
+  await setPushEnabled(false)
   expect(request).not.toHaveBeenCalled()
-  expect(savePushSubscription).toHaveBeenCalledWith(sub)
+  expect(subscribePush).not.toHaveBeenCalled()
+  expect(saveNotificationPreference).toHaveBeenCalledWith(
+    expect.any(String),
+    false
+  )
+})
+it("serializes rapid preference changes without delaying the switch", async () => {
+  await preparePushControl("member")
+  let finish: () => void = () => {}
+  vi.mocked(saveNotificationPreference).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      })
+  )
+  const on = setPushEnabled(true)
+  const off = setPushEnabled(false)
+  expect(getPushControlState().enabled).toBe(false)
+  await vi.waitFor(() =>
+    expect(saveNotificationPreference).toHaveBeenCalledTimes(1)
+  )
+  finish()
+  await Promise.all([on, off])
+  expect(
+    vi.mocked(saveNotificationPreference).mock.calls.map((call) => call[1])
+  ).toEqual([true, false])
+})
+it("rolls back only a failed preference save, not a rejected permission", async () => {
+  await preparePushControl("member")
+  vi.mocked(saveNotificationPreference).mockRejectedValueOnce(
+    new Error("network")
+  )
+  await setPushEnabled(true)
+  expect(getPushControlState()).toMatchObject({
+    enabled: false,
+    error: "通知設定を保存できませんでした",
+  })
+})
+it("explicit permission action does not turn an OFF preference ON", async () => {
+  await preparePushControl("member")
+  request.mockResolvedValue("granted")
+  await enableNotifications()
+  expect(getPushControlState()).toMatchObject({
+    enabled: false,
+    permission: "granted",
+  })
+  expect(saveNotificationPreference).not.toHaveBeenCalled()
+  expect(saveDeviceSubscription).not.toHaveBeenCalled()
+})
+it("retains existing ON settings when the browser permission is denied", async () => {
+  vi.mocked(readNotificationPermission).mockReturnValue("denied")
+  vi.mocked(readPushSubscription).mockResolvedValue({
+    ...sub,
+    options: { userVisibleOnly: true, applicationServerKey: null },
+    getKey: () => null,
+    toJSON: () => sub,
+    unsubscribe: async () => true,
+  })
+  vi.mocked(getNotificationDevices).mockResolvedValue([
+    {
+      id: "00000000-0000-4000-8000-000000000000",
+      enabled: true,
+      endpoint: sub.endpoint,
+    },
+  ])
+  await preparePushControl("member")
+  expect(getPushControlState()).toMatchObject({
+    enabled: true,
+    permission: "denied",
+  })
+  expect(request).not.toHaveBeenCalled()
 })

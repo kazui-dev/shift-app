@@ -136,12 +136,13 @@ export const pushSubscriptionInputSchema = v.object({
   }),
 })
 
-export const pushEndpointSchema = v.strictObject({
-  endpoint: v.pipe(v.string(), v.url(), v.maxLength(4096)),
+export const notificationPreferenceSchema = v.strictObject({
+  enabled: v.boolean(),
 })
-export const pushSubscriptionsSchema = v.array(
+export const notificationDevicesSchema = v.array(
   v.object({
-    endpoint: v.pipe(v.string(), v.url()),
+    id: v.pipe(v.string(), v.uuid()),
+    endpoint: v.nullable(v.pipe(v.string(), v.url())),
     enabled: v.boolean(),
   })
 )

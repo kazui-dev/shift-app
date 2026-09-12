@@ -521,8 +521,8 @@ export const chatRoomTargets = sqliteTable(
   ]
 )
 
-export const pushSubscriptions = sqliteTable(
-  "push_subscriptions",
+export const notificationDevices = sqliteTable(
+  "notification_devices",
   {
     id: text("id").primaryKey(),
     memberId: text("member_id")
@@ -537,8 +537,8 @@ export const pushSubscriptions = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
-    uniqueIndex("push_subscriptions_endpoint_uidx").on(table.endpoint),
-    index("push_subscriptions_member_idx").on(table.memberId),
+    uniqueIndex("notification_devices_endpoint_uidx").on(table.endpoint),
+    index("notification_devices_member_idx").on(table.memberId),
   ]
 )
 
@@ -550,7 +550,7 @@ export const notificationDeliveries = sqliteTable(
       .references(() => shiftAssignments.id, { onDelete: "cascade" }),
     subscriptionId: text("subscription_id")
       .notNull()
-      .references(() => pushSubscriptions.id, { onDelete: "cascade" }),
+      .references(() => notificationDevices.id, { onDelete: "cascade" }),
     kind: text("kind", { enum: ["ten_minute"] }).notNull(),
     status: text("status", { enum: ["claimed", "sent"] })
       .notNull()
