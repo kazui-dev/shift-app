@@ -53,7 +53,7 @@ chatApp.get("/rooms", async (c) => {
   const member = c.get("member")
   const rooms = await c.env.shift_app
     .prepare(
-      `${roomSelection} AND r.year=? ORDER BY r.updated_at DESC LIMIT 200`
+      `${roomSelection} AND r.year=? ORDER BY r.updated_at DESC,r.id ASC LIMIT 200`
     )
     .bind(member.id, year)
     .all<RoomRow>()
@@ -264,7 +264,12 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
     .prepare(
       "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
     )
-    .bind(now, message.sequence, room.id, message.sequence)
+    .bind(
+      Date.parse(message.createdAt),
+      message.sequence,
+      room.id,
+      message.sequence
+    )
     .run()
   if (updated.meta.changes > 0)
     c.executionCtx.waitUntil(

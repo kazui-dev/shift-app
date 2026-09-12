@@ -8,11 +8,11 @@ import { getChatRoom } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { RoomList } from "@/components/chat/room-list"
-import { MessageCircle } from "lucide-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { BottomNavigation } from "@/components/app-navigation"
-import { ChatPanels } from "@/components/chat/panels"
-import { ChatConversation } from "@/components/chat/conversation"
+import { ChatWorkspace } from "@/components/chat/workspace"
+import { ApiError } from "@/api/client"
+import { removeRoom } from "@/data/chat-cache"
 import { CreateChat } from "@/components/chat/create-chat"
 
 export function ChatPage() {
@@ -36,11 +36,17 @@ export function ChatPage() {
   }, [client, roomId, offline])
 
   const room = useQuery({
-    queryKey: ["chat-room", roomId],
-    queryFn: roomId ? () => getChatRoom(roomId) : skipToken,
-    enabled: !offline,
+    queryKey: ["chat-room", retainedId],
+    queryFn: retainedId ? () => getChatRoom(retainedId) : skipToken,
+    enabled: !offline && !!roomId,
   })
-  const year = room.data?.room.year ?? display.year
+  const missing = room.error instanceof ApiError && room.error.status === 404
+  useEffect(() => {
+    if (!missing || offline || !retainedId) return
+    removeRoom(client, retainedId)
+    if (roomId) back()
+  }, [client, missing, offline, retainedId, roomId, back])
+  const year = (roomId ? room.data?.room.year : undefined) ?? display.year
   const rooms = useQuery({
     ...roomsQuery(year),
     refetchInterval: offline ? false : 30_000,
@@ -56,10 +62,19 @@ export function ChatPage() {
         inert={creating && !desktop}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <ChatPanels
+        <ChatWorkspace
           navigation={<BottomNavigation offline={offline} />}
           showingRoom={!!roomId}
-          hasRoom={!!retainedId}
+          roomId={retainedId}
+          room={missing ? undefined : room.data?.room}
+          name={
+            (rooms.data?.rooms ?? []).find((item) => item.id === retainedId)
+              ?.name ?? ""
+          }
+          report={report}
+          offline={offline}
+          error={room.isError}
+          onRetry={() => void room.refetch()}
           onBack={back}
           onResume={resume}
           list={
@@ -78,25 +93,7 @@ export function ChatPage() {
               }}
             />
           }
-        >
-          {retainedId ? (
-            <ChatConversation
-              key={retainedId}
-              roomId={retainedId}
-              name={
-                (rooms.data?.rooms ?? []).find((item) => item.id === retainedId)
-                  ?.name
-              }
-              report={report}
-              active={!!roomId}
-              onBack={back}
-            />
-          ) : (
-            <div className="flex flex-1 items-center justify-center text-muted-foreground">
-              <MessageCircle className="size-8" aria-label="チャットを選択" />
-            </div>
-          )}
-        </ChatPanels>
+        />
       </div>
       {year !== null && (
         <ResponsivePage open={creating} onClose={closeCreate}>

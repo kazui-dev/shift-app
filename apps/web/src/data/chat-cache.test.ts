@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test"
 import { QueryClient } from "@tanstack/react-query"
-import { messagesQuery } from "./chat"
+import { roomsQuery, messagesQuery } from "./chat"
 import { receiveMessage, removeRoom } from "./chat-cache"
 
 const message = (sequence: number) => ({
@@ -66,5 +66,51 @@ it("merges delivery and websocket acknowledgements without duplicates or refetch
   expect(
     client.getQueryData(messagesQuery("unread-room").queryKey)
   ).toBeUndefined()
+  client.clear()
+})
+
+it("reorders rooms immediately on new delivery without letting old acknowledgements change their position", () => {
+  const client = new QueryClient()
+  const room = (id: string, updatedAt: string) => ({
+    id,
+    updatedAt,
+    createdAt: updatedAt,
+    year: 2026,
+    name: id,
+    createdBy: "member",
+    allowExit: true,
+    activityId: null,
+    activityStartsAt: null,
+    activityEndsAt: null,
+    historical: false,
+    canPost: true,
+    canManage: true,
+    muted: false,
+    lastRead: 0,
+    lastSequence: 1,
+    unreadCount: 1,
+  })
+  const key = roomsQuery(2026).queryKey
+  client.setQueryData(key, {
+    rooms: [
+      room("one", "2026-09-12T01:00:00Z"),
+      room("two", "2026-09-12T00:00:00Z"),
+    ],
+  })
+  const delivered = { ...message(2), createdAt: "2026-09-12T02:00:00Z" }
+  receiveMessage(client, "two", delivered)
+  expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
+    "two",
+    "one",
+  ])
+  receiveMessage(client, "two", message(1))
+  receiveMessage(client, "two", delivered)
+  expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
+    "two",
+    "one",
+  ])
+  expect(client.getQueryData(key)?.rooms[0]?.updatedAt).toBe(
+    delivered.createdAt
+  )
   client.clear()
 })

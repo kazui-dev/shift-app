@@ -1,3 +1,4 @@
 import type { ChatTargetOption } from "@workspace/shared/communications"
-export const targetKey = (target: ChatTargetOption) =>
-  `${target.targetType}:${target.targetId}`
+export const targetKey = (
+  target: Pick<ChatTargetOption, "targetType" | "targetId">
+) => `${target.targetType}:${target.targetId}`

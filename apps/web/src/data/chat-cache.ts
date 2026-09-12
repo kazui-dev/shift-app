@@ -37,9 +37,13 @@ export function updateRoom(
     (current) =>
       current
         ? {
-            rooms: current.rooms.map((room) =>
-              room.id === id ? change(room) : room
-            ),
+            rooms: current.rooms
+              .map((room) => (room.id === id ? change(room) : room))
+              .sort(
+                (a, b) =>
+                  Date.parse(b.updatedAt) - Date.parse(a.updatedAt) ||
+                  a.id.localeCompare(b.id)
+              ),
           }
         : undefined
   )
@@ -86,6 +90,10 @@ export function receiveMessage(
     const lastSequence = Math.max(room.lastSequence, message.sequence)
     return {
       ...room,
+      updatedAt:
+        message.sequence > room.lastSequence
+          ? message.createdAt
+          : room.updatedAt,
       lastSequence,
       unreadCount: Math.max(0, lastSequence - room.lastRead),
     }

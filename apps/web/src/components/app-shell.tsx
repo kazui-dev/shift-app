@@ -99,50 +99,18 @@ export function AppShell({
     }
   }, [navigate, unsafeOfflineRoute])
 
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => window.matchMedia("(min-width: 1024px)").matches
-  )
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 1024px)")
-    const resize = () => setSidebarOpen(query.matches)
-    query.addEventListener("change", resize)
-    const shortcut = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "b")
-        return
-      if (!window.matchMedia("(min-width: 768px)").matches) return
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        target.closest("input, textarea, select, [contenteditable=true]")
-      )
-        return
-      event.preventDefault()
-      setSidebarOpen((open) => !open)
-    }
-    window.addEventListener("keydown", shortcut)
-    return () => {
-      query.removeEventListener("change", resize)
-      window.removeEventListener("keydown", shortcut)
-    }
-  }, [])
-
   return (
     <div
       ref={shell}
       data-chat-shell={isChat ? "" : undefined}
-      data-sidebar-open={sidebarOpen}
+      data-app-shell=""
       className={`${isChat ? "relative max-md:h-[var(--chat-viewport-height,100dvh)]" : fitted ? "overflow-hidden" : ""} ${
         fitted
-          ? "flex h-dvh w-full min-w-0 flex-col overscroll-x-none overscroll-y-auto transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
-          : "min-h-svh w-full min-w-0 transition-[padding-left] duration-200 ease-linear motion-reduce:transition-none md:pl-(--app-sidebar-width)"
+          ? "flex h-dvh w-full min-w-0 flex-col overscroll-x-none overscroll-y-auto md:pl-(--app-sidebar-width)"
+          : "min-h-svh w-full min-w-0 md:pl-(--app-sidebar-width)"
       }`}
     >
-      <AppNavigation
-        offline={offline}
-        desktopOnly={isChat}
-        expanded={sidebarOpen}
-        onToggle={() => setSidebarOpen((open) => !open)}
-      />
+      <AppNavigation offline={offline} desktopOnly={isChat} />
 
       <output className="sr-only" aria-live="polite">
         {offline ? "オフラインです" : ""}
@@ -150,7 +118,7 @@ export function AppShell({
       <OfflineModeContext value={offline}>
         <ChatDelivery />
         <main
-          className={`flex min-h-0 min-w-0 flex-1 flex-col pt-[calc(env(safe-area-inset-top)+0.75rem)] md:pt-6 ${isChat ? "px-0 md:px-6" : "px-4 sm:px-6"} ${isChat ? "md:pl-2" : ""} ${isChat ? "pb-0 md:pb-4" : fitted ? "pb-[calc(4.25rem+1px+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5.25rem+1px+env(safe-area-inset-bottom))] md:pb-8"}`}
+          className={`flex min-h-0 min-w-0 flex-1 flex-col pt-[calc(env(safe-area-inset-top)+0.75rem)] ${isChat ? "md:pt-3" : "md:pt-6"} ${isChat ? "px-0 md:px-6" : "px-4 sm:px-6"} ${isChat ? "md:pl-2" : ""} ${isChat ? "pb-0 md:pb-4" : fitted ? "pb-[calc(4.25rem+1px+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5.25rem+1px+env(safe-area-inset-bottom))] md:pb-8"}`}
         >
           {unsafeOfflineRoute ? null : <Outlet />}
         </main>
