@@ -4,6 +4,7 @@ import {
   saveNotificationPreference,
   saveDeviceSubscription,
 } from "@/api/push"
+import { ApiError } from "@/api/client"
 import { readPushSubscription, subscribePush } from "./push-browser"
 import { watchNotificationPermission } from "./notification-permission"
 import {
@@ -11,7 +12,6 @@ import {
   preparePushControl,
   resetPushControl,
   setPushEnabled,
-  subscribePushControl,
 } from "./push-control-store"
 vi.mock("@/api/push", () => ({
   getNotificationDevices: vi.fn<typeof getNotificationDevices>(),
@@ -22,51 +22,86 @@ vi.mock("./push-browser", () => ({
   pushSupported: () => true,
   readPushSubscription: vi.fn<typeof readPushSubscription>(),
   subscribePush: vi.fn<typeof subscribePush>(),
+  withPushLock: (action: () => Promise<void>) => action(),
 }))
 vi.mock("./notification-permission", () => ({
   watchNotificationPermission: vi.fn<typeof watchNotificationPermission>(),
 }))
+const id = "00000000-0000-4000-8000-000000000000"
 const sub = {
   endpoint: "https://push.example/1",
   expirationTime: null,
   keys: { p256dh: "key", auth: "auth" },
 }
+const unsubscribe = vi.fn<() => Promise<boolean>>()
+const browserSubscription: PushSubscription = {
+  ...sub,
+  options: { userVisibleOnly: true, applicationServerKey: null },
+  getKey: () => null,
+  toJSON: () => sub,
+  unsubscribe,
+}
 const request = vi.fn<typeof Notification.requestPermission>()
+const storage = new Map<string, string>()
 beforeEach(() => {
   resetPushControl()
   vi.resetAllMocks()
+  storage.clear()
   vi.stubGlobal("Notification", {
     permission: "default",
     requestPermission: request,
   })
-  vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} })
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+  })
+  vi.mocked(watchNotificationPermission).mockReturnValue(() => {})
   vi.mocked(getNotificationDevices).mockResolvedValue([])
   vi.mocked(readPushSubscription).mockResolvedValue(null)
   vi.mocked(subscribePush).mockResolvedValue(sub)
   request.mockResolvedValue("granted")
+  unsubscribe.mockResolvedValue(true)
 })
 afterEach(() => {
   resetPushControl()
   vi.unstubAllGlobals()
 })
-it("observes permission before startup I/O finishes and does not prompt", async () => {
+function observe(permission: NotificationPermission) {
+  vi.mocked(watchNotificationPermission).mock.calls.at(-1)?.[0](permission)
+}
+it("keeps startup unknown and observes permission before I/O without prompting", async () => {
   let finish: (value: []) => void = () => {}
-  vi.mocked(getNotificationDevices).mockReturnValue(
+  vi.mocked(getNotificationDevices).mockReturnValueOnce(
     new Promise((resolve) => {
       finish = resolve
     })
   )
-  const initial = preparePushControl("member")
+  const work = preparePushControl("member")
   expect(watchNotificationPermission).toHaveBeenCalledOnce()
   expect(getPushControlState().enabled).toBeNull()
   finish([])
-  await initial
+  await work
+  expect(getPushControlState().enabled).toBe(false)
   expect(request).not.toHaveBeenCalled()
 })
+it.each(["denied", "default", "granted"] as const)(
+  "restores saved ON independently of %s permission and missing subscription",
+  async (permission) => {
+    vi.stubGlobal("Notification", { permission, requestPermission: request })
+    storage.set("notification-device:member", id)
+    vi.mocked(getNotificationDevices).mockResolvedValue([
+      { id, enabled: true, endpoint: null },
+    ])
+    await preparePushControl("member")
+    expect(getPushControlState().enabled).toBe(true)
+    expect(saveNotificationPreference).not.toHaveBeenCalled()
+    expect(request).not.toHaveBeenCalled()
+  }
+)
 it.each(["denied", "default"] as const)(
-  "returns to OFF without an error when permission returns %s",
-  async (result) => {
-    request.mockResolvedValue(result)
+  "saves ON even when the prompt returns %s",
+  async (permission) => {
+    request.mockResolvedValue(permission)
     await preparePushControl("member")
     const saving = setPushEnabled(true)
     expect(getPushControlState().enabled).toBe(true)
@@ -74,263 +109,254 @@ it.each(["denied", "default"] as const)(
     await saving
     expect(saveNotificationPreference).toHaveBeenCalledWith(
       expect.any(String),
-      false
+      true
     )
-    expect(getPushControlState().enabled).toBe(false)
+    expect(getPushControlState()).toEqual({ enabled: true, error: null })
     expect(subscribePush).not.toHaveBeenCalled()
-    expect(getPushControlState().error).toBeNull()
   }
 )
-it("permission changes in either direction never change the saved preference", async () => {
+it.each(["throw", "reject"])(
+  "preserves ON when the permission request fails: %s",
+  async (mode) => {
+    if (mode === "throw")
+      request.mockImplementationOnce(() => {
+        throw new Error("prompt")
+      })
+    else request.mockRejectedValueOnce(new Error("prompt"))
+    await preparePushControl("member")
+    await setPushEnabled(true)
+    await Promise.resolve()
+    expect(getPushControlState()).toEqual({ enabled: true, error: null })
+    expect(saveNotificationPreference).toHaveBeenCalledWith(
+      expect.any(String),
+      true
+    )
+  }
+)
+it("saves ON and OFF while the native dialog is still open and shares repeated ON requests", async () => {
+  let finish: (value: NotificationPermission) => void = () => {}
+  request.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  )
   await preparePushControl("member")
   await setPushEnabled(true)
-  const observe = vi.mocked(watchNotificationPermission).mock.calls[0]?.[0]
-  observe?.("granted")
-  expect(getPushControlState().enabled).toBe(true)
-  observe?.("denied")
-  expect(getPushControlState().enabled).toBe(true)
   await setPushEnabled(false)
-  observe?.("granted")
+  await setPushEnabled(true)
+  await setPushEnabled(false)
+  expect(request).toHaveBeenCalledOnce()
+  expect(
+    vi.mocked(saveNotificationPreference).mock.calls.map((call) => call[1])
+  ).toEqual([true, false, true, false])
+  finish("granted")
+  await new Promise((resolve) => setTimeout(resolve, 0))
   expect(getPushControlState().enabled).toBe(false)
-  expect(saveNotificationPreference).toHaveBeenCalledTimes(2)
+  expect(saveDeviceSubscription).not.toHaveBeenCalled()
 })
-it("OFF neither requests permission nor removes the browser subscription", async () => {
+it("allows permission, ON, block, OFF, reallow, ON even when both read APIs stay denied", async () => {
+  vi.stubGlobal("Notification", {
+    permission: "denied",
+    requestPermission: request,
+  })
   await preparePushControl("member")
+  observe("denied")
+  await setPushEnabled(true)
+  await vi.waitFor(() => expect(saveDeviceSubscription).toHaveBeenCalledOnce())
+  observe("denied")
+  expect(getPushControlState().enabled).toBe(true)
   await setPushEnabled(false)
-  expect(request).not.toHaveBeenCalled()
-  expect(subscribePush).not.toHaveBeenCalled()
-  expect(saveNotificationPreference).toHaveBeenCalledWith(
+  observe("denied")
+  await setPushEnabled(true)
+  await vi.waitFor(() =>
+    expect(saveDeviceSubscription).toHaveBeenCalledTimes(2)
+  )
+  expect(request).toHaveBeenCalledTimes(2)
+  expect(getPushControlState().enabled).toBe(true)
+})
+it("OFF neither prompts nor unsubscribes, even while registration is pending", async () => {
+  let finish: (value: typeof sub) => void = () => {}
+  vi.mocked(subscribePush).mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  )
+  await preparePushControl("member")
+  await setPushEnabled(true)
+  await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledOnce())
+  await setPushEnabled(false)
+  expect(saveNotificationPreference).toHaveBeenLastCalledWith(
     expect.any(String),
     false
   )
+  finish(sub)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(saveDeviceSubscription).not.toHaveBeenCalled()
+  expect(unsubscribe).not.toHaveBeenCalled()
+  expect(request).toHaveBeenCalledOnce()
 })
-it("serializes rapid preference changes without delaying the switch", async () => {
-  await preparePushControl("member")
-  let finish: () => void = () => {}
-  vi.mocked(saveNotificationPreference).mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finish = resolve
-      })
+it("serializes writes and preserves the newest choice while an older write fails", async () => {
+  let fail: (error: Error) => void = () => {}
+  vi.mocked(saveNotificationPreference).mockReturnValueOnce(
+    new Promise((_, reject) => {
+      fail = reject
+    })
   )
+  await preparePushControl("member")
   const on = setPushEnabled(true)
   const off = setPushEnabled(false)
   expect(getPushControlState().enabled).toBe(false)
   await vi.waitFor(() =>
-    expect(saveNotificationPreference).toHaveBeenCalledTimes(1)
+    expect(saveNotificationPreference).toHaveBeenCalledOnce()
   )
-  finish()
+  fail(new Error("network"))
   await Promise.all([on, off])
-  expect(
-    vi.mocked(saveNotificationPreference).mock.calls.map((call) => call[1])
-  ).toEqual([true, false])
+  expect(getPushControlState()).toEqual({ enabled: false, error: null })
+  expect(saveNotificationPreference).toHaveBeenLastCalledWith(
+    expect.any(String),
+    false
+  )
 })
-it("rolls back only a failed preference save, not a rejected permission", async () => {
+it("rolls back only failed preference persistence and permits the next operation", async () => {
   await preparePushControl("member")
   vi.mocked(saveNotificationPreference).mockRejectedValueOnce(
     new Error("network")
   )
   await setPushEnabled(true)
-  expect(getPushControlState()).toMatchObject({
+  expect(getPushControlState()).toEqual({
     enabled: false,
     error: "通知設定を保存できませんでした",
   })
-  await setPushEnabled(true)
-  expect(getPushControlState()).toMatchObject({ enabled: true, error: null })
-  expect(saveNotificationPreference).toHaveBeenCalledTimes(2)
-})
-it("starts OFF when blocked without publishing the saved ON first", async () => {
-  vi.stubGlobal("Notification", {
-    permission: "denied",
-    requestPermission: request,
-  })
-  vi.mocked(readPushSubscription).mockResolvedValue({
-    ...sub,
-    options: { userVisibleOnly: true, applicationServerKey: null },
-    getKey: () => null,
-    toJSON: () => sub,
-    unsubscribe: async () => true,
-  })
-  vi.mocked(getNotificationDevices).mockResolvedValue([
-    {
-      id: "00000000-0000-4000-8000-000000000000",
-      enabled: true,
-      endpoint: sub.endpoint,
-    },
-  ])
-  const states: (boolean | null)[] = []
-  const stop = subscribePushControl(() =>
-    states.push(getPushControlState().enabled)
-  )
-  await preparePushControl("member")
-  stop()
-  expect(states).not.toContain(true)
-  expect(saveNotificationPreference).toHaveBeenCalledWith(
-    "00000000-0000-4000-8000-000000000000",
-    false
-  )
-  expect(getPushControlState()).toMatchObject({
-    enabled: false,
-  })
-  expect(request).not.toHaveBeenCalled()
-})
-
-it("returns OFF without an error when the permission request rejects", async () => {
-  request.mockRejectedValue(new DOMException("blocked", "NotAllowedError"))
-  await preparePushControl("member")
-  await setPushEnabled(true)
-  expect(getPushControlState()).toMatchObject({ enabled: false, error: null })
   expect(subscribePush).not.toHaveBeenCalled()
+  await setPushEnabled(true)
+  expect(getPushControlState()).toEqual({ enabled: true, error: null })
 })
 it.each(["NotAllowedError", "SecurityError"])(
-  "turns OFF for permission-related subscription errors: %s",
+  "keeps ON without a toast for subscription permission failure %s",
   async (name) => {
-    request.mockResolvedValue("granted")
-    vi.mocked(subscribePush).mockRejectedValue(
+    vi.mocked(subscribePush).mockRejectedValueOnce(
       new DOMException("blocked", name)
     )
     await preparePushControl("member")
     await setPushEnabled(true)
     await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledOnce())
-    await vi.waitFor(() =>
-      expect(getPushControlState()).toMatchObject({
-        enabled: false,
-        error: null,
-      })
-    )
-    await vi.waitFor(() =>
-      expect(saveNotificationPreference).toHaveBeenLastCalledWith(
-        expect.any(String),
-        false
-      )
-    )
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(getPushControlState()).toEqual({ enabled: true, error: null })
+    expect(saveNotificationPreference).toHaveBeenCalledTimes(1)
   }
 )
 it.each(["browser", "server"])(
-  "reports %s registration failures without reverting ON",
+  "keeps ON and reports %s transport failures",
   async (source) => {
-    request.mockResolvedValue("granted")
     if (source === "browser")
-      vi.mocked(subscribePush).mockRejectedValue(new Error("network"))
+      vi.mocked(subscribePush).mockRejectedValueOnce(new Error("network"))
     else
-      vi.mocked(saveDeviceSubscription).mockRejectedValue(new Error("network"))
+      vi.mocked(saveDeviceSubscription).mockRejectedValueOnce(
+        new Error("network")
+      )
     await preparePushControl("member")
     await setPushEnabled(true)
     await vi.waitFor(() =>
-      expect(getPushControlState()).toMatchObject({
+      expect(getPushControlState()).toEqual({
         enabled: true,
         error: "通知の登録に失敗しました",
       })
     )
   }
 )
-
-it("can enable again after a dismissed prompt", async () => {
-  request.mockResolvedValueOnce("default").mockResolvedValueOnce("granted")
+it("permission changes can retry transport but never write or replace the preference", async () => {
+  await preparePushControl("member")
+  request.mockResolvedValueOnce("denied")
+  await setPushEnabled(true)
+  observe("granted")
+  await vi.waitFor(() => expect(saveDeviceSubscription).toHaveBeenCalledOnce())
+  observe("denied")
+  expect(getPushControlState().enabled).toBe(true)
+  expect(saveNotificationPreference).toHaveBeenCalledOnce()
+})
+it("recovers existing identity by endpoint even with a stale saved id", async () => {
+  storage.set(
+    "notification-device:member",
+    "00000000-0000-4000-8000-000000000001"
+  )
+  vi.mocked(readPushSubscription).mockResolvedValue(browserSubscription)
+  vi.mocked(getNotificationDevices).mockResolvedValue([
+    { id, enabled: false, endpoint: sub.endpoint },
+  ])
   await preparePushControl("member")
   await setPushEnabled(true)
-  expect(getPushControlState().enabled).toBe(false)
-  await setPushEnabled(true)
-  expect(getPushControlState().enabled).toBe(true)
-  expect(request).toHaveBeenCalledTimes(2)
+  expect(saveNotificationPreference).toHaveBeenCalledWith(id, true)
+  expect(storage.get("notification-device:member")).toBe(id)
 })
-it("shares a pending prompt and preserves the latest ON/OFF intent", async () => {
-  let finish: (permission: NotificationPermission) => void = () => {}
-  request.mockReturnValue(
+it("retains unknown after startup failure and retries on the next visit", async () => {
+  vi.mocked(getNotificationDevices).mockRejectedValueOnce(new Error("network"))
+  await preparePushControl("member")
+  expect(getPushControlState()).toEqual({
+    enabled: null,
+    error: "通知設定を確認できませんでした",
+  })
+  await preparePushControl("member")
+  expect(getPushControlState()).toEqual({ enabled: false, error: null })
+})
+it("ignores the previous account's delayed permission and subscription results", async () => {
+  let finish: (value: typeof sub) => void = () => {}
+  vi.mocked(subscribePush).mockReturnValueOnce(
     new Promise((resolve) => {
       finish = resolve
-    })
-  )
-  await preparePushControl("member")
-  const on = setPushEnabled(true)
-  const off = setPushEnabled(false)
-  const again = setPushEnabled(true)
-  expect(request).toHaveBeenCalledOnce()
-  finish("granted")
-  await Promise.all([on, off, again])
-  expect(getPushControlState().enabled).toBe(true)
-  expect(
-    vi.mocked(saveNotificationPreference).mock.calls.map((call) => call[1])
-  ).toEqual([true, false, true])
-})
-
-it("requests on each ON even if cached permission remains granted", async () => {
-  vi.stubGlobal("Notification", {
-    permission: "granted",
-    requestPermission: request,
-  })
-  request.mockResolvedValueOnce("granted").mockResolvedValueOnce("denied")
-  await preparePushControl("member")
-  await setPushEnabled(true)
-  expect(request).toHaveBeenCalledTimes(1)
-  expect(getPushControlState().enabled).toBe(true)
-  await setPushEnabled(false)
-  expect(request).toHaveBeenCalledTimes(1)
-  await setPushEnabled(true)
-  expect(request).toHaveBeenCalledTimes(2)
-  expect(getPushControlState().enabled).toBe(false)
-})
-
-it("keeps OFF if saving a permission rejection fails", async () => {
-  await preparePushControl("member")
-  await setPushEnabled(true)
-  await vi.waitFor(() => expect(saveDeviceSubscription).toHaveBeenCalledOnce())
-  request.mockResolvedValue("denied")
-  vi.mocked(saveNotificationPreference).mockRejectedValueOnce(
-    new Error("network")
-  )
-  await setPushEnabled(true)
-  expect(getPushControlState()).toMatchObject({
-    enabled: false,
-    error: "通知設定を保存できませんでした",
-  })
-})
-it("does not let an old subscription rejection undo a newer ON", async () => {
-  let reject: (error: Error) => void = () => {}
-  vi.mocked(subscribePush).mockReturnValueOnce(
-    new Promise((_, fail) => {
-      reject = fail
-    })
-  )
-  await preparePushControl("member")
-  await setPushEnabled(true)
-  await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledOnce())
-  await setPushEnabled(false)
-  await setPushEnabled(true)
-  reject(new DOMException("blocked", "NotAllowedError"))
-  await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledTimes(2))
-  expect(getPushControlState()).toMatchObject({ enabled: true, error: null })
-})
-
-it("keeps OFF and reports a failed save after subscription permission denial", async () => {
-  vi.mocked(subscribePush).mockRejectedValue(
-    new DOMException("blocked", "NotAllowedError")
-  )
-  vi.mocked(saveNotificationPreference)
-    .mockResolvedValueOnce(undefined)
-    .mockRejectedValueOnce(new Error("network"))
-  await preparePushControl("member")
-  await setPushEnabled(true)
-  await vi.waitFor(() =>
-    expect(getPushControlState()).toMatchObject({
-      enabled: false,
-      error: "通知設定を保存できませんでした",
-    })
-  )
-})
-it("ignores subscription rejection from a previous account", async () => {
-  let reject: (error: Error) => void = () => {}
-  vi.mocked(subscribePush).mockReturnValueOnce(
-    new Promise((_, fail) => {
-      reject = fail
     })
   )
   await preparePushControl("first")
   await setPushEnabled(true)
   await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledOnce())
   await preparePushControl("second")
-  reject(new DOMException("blocked", "NotAllowedError"))
+  finish(sub)
   await new Promise((resolve) => setTimeout(resolve, 0))
-  expect(saveNotificationPreference).toHaveBeenCalledTimes(1)
-  expect(getPushControlState()).toMatchObject({ enabled: false, error: null })
+  expect(saveDeviceSubscription).not.toHaveBeenCalled()
+  expect(getPushControlState()).toEqual({ enabled: false, error: null })
+})
+it("replaces a conflicting endpoint only following an explicit ON, without taking ownership", async () => {
+  vi.mocked(readPushSubscription).mockResolvedValue(browserSubscription)
+  vi.mocked(saveDeviceSubscription).mockRejectedValueOnce(
+    new ApiError("conflict", 409, "SUBSCRIPTION_CONFLICT")
+  )
+  await preparePushControl("member")
+  await setPushEnabled(true)
+  await vi.waitFor(() =>
+    expect(saveDeviceSubscription).toHaveBeenCalledTimes(2)
+  )
+  expect(unsubscribe).toHaveBeenCalledOnce()
+  expect(getPushControlState().enabled).toBe(true)
+})
+
+it("does not report an old registration error after a newer ON and retries that latest request", async () => {
+  let fail: (error: Error) => void = () => {}
+  vi.mocked(subscribePush).mockReturnValueOnce(
+    new Promise((_, reject) => {
+      fail = reject
+    })
+  )
+  await preparePushControl("member")
+  await setPushEnabled(true)
+  await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledOnce())
+  await setPushEnabled(false)
+  await setPushEnabled(true)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  fail(new Error("old network error"))
+  await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledTimes(2))
+  expect(getPushControlState()).toEqual({ enabled: true, error: null })
+})
+it("does not register for a different account when the previous account's prompt resolves", async () => {
+  let finish: (permission: NotificationPermission) => void = () => {}
+  request.mockReturnValueOnce(
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  )
+  await preparePushControl("first")
+  await setPushEnabled(true)
+  await preparePushControl("second")
+  finish("granted")
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(subscribePush).not.toHaveBeenCalled()
+  expect(getPushControlState()).toEqual({ enabled: false, error: null })
 })

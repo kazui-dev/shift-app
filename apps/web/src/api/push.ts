@@ -6,12 +6,17 @@ import {
 import { apiJson, apiVoid } from "./client"
 const url = "/api/me/notification-devices"
 export const getPushConfig = () =>
-  apiJson("/api/push/config", pushConfigResponseSchema)
+  apiJson("/api/push/config", pushConfigResponseSchema, {
+    signal: AbortSignal.timeout(15000),
+  })
 export const getNotificationDevices = () =>
-  apiJson(url, notificationDevicesSchema)
+  apiJson(url, notificationDevicesSchema, {
+    signal: AbortSignal.timeout(15000),
+  })
 export const saveNotificationPreference = (id: string, enabled: boolean) =>
   apiVoid(`${url}/${id}`, {
     method: "PUT",
+    signal: AbortSignal.timeout(15000),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled }),
   })
@@ -21,6 +26,7 @@ export const saveDeviceSubscription = (
 ) =>
   apiVoid(`${url}/${id}/subscription`, {
     method: "PUT",
+    signal: AbortSignal.timeout(15000),
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(subscription),
   })

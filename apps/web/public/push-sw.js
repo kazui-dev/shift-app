@@ -1,6 +1,11 @@
 self.addEventListener("push", (event) => {
-  if (!event.data) return
-  const data = event.data.json()
+  let data = {}
+  try {
+    const payload = event.data?.json()
+    if (payload && typeof payload === "object") data = payload
+  } catch {
+    // Every push must produce a visible notification, including invalid payloads.
+  }
   event.waitUntil(
     self.registration.showNotification(data.title || "旭祭シフト", {
       body: data.body || "",
