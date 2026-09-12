@@ -26,12 +26,14 @@ export function watchNotificationPermission(
   void refresh()
   window.addEventListener("focus", resume)
   window.addEventListener("pageshow", resume)
+  window.addEventListener("online", resume)
   document.addEventListener("visibilitychange", resume)
   return () => {
     disposed = true
     status?.removeEventListener("change", report)
     window.removeEventListener("focus", resume)
     window.removeEventListener("pageshow", resume)
+    window.removeEventListener("online", resume)
     document.removeEventListener("visibilitychange", resume)
   }
 }

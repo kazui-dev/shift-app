@@ -9,31 +9,30 @@ import {
   pushSupported,
   readPushSubscription,
   subscribePush,
+  withPushLock,
 } from "./push-browser"
 import { watchNotificationPermission } from "./notification-permission"
 
-type State = {
-  enabled: boolean | null
-  error: string | null
+type State = { enabled: boolean | null; error: string | null }
+type Session = {
+  memberId: string
+  deviceId: string
+  confirmed: boolean
+  revision: number
+  loaded: boolean
+  permission: NotificationPermission
+  preparation: Promise<void> | null
+  writes: Promise<void>
+  prompt: Promise<NotificationPermission | null> | null
+  transport: Promise<void> | null
+  retryTransport: boolean
+  reportTransport: boolean
+  stop: () => void
 }
-const empty: State = {
-  enabled: null,
-  error: null,
-}
+const initial: State = { enabled: null, error: null }
+let state = initial
+let session: Session | null = null
 const listeners = new Set<() => void>()
-let state = empty
-let owner: string | null = null
-let deviceId = ""
-let generation = 0
-let edit = 0
-let confirmed = false
-let registered = false
-let permission: NotificationPermission | null = null
-let requesting: Promise<boolean> | null = null
-let writes: Promise<void> = Promise.resolve()
-let preparation: Promise<void> | null = null
-let syncing: Promise<void> | null = null
-let stopWatching: (() => void) | undefined
 function publish(patch: Partial<State>) {
   state = { ...state, ...patch }
   for (const listener of listeners) listener()
@@ -46,176 +45,195 @@ export function subscribePushControl(listener: () => void) {
   }
 }
 export function resetPushControl() {
-  generation++
-  stopWatching?.()
-  stopWatching = undefined
-  owner = null
-  deviceId = ""
-  edit = 0
-  confirmed = false
-  registered = false
-  permission = null
-  requesting = null
-  writes = Promise.resolve()
-  preparation = null
-  syncing = null
-  publish(empty)
+  session?.stop()
+  session = null
+  publish(initial)
 }
-function permissionChanged(next: NotificationPermission) {
-  permission = next
-  if (permission !== "granted") registered = false
-  else if (!requesting) void syncSubscription()
+function wanted(current: Session) {
+  return session === current && current.loaded && state.enabled === true
 }
-export function preparePushControl(memberId: string): Promise<void> {
-  if (!pushSupported()) return Promise.resolve()
-  if (owner === memberId) return preparation ?? Promise.resolve()
-  resetPushControl()
-  owner = memberId
-  const account = generation
-  permission = Notification.permission
-  stopWatching = watchNotificationPermission(permissionChanged)
-  preparation = (async () => {
-    const key = `notification-device:${memberId}`
+function denied(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    (error.name === "NotAllowedError" || error.name === "SecurityError")
+  )
+}
+function syncTransport(current: Session, report = false): Promise<void> {
+  if (!wanted(current)) return Promise.resolve()
+  current.reportTransport ||= report
+  if (current.transport) {
+    current.retryTransport = true
+    return current.transport
+  }
+  const revision = current.revision
+  current.transport = withPushLock(async () => {
+    await current.writes
+    if (!wanted(current) || !current.confirmed) return
+    let subscription = await subscribePush()
+    if (!wanted(current)) return
+    try {
+      await saveDeviceSubscription(current.deviceId, subscription)
+    } catch (error) {
+      if (
+        !(error instanceof ApiError) ||
+        error.code !== "SUBSCRIPTION_CONFLICT" ||
+        !current.reportTransport
+      )
+        throw error
+      const previous = await readPushSubscription()
+      if (!wanted(current)) return
+      if (previous && !(await previous.unsubscribe()))
+        throw new Error("Unsubscribe failed", { cause: error })
+      if (!wanted(current)) return
+      subscription = await subscribePush()
+      if (!wanted(current)) return
+      await saveDeviceSubscription(current.deviceId, subscription)
+    }
+  })
+    .catch((error: unknown) => {
+      if (
+        wanted(current) &&
+        revision === current.revision &&
+        current.reportTransport &&
+        !denied(error)
+      )
+        publish({ error: "通知の登録に失敗しました" })
+    })
+    .finally(() => {
+      current.transport = null
+      const retry = current.retryTransport
+      const notify = current.reportTransport
+      current.retryTransport = false
+      current.reportTransport = false
+      if (retry && wanted(current)) void syncTransport(current, notify)
+    })
+  return current.transport
+}
+function initialize(current: Session): Promise<void> {
+  if (current.preparation) return current.preparation
+  current.preparation = (async () => {
+    const key = `notification-device:${current.memberId}`
     let saved: string | null = null
     try {
       saved = localStorage.getItem(key)
     } catch {
-      /* Storage may be unavailable. */
+      /* Session-only storage remains usable. */
     }
-    deviceId = v.is(v.pipe(v.string(), v.uuid()), saved)
-      ? saved
-      : crypto.randomUUID()
+    const [devices, subscription] = await Promise.all([
+      getNotificationDevices(),
+      readPushSubscription(),
+    ])
+    if (session !== current) return
+    const device =
+      devices.find((value) => value.endpoint === subscription?.endpoint) ??
+      devices.find((value) => value.id === saved)
+    current.deviceId =
+      device?.id ??
+      (v.is(v.pipe(v.string(), v.uuid()), saved) ? saved : current.deviceId)
+    current.confirmed = device?.enabled ?? false
     try {
-      const [devices, subscription] = await Promise.all([
-        getNotificationDevices(),
-        readPushSubscription().catch(() => null),
-      ])
-      if (account !== generation) return
-      const current = devices.find((device) =>
-        saved
-          ? device.id === deviceId
-          : subscription && device.endpoint === subscription.endpoint
-      )
-      if (current) deviceId = current.id
-      confirmed = permission !== "denied" && (current?.enabled ?? false)
-      if (current?.enabled && !confirmed) {
-        await saveNotificationPreference(deviceId, false)
-        if (account !== generation) return
-      }
-      registered = !!subscription && current?.endpoint === subscription.endpoint
-      publish({ enabled: confirmed })
+      localStorage.setItem(key, current.deviceId)
     } catch {
-      if (account !== generation) return
-      publish({ enabled: false, error: "通知設定を確認できませんでした" })
+      /* Keep this session's device identity. */
     }
-    if (account !== generation) return
-    try {
-      localStorage.setItem(key, deviceId)
-    } catch {
-      /* The current session remains usable. */
-    }
-    void syncSubscription()
+    current.loaded = true
+    publish({ enabled: current.confirmed, error: null })
+    if (current.permission === "granted") void syncTransport(current)
   })()
-  return preparation
+    .catch(() => {
+      if (session === current)
+        publish({ error: "通知設定を確認できませんでした" })
+    })
+    .finally(() => {
+      current.preparation = null
+    })
+  return current.preparation
 }
-async function syncSubscription(report = false): Promise<void> {
-  if (syncing) return syncing
-  if (!owner || !state.enabled || permission !== "granted" || registered) return
-  const account = generation,
-    revision = edit,
-    id = deviceId
-  syncing = (async () => {
-    try {
-      await writes
-      if (account !== generation || !state.enabled || permission !== "granted")
-        return
-      let subscription = await subscribePush()
-      if (account !== generation) return
-      try {
-        await saveDeviceSubscription(id, subscription)
-      } catch (error) {
-        if (!(error instanceof ApiError) || error.status !== 409) throw error
-        const previous = await readPushSubscription()
-        if (account !== generation) return
-        await previous?.unsubscribe()
-        subscription = await subscribePush()
-        if (account !== generation) return
-        await saveDeviceSubscription(id, subscription)
-      }
-      if (account === generation) registered = true
-    } catch (error) {
-      const denied =
-        error instanceof DOMException &&
-        (error.name === "NotAllowedError" || error.name === "SecurityError")
-      if (account !== generation || revision !== edit) return
-      if (denied) {
-        registered = false
-        publish({ enabled: false, error: null })
-        writes = writes.then(() =>
-          persistPreference(false, account, revision, false)
-        )
-        await writes
-      } else if (report) publish({ error: "通知の登録に失敗しました" })
-    } finally {
-      if (account === generation) {
-        syncing = null
-        if (revision !== edit) void syncSubscription(report)
-      }
-    }
-  })()
-  return syncing
-}
-function requestPermission(): Promise<boolean> {
-  if (requesting) return requesting
-  const account = generation
-  requesting = (async () => {
-    try {
-      const next = await Notification.requestPermission()
-      if (account !== generation) return false
-      permissionChanged(next)
-      return next === "granted"
-    } catch {
-      return false
-    }
-  })().finally(() => {
-    if (account === generation) requesting = null
-  })
-  return requesting
-}
-async function persistPreference(
-  enabled: boolean,
-  account: number,
-  revision: number,
-  fallback: boolean
-): Promise<void> {
-  if (account !== generation) return
-  try {
-    await saveNotificationPreference(deviceId, enabled)
-    if (account === generation) confirmed = enabled
-  } catch {
-    if (account === generation && revision === edit)
-      publish({ enabled: fallback, error: "通知設定を保存できませんでした" })
+export function preparePushControl(memberId: string): Promise<void> {
+  if (!pushSupported()) return Promise.resolve()
+  if (session?.memberId === memberId)
+    return session.loaded ? Promise.resolve() : initialize(session)
+  resetPushControl()
+  const current: Session = {
+    memberId,
+    deviceId: crypto.randomUUID(),
+    confirmed: false,
+    revision: 0,
+    loaded: false,
+    permission: Notification.permission,
+    preparation: null,
+    writes: Promise.resolve(),
+    prompt: null,
+    transport: null,
+    retryTransport: false,
+    reportTransport: false,
+    stop: () => {},
   }
+  session = current
+  current.stop = watchNotificationPermission((permission) => {
+    if (session !== current) return
+    current.permission = permission
+    if (!current.loaded) {
+      void initialize(current)
+      return
+    }
+    if (permission === "granted" && !current.prompt) void syncTransport(current)
+  })
+  return initialize(current)
+}
+function requestPermission(
+  current: Session
+): Promise<NotificationPermission | null> {
+  if (current.prompt) return current.prompt
+  // Read APIs can retain stale WebAPK permission. Only the user gesture requests permission.
+  let result: Promise<NotificationPermission>
+  try {
+    result = Notification.requestPermission()
+  } catch {
+    return Promise.resolve(null)
+  }
+  current.prompt = result
+    .then(
+      (permission) => {
+        if (session === current) current.permission = permission
+        return permission
+      },
+      () => null
+    )
+    .finally(() => {
+      current.prompt = null
+    })
+  return current.prompt
 }
 export function setPushEnabled(enabled: boolean): Promise<void> {
-  if (!owner || state.enabled === null) return Promise.resolve()
-  const account = generation,
-    revision = ++edit
+  const current = session
+  if (!current?.loaded) return Promise.resolve()
+  const revision = ++current.revision
   publish({ enabled, error: null })
-  // Start the native prompt within the user gesture, before queued saves.
-  const decision = enabled ? requestPermission() : Promise.resolve(false)
-  writes = writes.then(async () => {
-    const accepted = await decision
-    if (account !== generation) return
-    if (revision === edit) publish({ enabled: accepted })
-    await persistPreference(
-      accepted,
-      account,
-      revision,
-      enabled && !accepted ? false : confirmed
-    )
+  // Preference persistence never waits for the permission dialog or Push service.
+  const decision = enabled ? requestPermission(current) : null
+  const saved = current.writes.then(async () => {
+    if (session !== current) return
+    try {
+      await saveNotificationPreference(current.deviceId, enabled)
+      if (session === current) current.confirmed = enabled
+    } catch {
+      if (session === current && revision === current.revision)
+        publish({
+          enabled: current.confirmed,
+          error: "通知設定を保存できませんでした",
+        })
+    }
   })
-  return writes.then(() => {
-    if (account === generation && revision === edit) void syncSubscription(true)
-  })
+  current.writes = saved
+  if (decision)
+    void Promise.all([saved, decision]).then(([, permission]) => {
+      if (
+        wanted(current) &&
+        revision === current.revision &&
+        permission === "granted"
+      )
+        void syncTransport(current, true)
+    })
+  return saved
 }

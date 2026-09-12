@@ -72,3 +72,45 @@ it("does not navigate to an external origin from notification data", () => {
   })
   expect(waitUntil).not.toHaveBeenCalled()
 })
+
+it.each(["missing", "invalid", "valid"])(
+  "shows a visible notification for %s push payloads",
+  async (kind) => {
+    type Push = {
+      data?: { json: () => unknown }
+      waitUntil: (work: Promise<unknown>) => void
+    }
+    const handlers = new Map<string, (event: Push) => void>()
+    const showNotification = vi
+      .fn<(...args: unknown[]) => Promise<void>>()
+      .mockResolvedValue(undefined)
+    runInNewContext(source, {
+      self: {
+        addEventListener: (type: string, handler: (event: Push) => void) =>
+          handlers.set(type, handler),
+        registration: { showNotification },
+      },
+    })
+    let work: Promise<unknown> = Promise.resolve()
+    handlers.get("push")?.({
+      ...(kind === "missing"
+        ? {}
+        : {
+            data: {
+              json: () => {
+                if (kind === "invalid") throw new SyntaxError("invalid")
+                return { title: "New message", body: "Hello" }
+              },
+            },
+          }),
+      waitUntil: (promise) => {
+        work = promise
+      },
+    })
+    await work
+    expect(showNotification).toHaveBeenCalledWith(
+      kind === "valid" ? "New message" : "旭祭シフト",
+      expect.any(Object)
+    )
+  }
+)
