@@ -116,7 +116,7 @@ export function ChatComposer({
   return (
     <div className="min-w-0">
       {draft.files.length > 0 && (
-        <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-50%">
+        <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-30%">
           <ul
             data-horizontal-scroll
             className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"

@@ -111,11 +111,16 @@ export class ChatStore {
       ...this.state,
       drafts: { ...this.state.drafts, [roomId]: draft },
     })
-    void this.persist().catch(() =>
+    void this.persist().catch((error: unknown) => {
+      const name = error instanceof Error ? error.name : "UnknownError"
       toast.error("端末に下書きを保存できませんでした。", {
         id: "chat-storage",
+        description:
+          name === "QuotaExceededError"
+            ? "端末の保存容量が不足しています。入力内容は画面に残っています。"
+            : `保存エラー: ${name}。入力内容は画面に残っています。`,
       })
-    )
+    })
   }
   async enqueue(roomId: string) {
     const draft = this.draft(roomId)
