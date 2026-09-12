@@ -1,4 +1,3 @@
-import { readNotificationPermission } from "./notification-permission"
 import {
   base64UrlBytes,
   getPushConfig,
@@ -8,11 +7,7 @@ import {
 
 export async function syncSubscription(enabled: boolean): Promise<void> {
   if (enabled) {
-    const currentPermission = await readNotificationPermission()
-    const permission =
-      currentPermission === "default"
-        ? await Notification.requestPermission()
-        : currentPermission
+    const permission = await Notification.requestPermission()
     if (permission !== "granted") {
       throw new Error("通知が許可されていません。")
     }
