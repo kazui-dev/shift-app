@@ -1,23 +1,25 @@
 import {
   pushConfigResponseSchema,
-  pushDeviceSchema,
-  type PushDeviceUpdate,
+  pushSubscriptionsSchema,
+  type PushSubscriptionInput,
 } from "@workspace/shared/communications"
-import { apiJson } from "./client"
+import { apiJson, apiVoid } from "./client"
 
+const url = "/api/me/push-subscriptions"
 export const getPushConfig = () =>
   apiJson("/api/push/config", pushConfigResponseSchema)
-export const getPushDevice = (id: string) =>
-  apiJson(`/api/me/push-devices/${id}`, pushDeviceSchema)
-export const createPushDevice = (endpoint: string | null) =>
-  apiJson("/api/me/push-devices", pushDeviceSchema, {
+export const getPushSubscriptions = () => apiJson(url, pushSubscriptionsSchema)
+export const savePushSubscription = (subscription: PushSubscriptionInput) =>
+  apiVoid(url, {
     method: "POST",
-    body: JSON.stringify({ endpoint }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(subscription),
   })
-export const updatePushDevice = (id: string, value: PushDeviceUpdate) =>
-  apiJson(`/api/me/push-devices/${id}`, pushDeviceSchema, {
-    method: "PUT",
-    body: JSON.stringify(value),
+export const disablePushSubscription = (endpoint: string) =>
+  apiVoid(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ endpoint }),
   })
 export function base64UrlBytes(value: string): Uint8Array<ArrayBuffer> {
   const padded = value + "=".repeat((4 - (value.length % 4)) % 4)

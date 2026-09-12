@@ -54,13 +54,9 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 
 オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutation、チャットの下書き・送信待ち画像を破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
 
-通知設定はブラウザー/PWAの保存領域ごとのpush deviceとしてサーバーに保持する。配信ON/OFF、ブラウザーが報告する通知許可、Service Workerの購読、一時的な操作状態は分離する。設定の初期表示はサーバーのenabledを使い、ブラウザー購読の存在や許可変更からON/OFFを推測しない。端末IDと利用者だけをlocalStorageへ保存し、許可状態・未完了のON操作は永続化しない。
+通知は単一のトグルで操作する。認証後の起動処理でブラウザーの許可・購読と本人の配信登録を読み取り、設定画面の初回表示にはその結果を使う。未確認状態をOFFとして描画しない。復帰・許可変更時は既存の表示を保持して再確認し、許可の取得をサーバー通信待ちに巻き込まない。許可の読み取り値はOSの設定そのものとは限らないため、Android実機での確認を模擬テストと区別する。
 
-認証後にService Workerと公開鍵を準備する。ONのタップではPushManager.subscribeを同期的に開始し、その結果を待ってサーバーの購読情報とenabledを保存する。許可要求をEffectや復帰処理、通信の再試行から呼ばない。OFFはサーバーの配信停止であり、ブラウザー購読を削除しない。操作表示は即時に変え、サーバー保存成功で確定する。書き込みは単一controllerで直列化し、新しい選択を古い読み取り・購読結果で上書きしない。
-
-設定への入り直し・許可変更・復帰では状態を照合する。配信ONかつ許可済みで、既存の有効な購読とサーバーの情報が異なる場合だけ再登録し、購読の新規作成はしない。OSブロックや購読失効で配信設定を消さない。購読を失ったON設定は同じ通知行の再接続ボタンからユーザー操作で復旧する。別利用者への切り替えでは旧controllerを破棄し、旧ブラウザー購読を解除して通知の混在を防ぐ。
-
-失敗は準備・購読・保存・照合に分ける。診断履歴は直近30件をメモリーに保持し、段階・時刻・ユーザー操作判定・許可の読み取り値・エラー名/HTTPコードだけを記録する。購読URL、鍵、利用者情報は記録せず、外部送信もしない。エラートーストからユーザー操作でコピーできる。Chromium WebAPKの許可キャッシュがOSと不一致になる場合を含め、模擬テストと実機検証は区別する。
+ON操作時に現在のNotification.permissionを読み、許可済みならPush購読とサーバー登録へ進む。未許可・ブロックの場合だけNotification.requestPermissionを呼び、許可された場合に登録する。古いdeniedの読み取り値でON操作を打ち切らない。OFFはサーバーの配信停止後にブラウザー購読を解除する。変更処理中は重複操作を受け付けず、成功時に表示を確定する。処理の再開待ち行列、端末IDのlocalStorage保存、再接続アイコン、診断コピーは設けない。起動・復帰時に許可を要求したり、通知未使用の端末レコードを作成したりしない。購読の識別にはendpointを使い、既存のDBレコードIDと配信履歴は保持する。
 
 それ以外のoptimistic updateは、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
@@ -119,7 +115,7 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/chat/rooms/:roomId/messages`                  | メッセージ履歴・送信               |
 | `/api/chat/rooms/:roomId/ws`                        | リアルタイム受信                   |
 | `/api/push/config`                                  | VAPID公開鍵                        |
-| `/api/me/push-devices`                              | 端末の配信設定・購読情報           |
+| `/api/me/push-subscriptions`                        | 端末の配信設定・購読情報           |
 
 アプリ固有の変更系requestは同一originを必須にする。`/api/account`は認証済みだがonboarding前のuserを受け付け、`/api/admin/*`は毎回`system_admin`を再確認する。それ以外のshift APIはonboarding済みmemberを必須にし、対象年度の参加状態または権限を確認する。`/api/auth/*`はBetter Authのhandlerとresponse契約に委譲する。
 

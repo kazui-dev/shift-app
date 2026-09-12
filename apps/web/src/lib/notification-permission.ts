@@ -8,10 +8,8 @@ async function permissionStatus(): Promise<PermissionStatus | null> {
   }
 }
 
-export async function readNotificationPermission(): Promise<NotificationPermission> {
-  const status = await permissionStatus()
-  if (!status) return Notification.permission
-  return status.state === "prompt" ? "default" : status.state
+export function readNotificationPermission(): NotificationPermission {
+  return Notification.permission
 }
 
 export function watchNotificationPermission(changed: () => void): () => void {

@@ -15,17 +15,26 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close()
   const requestedPath = event.notification.data?.url || "/calendar"
-  const target = new URL(requestedPath, self.location.origin)
+  let target
+  try {
+    target = new URL(requestedPath, self.location.origin)
+  } catch {
+    return
+  }
   if (target.origin !== self.location.origin) return
   event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
-        for (const client of clients) {
-          if ("navigate" in client) void client.navigate(target.href)
-          if ("focus" in client) return client.focus()
-        }
-        return self.clients.openWindow(target.href)
+    (async () => {
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
       })
+      const client =
+        clients.find((value) => value.url === target.href) || clients[0]
+      if (!client) return self.clients.openWindow(target.href)
+      const navigated =
+        client.url === target.href ? client : await client.navigate(target.href)
+      if (navigated) return navigated.focus()
+      return self.clients.openWindow(target.href)
+    })()
   )
 })

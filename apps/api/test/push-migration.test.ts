@@ -21,9 +21,15 @@ it("preserves push settings and delivery history with foreign keys enabled insid
         "utf8"
       )
     )
+    db.exec(
+      readFileSync(
+        new URL("../migrations/0027_push_subscriptions.sql", import.meta.url),
+        "utf8"
+      )
+    )
     db.exec("COMMIT")
     expect(
-      db.prepare("SELECT id, enabled, endpoint FROM push_devices").get()
+      db.prepare("SELECT id, enabled, endpoint FROM push_subscriptions").get()
     ).toMatchObject({
       id: "device",
       enabled: 1,
@@ -34,10 +40,10 @@ it("preserves push settings and delivery history with foreign keys enabled insid
         .prepare("SELECT subscription_id,status FROM notification_deliveries")
         .get()
     ).toMatchObject({ subscription_id: "device", status: "sent" })
-    db.exec("UPDATE push_devices SET endpoint=NULL,p256dh=NULL,auth=NULL")
-    expect(db.prepare("SELECT enabled FROM push_devices").get()?.enabled).toBe(
-      1
-    )
+    db.exec("UPDATE push_subscriptions SET endpoint=NULL,p256dh=NULL,auth=NULL")
+    expect(
+      db.prepare("SELECT enabled FROM push_subscriptions").get()?.enabled
+    ).toBe(1)
     expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([])
   } finally {
     db.close()

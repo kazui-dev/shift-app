@@ -1,5 +1,5 @@
 import webpush from "web-push"
-import { clearPushTransport } from "./push-devices"
+import { clearPushTransport } from "./push-subscriptions"
 
 import { dueReminderWindow } from "../domain/reminder-window"
 
@@ -10,8 +10,6 @@ type SubscriptionRow = {
   p256dh: string
   auth: string
 }
-
-type NotificationKind = "assigned" | "ten_minute"
 
 type AssignmentNotification = {
   assignmentId: string
@@ -36,11 +34,6 @@ async function deliver(
   subscription: SubscriptionRow,
   payload: string
 ): Promise<"sent" | "dead" | "retry"> {
-  webpush.setVapidDetails(
-    env.VAPID_SUBJECT,
-    env.VAPID_PUBLIC_KEY,
-    env.VAPID_PRIVATE_KEY
-  )
   try {
     await webpush.sendNotification(
       {
@@ -49,7 +42,14 @@ async function deliver(
         keys: { p256dh: subscription.p256dh, auth: subscription.auth },
       },
       payload,
-      { TTL: 60 * 60 }
+      {
+        TTL: 60 * 60,
+        vapidDetails: {
+          subject: env.VAPID_SUBJECT,
+          publicKey: env.VAPID_PUBLIC_KEY,
+          privateKey: env.VAPID_PRIVATE_KEY,
+        },
+      }
     )
     return "sent"
   } catch (error) {
@@ -70,9 +70,9 @@ async function deliver(
 async function claimAndSend(
   env: CloudflareBindings,
   assignment: AssignmentNotification,
-  subscription: SubscriptionRow,
-  kind: NotificationKind
+  subscription: SubscriptionRow
 ) {
+  const kind = "ten_minute"
   const claimedAt = Date.now()
   const claim = await env.shift_app
     .prepare(
@@ -84,8 +84,7 @@ async function claimAndSend(
     .run()
   if (claim.meta.changes !== 1) return
 
-  const title =
-    kind === "assigned" ? "シフトが更新されました" : "シフト開始10分前"
+  const title = "シフト開始10分前"
   const result = await deliver(
     env,
     subscription,
@@ -130,7 +129,7 @@ async function subscriptionsForMember(
   const result = await env.shift_app
     .prepare(
       `SELECT id, endpoint, expiration_time AS expirationTime, p256dh, auth
-       FROM push_devices WHERE member_id = ? AND enabled=1 AND endpoint IS NOT NULL AND p256dh IS NOT NULL AND auth IS NOT NULL`
+       FROM push_subscriptions WHERE member_id = ? AND enabled=1 AND endpoint IS NOT NULL AND p256dh IS NOT NULL AND auth IS NOT NULL`
     )
     .bind(memberId)
     .all<SubscriptionRow>()
@@ -212,7 +211,7 @@ export async function sendDueAssignmentReminders(
          ON year_membership.year = activity.year
         AND year_membership.member_id = assignment.member_id
         AND year_membership.status = 'active'
-       JOIN push_devices subscription
+       JOIN push_subscriptions subscription
          ON subscription.member_id = assignment.member_id
          AND subscription.enabled=1 AND subscription.endpoint IS NOT NULL
          AND subscription.p256dh IS NOT NULL AND subscription.auth IS NOT NULL
@@ -222,7 +221,5 @@ export async function sendDueAssignmentReminders(
     .bind(from, to)
     .all<AssignmentNotification & SubscriptionRow>()
 
-  await Promise.all(
-    rows.results.map((row) => claimAndSend(env, row, row, "ten_minute"))
-  )
+  await Promise.all(rows.results.map((row) => claimAndSend(env, row, row)))
 }
