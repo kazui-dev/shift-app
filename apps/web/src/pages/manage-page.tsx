@@ -1,18 +1,15 @@
 import { cn } from "@workspace/ui/lib/utils"
 import { UserManager } from "@/components/system/user-manager"
 import { useManagementYear } from "@/components/use-management-year"
-import { getRouteApi, Link } from "@tanstack/react-router"
+import { getRouteApi, Link, Outlet, useNavigate } from "@tanstack/react-router"
 import {
   CalendarClock,
-  ChevronLeft,
   ChevronRight,
   History,
   Link as LinkIcon,
   Tags,
   Users,
 } from "lucide-react"
-
-import { Button } from "@workspace/ui/components/button"
 
 import {
   AuditLogManager,
@@ -21,10 +18,17 @@ import {
 import { nativeSelectClassName } from "@/components/form-styles"
 import { ActivityManager } from "@/components/manage/activity-manager"
 import { AvailabilitySummary } from "@/components/manage/availability-summary"
-import { EmptyState, PageHeader } from "@/components/page-layout"
+import { EmptyState } from "@/components/page-layout"
 import { YearSettingsPanel } from "@/components/system/year-settings-panel"
 import { MemberManager } from "@/components/system/member-manager"
 import { YearRoleManager } from "@/components/system/year-role-manager"
+
+import {
+  ResponsivePage,
+  ResponsivePageHeader,
+  ResponsivePageBody,
+} from "@workspace/ui/components/responsive-page"
+import { usePageClose } from "@/components/use-page-close"
 
 const routeApi = getRouteApi("/_app")
 
@@ -51,6 +55,11 @@ const viewTitles: Record<Exclude<ManageView, "home">, string> = {
 }
 
 export function ManagePage({ view }: { view: ManageView }) {
+  const navigate = useNavigate()
+  const page = usePageClose(
+    () => void navigate({ to: "/manage", replace: true }),
+    view === "shifts" ? "page" : "dialog"
+  )
   const { state } = routeApi.useRouteContext()
   const systemAdmin = state.member.accessLevel === "system_admin"
   const years = useManagementYear()
@@ -58,7 +67,7 @@ export function ManagePage({ view }: { view: ManageView }) {
   const year = years.year
   const setSelectedYear = years.selectYear
 
-  if (!years.isPending && year === null && !systemAdmin) {
+  if (view === "home" && !years.isPending && year === null && !systemAdmin) {
     return (
       <section className="w-full min-w-0 space-y-6 py-6">
         <EmptyState>管理できる年度がありません</EmptyState>
@@ -181,59 +190,62 @@ export function ManagePage({ view }: { view: ManageView }) {
     view === "roles"
 
   return (
-    <section className="w-full min-w-0 space-y-6 py-6">
-      <PageHeader
-        className="px-4 sm:px-6"
-        title={viewTitles[view]}
-        back={
-          <Button
-            render={<Link to="/manage" />}
-            nativeButton={false}
-            variant="ghost"
-            size="icon-sm"
-            aria-label="管理に戻る"
-          >
-            <ChevronLeft />
-          </Button>
-        }
+    <div className="fixed inset-0 z-40 md:contents">
+      <ResponsivePage
+        open={page.open}
+        onClose={page.close}
+        onClosed={page.onClosed}
+        desktop={view === "shifts" ? "page" : "dialog"}
       >
-        {yearScoped && manageableYears.length === 1 && (
-          <span className="text-sm text-muted-foreground">{year}</span>
-        )}
-        {yearScoped && manageableYears.length > 1 && (
-          <select
-            aria-label="年度"
-            className={cn(nativeSelectClassName, "w-auto")}
-            value={year ?? ""}
-            onChange={(event) => setSelectedYear(Number(event.target.value))}
-          >
-            {manageableYears.map((item) => (
-              <option key={item.year} value={item.year}>
-                {item.year}年度
-              </option>
-            ))}
-          </select>
-        )}
-      </PageHeader>
-
-      <div className="space-y-6 px-4 sm:px-6">
-        {view === "shifts" && year !== null && (
-          <ActivityManager key={year} year={year} />
-        )}
-        {view === "availability" && year !== null && (
-          <AvailabilitySummary year={year} />
-        )}
-        {view === "users" && <UserManager />}
-        {view === "years" && <YearSettingsPanel />}
-        {view === "members" && year !== null && (
-          <MemberManager key={year} year={year} />
-        )}
-        {view === "roles" && year !== null && (
-          <YearRoleManager key={year} year={year} />
-        )}
-        {view === "discordLinks" && <DiscordLinkRequestManager />}
-        {view === "audit" && <AuditLogManager />}
-      </div>
-    </section>
+        <ResponsivePageHeader title={viewTitles[view]} onBack={page.close} />
+        <ResponsivePageBody>
+          <div className="space-y-6">
+            {yearScoped && (
+              <div className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">年度</span>
+                {manageableYears.length > 1 ? (
+                  <select
+                    aria-label="年度"
+                    className={cn(nativeSelectClassName, "w-auto")}
+                    value={year ?? ""}
+                    onChange={(event) =>
+                      setSelectedYear(Number(event.target.value))
+                    }
+                  >
+                    {manageableYears.map((item) => (
+                      <option key={item.year} value={item.year}>
+                        {item.year}年度
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span>{year ?? "—"}年度</span>
+                )}
+              </div>
+            )}
+            {yearScoped && year === null && (
+              <EmptyState>管理できる年度がありません</EmptyState>
+            )}
+            {view === "shifts" && year !== null && (
+              <ActivityManager key={year} year={year} />
+            )}
+            {view === "availability" && year !== null && (
+              <AvailabilitySummary key={year} year={year} />
+            )}
+            {view === "users" && <UserManager />}
+            {view === "years" && <YearSettingsPanel />}
+            {view === "members" && year !== null && (
+              <MemberManager key={year} year={year} />
+            )}
+            {view === "roles" && year !== null && (
+              <YearRoleManager key={year} year={year} />
+            )}
+            {view === "discordLinks" && <DiscordLinkRequestManager />}
+            {view === "audit" && <AuditLogManager />}
+          </div>
+        </ResponsivePageBody>
+        <Outlet />
+      </ResponsivePage>
+    </div>
   )
 }

@@ -1,3 +1,3 @@
 export function chatRoomId(pathname: string): string | undefined {
-  return /^\/chat\/((?!new$)[^/]+)$/.exec(pathname)?.[1]
+  return /^\/chat\/((?!new(?:\/|$))[^/]+)(?:\/settings)?$/.exec(pathname)?.[1]
 }

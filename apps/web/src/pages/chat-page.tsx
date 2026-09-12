@@ -1,6 +1,7 @@
 import { ResponsivePage } from "@workspace/ui/components/responsive-page"
 import { prepareConversation, roomsQuery } from "@/data/chat"
 import {
+  Outlet,
   getRouteApi,
   useSearch,
   useRouter,
@@ -123,6 +124,7 @@ export function ChatPage() {
           />
         </ResponsivePage>
       )}
+      <Outlet />
     </>
   )
 }

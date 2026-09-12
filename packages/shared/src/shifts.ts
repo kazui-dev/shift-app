@@ -98,7 +98,9 @@ export const availabilityWindowSchema = v.pipe(
     v.check(
       (value: AvailabilityWindowValue) =>
         dateInJapan(value.startsAt) === value.date &&
-        dateInJapan(value.endsAt) === value.date,
+        (dateInJapan(value.endsAt) === value.date ||
+          Date.parse(value.endsAt) ===
+            Date.parse(`${value.date}T00:00:00+09:00`) + 86_400_000),
       "希望時間帯は同じ日付の中で入力してください"
     ),
     ["date"]

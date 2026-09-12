@@ -1,0 +1,6 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { RoomSettingsPage } from "@/pages/room-settings-page"
+
+export const Route = createFileRoute("/_app/chat/$roomId/settings")({
+  component: RoomSettingsPage,
+})
