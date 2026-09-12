@@ -11,17 +11,24 @@ import { ChatDelivery } from "./chat/delivery"
 import { AppNavigation } from "./app-navigation"
 
 import { OfflineModeContext } from "./offline-mode-context"
+import { resolveAccountState } from "@/lib/account-state"
 
 const unsafeOfflineRoutes = new Set(["/availability", "/manage", "/system"])
 
-export function AppShell({ accountOffline }: { accountOffline: boolean }) {
+export function AppShell({
+  accountOffline,
+  accountChecking,
+}: {
+  accountOffline: boolean
+  accountChecking: boolean
+}) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { isCalendar, isChat, pathname } = useRouterState({
     select: (routerState) => ({
       isCalendar: routerState.matches.some(
-        (match) => match.routeId === "/_app/calendar"
+        (match) => match.routeId === "/_app/_calendar"
       ),
       isChat: routerState.matches.some(
         (match) => match.routeId === "/_app/chat"
@@ -36,6 +43,22 @@ export function AppShell({ accountOffline }: { accountOffline: boolean }) {
   const unsafeOfflineRoute =
     offline &&
     (unsafeOfflineRoutes.has(pathname) || pathname.startsWith("/manage/"))
+
+  useEffect(() => {
+    if (!accountChecking) return undefined
+    let active = true
+    void resolveAccountState(queryClient)
+      .then(() => {
+        if (active) return router.invalidate()
+        return undefined
+      })
+      .catch(() => {
+        if (active) void router.invalidate()
+      })
+    return () => {
+      active = false
+    }
+  }, [accountChecking, queryClient, router])
 
   useEffect(() => {
     const revalidateAccount = () => {

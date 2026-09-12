@@ -7,6 +7,7 @@ import {
 } from "@workspace/ui/components/dialog"
 import { Minus, Plus, Download, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
+import { MemberAvatar } from "../member-avatar"
 import {
   initialImageView,
   limitImageView,
@@ -25,7 +26,12 @@ export function ImageViewer({
   width: number
   height: number
   onClose: () => void
-  caption: { author: string; content: string; createdAt: string }
+  caption: {
+    author: string
+    image: string | null
+    content: string
+    createdAt: string
+  }
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
@@ -82,7 +88,7 @@ export function ImageViewer({
                 variant="ghost"
                 size="icon"
                 aria-label="画像を閉じる"
-                className="pointer-events-auto rounded-full bg-black/65 text-white hover:bg-white/20 md:order-last"
+                className="pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20 md:order-last"
               />
             }
           >
@@ -183,21 +189,28 @@ export function ImageViewer({
             }}
           />
         </div>
-        <div className="max-h-[25dvh] shrink-0 overflow-y-auto px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] text-sm">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="font-semibold">{caption.author}</span>
-            <time
-              className="text-xs text-white/60"
-              dateTime={caption.createdAt}
-            >
-              {new Date(caption.createdAt).toLocaleString("ja-JP")}
-            </time>
+        <div className="flex max-h-[25dvh] shrink-0 items-start gap-3 overflow-y-auto px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm">
+          <MemberAvatar
+            name={caption.author}
+            image={caption.image}
+            className="size-9 bg-white/15 text-white"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-semibold">{caption.author}</span>
+              <time
+                className="text-xs text-white/60"
+                dateTime={caption.createdAt}
+              >
+                {new Date(caption.createdAt).toLocaleString("ja-JP")}
+              </time>
+            </div>
+            {caption.content && (
+              <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
+                {caption.content}
+              </p>
+            )}
           </div>
-          {caption.content && (
-            <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
-              {caption.content}
-            </p>
-          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -8,6 +8,9 @@ type Entry = {
   url?: string
 }
 const images = new Map<string, Entry>()
+export function cachedChatImage(user: string, room: string, id: string) {
+  return images.get(JSON.stringify([user, room, id]))?.url
+}
 function trim() {
   let bytes = [...images.values()].reduce((sum, item) => sum + item.bytes, 0)
   for (const [key, entry] of images) {

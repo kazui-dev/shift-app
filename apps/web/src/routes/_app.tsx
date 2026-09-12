@@ -7,15 +7,22 @@ import { resolveAccountState } from "@/lib/account-state"
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
-    const { state, offline } = await resolveAccountState(context.queryClient)
+    const restoreReading =
+      (location.pathname === "/calendar" ||
+        location.pathname.startsWith("/chat")) &&
+      context.queryClient.getQueryData(["display-year"]) !== undefined
+    const { state, offline, checking } = await resolveAccountState(
+      context.queryClient,
+      restoreReading
+    )
     if (state.status !== "active") {
       throw redirect({ to: "/" })
     }
-    if (!offline) {
+    if (!offline && !checking) {
       void preparePushControl(state.member.studentId)
     }
     const dates = new URLSearchParams(location.searchStr).getAll("date")
-    if (!offline)
+    if (!offline && !checking)
       await prepareApp(
         context.queryClient,
         location.pathname,
@@ -23,7 +30,7 @@ export const Route = createFileRoute("/_app")({
         state.member.accessLevel === "system_admin",
         dates.length === 1 ? dates[0] : undefined
       )
-    return { state, offline }
+    return { state, offline, checking }
   },
   component: AuthenticatedLayout,
 })

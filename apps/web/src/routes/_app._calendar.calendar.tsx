@@ -1,8 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { CalendarScreen } from "@/components/calendar/calendar-screen"
 import { calendarDate } from "@/lib/calendar-view"
 
-export const Route = createFileRoute("/_app/calendar")({
+export const Route = createFileRoute("/_app/_calendar/calendar")({
   validateSearch: (
     search: Record<string, unknown>
   ): { date?: string | undefined } => ({
@@ -18,5 +17,5 @@ export const Route = createFileRoute("/_app/calendar")({
         replace: true,
       })
   },
-  component: CalendarScreen,
+  component: () => null,
 })

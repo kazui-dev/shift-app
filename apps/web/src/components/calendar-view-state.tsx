@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { moveMonth } from "@/lib/calendar-dates"
 import { resolveCalendarView, saveCalendarView } from "@/lib/calendar-view"
 import { CalendarViewStateContext } from "./calendar-view-context"
@@ -21,6 +21,9 @@ export function CalendarViewStateProvider({
   explicitDate: string | undefined
 }) {
   const navigate = useNavigate({ from: "/calendar" })
+  const active = useRouterState({
+    select: (state) => state.location.pathname === "/calendar",
+  })
   const [initial] = useState(() =>
     resolveCalendarView(storageKey, explicitDate)
   )
@@ -42,13 +45,14 @@ export function CalendarViewStateProvider({
       currentDate.current = next
       setDate(next)
       persist()
+      if (!active) return
       void navigate({
         search: (previous) => ({ ...previous, date: next }),
         replace: true,
         resetScroll: false,
       })
     },
-    [navigate, persist]
+    [active, navigate, persist]
   )
   // External links and browser history are applied before the next paint.
   useLayoutEffect(() => {

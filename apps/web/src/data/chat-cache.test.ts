@@ -1,7 +1,7 @@
 import { expect, it } from "vite-plus/test"
 import { QueryClient } from "@tanstack/react-query"
 import { messagesQuery } from "./chat"
-import { receiveMessage } from "./chat-cache"
+import { receiveMessage, removeRoom } from "./chat-cache"
 
 const message = (sequence: number) => ({
   sequence,
@@ -12,6 +12,30 @@ const message = (sequence: number) => ({
   content: "本文",
   attachments: [],
   createdAt: "2026-09-12T00:00:00Z",
+})
+
+it("removes deleted room history and image context without discarding other rooms", () => {
+  const client = new QueryClient()
+  client.setQueryData(["chat-rooms", 2026], {
+    rooms: [{ id: "deleted" }, { id: "kept" }],
+  })
+  client.setQueryData(["chat-messages", "deleted"], {
+    pages: [{ messages: [message(1)] }],
+  })
+  client.setQueryData(["chat-image-message", "deleted", 1], {
+    messages: [message(1)],
+  })
+  client.setQueryData(["chat-messages", "kept"], { pages: [] })
+  removeRoom(client, "deleted")
+  expect(client.getQueryData(["chat-rooms", 2026])).toEqual({
+    rooms: [{ id: "kept" }],
+  })
+  expect(client.getQueryData(["chat-messages", "deleted"])).toBeUndefined()
+  expect(
+    client.getQueryData(["chat-image-message", "deleted", 1])
+  ).toBeUndefined()
+  expect(client.getQueryData(["chat-messages", "kept"])).toEqual({ pages: [] })
+  client.clear()
 })
 it("merges delivery and websocket acknowledgements without duplicates or refetching a continuous history", () => {
   const client = new QueryClient()

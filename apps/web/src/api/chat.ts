@@ -80,6 +80,14 @@ export const leaveChatRoom = (id: string) =>
   apiVoid(`/api/me/chat-memberships/${encodeURIComponent(id)}`, {
     method: "DELETE",
   })
+export const deleteChatRoom = (id: string) =>
+  apiVoid(`/api/chat/rooms/${encodeURIComponent(id)}`, { method: "DELETE" })
+
+export const getChatMessageAt = (roomId: string, sequence: number) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?before=${sequence + 1}&limit=1`,
+    chatMessagesResponseSchema
+  )
 
 export const getChatRoom = (roomId: string) =>
   apiJson(

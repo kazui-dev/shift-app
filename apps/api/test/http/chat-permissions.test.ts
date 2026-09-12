@@ -289,7 +289,7 @@ it("treats the year room as editable grants, validates scopes, and preserves a m
     room: { name: "連絡", canManage: true, allowExit: true },
   })
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
-    409
+    204
   )
 })
 
@@ -316,6 +316,75 @@ it("allows explicit exit history but excludes exits from current recipients", as
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
     204
   )
+})
+
+it("allows the last manager to leave only when no other resolved readers remain", async () => {
+  const f = fixture()
+  const room = yearRoom(2026, admin)
+  room.allowExit = true
+  const id = f.create(room)
+  expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
+    409
+  )
+  f.as(member)
+  expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
+    204
+  )
+  f.as(other)
+  expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
+    204
+  )
+  f.as(admin)
+  expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
+    204
+  )
+  expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
+    room: { historical: true, canManage: false },
+  })
+})
+
+it("deletes a managed room, revokes all readers and queues message and image cleanup", async () => {
+  const f = fixture()
+  const id = f.create(yearRoom(2026, admin))
+  f.as(member)
+  expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(403)
+  f.as(admin)
+  expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(204)
+  expect(
+    f.db
+      .prepare("SELECT room_id FROM chat_room_deletions WHERE room_id=?")
+      .get(id)
+  ).toMatchObject({ room_id: id })
+  expect(
+    f.db
+      .prepare("SELECT room_id FROM chat_room_targets WHERE room_id=?")
+      .all(id)
+  ).toEqual([])
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  f.as(member)
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  expect(await (await f.request("/chat/rooms?year=2026")).json()).toMatchObject(
+    { rooms: [] }
+  )
+})
+
+it("rechecks management in the deletion transaction before queuing cleanup", async () => {
+  const f = fixture()
+  const id = f.create(yearRoom(2026, admin))
+  f.beforeBatch(() => {
+    f.db
+      .prepare("DELETE FROM chat_room_targets WHERE room_id=? AND can_manage=1")
+      .run(id)
+  })
+  expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(409)
+  expect(
+    f.db.prepare("SELECT id FROM chat_rooms WHERE id=?").get(id)
+  ).toMatchObject({ id })
+  expect(
+    f.db
+      .prepare("SELECT room_id FROM chat_room_deletions WHERE room_id=?")
+      .get(id)
+  ).toBeUndefined()
 })
 
 it("creates annual rooms in the server transaction and rejects duplicate years without creating another room", async () => {
