@@ -6,7 +6,7 @@ import {
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
-import { Input } from "@workspace/ui/components/input"
+import { ChatNameField } from "./name-field"
 import { toast } from "@workspace/ui/lib/toast"
 import { createChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
@@ -89,22 +89,7 @@ export function CreateChat({
       />
       <ResponsivePageBody>
         <fieldset disabled={create.isPending} className="min-w-0 space-y-5">
-          <div className="space-y-2.5">
-            <label
-              htmlFor="new-chat-name"
-              className="block text-sm font-medium"
-            >
-              チャット名
-            </label>
-            <Input
-              id="new-chat-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-              maxLength={120}
-              autoComplete="off"
-            />
-          </div>
+          <ChatNameField id="new-chat-name" value={name} onChange={setName} />
           <TargetPicker
             targets={candidates}
             selected={selected}
