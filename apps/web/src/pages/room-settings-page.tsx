@@ -94,11 +94,6 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
               ? "チャットから退出しますか"
               : "チャットを削除しますか"
           }
-          description={
-            action === "leave"
-              ? "退出するまでの履歴は引き続き確認できます。"
-              : "全員の一覧から消え、メッセージと画像も削除されます。この操作は取り消せません。"
-          }
           confirmLabel={action === "leave" ? "退出" : "削除"}
           onCancel={() => {
             if (!pending) setAction(undefined)

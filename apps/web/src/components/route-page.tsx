@@ -49,7 +49,6 @@ export function RoutePage({
       {confirming && (
         <ConfirmDialog
           title="変更を破棄しますか"
-          description="保存していない変更があります。"
           confirmLabel="破棄して移動"
           onCancel={() => blocker.reset()}
           onConfirm={() => setDiscard(true)}

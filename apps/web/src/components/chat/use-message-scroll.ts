@@ -4,7 +4,7 @@ import {
   type ScrollPosition,
   type ScrollStatus,
 } from "./message-scroll"
-import type { MessageRow } from "./message-list"
+import { unreadMessage, type MessageRow } from "./message-list"
 
 const positions = new Map<string, ScrollPosition>()
 
@@ -13,7 +13,8 @@ export function useMessageScroll(
   active: boolean,
   rows: MessageRow[],
   initialRead: number,
-  markRead: () => void
+  markRead: () => void,
+  loaded: boolean
 ) {
   const viewport = useRef<HTMLElement>(null)
   const content = useRef<HTMLDivElement>(null)
@@ -138,15 +139,15 @@ export function useMessageScroll(
   useLayoutEffect(() => {
     const list = viewport.current,
       scroll = controller.current
-    if (!active || !list || !scroll || !rows.length) return
+    if (!active || !list || !scroll || (!loaded && !rows.length)) return
     if (followNext.current) {
       scroll.follow()
       followNext.current = false
     }
-    const unread =
-      initialRead > 0
-        ? list.querySelector(`[data-sequence="${initialRead + 1}"]`)
-        : null
+    const firstUnread = unreadMessage(rows, initialRead)
+    const unread = firstUnread
+      ? list.querySelector(`[data-message-id="${CSS.escape(firstUnread.id)}"]`)
+      : null
     scroll.layout(
       unread
         ? list.scrollTop +
@@ -154,13 +155,19 @@ export function useMessageScroll(
             list.getBoundingClientRect().top
         : undefined
     )
-  }, [rows, active, initialRead])
+  }, [rows, active, initialRead, loaded])
 
   useEffect(() => {
     if (controller.current?.isAtBottom()) markRead()
   }, [markRead, status.atBottom])
 
   return {
+    arrived: (id: string) => controller.current?.arrived(id) ?? false,
+    target: (id: string) =>
+      controller.current?.target(
+        id,
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) ?? false,
     viewport,
     content,
     ...status,

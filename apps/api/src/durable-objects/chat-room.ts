@@ -138,13 +138,16 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     })
     if (!(deleting ? permission.delete : permission.edit))
       return { error: "forbidden" } as const
-    if (deleting && row.deleted) return { message: this.toMessage(row) }
+    if (deleting && row.deleted)
+      return { message: this.toMessage(row), changed: false }
     if (
       !deleting &&
       !input.content?.trim() &&
       !this.attachments.forMessage(row.id).length
     )
       return { error: "empty" } as const
+    if (!deleting && input.content === row.content)
+      return { message: this.toMessage(row), changed: false }
     if (deleting) await this.ctx.storage.setAlarm(Date.now() + 1000)
     this.ctx.storage.transactionSync(() => {
       if (deleting) {
@@ -163,7 +166,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     })
     const updated = this.findMessage(row.id)
     if (!updated) throw new Error("Message disappeared")
-    return { message: this.toMessage(updated) }
+    return { message: this.toMessage(updated), changed: true }
   }
 
   async reserveAttachment(roomId: string, memberId: string) {

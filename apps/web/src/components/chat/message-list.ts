@@ -15,11 +15,13 @@ export function messageRows(
 ): MessageRow[] {
   const ids = new Set(messages.map((message) => message.id))
   return [
-    ...messages.map((message) => ({
-      ...message,
-      files: [],
-      status: "sent" as const,
-    })),
+    ...messages
+      .filter((message) => !message.deleted)
+      .map((message) => ({
+        ...message,
+        files: [],
+        status: "sent" as const,
+      })),
     ...queue
       .filter((message) => !ids.has(message.id))
       .map((message) => ({
@@ -36,4 +38,12 @@ export function messageRows(
         status: message.status,
       })),
   ]
+}
+
+export function unreadMessage(rows: MessageRow[], lastRead: number) {
+  return lastRead > 0
+    ? rows.find(
+        (message) => message.sequence !== null && message.sequence > lastRead
+      )
+    : undefined
 }

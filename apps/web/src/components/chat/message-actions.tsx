@@ -12,7 +12,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import { messagePermissions } from "@workspace/shared/communications"
 import { deleteChatMessage, type ChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
-import { receiveMessage } from "@/data/chat-cache"
+import { receiveMessage, optimisticallyDeleteMessage } from "@/data/chat-cache"
 import { ConfirmDialog } from "../confirm-dialog"
 import type { MessageRow } from "./message-list"
 
@@ -95,7 +95,9 @@ export function MessageActions({
       if (
         event.pointerType === "mouse" ||
         !event.isPrimary ||
-        target?.closest("input,textarea,a,select,[role=toolbar]") ||
+        target?.closest(
+          "input,textarea,a,select,[role=toolbar],[data-message-reply]"
+        ) ||
         (button && !button.querySelector("img"))
       )
         return
@@ -161,6 +163,10 @@ export function MessageActions({
   async function remove() {
     if (pending) return
     setPending(true)
+    setRemoving(false)
+    setOpened(false)
+    await client.cancelQueries({ queryKey: ["chat-messages", room.id] })
+    const rollback = optimisticallyDeleteMessage(client, room.id, message.id)
     try {
       const { message: updated } = await deleteChatMessage(room.id, message.id)
       receiveMessage(client, room.id, updated)
@@ -168,9 +174,8 @@ export function MessageActions({
         client.invalidateQueries({ queryKey: ["chat-messages", room.id] }),
         client.invalidateQueries({ queryKey: ["chat-image-message", room.id] }),
       ])
-      setRemoving(false)
-      setOpened(false)
     } catch (error) {
+      rollback()
       toast.error(errorMessage(error))
     } finally {
       setPending(false)
@@ -315,7 +320,6 @@ export function MessageActions({
       {removing && (
         <ConfirmDialog
           title="メッセージを削除しますか"
-          description="本文と添付画像を削除します。この操作は取り消せません。"
           confirmLabel="削除"
           onCancel={() => {
             if (!pending) setRemoving(false)

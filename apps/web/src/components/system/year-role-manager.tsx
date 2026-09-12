@@ -280,7 +280,6 @@ function RoleEditor({
       {deleting && role && (
         <ConfirmDialog
           title="ロールを削除しますか"
-          description="メンバーとチャットへの権限が解除されます。このロールが最後の責任者となっているシフトは無効になります。"
           confirmLabel="削除"
           onCancel={() => setDeleting(false)}
           onConfirm={() => {

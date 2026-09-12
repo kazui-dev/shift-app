@@ -502,7 +502,6 @@ export function ShiftEditor({
       {deleting && (
         <ConfirmDialog
           title="シフトを削除しますか"
-          description="勤務時間・出勤・連絡・チャットも削除されます。この操作は元に戻せません。"
           confirmLabel="削除する"
           onCancel={() => setDeleting(false)}
           onConfirm={() => {
@@ -559,8 +558,7 @@ export function ShiftEditor({
       )}
       {warning && (
         <ConfirmDialog
-          title="希望時間外の勤務を含みます"
-          description="希望未提出または参加可能時間外のメンバーがいます。この内容で保存しますか。"
+          title="希望時間外の勤務を含めて保存しますか"
           confirmLabel="保存する"
           onCancel={() => setWarning(false)}
           onConfirm={() => {

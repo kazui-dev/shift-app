@@ -19,6 +19,7 @@ export class MessageScroll {
   private initialized = false
   private following = true
   private jumping = false
+  private targetId: string | null = null
   private anchor: Anchor | null = null
   private showLatest = false
   private surface: Surface
@@ -43,7 +44,10 @@ export class MessageScroll {
       this.anchor = this.saved?.anchor ?? null
       this.move(this.saved?.top ?? initialTop ?? view.extent(), false)
     }
-    if (this.following || this.jumping) {
+    if (this.targetId) {
+      const destination = this.targetTop(this.targetId)
+      if (destination !== null) this.move(destination, true)
+    } else if (this.following || this.jumping) {
       this.move(view.extent(), this.jumping)
     } else if (this.anchor) {
       const offset = view.locate(this.anchor.id)
@@ -56,13 +60,57 @@ export class MessageScroll {
 
   scroll() {
     const distance = this.distance()
+    if (this.targetId) {
+      const destination = this.targetTop(this.targetId)
+      if (
+        destination === null ||
+        Math.abs(destination - this.surface.top()) <= 1
+      )
+        this.targetId = null
+    }
     if (this.jumping && distance <= 1) this.jumping = false
-    if (!this.jumping && distance <= 1) this.following = true
+    if (!this.jumping && !this.targetId && distance <= 1) this.following = true
     this.remember()
     this.publish()
   }
 
+  private targetTop(id: string) {
+    const offset = this.surface.locate(id)
+    if (offset === null) return null
+    return Math.max(
+      0,
+      Math.min(
+        this.surface.top() + offset - this.surface.height() / 3,
+        this.surface.extent() - this.surface.height()
+      )
+    )
+  }
+
+  arrived(id: string) {
+    const destination = this.targetTop(id)
+    return (
+      destination !== null && Math.abs(destination - this.surface.top()) <= 1
+    )
+  }
+
+  target(id: string, smooth: boolean) {
+    const destination = this.targetTop(id)
+    if (destination === null) return false
+    this.read()
+    this.targetId = smooth ? id : null
+    const distance = this.surface.top() - destination
+    if (smooth && Math.abs(distance) > this.surface.height() * 2)
+      this.move(
+        destination + Math.sign(distance) * this.surface.height(),
+        false
+      )
+    this.move(destination, smooth)
+    this.scroll()
+    return true
+  }
+
   latest(smooth: boolean) {
+    this.targetId = null
     this.jumping = smooth
     this.following = !smooth
     this.move(this.surface.extent(), smooth)
@@ -70,13 +118,15 @@ export class MessageScroll {
   }
 
   interrupt() {
-    if (!this.jumping) return
+    if (!this.jumping && !this.targetId) return
     this.read()
   }
 
   read() {
-    if (this.jumping) this.surface.move(this.surface.top(), false)
+    if (this.jumping || this.targetId)
+      this.surface.move(this.surface.top(), false)
     this.jumping = false
+    this.targetId = null
     this.following = false
     this.remember()
     this.publish()
@@ -84,6 +134,7 @@ export class MessageScroll {
 
   // Called before publishing an outgoing row; layout settles it before paint.
   follow() {
+    this.targetId = null
     this.jumping = false
     this.following = true
   }
