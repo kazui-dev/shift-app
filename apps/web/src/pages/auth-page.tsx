@@ -46,6 +46,7 @@ function LoginView({ enabled }: { enabled: boolean }) {
   }, [])
 
   async function signIn() {
+    if (pending) return
     setPending(true)
     setError(null)
 
@@ -57,11 +58,11 @@ function LoginView({ enabled }: { enabled: boolean }) {
         errorCallbackURL: "/",
       })
       if (result.error) {
+        setPending(false)
         setError("ログインを開始できませんでした。")
       }
     } catch {
       setError("ログインを開始できませんでした。")
-    } finally {
       setPending(false)
     }
   }

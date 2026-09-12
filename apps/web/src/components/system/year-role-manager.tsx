@@ -263,7 +263,9 @@ function RoleEditor({
           ))}
         </fieldset>
         <div className="flex justify-between">
-          <Button disabled={pending}>保存</Button>
+          <Button type="submit" disabled={pending}>
+            保存
+          </Button>
           {role && (
             <Button
               type="button"
