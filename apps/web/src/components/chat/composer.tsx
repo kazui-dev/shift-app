@@ -37,7 +37,7 @@ export function ChatComposer({
   const [dragging, setDragging] = useState(false)
   const touch = useMediaQuery("(pointer: coarse)")
   const textClass =
-    "min-h-0 [field-sizing:fixed] touch-pan-y touch-pinch-zoom resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none focus-visible:ring-0 md:text-sm dark:bg-transparent"
+    "min-h-0 [field-sizing:fixed] touch-pan-y resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none focus-visible:ring-0 md:text-sm dark:bg-transparent"
   const finishPicking = useCallback(() => {
     setPickerOpen(false)
   }, [])
@@ -119,7 +119,7 @@ export function ChatComposer({
         <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-30%">
           <ul
             data-horizontal-scroll
-            className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
+            className="flex max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
             aria-label="添付する画像"
           >
             {draft.files.map((file) => (

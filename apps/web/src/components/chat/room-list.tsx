@@ -134,7 +134,7 @@ export function RoomList({
           </Button>
         )}
       </div>
-      <div className="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto px-1 pb-3">
+      <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto px-1 pb-3">
         {loading ? (
           <output className="block px-3 py-4 text-sm text-muted-foreground">
             読み込み中…

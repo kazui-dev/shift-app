@@ -74,7 +74,7 @@ export function ResponsivePageHeader({
 
 export function ResponsivePageBody({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:[scrollbar-width:none]">
+    <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:[scrollbar-width:none]">
       {children}
     </div>
   )
