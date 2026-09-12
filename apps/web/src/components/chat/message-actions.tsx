@@ -4,6 +4,7 @@ import { Button } from "@workspace/ui/components/button"
 import {
   Drawer,
   DrawerContent,
+  DrawerClose,
   DrawerTitle,
 } from "@workspace/ui/components/drawer"
 import { useMediaQuery } from "@/hooks/use-media-query"
@@ -198,43 +199,40 @@ export function MessageActions({
               <DrawerTitle className="sr-only">メッセージの操作</DrawerTitle>
               <div className="flex flex-col gap-1 p-3">
                 {permission.reply && (
-                  <Button
-                    variant="ghost"
-                    className="h-12 justify-start"
-                    onClick={() => {
-                      onReply()
-                      setOpened(false)
-                    }}
+                  <DrawerClose
+                    render={
+                      <Button variant="ghost" className="h-12 justify-start" />
+                    }
+                    onClosed={onReply}
                   >
                     <CornerUpLeft />
                     返信
-                  </Button>
+                  </DrawerClose>
                 )}
                 {permission.edit && (
-                  <Button
-                    variant="ghost"
-                    className="h-12 justify-start"
-                    onClick={() => {
-                      onEdit()
-                      setOpened(false)
-                    }}
+                  <DrawerClose
+                    render={
+                      <Button variant="ghost" className="h-12 justify-start" />
+                    }
+                    onClosed={onEdit}
                   >
                     <Pencil />
                     編集
-                  </Button>
+                  </DrawerClose>
                 )}
                 {permission.delete && (
-                  <Button
-                    variant="ghost"
-                    className="h-12 justify-start text-destructive"
-                    onClick={() => {
-                      onDelete()
-                      setOpened(false)
-                    }}
+                  <DrawerClose
+                    render={
+                      <Button
+                        variant="ghost"
+                        className="h-12 justify-start text-destructive"
+                      />
+                    }
+                    onClosed={onDelete}
                   >
                     <Trash2 />
                     削除
-                  </Button>
+                  </DrawerClose>
                 )}
               </div>
             </DrawerContent>

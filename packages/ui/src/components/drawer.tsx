@@ -4,6 +4,7 @@ import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
 import { cn } from "@workspace/ui/lib/utils"
 
 type DrawerContextProps = {
+  afterClose: React.RefObject<(() => void) | null>
   hasSnapPoints: boolean
   modal: DrawerPrimitive.Root.Props["modal"]
   showSwipeHandle: boolean
@@ -26,14 +27,23 @@ function Drawer({
   modal = true,
   showSwipeHandle = false,
   snapPoints,
+  onOpenChange,
+  onOpenChangeComplete,
   swipeDirection = "down",
   ...props
 }: DrawerPrimitive.Root.Props & {
   showSwipeHandle?: boolean
 }) {
+  const afterClose = React.useRef<(() => void) | null>(null)
   const hasSnapPoints = snapPoints != null && snapPoints.length > 0
   const contextValue = React.useMemo(
-    () => ({ hasSnapPoints, modal, showSwipeHandle, swipeDirection }),
+    () => ({
+      afterClose,
+      hasSnapPoints,
+      modal,
+      showSwipeHandle,
+      swipeDirection,
+    }),
     [hasSnapPoints, modal, showSwipeHandle, swipeDirection]
   )
 
@@ -45,6 +55,16 @@ function Drawer({
         snapPoints={snapPoints}
         swipeDirection={swipeDirection}
         {...props}
+        onOpenChange={(open, details) => {
+          onOpenChange?.(open, details)
+          if (open || details.isCanceled) afterClose.current = null
+        }}
+        onOpenChangeComplete={(open) => {
+          const action = afterClose.current
+          afterClose.current = null
+          if (!open) action?.()
+          onOpenChangeComplete?.(open)
+        }}
       />
     </DrawerContext.Provider>
   )
@@ -58,8 +78,22 @@ function DrawerPortal({ ...props }: DrawerPrimitive.Portal.Props) {
   return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />
 }
 
-function DrawerClose({ ...props }: DrawerPrimitive.Close.Props) {
-  return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
+function DrawerClose({
+  onClosed,
+  onClick,
+  ...props
+}: DrawerPrimitive.Close.Props & { onClosed?: () => void }) {
+  const { afterClose } = useDrawer()
+  return (
+    <DrawerPrimitive.Close
+      data-slot="drawer-close"
+      {...props}
+      onClick={(event) => {
+        onClick?.(event)
+        if (!event.defaultPrevented && onClosed) afterClose.current = onClosed
+      }}
+    />
+  )
 }
 
 function DrawerOverlay({
