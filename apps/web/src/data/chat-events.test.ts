@@ -1,0 +1,119 @@
+import { expect, it, vi } from "vite-plus/test"
+import { QueryClient } from "@tanstack/react-query"
+import { applyChatEvent } from "./chat-events"
+import { roomsQuery, messagesQuery } from "./chat"
+const room = (id: string, updatedAt: string) => ({
+  id,
+  year: 2026,
+  name: id,
+  createdBy: "me",
+  createdAt: updatedAt,
+  updatedAt,
+  allowExit: true,
+  activityId: null,
+  activityStartsAt: null,
+  activityEndsAt: null,
+  historical: false,
+  canPost: true,
+  canManage: true,
+  muted: false,
+  lastRead: 1,
+  lastSequence: 1,
+  unreadCount: 0,
+})
+const message = {
+  id: "message",
+  sequence: 2,
+  memberId: "me",
+  memberDisplayName: "自分",
+  memberImage: null,
+  content: "本文",
+  createdAt: "2026-09-13T02:00:00Z",
+  attachments: [],
+}
+it("updates order in unopened rooms and atomically keeps visible own posts read on the same event stream", () => {
+  const client = new QueryClient()
+  const key = roomsQuery(2026).queryKey
+  client.setQueryData(key, {
+    rooms: [
+      room("first", "2026-09-13T01:00:00Z"),
+      room("second", "2026-09-13T00:00:00Z"),
+    ],
+  })
+  applyChatEvent(
+    client,
+    {
+      type: "message",
+      roomId: "second",
+      message: { ...message, memberId: "other" },
+    },
+    "me",
+    "first"
+  )
+  expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
+    "second",
+    "first",
+  ])
+  expect(client.getQueryData(key)?.rooms[0]?.unreadCount).toBe(1)
+  applyChatEvent(
+    client,
+    { type: "message", roomId: "first", message },
+    "me",
+    "first"
+  )
+  expect(
+    client.getQueryData(key)?.rooms.find((item) => item.id === "first")
+      ?.unreadCount
+  ).toBe(0)
+  applyChatEvent(
+    client,
+    { type: "preferences_changed", roomId: "second", lastRead: 2, muted: true },
+    "me",
+    "first"
+  )
+  expect(
+    client.getQueryData(key)?.rooms.find((item) => item.id === "second")
+  ).toMatchObject({ lastRead: 2, unreadCount: 0, muted: true })
+  applyChatEvent(
+    client,
+    { type: "preferences_changed", roomId: "second", lastRead: 1, muted: true },
+    "me",
+    "first"
+  )
+  expect(
+    client.getQueryData(key)?.rooms.find((item) => item.id === "second")
+      ?.lastRead
+  ).toBe(2)
+  client.clear()
+})
+it("applies edited content immediately and refreshes room access and history on changes and reconnects", () => {
+  const client = new QueryClient()
+  const key = messagesQuery("room").queryKey
+  client.setQueryData(key, {
+    pages: [{ messages: [message], hasMore: false }],
+    pageParams: [null],
+  })
+  const invalidate = vi.spyOn(client, "invalidateQueries")
+  applyChatEvent(
+    client,
+    {
+      type: "message_changed",
+      roomId: "room",
+      message: { ...message, content: "編集" },
+    },
+    "me",
+    null
+  )
+  expect(client.getQueryData(key)?.pages[0]?.messages[0]?.content).toBe("編集")
+  expect(invalidate).toHaveBeenCalledWith({
+    queryKey: ["chat-image-message", "room"],
+  })
+  applyChatEvent(client, { type: "room_changed", roomId: "room" }, "me", null)
+  expect(invalidate).toHaveBeenCalledWith({
+    queryKey: ["chat-members", "room"],
+  })
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chat-room", "room"] })
+  applyChatEvent(client, null, "me", null)
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chat-messages"] })
+  client.clear()
+})

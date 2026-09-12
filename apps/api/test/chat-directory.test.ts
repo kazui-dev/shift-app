@@ -22,8 +22,15 @@ it("notifies every connected device of participants and no other member", () => 
     {},
   ])
   if (!(result instanceof ChatDirectory)) throw Error("Invalid directory")
-  result.publish(["participant"])
-  expect(one.send).toHaveBeenCalledWith('{"type":"rooms_changed"}')
-  expect(two.send).toHaveBeenCalledWith('{"type":"rooms_changed"}')
+  result.publish(["participant"], { type: "room_changed", roomId: "room" })
+  expect(one.send).toHaveBeenCalledWith(
+    '{"type":"room_changed","roomId":"room"}'
+  )
+  expect(two.send).toHaveBeenCalledWith(
+    '{"type":"room_changed","roomId":"room"}'
+  )
   expect(other.send).not.toHaveBeenCalled()
+  result.accessChanged()
+  expect(other.send).toHaveBeenCalledWith('{"type":"access_changed"}')
+  expect(one.send).toHaveBeenLastCalledWith('{"type":"access_changed"}')
 })

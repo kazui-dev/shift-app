@@ -58,7 +58,6 @@ export function ChatPage() {
   const year = (roomId ? room.data?.room.year : undefined) ?? display.year
   const rooms = useQuery({
     ...roomsQuery(year),
-    refetchInterval: offline ? false : 30_000,
     enabled: !offline,
   })
   const autoRoom =

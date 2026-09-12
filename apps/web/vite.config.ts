@@ -16,6 +16,10 @@ const plugins = lazyPlugins(() => {
     tailwindcss(),
     VitePWA({
       registerType: "prompt",
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
+      injectManifest: { injectionPoint: "self.precacheManifest" },
       manifest: {
         id: "/",
         name: "旭祭シフト",
@@ -47,11 +51,6 @@ const plugins = lazyPlugins(() => {
             purpose: "maskable",
           },
         ],
-      },
-      workbox: {
-        importScripts: ["/push-sw.js"],
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
       },
     }),
   ]

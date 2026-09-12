@@ -1,6 +1,5 @@
 import { messagePermissions } from "@workspace/shared/communications"
 import { findAccessibleRoom } from "../services/chat-access"
-import { roomRecipients } from "../services/chat-permissions"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { ChatAttachments } from "./chat-attachments"
 import { DurableObject } from "cloudflare:workers"
@@ -163,10 +162,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     })
     const updated = this.findMessage(row.id)
     if (!updated) throw new Error("Message disappeared")
-    await this.broadcast(
-      input.roomId,
-      JSON.stringify({ type: "message_changed" })
-    )
     return { message: this.toMessage(updated) }
   }
 
@@ -282,60 +277,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       this.attachments.claim(input.attachmentIds, input.memberId, input.id)
       return inserted
     })
-    const message = this.toMessage(row)
-    const payload = JSON.stringify({ type: "message", message })
-    await this.broadcast(input.roomId, payload)
-    return message
-  }
-
-  private async broadcast(roomId: string, payload: string) {
-    const allowed = await roomRecipients(this.env, roomId)
-    const recipients = new Set(allowed.map((item) => item.id))
-    for (const socket of this.ctx.getWebSockets()) {
-      const attachment: unknown = socket.deserializeAttachment()
-      if (
-        typeof attachment !== "object" ||
-        attachment === null ||
-        !("memberId" in attachment) ||
-        typeof attachment.memberId !== "string" ||
-        !recipients.has(attachment.memberId)
-      ) {
-        socket.close(1008, "Access ended")
-        continue
-      }
-      try {
-        socket.send(payload)
-      } catch {
-        socket.close(1011, "Message delivery failed")
-      }
-    }
-  }
-
-  override fetch(request: Request): Response {
-    if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
-      return new Response("Expected WebSocket", { status: 426 })
-    }
-    const pair = new WebSocketPair()
-    const [client, server] = Object.values(pair)
-    if (!client || !server) {
-      return new Response("Failed to create WebSocket pair", { status: 500 })
-    }
-    server.serializeAttachment({
-      memberId: request.headers.get("X-Chat-Member-Id"),
-      roomId: request.headers.get("X-Chat-Room-Id"),
-    })
-    this.ctx.acceptWebSocket(server)
-    return new Response(null, { status: 101, webSocket: client })
-  }
-
-  override webSocketMessage(socket: WebSocket, message: string | ArrayBuffer) {
-    if (message === "ping") {
-      socket.send("pong")
-    }
-  }
-
-  override webSocketError(socket: WebSocket) {
-    socket.close(1011, "WebSocket error")
+    return this.toMessage(row)
   }
 
   private toMessage(row: StoredMessage): ChatMessage {

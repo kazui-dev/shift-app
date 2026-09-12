@@ -23,7 +23,9 @@ it("refreshes when connected or notified and reconnects without surviving dispos
     dispose = subscribeChatEvents(changed)
   sockets[0]?.dispatchEvent(new Event("open"))
   sockets[0]?.dispatchEvent(
-    new MessageEvent("message", { data: '{"type":"rooms_changed"}' })
+    new MessageEvent("message", {
+      data: '{"type":"room_changed","roomId":"10000000-0000-4000-8000-000000000001"}',
+    })
   )
   sockets[0]?.dispatchEvent(new MessageEvent("message", { data: "invalid" }))
   expect(changed).toHaveBeenCalledTimes(2)
@@ -33,6 +35,10 @@ it("refreshes when connected or notified and reconnects without surviving dispos
   sockets[1]?.dispatchEvent(new Event("open"))
   expect(changed).toHaveBeenCalledTimes(3)
   dispose()
+  sockets[1]?.dispatchEvent(
+    new MessageEvent("message", { data: '{"type":"access_changed"}' })
+  )
+  expect(changed).toHaveBeenCalledTimes(3)
   vi.advanceTimersByTime(60000)
   expect(sockets).toHaveLength(2)
 })

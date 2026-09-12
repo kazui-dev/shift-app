@@ -1,4 +1,11 @@
-export function subscribeChatEvents(onChange: () => void) {
+import * as v from "valibot"
+import {
+  chatEventSchema,
+  type ChatEvent,
+} from "@workspace/shared/communications"
+export function subscribeChatEvents(
+  onChange: (event: ChatEvent | null) => void
+) {
   let socket: WebSocket | null = null,
     timer: ReturnType<typeof setTimeout> | undefined,
     disposed = false,
@@ -8,19 +15,18 @@ export function subscribeChatEvents(onChange: () => void) {
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
     socket = new WebSocket(url)
     socket.addEventListener("open", () => {
+      if (disposed) return
       attempts = 0
-      onChange()
+      onChange(null)
     })
     socket.addEventListener("message", (event) => {
+      if (disposed) return
       try {
-        const data: unknown = JSON.parse(String(event.data))
-        if (
-          typeof data === "object" &&
-          data !== null &&
-          "type" in data &&
-          data.type === "rooms_changed"
+        const parsed = v.safeParse(
+          chatEventSchema,
+          JSON.parse(String(event.data))
         )
-          onChange()
+        if (parsed.success) onChange(parsed.output)
       } catch {
         /* Ignore invalid events. */
       }

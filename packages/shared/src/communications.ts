@@ -155,12 +155,29 @@ export const chatMessageEnvelopeSchema = v.object({
 })
 
 export const chatEventSchema = v.variant("type", [
-  v.object({ type: v.literal("message_changed") }),
+  v.object({ type: v.literal("access_changed") }),
+  v.object({
+    type: v.literal("room_changed"),
+    roomId: v.pipe(v.string(), v.uuid()),
+  }),
+  v.object({
+    type: v.literal("preferences_changed"),
+    roomId: v.pipe(v.string(), v.uuid()),
+    lastRead: v.number(),
+    muted: v.boolean(),
+  }),
+  v.object({
+    type: v.literal("message_changed"),
+    roomId: v.pipe(v.string(), v.uuid()),
+    message: chatMessageResponseSchema,
+  }),
   v.object({
     type: v.literal("message"),
-    message: storedChatMessageSchema,
+    roomId: v.pipe(v.string(), v.uuid()),
+    message: chatMessageResponseSchema,
   }),
 ])
+export type ChatEvent = v.InferOutput<typeof chatEventSchema>
 
 export const pushSubscriptionInputSchema = v.object({
   endpoint: v.pipe(v.string(), v.url(), v.maxLength(4096)),

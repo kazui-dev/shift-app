@@ -2,10 +2,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { CornerUpLeft, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { Textarea } from "@workspace/ui/components/textarea"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { toast } from "@workspace/ui/lib/toast"
 import { messagePermissions } from "@workspace/shared/communications"
-import { editChatMessage, deleteChatMessage, type ChatRoom } from "@/api/chat"
+import { deleteChatMessage, type ChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
 import { receiveMessage } from "@/data/chat-cache"
 import { ConfirmDialog } from "../confirm-dialog"
@@ -17,16 +22,22 @@ export function MessageActions({
   memberId,
   offline,
   onReply,
+  onEdit,
+  editing,
   children,
 }: {
   message: MessageRow
   room: ChatRoom
   memberId: string
   offline: boolean
+  onEdit: () => void
+  editing: boolean
   onReply: () => void
   children: ReactNode
 }) {
   const client = useQueryClient()
+  const mobile = useMediaQuery("(max-width: 767px)")
+  const [pressed, setPressed] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const press = useRef<{
     x: number
@@ -35,10 +46,8 @@ export function MessageActions({
   } | null>(null)
   const consumed = useRef(false)
   const [opened, setOpened] = useState(false),
-    [editing, setEditing] = useState(false),
     [removing, setRemoving] = useState(false)
-  const [content, setContent] = useState(message.content),
-    [pending, setPending] = useState(false)
+  const [pending, setPending] = useState(false)
   const permission = messagePermissions({
     memberId,
     authorId: message.memberId,
@@ -54,20 +63,30 @@ export function MessageActions({
   function cancelPress() {
     if (press.current) clearTimeout(press.current.timer)
     press.current = null
+    setPressed(false)
   }
-  useEffect(() => () => cancelPress(), [])
   useEffect(() => {
-    if (!opened) return undefined
+    const reset = () => {
+      consumed.current = false
+    }
+    document.addEventListener("pointerdown", reset, true)
+    return () => {
+      cancelPress()
+      document.removeEventListener("pointerdown", reset, true)
+    }
+  }, [])
+  useEffect(() => {
+    if (!opened || mobile) return undefined
     const close = (event: PointerEvent) => {
       if (event.target instanceof Node && !root.current?.contains(event.target))
         setOpened(false)
     }
     document.addEventListener("pointerdown", close)
     return () => document.removeEventListener("pointerdown", close)
-  }, [opened])
+  }, [opened, mobile])
   useEffect(() => {
     const element = root.current
-    if (!element || !available || editing) return undefined
+    if (!element || editing) return undefined
     const down = (event: PointerEvent) => {
       consumed.current = false
       cancelPress()
@@ -80,6 +99,8 @@ export function MessageActions({
         (button && !button.querySelector("img"))
       )
         return
+      setPressed(true)
+      if (!available) return
       const { clientX: x, clientY: y } = event
       press.current = {
         x,
@@ -109,6 +130,7 @@ export function MessageActions({
       }
     }
     const context = (event: MouseEvent) => {
+      if (!available) return
       event.preventDefault()
       cancelPress()
       setOpened(true)
@@ -116,7 +138,6 @@ export function MessageActions({
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpened(false)
-        setEditing(false)
       }
     }
     element.addEventListener("pointerdown", down)
@@ -137,19 +158,16 @@ export function MessageActions({
       element.removeEventListener("keydown", key)
     }
   }, [available, editing])
-  async function save(deleting = false) {
+  async function remove() {
     if (pending) return
     setPending(true)
     try {
-      const { message: updated } = await (deleting
-        ? deleteChatMessage(room.id, message.id)
-        : editChatMessage(room.id, message.id, content))
+      const { message: updated } = await deleteChatMessage(room.id, message.id)
       receiveMessage(client, room.id, updated)
       await Promise.all([
         client.invalidateQueries({ queryKey: ["chat-messages", room.id] }),
         client.invalidateQueries({ queryKey: ["chat-image-message", room.id] }),
       ])
-      setEditing(false)
       setRemoving(false)
       setOpened(false)
     } catch (error) {
@@ -163,9 +181,9 @@ export function MessageActions({
       ref={root}
       aria-label={`${message.memberDisplayName}のメッセージ`}
       data-message-actions
-      data-active={opened || undefined}
+      data-active={opened || pressed || undefined}
       data-editing={editing || undefined}
-      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] focus-within:bg-muted/25 hover:bg-muted/25 data-editing:[&_[data-message-body]]:hidden [@media(pointer:coarse)]:select-none ${opened ? "bg-muted/25" : ""}`}
+      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:bg-muted/25 [@media(hover:hover)]:hover:bg-muted/25"} ${!editing && (opened || pressed) ? "bg-muted/25" : ""}`}
     >
       {available && (
         <button
@@ -177,101 +195,123 @@ export function MessageActions({
         </button>
       )}
       {children}
-      {available && !editing && (
-        <div
-          role="toolbar"
-          aria-label="メッセージの操作"
-          className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
-        >
-          {permission.reply && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="返信"
-              title="返信"
-              onClick={() => {
-                onReply()
-                setOpened(false)
-              }}
-            >
-              <CornerUpLeft />
-            </Button>
-          )}
-          {permission.edit && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="編集"
-              title="編集"
-              onClick={() => {
-                setContent(message.content)
-                setEditing(true)
-                setOpened(false)
-              }}
-            >
-              <Pencil />
-            </Button>
-          )}
-          {permission.delete && (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="削除"
-              title="削除"
-              onClick={() => {
-                setRemoving(true)
-                setOpened(false)
-              }}
-            >
-              <Trash2 />
-            </Button>
-          )}
-        </div>
-      )}
-      {editing && (
-        <form
-          className="ml-11 space-y-2 pb-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void save()
-          }}
-        >
-          <Textarea
-            ref={(element) => element?.focus()}
-            aria-label="メッセージを編集"
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && !pending) {
-                event.preventDefault()
-                setEditing(false)
+      {available &&
+        !editing &&
+        (mobile ? (
+          <Drawer
+            open={opened}
+            onOpenChange={(next, details) => {
+              // The release that completed a long press belongs to the message,
+              // not to the drawer backdrop that just appeared under the finger.
+              if (
+                !next &&
+                consumed.current &&
+                details.reason === "outside-press"
+              ) {
+                details.cancel()
+                return
               }
+              setOpened(next)
             }}
-            maxLength={2000}
-            value={content}
-            disabled={pending}
-            onChange={(event) => setContent(event.target.value)}
-          />
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={pending}
-              onClick={() => setEditing(false)}
+          >
+            <DrawerContent
+              finalFocus={false}
+              className="pb-[env(safe-area-inset-bottom)]"
             >
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={
-                pending || (!content.trim() && !message.attachments.length)
-              }
-            >
-              保存
-            </Button>
+              <DrawerTitle className="sr-only">メッセージの操作</DrawerTitle>
+              <div className="flex flex-col gap-1 p-3">
+                {permission.reply && (
+                  <Button
+                    variant="ghost"
+                    className="h-12 justify-start"
+                    onClick={() => {
+                      onReply()
+                      setOpened(false)
+                    }}
+                  >
+                    <CornerUpLeft />
+                    返信
+                  </Button>
+                )}
+                {permission.edit && (
+                  <Button
+                    variant="ghost"
+                    className="h-12 justify-start"
+                    onClick={() => {
+                      onEdit()
+                      setOpened(false)
+                    }}
+                  >
+                    <Pencil />
+                    編集
+                  </Button>
+                )}
+                {permission.delete && (
+                  <Button
+                    variant="ghost"
+                    className="h-12 justify-start text-destructive"
+                    onClick={() => {
+                      setRemoving(true)
+                      setOpened(false)
+                    }}
+                  >
+                    <Trash2 />
+                    削除
+                  </Button>
+                )}
+              </div>
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <div
+            role="toolbar"
+            aria-label="メッセージの操作"
+            className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
+          >
+            {permission.reply && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="返信"
+                title="返信"
+                onClick={() => {
+                  onReply()
+                  setOpened(false)
+                }}
+              >
+                <CornerUpLeft />
+              </Button>
+            )}
+            {permission.edit && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="編集"
+                title="編集"
+                onClick={() => {
+                  onEdit()
+                  setOpened(false)
+                }}
+              >
+                <Pencil />
+              </Button>
+            )}
+            {permission.delete && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="削除"
+                title="削除"
+                onClick={() => {
+                  setRemoving(true)
+                  setOpened(false)
+                }}
+              >
+                <Trash2 />
+              </Button>
+            )}
           </div>
-        </form>
-      )}
+        ))}
       {removing && (
         <ConfirmDialog
           title="メッセージを削除しますか"
@@ -280,7 +320,7 @@ export function MessageActions({
           onCancel={() => {
             if (!pending) setRemoving(false)
           }}
-          onConfirm={() => void save(true)}
+          onConfirm={() => void remove()}
         />
       )}
     </div>

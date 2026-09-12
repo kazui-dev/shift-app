@@ -1,16 +1,12 @@
-import { useChatStore } from "./use-chat-store"
-import { receiveMessage, updateRoom } from "@/data/chat-cache"
-import { messagesQuery, membersQuery } from "@/data/chat"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { updateRoom } from "@/data/chat-cache"
+import { messagesQuery } from "@/data/chat"
+import { useCallback, useMemo, useRef } from "react"
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
-import * as v from "valibot"
-import { chatEventSchema } from "@workspace/shared/communications"
 import { updateChatPreferences, type getChatRoom } from "@/api/chat"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 export function useMessages(room: Room, offline: boolean, active: boolean) {
   const client = useQueryClient()
-  const { member } = useChatStore()
   const initialRead = useRef(room.lastRead),
     readSequence = useRef(room.lastRead)
   const query = useInfiniteQuery({
@@ -56,82 +52,5 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
     room.lastRead,
     client,
   ])
-  useEffect(() => {
-    if (!active || offline || room.historical) return undefined
-    let socket: WebSocket | null = null,
-      timer: number | null = null,
-      disposed = false,
-      attempts = 0
-    const connect = () => {
-      const url = new URL(
-        `/api/chat/rooms/${encodeURIComponent(room.id)}/ws`,
-        window.location.href
-      )
-      url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
-      socket = new WebSocket(url)
-      socket.addEventListener("open", () => {
-        attempts = 0
-        void client.invalidateQueries({ queryKey: ["chat-messages", room.id] })
-      })
-      socket.addEventListener("message", (event) => {
-        try {
-          const parsed = v.safeParse(
-            chatEventSchema,
-            JSON.parse(String(event.data))
-          )
-          if (parsed.success) {
-            if (parsed.output.type === "message_changed") {
-              void client.invalidateQueries({
-                queryKey: ["chat-messages", room.id],
-              })
-              void client.invalidateQueries({
-                queryKey: ["chat-image-message", room.id],
-              })
-              return
-            }
-            const message = parsed.output.message
-            const known = client
-              .getQueryData(messagesQuery(room.id).queryKey)
-              ?.pages.flatMap((page) => page.messages)
-              .find((item) => item.memberId === message.memberId)
-            const profile = client
-              .getQueryData(membersQuery(room.id).queryKey)
-              ?.members.find((item) => item.id === message.memberId)
-            const continuous = receiveMessage(
-              client,
-              room.id,
-              {
-                ...message,
-                memberImage: known?.memberImage ?? profile?.image ?? null,
-              },
-              message.memberId === member.id &&
-                document.visibilityState === "visible"
-            )
-            if ((!known && !profile) || !continuous)
-              void client.invalidateQueries({
-                queryKey: ["chat-messages", room.id],
-              })
-          }
-        } catch {
-          /* Ignore invalid events. */
-        }
-      })
-      socket.addEventListener("close", () => {
-        if (!disposed) {
-          void client.invalidateQueries({ queryKey: ["chat-room", room.id] })
-          timer = window.setTimeout(
-            connect,
-            Math.min(30_000, 2000 * 2 ** attempts++)
-          )
-        }
-      })
-    }
-    connect()
-    return () => {
-      disposed = true
-      if (timer !== null) window.clearTimeout(timer)
-      socket?.close(1000, "Room changed")
-    }
-  }, [client, offline, active, room.id, room.historical, member.id])
   return { messages, initialRead: initialRead.current, query, markRead }
 }

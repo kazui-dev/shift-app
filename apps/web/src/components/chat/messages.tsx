@@ -1,3 +1,6 @@
+import { useMessageEdit } from "./use-message-edit"
+import { MessageEditor } from "./message-editor"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { MessageActions } from "./message-actions"
 import { useLayoutEffect, useMemo, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
@@ -40,6 +43,9 @@ export function ChatMessages({
   active: boolean
 }) {
   const navigate = useNavigate()
+  const edit = useMessageEdit(room.id)
+  const mobile = useMediaQuery("(max-width: 767px)")
+  const composerEdit = mobile ? edit.editing : null
   const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
@@ -154,7 +160,10 @@ export function ChatMessages({
                       room={room}
                       memberId={member.id}
                       offline={offline}
+                      editing={edit.editing?.id === message.id}
+                      onEdit={() => edit.start(message)}
                       onReply={() => {
+                        edit.cancel()
                         if (message.sequence !== null)
                           store.edit(room.id, {
                             ...store.draft(room.id),
@@ -213,18 +222,30 @@ export function ChatMessages({
                               削除されたメッセージ
                             </p>
                           )}
-                          {message.content && (
-                            <p
-                              data-message-body
-                              className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
-                            >
-                              {message.content}
-                              {message.editedAt && (
-                                <span className="ml-2 text-[10px] text-muted-foreground">
-                                  （編集済み）
-                                </span>
-                              )}
-                            </p>
+                          {edit.editing?.id === message.id && !mobile ? (
+                            <MessageEditor
+                              content={edit.editing.content}
+                              hasImages={edit.editing.hasImages}
+                              pending={edit.pending}
+                              onChange={edit.change}
+                              onSave={(value) => void edit.save(value)}
+                              onCancel={edit.cancel}
+                            />
+                          ) : (
+                            !message.deleted &&
+                            (message.content || message.editedAt) && (
+                              <p
+                                data-message-body
+                                className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
+                              >
+                                {message.content}
+                                {message.editedAt && (
+                                  <span className="ml-2 text-[10px] text-muted-foreground">
+                                    (編集済)
+                                  </span>
+                                )}
+                              </p>
+                            )
                           )}
                           <MessageImages
                             roomId={room.id}
@@ -318,9 +339,26 @@ export function ChatMessages({
           >
             <ChatComposer
               roomName={room.name}
-              draft={draft}
-              disabled={!ready}
-              onChange={(value) => store.edit(room.id, value)}
+              draft={
+                composerEdit
+                  ? { content: composerEdit.content, files: [] }
+                  : draft
+              }
+              editing={
+                composerEdit
+                  ? {
+                      id: composerEdit.id,
+                      hasImages: composerEdit.hasImages,
+                      onCancel: edit.cancel,
+                    }
+                  : undefined
+              }
+              disabled={!ready || (composerEdit !== null && edit.pending)}
+              onChange={(value) =>
+                composerEdit
+                  ? edit.change(value.content)
+                  : store.edit(room.id, value)
+              }
               onAddFiles={(files) => {
                 const current = store.draft(room.id)
                 if (
@@ -336,6 +374,10 @@ export function ChatMessages({
                 })
               }}
               onSend={() => {
+                if (composerEdit) {
+                  void edit.save(composerEdit.content)
+                  return
+                }
                 scroll.follow()
                 void store.enqueue(room.id)
               }}

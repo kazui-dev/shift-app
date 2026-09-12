@@ -1,10 +1,21 @@
+import type { ChatEvent } from "@workspace/shared/communications"
 import { roomRecipients } from "./chat-permissions"
-export async function publishRoomChange(
+
+export async function publishChatEvent(
   env: CloudflareBindings,
-  roomId: string
+  event: Exclude<ChatEvent, { type: "access_changed" }>,
+  previous: string[] = []
 ) {
-  const members = await roomRecipients(env, roomId)
+  const members = await roomRecipients(env, event.roomId)
   await env.CHAT_DIRECTORY.getByName("rooms").publish(
-    members.map((member) => member.id)
+    [...new Set([...previous, ...members.map((member) => member.id)])],
+    event
   )
+}
+export function publishRoomChange(
+  env: CloudflareBindings,
+  roomId: string,
+  previous: string[] = []
+) {
+  return publishChatEvent(env, { type: "room_changed", roomId }, previous)
 }
