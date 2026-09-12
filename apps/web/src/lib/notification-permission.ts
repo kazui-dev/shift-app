@@ -1,6 +1,3 @@
-export function readNotificationPermission(): NotificationPermission {
-  return Notification.permission
-}
 export function watchNotificationPermission(
   changed: (permission: NotificationPermission) => void
 ): () => void {
@@ -20,8 +17,7 @@ export function watchNotificationPermission(
       status.addEventListener("change", report)
       report()
     } catch {
-      if (!disposed && current === revision)
-        changed(readNotificationPermission())
+      if (!disposed && current === revision) changed(Notification.permission)
     }
   }
   const resume = () => {

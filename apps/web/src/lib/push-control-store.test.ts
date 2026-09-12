@@ -5,10 +5,7 @@ import {
   saveDeviceSubscription,
 } from "@/api/push"
 import { readPushSubscription, subscribePush } from "./push-browser"
-import {
-  readNotificationPermission,
-  watchNotificationPermission,
-} from "./notification-permission"
+import { watchNotificationPermission } from "./notification-permission"
 import {
   getPushControlState,
   preparePushControl,
@@ -26,7 +23,6 @@ vi.mock("./push-browser", () => ({
   subscribePush: vi.fn<typeof subscribePush>(),
 }))
 vi.mock("./notification-permission", () => ({
-  readNotificationPermission: vi.fn<typeof readNotificationPermission>(),
   watchNotificationPermission: vi.fn<typeof watchNotificationPermission>(),
 }))
 const sub = {
@@ -38,9 +34,11 @@ const request = vi.fn<typeof Notification.requestPermission>()
 beforeEach(() => {
   resetPushControl()
   vi.resetAllMocks()
-  vi.stubGlobal("Notification", { requestPermission: request })
+  vi.stubGlobal("Notification", {
+    permission: "default",
+    requestPermission: request,
+  })
   vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => {} })
-  vi.mocked(readNotificationPermission).mockReturnValue("default")
   vi.mocked(getNotificationDevices).mockResolvedValue([])
   vi.mocked(readPushSubscription).mockResolvedValue(null)
   vi.mocked(subscribePush).mockResolvedValue(sub)
@@ -145,9 +143,15 @@ it("rolls back only a failed preference save, not a rejected permission", async 
     enabled: false,
     error: "通知設定を保存できませんでした",
   })
+  await setPushEnabled(true)
+  expect(getPushControlState()).toMatchObject({ enabled: true, error: null })
+  expect(saveNotificationPreference).toHaveBeenCalledTimes(2)
 })
 it("retains existing ON settings when the browser permission is denied", async () => {
-  vi.mocked(readNotificationPermission).mockReturnValue("denied")
+  vi.stubGlobal("Notification", {
+    permission: "denied",
+    requestPermission: request,
+  })
   vi.mocked(readPushSubscription).mockResolvedValue({
     ...sub,
     options: { userVisibleOnly: true, applicationServerKey: null },
