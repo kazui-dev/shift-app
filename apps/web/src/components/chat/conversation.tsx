@@ -14,6 +14,7 @@ import {
   MoreHorizontal,
   Settings,
   Users,
+  Trash2,
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
@@ -24,8 +25,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@workspace/ui/components/dropdown-menu"
-import { getChatRoom, leaveChatRoom } from "@/api/chat"
-import { errorMessage } from "@/api/client"
+import { getChatRoom, leaveChatRoom, deleteChatRoom } from "@/api/chat"
+import { ApiError, errorMessage } from "@/api/client"
+import { removeRoom } from "@/data/chat-cache"
 import { useOfflineMode } from "../offline-mode-context"
 import { ChatSettings } from "../chat-settings"
 import { ShiftAttendance } from "../shifts/shift-attendance"
@@ -40,6 +42,7 @@ import { messageRows } from "./message-list"
 import { roomSchedule } from "./room-schedule"
 import { chatImageLimits } from "@workspace/shared/communications"
 import { imageSize } from "./image-size"
+import { RoutedImage } from "./routed-image"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 function date(value: string) {
@@ -70,12 +73,19 @@ export function ChatConversation({
   name?: string | undefined
   report?: string | undefined
 }) {
+  const client = useQueryClient()
   const offline = useOfflineMode(),
     query = useQuery({
       ...roomQuery(roomId),
       enabled: !offline && active,
     })
-  if (!query.data)
+  const missing = query.error instanceof ApiError && query.error.status === 404
+  useEffect(() => {
+    if (!missing || offline) return
+    removeRoom(client, roomId)
+    if (active) onBack()
+  }, [client, missing, offline, roomId, active, onBack])
+  if (!query.data || missing)
     return (
       <div className="flex flex-1 flex-col">
         <div className="flex h-14 shrink-0 items-center gap-2 border-b px-3 pb-2 md:px-4">
@@ -134,7 +144,8 @@ function Conversation({
     [settings, setSettings] = useState(false),
     [info, setInfo] = useState(false),
     [attendance, setAttendance] = useState(false),
-    [leaving, setLeaving] = useState(false)
+    [leaving, setLeaving] = useState(false),
+    [deleting, setDeleting] = useState(false)
   const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
@@ -294,6 +305,16 @@ function Conversation({
                 </DropdownMenuItem>
               </>
             )}
+            {room.canManage && (
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={offline}
+                onClick={() => setDeleting(true)}
+              >
+                <Trash2 />
+                チャットを削除
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
@@ -396,10 +417,15 @@ function Conversation({
                         <MessageImages
                           roomId={room.id}
                           images={message.attachments}
-                          caption={{
-                            author: message.memberDisplayName,
-                            content: message.content,
-                            createdAt: message.createdAt,
+                          onOpen={(image) => {
+                            if (message.sequence !== null)
+                              void navigate({
+                                to: "/chat/$roomId",
+                                params: { roomId: room.id },
+                                search: { image, message: message.sequence },
+                                state: { chatImage: true },
+                                resetScroll: false,
+                              })
                           }}
                         />
                         {message.files.length > 0 && (
@@ -504,6 +530,7 @@ function Conversation({
           </div>
         )}
       </div>
+      {active && <RoutedImage roomId={room.id} messages={history.messages} />}
       {active && info && (
         <RoomInfo room={room} onClose={() => setInfo(false)} />
       )}
@@ -545,6 +572,28 @@ function Conversation({
                   }),
                 ])
               )
+              .catch((error) => toast.error(errorMessage(error)))
+          }}
+        />
+      )}
+      {active && deleting && (
+        <ConfirmDialog
+          title="チャットを削除しますか"
+          description="全員の一覧から消え、メッセージと画像も削除されます。この操作は取り消せません。"
+          confirmLabel="削除"
+          onCancel={() => setDeleting(false)}
+          onConfirm={() => {
+            setDeleting(false)
+            void deleteChatRoom(room.id)
+              .then(async () => {
+                for (const queued of queue.filter(
+                  (item) => item.roomId === room.id
+                ))
+                  store.cancel(queued.id)
+                store.edit(room.id, { content: "", files: [] })
+                removeRoom(client, room.id)
+                await navigate({ to: "/chat", replace: true })
+              })
               .catch((error) => toast.error(errorMessage(error)))
           }}
         />

@@ -5,6 +5,24 @@ import { messagesQuery } from "./chat"
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 type Message = Awaited<ReturnType<typeof getChatMessages>>["messages"][number]
 
+export function removeRoom(client: QueryClient, id: string) {
+  client.setQueriesData<Awaited<ReturnType<typeof getChatRooms>>>(
+    { queryKey: ["chat-rooms"] },
+    (current) =>
+      current
+        ? { rooms: current.rooms.filter((room) => room.id !== id) }
+        : undefined
+  )
+  for (const root of [
+    "chat-room",
+    "chat-messages",
+    "chat-members",
+    "chat-settings",
+    "chat-image-message",
+  ])
+    client.removeQueries({ queryKey: [root, id] })
+}
+
 export function updateRoom(
   client: QueryClient,
   id: string,

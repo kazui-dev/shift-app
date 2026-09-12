@@ -23,6 +23,7 @@ export const accountStateQueryOptions = queryOptions({
 export type ResolvedAccountState = {
   state: AuthState
   offline: boolean
+  checking?: boolean
 }
 
 export class OfflineAccountUnavailableError extends Error {
@@ -82,9 +83,19 @@ export async function resolveAccountStateWith({
   return { state, offline: false }
 }
 
-export function resolveAccountState(
-  queryClient: QueryClient
+const bootedClients = new WeakSet<QueryClient>()
+
+export async function resolveAccountState(
+  queryClient: QueryClient,
+  restoreReading = false
 ): Promise<ResolvedAccountState> {
+  const first = !bootedClients.has(queryClient)
+  bootedClients.add(queryClient)
+  if (restoreReading && first) {
+    const cached = await loadOfflineAccount()
+    if (cached && navigator.onLine)
+      return { state: cached, offline: false, checking: true }
+  }
   return resolveAccountStateWith({
     isOnline: () => navigator.onLine,
     loadCached: loadOfflineAccount,

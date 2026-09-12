@@ -16,11 +16,14 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
     INSERT OR IGNORE INTO chat_room_exits(room_id,member_id,created_at)
     SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM chat_rooms r JOIN chat_permissions p ON p.room_id=r.id WHERE r.id=? AND r.allow_exit=1 AND p.member_id=?)
     AND (NOT EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id=? AND can_manage=1)
-    OR EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id<>? AND can_manage=1)) RETURNING room_id`)
+    OR EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id<>? AND can_manage=1)
+    OR NOT EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id<>?)) RETURNING room_id`)
     .bind(
       room.id,
       member.id,
       Date.now(),
+      room.id,
+      member.id,
       room.id,
       member.id,
       room.id,

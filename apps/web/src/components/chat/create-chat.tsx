@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { getRouteApi } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -23,13 +24,17 @@ export function CreateChat({
   onCreated: (id: string) => void
 }) {
   const client = useQueryClient()
+  const { state } = getRouteApi("/_app").useRouteContext()
   const [name, setName] = useState("")
   const [selected, setSelected] = useState<string[]>([])
   const targets = useQuery({ ...targetsQuery(year), refetchOnMount: "always" })
-  const chosen =
-    targets.data?.targets.filter((target) =>
-      selected.includes(targetKey(target))
+  const candidates =
+    targets.data?.targets.filter(
+      (target) =>
+        target.targetType !== "member" || target.targetId !== state.member.id
     ) ?? []
+  const chosen =
+    candidates.filter((target) => selected.includes(targetKey(target))) ?? []
   const create = useMutation({
     mutationFn: () =>
       createChatRoom({
@@ -101,7 +106,7 @@ export function CreateChat({
             />
           </div>
           <TargetPicker
-            targets={targets.data?.targets ?? []}
+            targets={candidates}
             selected={selected}
             onChange={setSelected}
           />

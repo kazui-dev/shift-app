@@ -7,10 +7,12 @@ import { Button } from "@workspace/ui/components/button"
 export function ResponsivePage({
   open,
   onClose,
+  onClosed,
   children,
 }: {
   open: boolean
   onClose: () => void
+  onClosed?: () => void
   children: ReactNode
 }) {
   const container = useRef<HTMLDivElement>(null)
@@ -22,6 +24,9 @@ export function ResponsivePage({
     >
       <Dialog.Root
         open={open}
+        onOpenChangeComplete={(value) => {
+          if (!value) onClosed?.()
+        }}
         onOpenChange={(value) => {
           if (!value) onClose()
         }}

@@ -1,4 +1,5 @@
 import { saveRoomSettings } from "../services/chat-settings"
+import { deleteRoom } from "../services/chat-deletion"
 import { targetExists } from "../services/chat-targets"
 import { roomRecipients, chatPermissions } from "../services/chat-permissions"
 import { withMemberImages } from "../services/chat-profiles"
@@ -69,6 +70,19 @@ chatApp.get("/rooms/:roomId", async (c) => {
   return room
     ? c.json({ room: roomJson(room) })
     : apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
+})
+
+chatApp.delete("/rooms/:roomId", async (c) => {
+  const actor = c.get("member")
+  const room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
+  if (!room)
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
+  if (!room.canManage)
+    return apiError(c, 403, "FORBIDDEN", "ルームの管理権限が必要です。")
+  const deleted = await deleteRoom(c.env.shift_app, room.id, actor.id)
+  if (!deleted)
+    return apiError(c, 409, "CHAT_SETTINGS_CHANGED", "権限が変更されました。")
+  return c.body(null, 204)
 })
 
 chatApp.get("/rooms/:roomId/members", async (c) => {

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { RemoteImage } from "./remote-image"
-import { ImageViewer } from "./image-viewer"
 import { imageSize } from "./image-size"
 
 export function LocalImage({
@@ -53,15 +52,12 @@ export function LocalImage({
 export function MessageImages({
   roomId,
   images,
-  caption,
+  onOpen,
 }: {
   roomId: string
   images: ChatAttachment[]
-  caption: { author: string; content: string; createdAt: string }
+  onOpen: (id: string) => void
 }) {
-  const [opened, setOpened] = useState<
-    (ChatAttachment & { src: string }) | null
-  >(null)
   if (!images.length) return null
   return (
     <>
@@ -80,20 +76,11 @@ export function MessageImages({
               width={image.width}
               height={image.height}
               alt={`画像${index + 1}を拡大`}
-              onOpen={(src) => setOpened({ ...image, src })}
+              onOpen={() => onOpen(image.id)}
             />
           </div>
         ))}
       </div>
-      {opened && (
-        <ImageViewer
-          src={opened.src}
-          caption={caption}
-          width={opened.width}
-          height={opened.height}
-          onClose={() => setOpened(null)}
-        />
-      )}
     </>
   )
 }

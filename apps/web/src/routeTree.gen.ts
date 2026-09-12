@@ -11,12 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as AppAvailabilityRouteImport } from './routes/_app.availability'
-import { Route as AppCalendarRouteImport } from './routes/_app.calendar'
+import { Route as AppCalendarRouteImport } from './routes/_app._calendar'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppManageRouteImport } from './routes/_app.manage'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppSystemRouteImport } from './routes/_app.system'
+import { Route as AppCalendarAvailabilityRouteImport } from './routes/_app._calendar.availability'
+import { Route as AppCalendarCalendarRouteImport } from './routes/_app._calendar.calendar'
 import { Route as AppChatIndexRouteImport } from './routes/_app.chat.index'
 import { Route as AppChatRoomIdRouteImport } from './routes/_app.chat.$roomId'
 import { Route as AppChatNewRouteImport } from './routes/_app.chat.new'
@@ -40,14 +41,8 @@ const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppAvailabilityRoute = AppAvailabilityRouteImport.update({
-  id: '/availability',
-  path: '/availability',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
+  id: '/_calendar',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChatRoute = AppChatRouteImport.update({
@@ -69,6 +64,16 @@ const AppSystemRoute = AppSystemRouteImport.update({
   id: '/system',
   path: '/system',
   getParentRoute: () => AppRoute,
+} as any)
+const AppCalendarAvailabilityRoute = AppCalendarAvailabilityRouteImport.update({
+  id: '/availability',
+  path: '/availability',
+  getParentRoute: () => AppCalendarRoute,
+} as any)
+const AppCalendarCalendarRoute = AppCalendarCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AppCalendarRoute,
 } as any)
 const AppChatIndexRoute = AppChatIndexRouteImport.update({
   id: '/',
@@ -139,12 +144,12 @@ const AppManageShiftsShiftIdRoute = AppManageShiftsShiftIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/availability': typeof AppAvailabilityRoute
-  '/calendar': typeof AppCalendarRoute
   '/chat': typeof AppChatRouteWithChildren
   '/manage': typeof AppManageRouteWithChildren
   '/settings': typeof AppSettingsRoute
   '/system': typeof AppSystemRoute
+  '/availability': typeof AppCalendarAvailabilityRoute
+  '/calendar': typeof AppCalendarCalendarRoute
   '/chat/$roomId': typeof AppChatRoomIdRoute
   '/chat/new': typeof AppChatNewRoute
   '/manage/audit': typeof AppManageAuditRoute
@@ -161,10 +166,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/availability': typeof AppAvailabilityRoute
-  '/calendar': typeof AppCalendarRoute
   '/settings': typeof AppSettingsRoute
   '/system': typeof AppSystemRoute
+  '/availability': typeof AppCalendarAvailabilityRoute
+  '/calendar': typeof AppCalendarCalendarRoute
   '/chat/$roomId': typeof AppChatRoomIdRoute
   '/chat/new': typeof AppChatNewRoute
   '/manage/audit': typeof AppManageAuditRoute
@@ -183,12 +188,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
-  '/_app/availability': typeof AppAvailabilityRoute
-  '/_app/calendar': typeof AppCalendarRoute
+  '/_app/_calendar': typeof AppCalendarRouteWithChildren
   '/_app/chat': typeof AppChatRouteWithChildren
   '/_app/manage': typeof AppManageRouteWithChildren
   '/_app/settings': typeof AppSettingsRoute
   '/_app/system': typeof AppSystemRoute
+  '/_app/_calendar/availability': typeof AppCalendarAvailabilityRoute
+  '/_app/_calendar/calendar': typeof AppCalendarCalendarRoute
   '/_app/chat/$roomId': typeof AppChatRoomIdRoute
   '/_app/chat/new': typeof AppChatNewRoute
   '/_app/manage/audit': typeof AppManageAuditRoute
@@ -207,12 +213,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/availability'
-    | '/calendar'
     | '/chat'
     | '/manage'
     | '/settings'
     | '/system'
+    | '/availability'
+    | '/calendar'
     | '/chat/$roomId'
     | '/chat/new'
     | '/manage/audit'
@@ -229,10 +235,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/availability'
-    | '/calendar'
     | '/settings'
     | '/system'
+    | '/availability'
+    | '/calendar'
     | '/chat/$roomId'
     | '/chat/new'
     | '/manage/audit'
@@ -250,12 +256,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
-    | '/_app/availability'
-    | '/_app/calendar'
+    | '/_app/_calendar'
     | '/_app/chat'
     | '/_app/manage'
     | '/_app/settings'
     | '/_app/system'
+    | '/_app/_calendar/availability'
+    | '/_app/_calendar/calendar'
     | '/_app/chat/$roomId'
     | '/_app/chat/new'
     | '/_app/manage/audit'
@@ -292,17 +299,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/availability': {
-      id: '/_app/availability'
-      path: '/availability'
-      fullPath: '/availability'
-      preLoaderRoute: typeof AppAvailabilityRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/calendar': {
-      id: '/_app/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
+    '/_app/_calendar': {
+      id: '/_app/_calendar'
+      path: ''
+      fullPath: '/'
       preLoaderRoute: typeof AppCalendarRouteImport
       parentRoute: typeof AppRoute
     }
@@ -333,6 +333,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/system'
       preLoaderRoute: typeof AppSystemRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/_calendar/availability': {
+      id: '/_app/_calendar/availability'
+      path: '/availability'
+      fullPath: '/availability'
+      preLoaderRoute: typeof AppCalendarAvailabilityRouteImport
+      parentRoute: typeof AppCalendarRoute
+    }
+    '/_app/_calendar/calendar': {
+      id: '/_app/_calendar/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AppCalendarCalendarRouteImport
+      parentRoute: typeof AppCalendarRoute
     }
     '/_app/chat/': {
       id: '/_app/chat/'
@@ -428,6 +442,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppCalendarRouteChildren {
+  AppCalendarAvailabilityRoute: typeof AppCalendarAvailabilityRoute
+  AppCalendarCalendarRoute: typeof AppCalendarCalendarRoute
+}
+
+const AppCalendarRouteChildren: AppCalendarRouteChildren = {
+  AppCalendarAvailabilityRoute: AppCalendarAvailabilityRoute,
+  AppCalendarCalendarRoute: AppCalendarCalendarRoute,
+}
+
+const AppCalendarRouteWithChildren = AppCalendarRoute._addFileChildren(
+  AppCalendarRouteChildren,
+)
+
 interface AppChatRouteChildren {
   AppChatRoomIdRoute: typeof AppChatRoomIdRoute
   AppChatNewRoute: typeof AppChatNewRoute
@@ -474,8 +502,7 @@ const AppManageRouteWithChildren = AppManageRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
-  AppAvailabilityRoute: typeof AppAvailabilityRoute
-  AppCalendarRoute: typeof AppCalendarRoute
+  AppCalendarRoute: typeof AppCalendarRouteWithChildren
   AppChatRoute: typeof AppChatRouteWithChildren
   AppManageRoute: typeof AppManageRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
@@ -483,8 +510,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAvailabilityRoute: AppAvailabilityRoute,
-  AppCalendarRoute: AppCalendarRoute,
+  AppCalendarRoute: AppCalendarRouteWithChildren,
   AppChatRoute: AppChatRouteWithChildren,
   AppManageRoute: AppManageRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,

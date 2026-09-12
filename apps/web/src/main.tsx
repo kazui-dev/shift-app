@@ -1,6 +1,7 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import { defaultShouldDehydrateQuery } from "@tanstack/react-query"
+import { RestoredApp } from "@/components/restored-app"
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 
@@ -49,7 +50,9 @@ createRoot(rootElement).render(
       }}
     >
       <ThemeProvider>
-        <RouterProvider router={router} />
+        <RestoredApp>
+          <RouterProvider router={router} />
+        </RestoredApp>
         <PwaUpdateNotice />
         <AppToaster />
       </ThemeProvider>
