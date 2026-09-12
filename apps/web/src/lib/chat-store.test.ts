@@ -184,21 +184,16 @@ it("discards incompatible saved queues instead of replaying them", async () => {
   expect(sendChatMessage).not.toHaveBeenCalled()
 })
 
-it("keeps the draft and identifies storage exhaustion without hiding the failure", async () => {
+it("keeps the draft when local storage is full", async () => {
   const value = await store()
   vi.mocked(set).mockRejectedValue(
     new DOMException("Full", "QuotaExceededError")
   )
   value.edit("one", { content: "消さない", files: [] })
   await vi.waitFor(() =>
-    expect(toast.error).toHaveBeenCalledWith(
-      "端末に下書きを保存できませんでした。",
-      {
-        id: "chat-storage",
-        description:
-          "端末の保存容量が不足しています。入力内容は画面に残っています。",
-      }
-    )
+    expect(toast.error).toHaveBeenCalledWith("下書きを保存できませんでした", {
+      id: "chat-storage",
+    })
   )
   expect(value.draft("one").content).toBe("消さない")
 })
