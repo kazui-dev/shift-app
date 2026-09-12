@@ -116,40 +116,42 @@ export function ChatComposer({
   return (
     <div className="min-w-0">
       {draft.files.length > 0 && (
-        <ul
-          data-horizontal-scroll
-          className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
-          aria-label="添付する画像"
-        >
-          {draft.files.map((file) => (
-            <li
-              key={file.id}
-              className="relative size-20 shrink-0 overflow-hidden rounded-xl"
-            >
-              <LocalImage
-                blob={file.blob}
-                alt={file.name}
-                className="size-full object-cover"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon-xs"
-                className="absolute top-1 right-1 rounded-full"
-                aria-label={`${file.name}を外す`}
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() =>
-                  onChange({
-                    ...draft,
-                    files: draft.files.filter((item) => item.id !== file.id),
-                  })
-                }
+        <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-50%">
+          <ul
+            data-horizontal-scroll
+            className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
+            aria-label="添付する画像"
+          >
+            {draft.files.map((file) => (
+              <li
+                key={file.id}
+                className="relative size-20 shrink-0 overflow-hidden rounded-xl"
               >
-                <X />
-              </Button>
-            </li>
-          ))}
-        </ul>
+                <LocalImage
+                  blob={file.blob}
+                  alt={file.name}
+                  className="size-full object-cover"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon-xs"
+                  className="absolute top-1 right-1 rounded-full"
+                  aria-label={`${file.name}を外す`}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={() =>
+                    onChange({
+                      ...draft,
+                      files: draft.files.filter((item) => item.id !== file.id),
+                    })
+                  }
+                >
+                  <X />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <form
         ref={form}

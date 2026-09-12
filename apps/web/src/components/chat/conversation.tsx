@@ -180,11 +180,18 @@ function Conversation({
     const element = seat.current,
       root = layout.current
     if (!element || !root) return undefined
-    const resize = () =>
+    const input = element.querySelector<HTMLFormElement>("[data-chat-composer]")
+    const resize = () => {
       root.style.setProperty("--composer-height", `${element.offsetHeight}px`)
+      root.style.setProperty(
+        "--composer-input-height",
+        `${input?.offsetHeight ?? 50}px`
+      )
+    }
     resize()
     const observer = new ResizeObserver(resize)
     observer.observe(element)
+    if (input) observer.observe(input)
     return () => observer.disconnect()
   }, [room.canPost])
   useEffect(() => {
@@ -292,15 +299,18 @@ function Conversation({
       </header>
       <div
         ref={layout}
-        className="relative min-h-0 flex-1 [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] [--composer-height:50px]"
+        className="relative min-h-0 flex-1 [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] [--composer-height:50px] [--composer-input-height:50px]"
       >
         <section
           ref={scroll.viewport}
           onScroll={scroll.onScroll}
           aria-label="メッセージ履歴"
-          className={`absolute inset-x-0 top-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden ${room.canPost ? "bottom-[calc(var(--composer-height)+var(--composer-bottom))]" : "bottom-0"}`}
+          className={`absolute inset-x-0 top-0 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden ${room.canPost ? "bottom-[calc(var(--composer-input-height)+var(--composer-bottom))]" : "bottom-0"}`}
         >
-          <div ref={scroll.content} className="px-[var(--chat-gutter)] py-4">
+          <div
+            ref={scroll.content}
+            className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-height)-var(--composer-input-height)+1rem)]"
+          >
             {history.query.hasNextPage && (
               <div className="mb-4 text-center">
                 <Button
