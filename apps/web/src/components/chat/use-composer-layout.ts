@@ -28,7 +28,6 @@ export function useComposerLayout(
         mobile,
         focused,
         content,
-        previous: previous.current,
         overflowing: sizer.scrollHeight > 32,
       })
       sizer.style.paddingInline = next ? "4px" : "40px"
@@ -76,14 +75,12 @@ export function composerExpanded({
   mobile,
   focused,
   content,
-  previous,
   overflowing,
 }: {
   mobile: boolean
   focused: boolean
   content: string
-  previous: boolean
   overflowing: boolean
 }) {
-  return (mobile && focused) || (!!content && (previous || overflowing))
+  return (mobile && focused) || (!!content && overflowing)
 }

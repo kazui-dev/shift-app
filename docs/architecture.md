@@ -267,7 +267,7 @@ Durable Objectのclass lifecycleは宣言型`exports`だけで管理する。`ex
 
 画像本体は非公開R2 bucket `shift-app-chat-images`（`CHAT_IMAGES` binding）に保存し、公開URL・署名付きURLは発行しない。Workerが毎回D1のルーム閲覧権限と退出時点を確認して配信する。応答は`private, no-store`、`nosniff`、same-origin resource policyとする。送信済み画像はオフラインキャッシュへ保存しない。
 
-アップロードは1枚10MB・4000万画素、1投稿4枚まで。Images bindingで実体を検査し、JPEG/PNG/WebP/HEIC/HEIF/AVIFを最大2400pxの静止WebPに変換する。EXIF・XMP・未知のmetadata chunkを除去し、原本は保存しない。利用者・ルーム単位の24時間100回の上限は失敗や取り消しでも減らさない。
+アップロードは1枚10MB・4000万画素、1投稿10枚まで。Images bindingで実体を検査し、JPEG/PNG/WebP/HEIC/HEIF/AVIFを最大2400pxの静止WebPに変換する。EXIF・XMP・未知のmetadata chunkを除去し、原本は保存しない。利用者・ルーム単位の24時間100回の上限は失敗や取り消しでも減らさない。
 
 添付metadataは各ChatRoomのSQLite schema version 2で管理する。投稿者が所有する未送信画像だけを本文と同一transactionで確定し、未送信の画像は配信しない。24時間以上残った未送信画像はDurable Object alarmで削除し、失敗時は再試行する。ルーム削除時は既存の削除待ちcronから画像と本文を削除する。D1のschema変更はない。
 
@@ -334,8 +334,8 @@ scrollToを呼ばない。これにより、前の履歴更新中に始まった
 送信は右向きのSendHorizontalを使い、本文も添付もない場合は領域を維持して非表示にする。
 
 入力欄はモバイルではフォーカス時、PCでは本文が1行を超えた時に本文と操作を
-上下に分ける。モバイルの送信後もフォーカス中は展開を維持し、添付選択やキャンセルで
-畳まない。非空の下書きも展開を維持する。非表示の計測要素で遷移先の折り返し・高さを
+上下に分ける。モバイルの送信後もフォーカス中は展開を維持し、入力欄からフォーカスが外れたら本文が1行に収まる場合は畳む。
+画像は入力欄の外の横スクロールレールに置き、画像操作で入力欄を自動フォーカスしない。非表示の計測要素で遷移先の折り返し・高さを
 決定し、編集要素の幅・padding・高さを途中値で計測しない。外枠の高さと本文の平行移動を
 同じ200msで動かし、文字の拡縮・フェードやpaddingの連続変更は行わない。
 初期表示とmotion reductionではアニメーションを行わない。

@@ -109,7 +109,14 @@ it("accepts images without text but rejects empty messages and excessive attachm
     v.safeParse(sendChatMessageInputSchema, {
       id,
       content: "",
-      attachmentIds: Array.from({ length: 5 }, () => crypto.randomUUID()),
+      attachmentIds: Array.from({ length: 10 }, () => crypto.randomUUID()),
+    }).success
+  ).toBe(true)
+  expect(
+    v.safeParse(sendChatMessageInputSchema, {
+      id,
+      content: "",
+      attachmentIds: Array.from({ length: 11 }, () => crypto.randomUUID()),
     }).success
   ).toBe(false)
 })

@@ -40,7 +40,7 @@ export const createChatRoomInputSchema = v.object({
 
 export const chatImageLimits = {
   bytes: 10 * 1024 * 1024,
-  count: 4,
+  count: 10,
   pixels: 40_000_000,
 } as const
 export const chatAttachmentSchema = v.object({
