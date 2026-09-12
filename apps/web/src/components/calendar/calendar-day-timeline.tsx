@@ -47,7 +47,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
         ))}
         {showNow && (
           <span
-            className="pointer-events-none absolute -right-2 z-10 -translate-y-1/2 rounded-full bg-blue-500 px-2 py-0.5 text-white"
+            className="pointer-events-none absolute -right-1 z-10 -translate-y-1/2 rounded-full bg-blue-500 px-1 py-0.5 text-white"
             style={{
               top: calendarInset + (nowMinute / 60) * calendarHourHeight,
             }}
@@ -114,7 +114,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
 
         {showNow && (
           <div
-            className="pointer-events-none absolute inset-x-0 z-10 border-t border-blue-500"
+            className="pointer-events-none absolute right-0 -left-1 z-10 border-t border-blue-500"
             style={{
               top: calendarInset + (nowMinute / 60) * calendarHourHeight,
             }}
