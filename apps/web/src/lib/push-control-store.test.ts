@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
   loadPushControlIntent,
   savePushControlIntent,
 } from "./push-control-intent"
 
+beforeEach(() => vi.stubGlobal("Notification", { permission: "granted" }))
 afterEach(() => vi.unstubAllGlobals())
 
 function memoryStorage(): Pick<Storage, "getItem" | "removeItem" | "setItem"> {
@@ -204,4 +205,69 @@ describe("push control store", () => {
       syncing: false,
     })
   })
+})
+
+it("refreshes external permission changes without replacing a pending user choice", async () => {
+  vi.resetModules()
+  const store = await import("./push-control-store")
+  let permission: PermissionState = "granted"
+  const subscription = { endpoint: "push" }
+  const getSubscription = vi.fn<() => Promise<typeof subscription>>(
+    async () => subscription
+  )
+  vi.stubGlobal("navigator", {
+    permissions: { query: async () => ({ state: permission }) },
+    serviceWorker: {
+      getRegistration: async () => ({ pushManager: { getSubscription } }),
+    },
+  })
+  vi.stubGlobal("window", { Notification: {}, PushManager: {} })
+  await store.initializePushControl()
+  expect(store.getPushControlState().enabled).toBe(true)
+  permission = "denied"
+  await store.refreshPushControl()
+  expect(store.getPushControlState().enabled).toBe(false)
+  permission = "granted"
+  await store.refreshPushControl()
+  expect(store.getPushControlState().enabled).toBe(true)
+  const refresh = store.refreshPushControl()
+  store.requestPushControlState(false)
+  await refresh
+  expect(store.getPushControlState()).toMatchObject({
+    enabled: false,
+    syncing: true,
+  })
+  await store.refreshPushControl()
+  expect(store.getPushControlState().enabled).toBe(false)
+})
+
+it("reads again when permission changes during an in-flight device read", async () => {
+  vi.resetModules()
+  const store = await import("./push-control-store")
+  let permission: PermissionState = "granted"
+  let finish: ((value: { endpoint: string }) => void) | undefined
+  const getSubscription = vi
+    .fn<() => Promise<{ endpoint: string }>>()
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        })
+    )
+    .mockResolvedValue({ endpoint: "push" })
+  vi.stubGlobal("navigator", {
+    permissions: { query: async () => ({ state: permission }) },
+    serviceWorker: {
+      getRegistration: async () => ({ pushManager: { getSubscription } }),
+    },
+  })
+  vi.stubGlobal("window", { Notification: {}, PushManager: {} })
+  const reading = store.initializePushControl()
+  await vi.waitFor(() => expect(getSubscription).toHaveBeenCalledOnce())
+  permission = "denied"
+  const refreshed = store.refreshPushControl()
+  finish?.({ endpoint: "push" })
+  await Promise.all([reading, refreshed])
+  expect(getSubscription).toHaveBeenCalledTimes(2)
+  expect(store.getPushControlState().enabled).toBe(false)
 })

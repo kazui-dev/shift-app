@@ -98,9 +98,29 @@ it("requests permission before waiting for service worker or subscription lookup
   })
   const registration = vi.spyOn(navigator.serviceWorker, "getRegistration")
   const sync = syncSubscription(true)
-  expect(notification.requestPermission).toHaveBeenCalledOnce()
   expect(registration).not.toHaveBeenCalled()
   await sync
+  expect(notification.requestPermission).toHaveBeenCalledOnce()
   expect(registration).toHaveBeenCalledOnce()
   expect(savePushSubscription).toHaveBeenCalledOnce()
+})
+
+it("uses freshly queried permission after changing settings without restarting", async () => {
+  const { notification, subscribe } = device()
+  notification.permission = "denied"
+  let state: PermissionState = "granted"
+  Object.defineProperty(navigator, "permissions", {
+    value: { query: async () => ({ state }) },
+  })
+  await syncSubscription(true)
+  expect(subscribe).toHaveBeenCalledOnce()
+  state = "denied"
+  await expect(syncSubscription(true)).rejects.toThrow(
+    "通知が許可されていません"
+  )
+  await syncSubscription(false)
+  state = "granted"
+  await syncSubscription(true)
+  expect(subscribe).toHaveBeenCalledTimes(2)
+  expect(notification.requestPermission).not.toHaveBeenCalled()
 })

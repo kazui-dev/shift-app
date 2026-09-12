@@ -1,3 +1,4 @@
+import { readNotificationPermission } from "./notification-permission"
 import {
   pushControlInitialState,
   reducePushControl,
@@ -14,7 +15,8 @@ type Listener = () => void
 
 const listeners = new Set<Listener>()
 let state = pushControlInitialState
-let initialization: Promise<void> | null = null
+let refreshing: Promise<void> | null = null
+let refreshRequested = false
 let synchronization: Promise<void> | null = null
 let activeOwner: string | null = null
 
@@ -33,24 +35,46 @@ function dispatch(event: PushControlEvent): void {
   for (const listener of listeners) listener()
 }
 
-export function initializePushControl(): Promise<void> {
-  if (!pushNotificationsSupported() || state.enabled !== null) {
-    return Promise.resolve()
-  }
-  if (initialization) return initialization
-
-  initialization = navigator.serviceWorker
-    .getRegistration()
-    .then((registration) =>
-      registration ? registration.pushManager.getSubscription() : null
-    )
-    .then((subscription) => {
-      dispatch({ type: "loaded", enabled: subscription !== null })
-    })
-    .catch(() => {
+async function readPushControl(): Promise<void> {
+  if (!refreshRequested || state.syncing) return
+  refreshRequested = false
+  const snapshot = state
+  try {
+    const [permission, subscription] = await Promise.all([
+      readNotificationPermission(),
+      navigator.serviceWorker
+        .getRegistration()
+        .then((registration) =>
+          registration ? registration.pushManager.getSubscription() : null
+        ),
+    ])
+    if (!refreshRequested && state === snapshot)
+      dispatch({
+        type: "loaded",
+        enabled: permission === "granted" && subscription !== null,
+      })
+  } catch {
+    if (!refreshRequested && state === snapshot && state.enabled === null)
       dispatch({ type: "loaded", enabled: false })
-    })
-  return initialization
+  }
+  if (refreshRequested) await readPushControl()
+}
+
+export function refreshPushControl(): Promise<void> {
+  if (!pushNotificationsSupported() || state.syncing) return Promise.resolve()
+  refreshRequested = true
+  if (refreshing) return refreshing
+  refreshing = readPushControl().finally(() => {
+    refreshing = null
+  })
+  return refreshing
+}
+
+export function initializePushControl(): Promise<void> {
+  return (
+    refreshing ??
+    (state.enabled === null ? refreshPushControl() : Promise.resolve())
+  )
 }
 
 function intentStorage(): Storage | null {
@@ -67,7 +91,7 @@ function clearIntent(owner: string | null): void {
 }
 
 export async function preparePushControl(owner: string): Promise<void> {
-  await initializePushControl()
+  await refreshPushControl()
   activeOwner = owner
   const storage = intentStorage()
   if (!storage) return
