@@ -107,3 +107,17 @@ it("does not duplicate the current room and preserves replacement and origin sem
     { id: "default", replace: true, fromList: false },
   ])
 })
+
+it("replaces a removed chat with the list and never resumes its retained view", () => {
+  const { navigation, writes } = fixture()
+  navigation.remove("other")
+  expect(writes).toEqual([])
+  navigation.remove("room")
+  expect(writes).toEqual(["list"])
+  expect(navigation.snapshot()).toEqual({
+    roomId: undefined,
+    retainedId: undefined,
+  })
+  navigation.resume()
+  expect(writes).toEqual(["list"])
+})

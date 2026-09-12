@@ -48,16 +48,25 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
         for (const queued of queue.filter((item) => item.roomId === roomId))
           store.cancel(queued.id)
         store.edit(roomId, { content: "", files: [] })
+        await router.navigate({
+          to: "/chat",
+          replace: true,
+          state: { chatList: true },
+        })
         removeRoom(client, roomId)
       } else {
         await leaveChatRoom(roomId)
+        await router.navigate({
+          to: "/chat",
+          replace: true,
+          state: { chatList: true },
+        })
         await Promise.all([
           client.invalidateQueries({ queryKey: ["chat-rooms"] }),
           client.invalidateQueries({ queryKey: ["chat-room", roomId] }),
           client.invalidateQueries({ queryKey: ["chat-members", roomId] }),
         ])
       }
-      await router.navigate({ to: "/chat", replace: true })
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {

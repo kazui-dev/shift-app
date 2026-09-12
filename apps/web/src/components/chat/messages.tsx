@@ -1,7 +1,9 @@
+import { DeleteMessageDialog } from "./delete-message-dialog"
+import { OfflineSendDialog } from "./offline-send-dialog"
 import { useReplyTarget } from "./use-reply-target"
 import { useMessageEdit } from "./use-message-edit"
 import { MessageActions } from "./message-actions"
-import { useLayoutEffect, useMemo, useRef } from "react"
+import { useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { ArrowDown } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
@@ -13,7 +15,7 @@ import { useMessages } from "./use-messages"
 import { useMessageScroll } from "./use-message-scroll"
 import { MessageImages, LocalImage } from "./images"
 import { MemberAvatar } from "../member-avatar"
-import { messageRows, unreadMessage } from "./message-list"
+import { messageRows, unreadMessage, type MessageRow } from "./message-list"
 import { chatImageLimits } from "@workspace/shared/communications"
 import { imageSize } from "./image-size"
 import { RoutedImage } from "./routed-image"
@@ -42,6 +44,9 @@ export function ChatMessages({
   active: boolean
 }) {
   const navigate = useNavigate()
+  const [deleting, setDeleting] = useState<MessageRow | null>(null)
+  const [deletionClosing, setDeletionClosing] = useState(false)
+  const [blockedSend, setBlockedSend] = useState(false)
   const edit = useMessageEdit(room.id)
   const composerEdit = edit.editing
   const { store, member, ready, queue } = useChatStore(),
@@ -67,14 +72,16 @@ export function ChatMessages({
     if (input) observer.observe(input)
     return () => observer.disconnect()
   }, [room.canPost])
+  // Keep the row until confirmation finishes closing, even if its acknowledgement arrives first.
   const rows = useMemo(
     () =>
       messageRows(
         history.messages,
         queue.filter((item) => item.roomId === room.id),
-        member
+        member,
+        deletionClosing ? deleting : null
       ),
-    [history.messages, queue, room.id, member]
+    [history.messages, queue, room.id, member, deleting, deletionClosing]
   )
   const scroll = useMessageScroll(
     room.id,
@@ -162,6 +169,10 @@ export function ChatMessages({
                       memberId={member.id}
                       offline={offline}
                       editing={edit.editing?.id === message.id}
+                      onDelete={() => {
+                        setDeletionClosing(false)
+                        setDeleting(message)
+                      }}
                       onEdit={() => {
                         store.edit(room.id, {
                           content: "",
@@ -197,9 +208,11 @@ export function ChatMessages({
                               type="button"
                               data-message-reply
                               disabled={!!message.reply.deleted}
-                              onClick={() =>
+                              onPointerDown={(event) => event.preventDefault()}
+                              onClick={(event) => {
+                                event.currentTarget.blur()
                                 setReplyTarget(message.reply?.id ?? null)
-                              }
+                              }}
                               className="col-start-2 mb-1 flex h-4 min-w-0 items-center gap-1.5 text-left text-xs leading-4 text-muted-foreground enabled:cursor-pointer enabled:hover:text-foreground"
                             >
                               {message.reply.deleted ? (
@@ -298,29 +311,26 @@ export function ChatMessages({
                               ))}
                             </div>
                           )}
-                          {(message.status === "failed" ||
-                            (offline && message.status !== "sent")) && (
+                          {message.status === "failed" && (
                             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                              {message.status === "failed" ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => store.retry(message.id)}
-                                >
-                                  再送
-                                </Button>
-                              ) : (
-                                "接続後に送信"
-                              )}
-                              {message.status !== "sending" && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => store.cancel(message.id)}
-                                >
-                                  取り消す
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  if (offline || !navigator.onLine)
+                                    setBlockedSend(true)
+                                  else store.retry(message.id)
+                                }}
+                              >
+                                再送
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => store.cancel(message.id)}
+                              >
+                                取り消す
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -390,6 +400,10 @@ export function ChatMessages({
                 })
               }}
               onSend={() => {
+                if (offline || !navigator.onLine) {
+                  setBlockedSend(true)
+                  return
+                }
                 if (composerEdit) {
                   void edit.save(composerEdit.content)
                   return
@@ -401,6 +415,18 @@ export function ChatMessages({
           </div>
         )}
       </div>
+      {deleting && (
+        <DeleteMessageDialog
+          roomId={room.id}
+          messageId={deleting.id}
+          onConfirm={() => setDeletionClosing(true)}
+          onClosed={() => {
+            setDeleting(null)
+            setDeletionClosing(false)
+          }}
+        />
+      )}
+      <OfflineSendDialog open={blockedSend} onOpenChange={setBlockedSend} />
       {active && <RoutedImage roomId={room.id} messages={history.messages} />}
     </>
   )

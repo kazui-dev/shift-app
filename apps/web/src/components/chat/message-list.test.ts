@@ -102,3 +102,21 @@ it("anchors unread history on the next visible message after a deleted sequence"
   expect(unreadMessage(rows, 3)).toBeUndefined()
   expect(unreadMessage(rows, 0)).toBeUndefined()
 })
+
+it("retains a deleting row through confirmation fade even when the server has already deleted it", () => {
+  const original = {
+    id: queued.id,
+    sequence: 1,
+    memberId: member.id,
+    memberDisplayName: member.displayName,
+    memberImage: member.image,
+    content: queued.content,
+    attachments: [],
+    createdAt: queued.createdAt,
+  }
+  const retained = messageRows([original], [], member)[0]
+  if (!retained) throw Error("Missing original row")
+  const deleted = { ...original, deleted: true, content: "", attachments: [] }
+  expect(messageRows([deleted], [], member, retained)).toEqual([retained])
+  expect(messageRows([deleted], [], member, null)).toEqual([])
+})

@@ -98,12 +98,6 @@ export class MessageScroll {
     if (destination === null) return false
     this.read()
     this.targetId = smooth ? id : null
-    const distance = this.surface.top() - destination
-    if (smooth && Math.abs(distance) > this.surface.height() * 2)
-      this.move(
-        destination + Math.sign(distance) * this.surface.height(),
-        false
-      )
     this.move(destination, smooth)
     this.scroll()
     return true

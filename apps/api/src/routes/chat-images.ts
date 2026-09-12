@@ -11,10 +11,15 @@ chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
   const id = v.safeParse(uuid, c.req.param("roomId")),
     memberId = c.get("member").id
   if (!id.success)
-    return apiError(c, 404, "NOT_FOUND", "ルームが見つかりません。")
+    return apiError(c, 404, "NOT_FOUND", "チャットが見つかりません。")
   const room = await findAccessibleRoom(c.env, id.output, memberId)
   if (!room?.canPost)
-    return apiError(c, 403, "CHAT_READ_ONLY", "このルームには投稿できません。")
+    return apiError(
+      c,
+      403,
+      "CHAT_READ_ONLY",
+      "このチャットには投稿できません。"
+    )
   const blob = await c.req.raw.blob()
   if (!blob.size || blob.size > chatImageLimits.bytes)
     return apiError(c, 413, "IMAGE_SIZE", "画像は1枚10MBまでです。")

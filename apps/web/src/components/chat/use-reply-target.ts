@@ -37,12 +37,15 @@ export function useReplyTarget(
               { backgroundColor: "rgba(59, 130, 246, 0)", offset: 0 },
               {
                 backgroundColor: "rgba(59, 130, 246, .18)",
-                offset: reduced ? 0 : 0.12,
+                offset: 120 / 1280,
               },
-              { backgroundColor: "rgba(59, 130, 246, .18)", offset: 0.65 },
+              {
+                backgroundColor: "rgba(59, 130, 246, .18)",
+                offset: 1120 / 1280,
+              },
               { backgroundColor: "rgba(59, 130, 246, 0)", offset: 1 },
             ],
-            { duration: reduced ? 1000 : 2000, easing: "ease-out" }
+            { duration: 1280, easing: "linear" }
           ) ?? null
       }
       const list = scroll.viewport.current

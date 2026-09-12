@@ -75,16 +75,16 @@ chatApp.get("/rooms/:roomId", async (c) => {
   )
   return room
     ? c.json({ room: roomJson(room) })
-    : apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
+    : apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
 })
 
 chatApp.delete("/rooms/:roomId", async (c) => {
   const actor = c.get("member")
   const room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
   if (!room)
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
   if (!room.canManage)
-    return apiError(c, 403, "FORBIDDEN", "ルームの管理権限が必要です。")
+    return apiError(c, 403, "FORBIDDEN", "チャットの管理権限が必要です。")
   const previous = await roomChangeRecipients(c.env, room.id)
   const deleted = await deleteRoom(c.env.shift_app, room.id, actor.id)
   if (!deleted)
@@ -212,7 +212,7 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
   const member = c.get("member")
   const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
   }
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const history = await stub.getMessages(
@@ -229,7 +229,7 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
 chatApp.post("/rooms/:roomId/messages", async (c) => {
   const id = v.safeParse(idSchema, c.req.param("roomId"))
   if (!id.success) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
   }
   const input = v.safeParse(
     sendChatMessageInputSchema,
@@ -246,10 +246,15 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
   const member = c.get("member")
   const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
   }
   if (!room.canPost)
-    return apiError(c, 403, "CHAT_READ_ONLY", "このルームには投稿できません。")
+    return apiError(
+      c,
+      403,
+      "CHAT_READ_ONLY",
+      "このチャットには投稿できません。"
+    )
   const now = Date.now()
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const message = await stub
@@ -396,7 +401,8 @@ chatApp.patch("/rooms/:roomId/preferences", async (c) => {
     c.req.param("roomId"),
     c.get("member").id
   )
-  if (!room) return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Room not found")
+  if (!room)
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
   const memberId = c.get("member").id
   await c.env.shift_app
     .prepare(

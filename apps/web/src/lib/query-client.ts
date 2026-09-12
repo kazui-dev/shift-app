@@ -8,7 +8,7 @@ import type {
 import { del, get, set } from "idb-keyval"
 
 import { toast } from "@workspace/ui/lib/toast"
-import { errorMessage } from "@/api/client"
+import { ApiError, errorMessage } from "@/api/client"
 import { clearChatImages } from "./chat-images"
 import { clearChatStorage } from "./chat-store"
 
@@ -30,6 +30,19 @@ export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       if (query.queryKey[0] === "account" || !navigator.onLine) return
+      // Missing chat resources are handled by chat navigation, including deletion races.
+      if (
+        error instanceof ApiError &&
+        error.status === 404 &&
+        [
+          "chat-room",
+          "chat-messages",
+          "chat-members",
+          "chat-settings",
+          "chat-image-message",
+        ].includes(String(query.queryKey[0]))
+      )
+        return
       toast.error(errorMessage(error), { id: `query:${query.queryHash}` })
     },
     onSuccess: (_data, query) => {
@@ -40,7 +53,8 @@ export const queryClient = new QueryClient({
     queries: {
       gcTime: DAY_IN_MILLISECONDS,
       staleTime: 30 * 1000,
-      retry: 1,
+      retry: (count, error) =>
+        !(error instanceof ApiError && error.status === 404) && count < 1,
     },
   },
 })
