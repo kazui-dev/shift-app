@@ -1,11 +1,10 @@
 import { displayYearQuery } from "@/data/years"
-import { cn } from "@workspace/ui/lib/utils"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@workspace/ui/lib/toast"
 import { setDisplayYear } from "@/api/years"
 import { errorMessage } from "@/api/client"
 import { useDisplayYear } from "@/components/use-display-year"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 import { PushControl } from "@/components/push-control"
 import { PageHeader } from "@/components/page-layout"
 import { useTheme } from "@/components/theme-context"
@@ -45,19 +44,17 @@ export function SettingsPage() {
             参加年度がありません
           </span>
         ) : (
-          <select
+          <SelectField
             id="display-year"
-            className={cn(nativeSelectClassName, "w-auto")}
+            className="w-auto"
             value={display.year}
             disabled={changeYear.isPending}
-            onChange={(event) => changeYear.mutate(Number(event.target.value))}
-          >
-            {display.data?.years.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
+            onValueChange={(value) => changeYear.mutate(Number(value))}
+            options={(display.data?.years ?? []).map((year) => ({
+              value: year,
+              label: String(year),
+            }))}
+          />
         )}
       </div>
 

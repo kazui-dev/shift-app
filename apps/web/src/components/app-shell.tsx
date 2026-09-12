@@ -13,7 +13,11 @@ import { AppNavigation } from "./app-navigation"
 import { OfflineModeContext } from "./offline-mode-context"
 import { resolveAccountState } from "@/lib/account-state"
 
-const unsafeOfflineRoutes = new Set(["/availability", "/manage", "/system"])
+const unsafeOfflineRoutes = new Set([
+  "/calendar/availability",
+  "/manage",
+  "/system",
+])
 
 export function AppShell({
   accountOffline,

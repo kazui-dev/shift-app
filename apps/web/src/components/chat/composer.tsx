@@ -40,10 +40,48 @@ export function ChatComposer({
     if (draft.reply?.id || editing?.id)
       input.current?.focus({ preventScroll: true })
   }, [draft.reply?.id, editing?.id, input])
+  const mode = editing
+    ? {
+        label: "メッセージ編集中",
+        cancelLabel: "編集を取り消す",
+        cancel: editing.onCancel,
+      }
+    : draft.reply
+      ? {
+          label: `${draft.reply.memberDisplayName}への返信`,
+          cancelLabel: "返信を取り消す",
+          cancel: () => onChange({ ...draft, reply: undefined }),
+        }
+      : null
+  const cancelMode = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      event.key !== "Escape" ||
+      event.defaultPrevented ||
+      event.isComposing ||
+      disabled
+    )
+      return
+    if (
+      event.target instanceof Element &&
+      event.target.closest(
+        '[role="dialog"],[role="alertdialog"],[role="listbox"]'
+      )
+    )
+      return
+    event.preventDefault()
+    mode?.cancel()
+  })
+  const modeActive = mode !== null
+  useEffect(() => {
+    if (!modeActive) return undefined
+    const key = (event: KeyboardEvent) => cancelMode(event)
+    document.addEventListener("keydown", key)
+    return () => document.removeEventListener("keydown", key)
+  }, [modeActive])
   const [dragging, setDragging] = useState(false)
   const touch = useMediaQuery("(pointer: coarse)")
   const textClass =
-    "min-h-0 [field-sizing:fixed] touch-pan-y resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none focus-visible:ring-0 md:text-sm dark:bg-transparent"
+    "min-h-0 [field-sizing:fixed] touch-pan-y resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none md:text-sm dark:bg-transparent"
   const finishPicking = useCallback(() => {
     setPickerOpen(false)
   }, [])
@@ -132,25 +170,6 @@ export function ChatComposer({
   }, [])
   return (
     <div className="min-w-0">
-      {draft.reply && (
-        <div
-          className="flex items-center gap-2 rounded-t-xl bg-muted px-3 py-2 text-xs"
-          aria-label="返信先"
-        >
-          <span className="min-w-0 flex-1 truncate">
-            {draft.reply.memberDisplayName}への返信
-          </span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label="返信を取り消す"
-            onClick={() => onChange({ ...draft, reply: undefined })}
-          >
-            <X />
-          </Button>
-        </div>
-      )}
       {draft.files.length > 0 && (
         <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-30%">
           <ul
@@ -205,18 +224,21 @@ export function ChatComposer({
         }}
         className={`rounded-3xl border bg-background shadow-xs ${dragging ? "border-ring" : "border-input"}`}
       >
-        {editing && (
-          <div className="flex items-center justify-between px-4 pt-2 text-xs text-muted-foreground">
-            <span>メッセージ編集中</span>
+        {mode && (
+          <div
+            aria-label={editing ? "編集中" : "返信先"}
+            className="flex items-center gap-3 px-4 pt-2 text-xs text-muted-foreground"
+          >
+            <span className="min-w-0 flex-1 truncate">{mode.label}</span>
             <Button
               type="button"
               variant="secondary"
               size="icon-xs"
               className="rounded-full"
-              aria-label="編集を取り消す"
+              aria-label={mode.cancelLabel}
               disabled={disabled}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={editing.onCancel}
+              onClick={mode.cancel}
             >
               <X />
             </Button>

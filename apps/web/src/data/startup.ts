@@ -1,4 +1,5 @@
 import { chatRoomId } from "@/lib/chat-location"
+import * as v from "valibot"
 import type { QueryClient } from "@tanstack/react-query"
 import { usersQuery, auditQuery, linksQuery } from "./admin"
 import { assignmentMonthQuery } from "@/api/assignments"
@@ -40,7 +41,7 @@ export async function prepareApp(
     if (pathname === "/calendar")
       wait(assignmentMonthQuery(month, year).queryKey, calendar)
     if (pathname.startsWith("/chat")) wait(roomsQuery(year).queryKey, rooms)
-    if (pathname === "/availability")
+    if (pathname === "/calendar/availability")
       wait(availabilityQuery(year).queryKey, availability)
   }
   const manageable = available.years.filter((item) => item.canManage)
@@ -65,7 +66,7 @@ export async function prepareApp(
       wait(rolesQuery(managementYear).queryKey, roles)
       wait(rosterQuery(managementYear).queryKey, roster)
     }
-    if (pathname === "/manage/availability") {
+    if (pathname === "/manage/shifts/availability") {
       wait(
         availabilityDatesQuery(managementYear).queryKey,
         client.prefetchQuery(availabilityDatesQuery(managementYear))
@@ -85,7 +86,7 @@ export async function prepareApp(
       wait(linksQuery.queryKey, client.prefetchQuery(linksQuery))
   }
   const activity = /^\/manage\/shifts\/([^/]+)$/.exec(pathname)?.[1]
-  if (activity)
+  if (activity && v.is(v.pipe(v.string(), v.uuid()), activity))
     wait(
       activityQuery(activity).queryKey,
       client.prefetchQuery(activityQuery(activity))

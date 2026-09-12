@@ -120,6 +120,7 @@ export const chatReplySchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
   sequence: v.number(),
   memberDisplayName: v.string(),
+  memberImage: v.optional(v.nullable(v.pipe(v.string(), v.url()))),
   content: v.string(),
   deleted: v.optional(v.boolean()),
 })

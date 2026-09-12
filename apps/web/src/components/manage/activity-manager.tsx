@@ -2,7 +2,6 @@ import { activitiesQuery } from "@/data/activities"
 import { rosterQuery, rolesQuery } from "@/data/years"
 import { TargetPicker } from "@/components/shifts/target-picker"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
-import { cn } from "@workspace/ui/lib/utils"
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
@@ -16,7 +15,7 @@ import {
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 import { japanLocalDateTime } from "@/lib/japan-time"
 import { timeLabel } from "@/components/shifts/time-label"
 
@@ -83,7 +82,7 @@ export function ActivityManager({ year }: { year: number }) {
       <div className="flex justify-end">
         <Button
           variant="outline"
-          render={<Link to="/manage/availability" />}
+          render={<Link to="/manage/shifts/availability" />}
           nativeButton={false}
         >
           シフト希望フォーム設定
@@ -97,16 +96,17 @@ export function ActivityManager({ year }: { year: number }) {
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <select
+        <SelectField
           aria-label="状態"
-          className={cn(nativeSelectClassName, "w-auto")}
+          className="w-auto"
           value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-        >
-          <option value="all">すべて</option>
-          <option value="active">有効</option>
-          <option value="inactive">無効</option>
-        </select>
+          onValueChange={(value) => setFilter(value)}
+          options={[
+            { value: "all", label: "すべて" },
+            { value: "active", label: "有効" },
+            { value: "inactive", label: "無効" },
+          ]}
+        />
         <Button onClick={() => setCreating(true)}>シフトを作成</Button>
       </div>
       <ul className="divide-y border-y">

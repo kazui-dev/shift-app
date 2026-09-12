@@ -11,7 +11,7 @@ import { updateAdminAccessLevel } from "@/api/admin"
 import { activateYearMembership, deactivateYearMembership } from "@/api/years"
 import { errorMessage } from "@/api/client"
 import { ResponsiveSheet } from "@/components/responsive-overlay"
-import { nativeSelectClassName } from "@/components/form-styles"
+import { SelectField } from "@/components/select-field"
 
 const labels = {
   member: "一般",
@@ -145,13 +145,11 @@ function UserDetail({
           <label htmlFor="user-access" className="block text-sm font-medium">
             システム権限
           </label>
-          <select
+          <SelectField
             id="user-access"
-            className={nativeSelectClassName}
             value={level}
             disabled={user.isCurrentUser || pending}
-            onChange={(event) => {
-              const value = event.target.value
+            onValueChange={(value) => {
               if (
                 value === "member" ||
                 value === "leader" ||
@@ -159,13 +157,11 @@ function UserDetail({
               )
                 setLevel(value)
             }}
-          >
-            {Object.entries(labels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            options={Object.entries(labels).map(([value, label]) => ({
+              value,
+              label,
+            }))}
+          />
           {level !== user.accessLevel && (
             <>
               <Input

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AvailabilityDatePage } from "@/pages/availability-date-page"
-export const Route = createFileRoute("/_app/manage/availability/new")({
+export const Route = createFileRoute("/_app/manage/shifts/availability/new")({
   component: () => <AvailabilityDatePage />,
 })

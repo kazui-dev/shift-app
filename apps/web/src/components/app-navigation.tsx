@@ -28,7 +28,7 @@ export function AppNavigation({
     <TooltipProvider delay={0}>
       <nav
         aria-label="メインナビゲーション"
-        className={`${desktopOnly ? "hidden md:flex" : ""} sticky bottom-0 z-40 row-start-2 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:fixed md:inset-y-0 md:right-auto md:left-0 md:flex md:w-(--app-sidebar-width) md:flex-col md:border-t-0 md:border-r md:bg-background md:px-2 md:py-3 md:backdrop-blur-none`}
+        className={`${desktopOnly ? "hidden md:flex" : ""} sticky bottom-0 z-40 row-start-2 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] md:fixed md:inset-y-0 md:right-auto md:left-0 md:flex md:w-(--app-sidebar-width) md:flex-col md:border-t-0 md:border-r md:bg-background md:px-2 md:py-3`}
       >
         <div
           id="app-navigation-items"

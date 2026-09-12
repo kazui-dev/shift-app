@@ -157,7 +157,7 @@ export function CalendarPage() {
         {!offline && (
           <div className="flex items-center gap-1">
             <Button
-              render={<Link to="/availability" />}
+              render={<Link to="/calendar/availability" />}
               nativeButton={false}
               variant="ghost"
             >

@@ -1,9 +1,8 @@
-import { useState } from "react"
+import { RoutePage } from "@/components/route-page"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { skipToken, useQuery } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import {
-  ResponsivePage,
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
@@ -12,7 +11,6 @@ import { getAvailability } from "@/api/availability"
 import { AvailabilityEditor } from "@/components/availability/availability-editor"
 
 export function AvailabilityPage() {
-  const [open, setOpen] = useState(true)
   const display = useDisplayYear()
   const navigate = useNavigate()
   const { state } = getRouteApi("/_app").useRouteContext()
@@ -22,14 +20,10 @@ export function AvailabilityPage() {
     queryFn: year === null ? skipToken : () => getAvailability(year),
     staleTime: 60_000,
   })
-  const close = () => setOpen(false)
+  const close = () => void navigate({ to: "/calendar" })
   return (
     <div className="fixed inset-0 z-40">
-      <ResponsivePage
-        open={open}
-        onClose={close}
-        onClosed={() => void navigate({ to: "/calendar" })}
-      >
+      <RoutePage onClose={close}>
         {year !== null && query.data ? (
           <AvailabilityEditor
             key={year}
@@ -59,7 +53,7 @@ export function AvailabilityPage() {
             </ResponsivePageBody>
           </>
         )}
-      </ResponsivePage>
+      </RoutePage>
     </div>
   )
 }

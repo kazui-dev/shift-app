@@ -13,6 +13,7 @@ type ChatMessage = {
   createdAt: string
   reply?: {
     id: string
+    memberId: string
     sequence: number
     memberDisplayName: string
     content: string
@@ -297,6 +298,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ? {
             reply: {
               id: target.id,
+              memberId: target.memberId,
               sequence: target.sequence,
               memberDisplayName: target.memberDisplayName,
               content: target.content,
