@@ -1,3 +1,4 @@
+import { useChatStore } from "./use-chat-store"
 import { receiveMessage, updateRoom } from "@/data/chat-cache"
 import { messagesQuery, membersQuery } from "@/data/chat"
 import { useCallback, useEffect, useMemo, useRef } from "react"
@@ -9,6 +10,7 @@ import { updateChatPreferences, type getChatRoom } from "@/api/chat"
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 export function useMessages(room: Room, offline: boolean, active: boolean) {
   const client = useQueryClient()
+  const { member } = useChatStore()
   const initialRead = useRef(room.lastRead),
     readSequence = useRef(room.lastRead)
   const query = useInfiniteQuery({
@@ -78,6 +80,15 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
             JSON.parse(String(event.data))
           )
           if (parsed.success) {
+            if (parsed.output.type === "message_changed") {
+              void client.invalidateQueries({
+                queryKey: ["chat-messages", room.id],
+              })
+              void client.invalidateQueries({
+                queryKey: ["chat-image-message", room.id],
+              })
+              return
+            }
             const message = parsed.output.message
             const known = client
               .getQueryData(messagesQuery(room.id).queryKey)
@@ -86,10 +97,16 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
             const profile = client
               .getQueryData(membersQuery(room.id).queryKey)
               ?.members.find((item) => item.id === message.memberId)
-            const continuous = receiveMessage(client, room.id, {
-              ...message,
-              memberImage: known?.memberImage ?? profile?.image ?? null,
-            })
+            const continuous = receiveMessage(
+              client,
+              room.id,
+              {
+                ...message,
+                memberImage: known?.memberImage ?? profile?.image ?? null,
+              },
+              message.memberId === member.id &&
+                document.visibilityState === "visible"
+            )
             if ((!known && !profile) || !continuous)
               void client.invalidateQueries({
                 queryKey: ["chat-messages", room.id],
@@ -115,6 +132,6 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
       if (timer !== null) window.clearTimeout(timer)
       socket?.close(1000, "Room changed")
     }
-  }, [client, offline, active, room.id, room.historical])
+  }, [client, offline, active, room.id, room.historical, member.id])
   return { messages, initialRead: initialRead.current, query, markRead }
 }

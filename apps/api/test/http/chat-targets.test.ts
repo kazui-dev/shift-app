@@ -4,7 +4,7 @@ import { URL } from "node:url"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { Hono } from "hono"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
 import { chatTargetsApp } from "../../src/routes/chat-targets"
 import { meAssignmentsApp } from "../../src/routes/me/assignments"
@@ -122,6 +122,10 @@ describe("migrated chat and calendar queries", () => {
           expect.objectContaining({ targetType: "role", targetId: roleId }),
         ]),
       })
+      const published = vi
+        .fn<() => Promise<void>>()
+        .mockResolvedValue(undefined)
+      const tasks: Promise<unknown>[] = []
       const created = await app.request(
         "/chat/rooms",
         {
@@ -133,8 +137,20 @@ describe("migrated chat and calendar queries", () => {
             targets: [{ targetType: "role", targetId: roleId }],
           }),
         },
-        env
+        {
+          ...env,
+          CHAT_DIRECTORY: { getByName: () => ({ publish: published }) },
+        },
+        {
+          waitUntil: (task) => {
+            tasks.push(task)
+          },
+          passThroughOnException: () => {},
+          props: {},
+        }
       )
+      await Promise.all(tasks)
+      expect(published).toHaveBeenCalledWith(["m"])
       expect(created.status).toBe(201)
       db.exec("UPDATE shift_assignments SET status='cancelled' WHERE id='sa'")
       const cancelled = await app.request("/chat/targets?year=2026", {}, env)

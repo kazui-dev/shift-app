@@ -1,3 +1,4 @@
+import { messagePermissions } from "@workspace/shared/communications"
 import { findAccessibleRoom } from "../services/chat-access"
 import { roomRecipients } from "../services/chat-permissions"
 import type { ChatAttachment } from "@workspace/shared/communications"
@@ -11,6 +12,15 @@ type ChatMessage = {
   memberDisplayName: string
   content: string
   createdAt: string
+  reply?: {
+    id: string
+    sequence: number
+    memberDisplayName: string
+    content: string
+    deleted?: boolean
+  }
+  editedAt?: string
+  deleted?: boolean
   attachments: ChatAttachment[]
 }
 
@@ -21,6 +31,9 @@ type StoredMessage = {
   memberDisplayName: string
   content: string
   createdAt: number
+  replyToId: string | null
+  editedAt: number | null
+  deleted: number
 }
 
 export class ChatRoom extends DurableObject<CloudflareBindings> {
@@ -79,6 +92,82 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         )
       })
     }
+    if (version < 3)
+      this.ctx.storage.transactionSync(() => {
+        this.ctx.storage.sql
+          .exec(`ALTER TABLE messages ADD COLUMN reply_to_id TEXT REFERENCES messages(id);
+        ALTER TABLE messages ADD COLUMN edited_at INTEGER;
+        ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
+        INSERT INTO _sql_schema_migrations(id) VALUES(3);`)
+      })
+  }
+
+  private findMessage(id: string) {
+    return this.ctx.storage.sql
+      .exec<StoredMessage>(
+        `SELECT sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
+      content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted
+      FROM messages WHERE id=?`,
+        id
+      )
+      .toArray()[0]
+  }
+
+  async changeMessage(input: {
+    roomId: string
+    memberId: string
+    id: string
+    content?: string
+  }) {
+    const room = await findAccessibleRoom(
+      this.env,
+      input.roomId,
+      input.memberId
+    )
+    if (this.deleted || !room) return { error: "not_found" } as const
+    const row = this.findMessage(input.id)
+    if (!row) return { error: "not_found" } as const
+    const deleting = input.content === undefined
+    const permission = messagePermissions({
+      memberId: input.memberId,
+      authorId: row.memberId,
+      canPost: room.canPost === 1,
+      canManage: room.canManage === 1,
+      historical: room.exitedAt !== null,
+      deleted: !deleting && row.deleted === 1,
+    })
+    if (!(deleting ? permission.delete : permission.edit))
+      return { error: "forbidden" } as const
+    if (deleting && row.deleted) return { message: this.toMessage(row) }
+    if (
+      !deleting &&
+      !input.content?.trim() &&
+      !this.attachments.forMessage(row.id).length
+    )
+      return { error: "empty" } as const
+    if (deleting) await this.ctx.storage.setAlarm(Date.now() + 1000)
+    this.ctx.storage.transactionSync(() => {
+      if (deleting) {
+        this.ctx.storage.sql.exec(
+          "UPDATE messages SET content='',deleted=1 WHERE id=?",
+          row.id
+        )
+        this.attachments.deleteMessage(row.id)
+      } else
+        this.ctx.storage.sql.exec(
+          "UPDATE messages SET content=?,edited_at=? WHERE id=?",
+          input.content ?? "",
+          Date.now(),
+          row.id
+        )
+    })
+    const updated = this.findMessage(row.id)
+    if (!updated) throw new Error("Message disappeared")
+    await this.broadcast(
+      input.roomId,
+      JSON.stringify({ type: "message_changed" })
+    )
+    return { message: this.toMessage(updated) }
   }
 
   async reserveAttachment(roomId: string, memberId: string) {
@@ -117,7 +206,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       .exec<StoredMessage>(
         `SELECT sequence, id, member_id AS memberId,
                 member_display_name AS memberDisplayName, content,
-                created_at AS createdAt
+                created_at AS createdAt, reply_to_id AS replyToId, edited_at AS editedAt, deleted
          FROM messages
          WHERE (? IS NULL OR sequence < ?) AND (? IS NULL OR created_at <= ?)
          ORDER BY sequence DESC
@@ -145,6 +234,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     memberDisplayName: string
     content: string
     createdAt: number
+    replyToId?: string
     attachmentIds: string[]
   }): Promise<ChatMessage> {
     const permission = await findAccessibleRoom(
@@ -158,7 +248,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       .exec<StoredMessage>(
         `SELECT sequence, id, member_id AS memberId,
                 member_display_name AS memberDisplayName, content,
-                created_at AS createdAt
+                created_at AS createdAt, reply_to_id AS replyToId, edited_at AS editedAt, deleted
          FROM messages WHERE id = ?`,
         input.id
       )
@@ -168,20 +258,25 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         throw new Error("MESSAGE_ID_CONFLICT")
       return this.toMessage(existing)
     }
+    if (input.replyToId) {
+      const target = this.findMessage(input.replyToId)
+      if (!target || target.deleted) throw new Error("INVALID_CHAT_REPLY")
+    }
     const row = this.ctx.storage.transactionSync(() => {
       const inserted = this.ctx.storage.sql
         .exec<StoredMessage>(
           `INSERT INTO messages
-          (id, member_id, member_display_name, content, created_at)
-         VALUES (?, ?, ?, ?, ?)
+          (id, member_id, member_display_name, content, created_at, reply_to_id)
+         VALUES (?, ?, ?, ?, ?, ?)
          RETURNING sequence, id, member_id AS memberId,
                    member_display_name AS memberDisplayName, content,
-                   created_at AS createdAt`,
+                   created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted`,
           input.id,
           input.memberId,
           input.memberDisplayName,
           input.content,
-          input.createdAt
+          input.createdAt,
+          input.replyToId ?? null
         )
         .one()
       this.attachments.claim(input.attachmentIds, input.memberId, input.id)
@@ -189,7 +284,12 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     })
     const message = this.toMessage(row)
     const payload = JSON.stringify({ type: "message", message })
-    const allowed = await roomRecipients(this.env, input.roomId)
+    await this.broadcast(input.roomId, payload)
+    return message
+  }
+
+  private async broadcast(roomId: string, payload: string) {
+    const allowed = await roomRecipients(this.env, roomId)
     const recipients = new Set(allowed.map((item) => item.id))
     for (const socket of this.ctx.getWebSockets()) {
       const attachment: unknown = socket.deserializeAttachment()
@@ -209,7 +309,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         socket.close(1011, "Message delivery failed")
       }
     }
-    return message
   }
 
   override fetch(request: Request): Response {
@@ -240,9 +339,29 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   }
 
   private toMessage(row: StoredMessage): ChatMessage {
+    const target = row.replyToId ? this.findMessage(row.replyToId) : undefined
     return {
-      ...row,
+      sequence: row.sequence,
+      id: row.id,
+      memberId: row.memberId,
+      memberDisplayName: row.memberDisplayName,
+      content: row.content,
       createdAt: new Date(row.createdAt).toISOString(),
+      ...(row.editedAt === null
+        ? {}
+        : { editedAt: new Date(row.editedAt).toISOString() }),
+      ...(row.deleted ? { deleted: true } : {}),
+      ...(target
+        ? {
+            reply: {
+              id: target.id,
+              sequence: target.sequence,
+              memberDisplayName: target.memberDisplayName,
+              content: target.content,
+              ...(target.deleted ? { deleted: true } : {}),
+            },
+          }
+        : {}),
       attachments: this.attachments.forMessage(row.id),
     }
   }

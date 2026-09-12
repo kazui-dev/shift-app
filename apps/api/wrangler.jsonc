@@ -41,10 +41,14 @@
   ],
   "images": { "binding": "IMAGES" },
   "durable_objects": {
-    "bindings": [{ "name": "CHAT_ROOMS", "class_name": "ChatRoom" }],
+    "bindings": [
+      { "name": "CHAT_ROOMS", "class_name": "ChatRoom" },
+      { "name": "CHAT_DIRECTORY", "class_name": "ChatDirectory" },
+    ],
   },
   "exports": {
     "ChatRoom": { "type": "durable-object", "storage": "sqlite" },
+    "ChatDirectory": { "type": "durable-object", "storage": "sqlite" },
   },
   "triggers": {
     "crons": ["* * * * *"],

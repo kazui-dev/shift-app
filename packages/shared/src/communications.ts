@@ -1,3 +1,4 @@
+export { messagePermissions } from "./chat-actions"
 import * as v from "valibot"
 
 import { instantSchema, operatingYearSchema } from "./shifts"
@@ -75,6 +76,7 @@ export const sendChatMessageInputSchema = v.pipe(
   v.object({
     id: v.pipe(v.string(), v.uuid()),
     content: v.pipe(v.string(), v.trim(), v.maxLength(2000)),
+    replyToId: v.optional(v.pipe(v.string(), v.uuid())),
     attachmentIds: v.pipe(
       v.array(v.pipe(v.string(), v.uuid())),
       v.maxLength(chatImageLimits.count)
@@ -114,7 +116,21 @@ export const chatRoomEnvelopeSchema = v.object({
   room: chatRoomResponseSchema,
 })
 
+export const chatReplySchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  sequence: v.number(),
+  memberDisplayName: v.string(),
+  content: v.string(),
+  deleted: v.optional(v.boolean()),
+})
+export const editChatMessageInputSchema = v.object({
+  content: v.pipe(v.string(), v.trim(), v.maxLength(2000)),
+})
+
 const storedChatMessageSchema = v.object({
+  reply: v.optional(chatReplySchema),
+  editedAt: v.optional(instantSchema),
+  deleted: v.optional(v.boolean()),
   sequence: v.pipe(v.number(), v.integer(), v.gtValue(0)),
   id: v.pipe(v.string(), v.uuid()),
   memberId: v.pipe(v.string(), v.uuid()),
@@ -139,6 +155,7 @@ export const chatMessageEnvelopeSchema = v.object({
 })
 
 export const chatEventSchema = v.variant("type", [
+  v.object({ type: v.literal("message_changed") }),
   v.object({
     type: v.literal("message"),
     message: storedChatMessageSchema,

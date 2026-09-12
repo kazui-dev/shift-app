@@ -235,3 +235,34 @@ it("coalesces rapid edits into the latest snapshot", async () => {
   expect(set).toHaveBeenCalledTimes(1)
   expect(vi.mocked(set).mock.calls[0]?.[1].drafts["one"]?.content).toBe("abc")
 })
+
+it("persists a reply target with the queued draft and includes it when sending", async () => {
+  const value = await store()
+  const reply = {
+    id: "10000000-0000-4000-8000-000000000001",
+    sequence: 1,
+    memberDisplayName: "Author",
+    content: "Original",
+  }
+  value.edit("room", { content: "Reply", files: [], reply })
+  await value.enqueue("room")
+  expect(value.snapshot().queue[0]?.reply).toEqual(reply)
+  vi.mocked(sendChatMessage).mockResolvedValue({
+    message: {
+      id: "20000000-0000-4000-8000-000000000001",
+      sequence: 2,
+      memberId: "member",
+      memberDisplayName: "Me",
+      memberImage: null,
+      content: "Reply",
+      createdAt: new Date().toISOString(),
+      attachments: [],
+      reply,
+    },
+  })
+  await value.flush()
+  expect(sendChatMessage).toHaveBeenCalledWith(
+    "room",
+    expect.objectContaining({ replyToId: reply.id, content: "Reply" })
+  )
+})

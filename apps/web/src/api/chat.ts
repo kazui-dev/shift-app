@@ -40,7 +40,12 @@ export const getChatMessages = (roomId: string, before: number | null = null) =>
 
 export const sendChatMessage = (
   roomId: string,
-  input: { id: string; content: string; attachmentIds: string[] }
+  input: {
+    id: string
+    content: string
+    attachmentIds: string[]
+    replyToId?: string
+  }
 ) =>
   apiJson(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/messages`,
@@ -116,3 +121,16 @@ export const getChatMembers = (roomId: string) =>
 
 export const getChatImage = (roomId: string, id: string, signal: AbortSignal) =>
   apiBlob(chatImageUrl(roomId, id), signal)
+
+export const editChatMessage = (roomId: string, id: string, content: string) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(id)}`,
+    chatMessageEnvelopeSchema,
+    { method: "PATCH", body: JSON.stringify({ content }) }
+  )
+export const deleteChatMessage = (roomId: string, id: string) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(id)}`,
+    chatMessageEnvelopeSchema,
+    { method: "DELETE" }
+  )

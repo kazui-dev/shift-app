@@ -1,3 +1,5 @@
+import { publishRoomChange } from "../services/chat-directory"
+import { editChatMessageInputSchema } from "@workspace/shared/communications"
 import { saveRoomSettings } from "../services/chat-settings"
 import { deleteRoom } from "../services/chat-deletion"
 import { targetExists } from "../services/chat-targets"
@@ -102,6 +104,20 @@ chatApp.get("/rooms/:roomId/members", async (c) => {
   })
 })
 
+chatApp.get("/events", async (c) => {
+  if (c.req.header("Upgrade")?.toLowerCase() !== "websocket")
+    return c.text("Expected WebSocket", 426)
+  if (c.req.header("Origin") !== c.env.BETTER_AUTH_URL)
+    return apiError(c, 403, "FORBIDDEN_ORIGIN", "Request origin is not allowed")
+  const headers = new Headers({
+    Upgrade: "websocket",
+    "X-Chat-Member-Id": c.get("member").id,
+  })
+  return c.env.CHAT_DIRECTORY.getByName("rooms").fetch(
+    new Request(c.req.url, { headers })
+  )
+})
+
 chatApp.post("/rooms", async (c) => {
   const input = v.safeParse(
     createChatRoomInputSchema,
@@ -177,6 +193,7 @@ chatApp.post("/rooms", async (c) => {
   const created = await findAccessibleRoom(c.env, roomId, actor.id)
   if (!created)
     return apiError(c, 500, "ROOM_CREATE_FAILED", "Room could not be read")
+  c.executionCtx.waitUntil(publishRoomChange(c.env, roomId))
   return c.json({ room: roomJson(created) }, 201)
 })
 
@@ -238,15 +255,18 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
       content: input.output.content,
       createdAt: now,
       attachmentIds: input.output.attachmentIds,
+      ...(input.output.replyToId ? { replyToId: input.output.replyToId } : {}),
     })
     .catch((error) => {
       if (error instanceof Error && error.message === "CHAT_READ_ONLY")
         return "CHAT_READ_ONLY" as const
       if (
         error instanceof Error &&
-        ["INVALID_CHAT_ATTACHMENTS", "MESSAGE_ID_CONFLICT"].includes(
-          error.message
-        )
+        [
+          "INVALID_CHAT_ATTACHMENTS",
+          "MESSAGE_ID_CONFLICT",
+          "INVALID_CHAT_REPLY",
+        ].includes(error.message)
       )
         return null
       throw error
@@ -258,7 +278,7 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
       c,
       422,
       "INVALID_CHAT_ATTACHMENTS",
-      "画像をもう一度添付して送信してください。"
+      "画像または返信先を確認して、もう一度送信してください。"
     )
   const updated = await c.env.shift_app
     .prepare(
@@ -284,6 +304,57 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
   const [enriched] = await withMemberImages(c.env, [message])
   return c.json({ message: enriched }, 201)
 })
+
+for (const method of ["patch", "delete"] as const) {
+  chatApp[method]("/rooms/:roomId/messages/:messageId", async (c) => {
+    const roomId = v.safeParse(idSchema, c.req.param("roomId")),
+      id = v.safeParse(idSchema, c.req.param("messageId"))
+    if (!roomId.success || !id.success)
+      return apiError(
+        c,
+        404,
+        "MESSAGE_NOT_FOUND",
+        "メッセージが見つかりません。"
+      )
+    let content: string | undefined
+    if (method === "patch") {
+      const input = v.safeParse(
+        editChatMessageInputSchema,
+        await readJson(c.req.raw)
+      )
+      if (!input.success)
+        return apiError(c, 422, "INVALID_MESSAGE", "本文を確認してください。")
+      content = input.output.content
+    }
+    const result = await c.env.CHAT_ROOMS.getByName(
+      roomId.output
+    ).changeMessage({
+      roomId: roomId.output,
+      id: id.output,
+      memberId: c.get("member").id,
+      ...(content === undefined ? {} : { content }),
+    })
+    if ("error" in result) {
+      if (result.error === "not_found")
+        return apiError(
+          c,
+          404,
+          "MESSAGE_NOT_FOUND",
+          "メッセージが見つかりません。"
+        )
+      if (result.error === "forbidden")
+        return apiError(
+          c,
+          403,
+          "MESSAGE_FORBIDDEN",
+          "このメッセージは変更できません。"
+        )
+      return apiError(c, 422, "EMPTY_MESSAGE", "本文または画像が必要です。")
+    }
+    const [message] = await withMemberImages(c.env, [result.message])
+    return c.json({ message })
+  })
+}
 
 chatApp.get("/rooms/:roomId/ws", async (c) => {
   if (c.req.header("Origin") !== c.env.BETTER_AUTH_URL) {
