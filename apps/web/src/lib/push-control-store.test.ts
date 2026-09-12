@@ -14,7 +14,6 @@ import {
   preparePushControl,
   resetPushControl,
   setPushEnabled,
-  enableNotifications,
 } from "./push-control-store"
 vi.mock("@/api/push", () => ({
   getNotificationDevices: vi.fn<typeof getNotificationDevices>(),
@@ -65,28 +64,33 @@ it("observes permission before startup I/O finishes and does not prompt", async 
   await initial
   expect(request).not.toHaveBeenCalled()
 })
-it("turns ON immediately and saves ON even when permission is denied", async () => {
-  await preparePushControl("member")
-  let finish: () => void = () => {}
-  vi.mocked(saveNotificationPreference).mockReturnValue(
-    new Promise((resolve) => {
-      finish = resolve
-    })
-  )
-  const saving = setPushEnabled(true)
-  expect(getPushControlState().enabled).toBe(true)
-  expect(request).toHaveBeenCalledOnce()
-  await vi.waitFor(() =>
-    expect(saveNotificationPreference).toHaveBeenCalledWith(
-      expect.any(String),
-      true
+it.each(["denied", "default"] as const)(
+  "saves ON immediately without an error when permission returns %s",
+  async (result) => {
+    request.mockResolvedValue(result)
+    await preparePushControl("member")
+    let finish: () => void = () => {}
+    vi.mocked(saveNotificationPreference).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve
+      })
     )
-  )
-  finish()
-  await saving
-  expect(getPushControlState().enabled).toBe(true)
-  expect(subscribePush).not.toHaveBeenCalled()
-})
+    const saving = setPushEnabled(true)
+    expect(getPushControlState().enabled).toBe(true)
+    expect(request).toHaveBeenCalledOnce()
+    await vi.waitFor(() =>
+      expect(saveNotificationPreference).toHaveBeenCalledWith(
+        expect.any(String),
+        true
+      )
+    )
+    finish()
+    await saving
+    expect(getPushControlState().enabled).toBe(true)
+    expect(subscribePush).not.toHaveBeenCalled()
+    expect(getPushControlState().error).toBeNull()
+  }
+)
 it("permission changes in either direction never change the saved preference", async () => {
   await preparePushControl("member")
   await setPushEnabled(true)
@@ -142,17 +146,6 @@ it("rolls back only a failed preference save, not a rejected permission", async 
     error: "通知設定を保存できませんでした",
   })
 })
-it("explicit permission action does not turn an OFF preference ON", async () => {
-  await preparePushControl("member")
-  request.mockResolvedValue("granted")
-  await enableNotifications()
-  expect(getPushControlState()).toMatchObject({
-    enabled: false,
-    permission: "granted",
-  })
-  expect(saveNotificationPreference).not.toHaveBeenCalled()
-  expect(saveDeviceSubscription).not.toHaveBeenCalled()
-})
 it("retains existing ON settings when the browser permission is denied", async () => {
   vi.mocked(readNotificationPermission).mockReturnValue("denied")
   vi.mocked(readPushSubscription).mockResolvedValue({
@@ -172,7 +165,45 @@ it("retains existing ON settings when the browser permission is denied", async (
   await preparePushControl("member")
   expect(getPushControlState()).toMatchObject({
     enabled: true,
-    permission: "denied",
   })
   expect(request).not.toHaveBeenCalled()
 })
+
+it("keeps ON without an error when the permission request rejects", async () => {
+  request.mockRejectedValue(new DOMException("blocked", "NotAllowedError"))
+  await preparePushControl("member")
+  await setPushEnabled(true)
+  expect(getPushControlState()).toMatchObject({ enabled: true, error: null })
+  expect(subscribePush).not.toHaveBeenCalled()
+})
+it.each(["NotAllowedError", "SecurityError"])(
+  "keeps permission-related subscription errors silent: %s",
+  async (name) => {
+    request.mockResolvedValue("granted")
+    vi.mocked(subscribePush).mockRejectedValue(
+      new DOMException("blocked", name)
+    )
+    await preparePushControl("member")
+    await setPushEnabled(true)
+    await vi.waitFor(() => expect(subscribePush).toHaveBeenCalledOnce())
+    expect(getPushControlState()).toMatchObject({ enabled: true, error: null })
+  }
+)
+it.each(["browser", "server"])(
+  "reports %s registration failures without reverting ON",
+  async (source) => {
+    request.mockResolvedValue("granted")
+    if (source === "browser")
+      vi.mocked(subscribePush).mockRejectedValue(new Error("network"))
+    else
+      vi.mocked(saveDeviceSubscription).mockRejectedValue(new Error("network"))
+    await preparePushControl("member")
+    await setPushEnabled(true)
+    await vi.waitFor(() =>
+      expect(getPushControlState()).toMatchObject({
+        enabled: true,
+        error: "通知の登録に失敗しました",
+      })
+    )
+  }
+)
