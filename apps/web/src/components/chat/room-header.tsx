@@ -1,6 +1,23 @@
-import { ArrowLeft, Bell, BellOff, MessageCircle, Settings } from "lucide-react"
+import type { ReactNode } from "react"
+import { ArrowLeft, Bell, BellOff, Settings } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { ChatRoom } from "@/api/chat"
+
+function HeaderRow({
+  children,
+  mobile = false,
+}: {
+  children: ReactNode
+  mobile?: boolean
+}) {
+  return (
+    <header
+      className={`flex h-12 shrink-0 items-center gap-2 border-b px-3 ${mobile ? "md:hidden" : ""}`}
+    >
+      {children}
+    </header>
+  )
+}
 
 function RoomControls({
   room,
@@ -59,7 +76,7 @@ export function RoomHeader({
   onAttendance: () => void
 }) {
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+    <HeaderRow>
       <Button
         variant="ghost"
         size="icon-sm"
@@ -79,7 +96,6 @@ export function RoomHeader({
         <h1 className="truncate text-sm font-semibold">{name}</h1>
       </button>
       <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-        <MessageCircle className="size-5 shrink-0 text-muted-foreground" />
         <h1 className="truncate text-sm font-semibold">{name}</h1>
       </div>
       {room?.activityId && (
@@ -97,7 +113,7 @@ export function RoomHeader({
           />
         </div>
       )}
-    </header>
+    </HeaderRow>
   )
 }
 
@@ -115,8 +131,8 @@ export function MembersHeader({
   onSettings: () => void
 }) {
   return (
-    <header className="shrink-0 px-3 pb-5 md:hidden">
-      <div className="flex h-12 items-center justify-between">
+    <HeaderRow mobile>
+      <div className="w-17 shrink-0">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -125,6 +141,14 @@ export function MembersHeader({
         >
           <ArrowLeft />
         </Button>
+      </div>
+      <h2
+        title={room.name}
+        className="min-w-0 flex-1 truncate text-center text-sm font-semibold"
+      >
+        {room.name}
+      </h2>
+      <div className="flex w-17 shrink-0 justify-end">
         <RoomControls
           room={room}
           offline={offline}
@@ -132,10 +156,6 @@ export function MembersHeader({
           onSettings={onSettings}
         />
       </div>
-      <div className="flex min-w-0 items-center gap-3 px-2 pt-3">
-        <MessageCircle className="size-6 shrink-0 text-muted-foreground" />
-        <h2 className="truncate text-lg font-semibold">{room.name}</h2>
-      </div>
-    </header>
+    </HeaderRow>
   )
 }

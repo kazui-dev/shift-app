@@ -7,7 +7,7 @@ import {
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
+import { ChatNameField } from "./name-field"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 import type { ChatTargetOption } from "@workspace/shared/communications"
@@ -156,18 +156,11 @@ function SettingsEditor({
       />
       <ResponsivePageBody>
         <fieldset disabled={pending} className="min-w-0 space-y-6">
-          <label htmlFor="chat-room-name" className="block space-y-2 text-sm">
-            チャット名
-            <Input
-              id="chat-room-name"
-              value={value.name}
-              maxLength={120}
-              required
-              onChange={(event) =>
-                setValue({ ...value, name: event.target.value })
-              }
-            />
-          </label>
+          <ChatNameField
+            id="chat-room-name"
+            value={value.name}
+            onChange={(name) => setValue({ ...value, name })}
+          />
           <label
             htmlFor="chat-room-exit"
             className="flex items-center justify-between gap-4 text-sm"
