@@ -20,7 +20,7 @@ const plugins = lazyPlugins(() => {
         id: "/",
         name: "旭祭シフト",
         short_name: "旭祭シフト",
-        description: "シフトの確認・提出・連絡ができるアプリ",
+        description: "旭祭実行委員会 シフトアプリ",
         lang: "ja",
         theme_color: "#ffffff",
         background_color: "#ffffff",

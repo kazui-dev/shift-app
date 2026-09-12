@@ -1,11 +1,16 @@
 import { useState } from "react"
 import { Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Input } from "@workspace/ui/components/input"
+import {
+  ResponsivePage,
+  ResponsivePageHeader,
+  ResponsivePageBody,
+} from "@workspace/ui/components/responsive-page"
 import type { ChatTargetOption } from "@workspace/shared/communications"
 import type { getRoomSettings } from "@/api/chat"
+import { nativeSelectClassName } from "@/components/form-styles"
 import { TargetAvatar } from "./target-avatar"
+import { TargetPicker } from "./target-picker"
 import { targetKey } from "./target-key"
 
 type Grants = Awaited<ReturnType<typeof getRoomSettings>>["targets"]
@@ -18,128 +23,134 @@ export function RoomGrants({
   targets: ChatTargetOption[]
   onChange: (value: Grants) => void
 }) {
-  const [adding, setAdding] = useState(false),
-    [search, setSearch] = useState("")
-  const candidates = targets.filter(
-    (target) =>
-      !value.some((grant) => targetKey(grant) === targetKey(target)) &&
-      target.displayName
-        .toLocaleLowerCase()
-        .includes(search.trim().toLocaleLowerCase())
-  )
+  const [selecting, setSelecting] = useState(false)
+  const [selected, setSelected] = useState<string[]>([])
+  function apply() {
+    onChange([
+      ...value.filter(
+        (grant) =>
+          selected.includes(targetKey(grant)) &&
+          !targets.some((target) => targetKey(target) === targetKey(grant))
+      ),
+      ...targets
+        .filter((target) => selected.includes(targetKey(target)))
+        .map(
+          (target) =>
+            value.find((grant) => targetKey(grant) === targetKey(target)) ?? {
+              targetType: target.targetType,
+              targetId: target.targetId,
+              canRead: true,
+              canPost: true,
+              canManage: false,
+            }
+        ),
+    ])
+    setSelecting(false)
+  }
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">参加対象</h3>
+    <section className="space-y-3" aria-label="参加対象">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium">
+          参加対象{" "}
+          <span className="ml-1 text-muted-foreground">{value.length}</span>
+        </h2>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          aria-expanded={adding}
-          onClick={() => setAdding((open) => !open)}
+          onClick={() => {
+            setSelected(value.map(targetKey))
+            setSelecting(true)
+          }}
         >
           <Plus />
-          追加
+          追加・変更
         </Button>
       </div>
-      {adding && (
-        <div className="space-y-2 rounded-xl border p-3">
-          <Input
-            aria-label="追加する対象を検索"
-            placeholder="名前・ロール・シフトを検索"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <ul className="max-h-56 overflow-y-auto">
-            {candidates.map((target) => (
-              <li key={targetKey(target)}>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg p-2 text-left text-sm hover:bg-muted"
-                  onClick={() => {
-                    onChange([
-                      ...value,
-                      {
-                        targetType: target.targetType,
-                        targetId: target.targetId,
-                        canRead: true,
-                        canPost: true,
-                        canManage: false,
-                      },
-                    ])
-                    setSearch("")
-                    setAdding(false)
-                  }}
-                >
-                  <TargetAvatar target={target} />
-                  <span className="min-w-0 flex-1 truncate">
-                    {target.displayName}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <ul className="divide-y">
-        {value.map((grant, index) => {
-          const target = targets.find(
-            (candidate) => targetKey(candidate) === targetKey(grant)
-          )
+      <ul className="divide-y border-y">
+        {value.map((grant) => {
+          const key = targetKey(grant),
+            target = targets.find((candidate) => targetKey(candidate) === key)
           const name = target?.displayName ?? "対象を確認できません"
+          const permission = grant.canManage
+            ? "manage"
+            : grant.canPost
+              ? "post"
+              : grant.canRead
+                ? "read"
+                : "none"
           return (
-            <li key={targetKey(grant)} className="space-y-3 py-4 first:pt-0">
-              <div className="flex items-center gap-3">
-                {target && <TargetAvatar target={target} />}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {name}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`${name}の設定を削除`}
-                  onClick={() =>
-                    onChange(value.filter((_, position) => position !== index))
-                  }
-                >
-                  <X />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-x-5 gap-y-3">
-                {(
-                  [
-                    {
-                      key: "canRead",
-                      label: "閲覧",
-                      implied: grant.canPost || grant.canManage,
-                    },
-                    { key: "canPost", label: "投稿", implied: grant.canManage },
-                    { key: "canManage", label: "管理", implied: false },
-                  ] as const
-                ).map(({ key, label, implied }) => (
-                  <label key={key} className="flex items-center gap-2 text-xs">
-                    <Checkbox
-                      checked={grant[key] || implied}
-                      disabled={implied}
-                      onCheckedChange={(checked) =>
-                        onChange(
-                          value.map((item, position) =>
-                            position === index
-                              ? { ...item, [key]: checked }
-                              : item
-                          )
-                        )
-                      }
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
+            <li
+              key={key}
+              className="grid grid-cols-[2rem_minmax(0,1fr)_2.5rem] items-center gap-x-3 gap-y-3 py-4"
+            >
+              {target ? <TargetAvatar target={target} /> : <span />}
+              <span className="truncate text-sm font-medium" title={name}>
+                {name}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={`${name}の設定を削除`}
+                onClick={() =>
+                  onChange(value.filter((item) => targetKey(item) !== key))
+                }
+              >
+                <X />
+              </Button>
+              <select
+                aria-label={`${name}の権限`}
+                className={`${nativeSelectClassName} col-span-2 col-start-2`}
+                value={permission}
+                onChange={(event) => {
+                  const level = event.target.value
+                  onChange(
+                    value.map((item) =>
+                      targetKey(item) === key
+                        ? {
+                            ...item,
+                            canRead: level !== "none",
+                            canPost: level === "post" || level === "manage",
+                            canManage: level === "manage",
+                          }
+                        : item
+                    )
+                  )
+                }}
+              >
+                <option value="read">閲覧のみ</option>
+                <option value="post">閲覧・投稿</option>
+                <option value="manage">管理</option>
+                <option value="none">権限なし</option>
+              </select>
             </li>
           )
         })}
+        {value.length === 0 && (
+          <li className="py-6 text-center text-sm text-muted-foreground">
+            対象がありません
+          </li>
+        )}
       </ul>
+      <ResponsivePage open={selecting} onClose={() => setSelecting(false)}>
+        <ResponsivePageHeader
+          title="参加対象"
+          onBack={() => setSelecting(false)}
+          action={
+            <Button type="button" size="sm" onClick={apply}>
+              適用
+            </Button>
+          }
+        />
+        <ResponsivePageBody>
+          <TargetPicker
+            targets={targets}
+            selected={selected}
+            onChange={setSelected}
+          />
+        </ResponsivePageBody>
+      </ResponsivePage>
     </section>
   )
 }

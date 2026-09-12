@@ -25,9 +25,10 @@ export function RoomSettings({
   room,
   open,
   onClose,
+  onClosed,
   onLeave,
   onDelete,
-}: Actions & { open: boolean; onClose: () => void }) {
+}: Actions & { open: boolean; onClose: () => void; onClosed: () => void }) {
   const settings = useQuery({
     ...settingsQuery(room.id),
     enabled: open && room.canManage,
@@ -37,7 +38,7 @@ export function RoomSettings({
     enabled: open && room.canManage,
   })
   return (
-    <ResponsivePage open={open} onClose={onClose}>
+    <ResponsivePage open={open} onClose={onClose} onClosed={onClosed}>
       {room.canManage && settings.data && targets.data ? (
         <SettingsEditor
           room={room}
@@ -72,7 +73,7 @@ export function RoomSettings({
 
 function RoomActions({ room, onLeave, onDelete }: Actions) {
   return (
-    <div className="space-y-1 border-t pt-4">
+    <div className="space-y-1">
       {room.allowExit && !room.historical && (
         <Button
           type="button"

@@ -1,7 +1,23 @@
-import { useRef, type ReactNode } from "react"
+import {
+  createContext,
+  useContext,
+  useRef,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react"
 import { Dialog } from "@base-ui/react/dialog"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
+
+const PageContext = createContext(false)
+const desktopQuery = "(min-width: 768px)"
+function subscribeDesktop(notify: () => void) {
+  const query = window.matchMedia(desktopQuery)
+  query.addEventListener("change", notify)
+  return () => query.removeEventListener("change", notify)
+}
+const isDesktop = () => window.matchMedia(desktopQuery).matches
+const serverDesktop = () => false
 
 /** A full mobile page and a desktop dialog, sharing one content lifecycle. */
 export function ResponsivePage({
@@ -9,40 +25,55 @@ export function ResponsivePage({
   onClose,
   onClosed,
   children,
+  desktop = "dialog",
 }: {
+  desktop?: "dialog" | "page"
   open: boolean
   onClose: () => void
   onClosed?: () => void
   children: ReactNode
 }) {
+  const inline =
+    useSyncExternalStore(subscribeDesktop, isDesktop, serverDesktop) &&
+    desktop === "page"
   const container = useRef<HTMLDivElement>(null)
   const popup = useRef<HTMLDivElement>(null)
+  if (inline)
+    return (
+      <PageContext value={true}>
+        <section className="flex h-dvh min-h-0 min-w-0 flex-col bg-background">
+          {open && children}
+        </section>
+      </PageContext>
+    )
   return (
-    <div
-      ref={container}
-      className="pointer-events-none absolute inset-0 z-50 overflow-clip md:contents"
-    >
-      <Dialog.Root
-        open={open}
-        onOpenChangeComplete={(value) => {
-          if (!value) onClosed?.()
-        }}
-        onOpenChange={(value) => {
-          if (!value) onClose()
-        }}
+    <PageContext value={false}>
+      <div
+        ref={container}
+        className="pointer-events-none absolute inset-0 z-50 overflow-clip md:contents"
       >
-        <Dialog.Portal container={container}>
-          <Dialog.Backdrop className="pointer-events-auto fixed inset-0 z-50 hidden bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs motion-reduce:animate-none md:block data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
-          <Dialog.Popup
-            ref={popup}
-            initialFocus={() => popup.current}
-            className="pointer-events-auto absolute inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none motion-reduce:animate-none md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:h-[min(44rem,85dvh)] md:w-[38rem] md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bg-popover md:pt-0 md:text-popover-foreground md:ring-1 md:ring-foreground/10 md:duration-100 data-open:animate-in data-open:slide-in-from-right-full md:data-open:fade-in-0 md:data-open:slide-in-from-right-0 md:data-open:zoom-in-95 data-closed:animate-out data-closed:slide-out-to-right-full md:data-closed:fade-out-0 md:data-closed:slide-out-to-right-0 md:data-closed:zoom-out-95"
-          >
-            {children}
-          </Dialog.Popup>
-        </Dialog.Portal>
-      </Dialog.Root>
-    </div>
+        <Dialog.Root
+          open={open}
+          onOpenChangeComplete={(value) => {
+            if (!value) onClosed?.()
+          }}
+          onOpenChange={(value) => {
+            if (!value) onClose()
+          }}
+        >
+          <Dialog.Portal container={container}>
+            <Dialog.Backdrop className="pointer-events-auto fixed inset-0 z-50 hidden bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs motion-reduce:animate-none md:block data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+            <Dialog.Popup
+              ref={popup}
+              initialFocus={() => popup.current}
+              className="pointer-events-auto absolute inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none motion-reduce:animate-none md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:h-[min(44rem,85dvh)] md:w-[38rem] md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bg-popover md:pt-0 md:text-popover-foreground md:ring-1 md:ring-foreground/10 md:duration-100 data-open:animate-in data-open:slide-in-from-right-full md:data-open:fade-in-0 md:data-open:slide-in-from-right-0 md:data-open:zoom-in-95 data-closed:animate-out data-closed:slide-out-to-right-full md:data-closed:fade-out-0 md:data-closed:slide-out-to-right-0 md:data-closed:zoom-out-95"
+            >
+              {children}
+            </Dialog.Popup>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </div>
+    </PageContext>
   )
 }
 
@@ -57,6 +88,8 @@ export function ResponsivePageHeader({
   backDisabled?: boolean
   action?: ReactNode
 }) {
+  const inline = useContext(PageContext)
+  const Title = inline ? "h1" : Dialog.Title
   return (
     <header className="grid h-16 shrink-0 grid-cols-[4rem_minmax(0,1fr)_4rem] items-center gap-2 border-b px-4">
       <Button
@@ -69,9 +102,9 @@ export function ResponsivePageHeader({
       >
         <ArrowLeft className="size-5" />
       </Button>
-      <Dialog.Title className="truncate text-center text-base font-semibold">
+      <Title className="truncate text-center text-base font-semibold">
         {title}
-      </Dialog.Title>
+      </Title>
       {action}
     </header>
   )

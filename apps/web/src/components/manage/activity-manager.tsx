@@ -11,7 +11,11 @@ import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import { createActivity } from "@/api/activities"
 import { errorMessage } from "@/api/client"
-import { ResponsiveDialog } from "@/components/responsive-overlay"
+import {
+  ResponsivePage,
+  ResponsivePageHeader,
+  ResponsivePageBody,
+} from "@workspace/ui/components/responsive-page"
 import { nativeSelectClassName } from "@/components/form-styles"
 import { japanLocalDateTime } from "@/lib/japan-time"
 import { timeLabel } from "@/components/shifts/time-label"
@@ -76,14 +80,15 @@ export function ActivityManager({ year }: { year: number }) {
   }
   return (
     <div className="space-y-4">
-      <nav className="flex gap-4 border-b text-sm">
-        <span className="border-b-2 border-foreground pb-3 font-medium">
-          シフト一覧
-        </span>
-        <Link to="/manage/availability" className="pb-3 text-muted-foreground">
-          シフト希望フォーム
-        </Link>
-      </nav>
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          render={<Link to="/manage/availability" />}
+          nativeButton={false}
+        >
+          シフト希望フォーム設定
+        </Button>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Input
           className="min-w-32 flex-1"
@@ -137,84 +142,90 @@ export function ActivityManager({ year }: { year: number }) {
             </li>
           ))}
       </ul>
-      {creating && (
-        <ResponsiveDialog
-          open
-          title="シフトを作成"
-          onOpenChange={(open) => {
-            if (!open) setCreating(false)
-          }}
-        >
-          <form onSubmit={create} className="space-y-4">
-            <Input
-              aria-label="シフト名"
-              placeholder="シフト名"
-              required
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-            <Input
-              aria-label="場所"
-              placeholder="場所"
-              required
-              value={place}
-              onChange={(event) => setPlace(event.target.value)}
-            />
-            <label htmlFor="new-start" className="block space-y-2 text-sm">
-              開始
+      <ResponsivePage open={creating} onClose={() => setCreating(false)}>
+        <form onSubmit={create} className="flex min-h-0 flex-1 flex-col">
+          <ResponsivePageHeader
+            title="シフトを作成"
+            onBack={() => setCreating(false)}
+            action={
+              <Button type="submit" size="sm" disabled={pending}>
+                作成
+              </Button>
+            }
+          />
+          <ResponsivePageBody>
+            <fieldset disabled={pending} className="space-y-5">
               <Input
-                id="new-start"
-                type="datetime-local"
+                aria-label="シフト名"
+                placeholder="シフト名"
                 required
-                value={from}
-                onChange={(event) => setFrom(event.target.value)}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
               />
-            </label>
-            <label htmlFor="new-end" className="block space-y-2 text-sm">
-              終了
               <Input
-                id="new-end"
-                type="datetime-local"
+                aria-label="場所"
+                placeholder="場所"
                 required
-                value={to}
-                onChange={(event) => setTo(event.target.value)}
+                value={place}
+                onChange={(event) => setPlace(event.target.value)}
               />
-            </label>
-            <TargetPicker
-              label="責任者"
-              roles={roles.data?.roles ?? []}
-              members={roster.data?.members ?? []}
-              value={responsibles}
-              onChange={setResponsibles}
-            />
-            <details>
-              <summary className="cursor-pointer text-sm">対象のロール</summary>
-              <div className="mt-2">
-                {roles.data?.roles.map((role) => (
-                  <label
-                    key={role.id}
-                    className="flex min-h-10 items-center gap-3 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={candidateRoleIds.includes(role.id)}
-                      onChange={(e) =>
-                        setCandidateRoleIds((ids) =>
-                          e.target.checked
-                            ? [...ids, role.id]
-                            : ids.filter((id) => id !== role.id)
-                        )
-                      }
-                    />
-                    {role.name}
-                  </label>
-                ))}
-              </div>
-            </details>
-            <Button disabled={pending}>作成</Button>
-          </form>
-        </ResponsiveDialog>
-      )}
+              <label htmlFor="new-start" className="block space-y-2 text-sm">
+                開始
+                <Input
+                  id="new-start"
+                  type="datetime-local"
+                  required
+                  value={from}
+                  onChange={(event) => setFrom(event.target.value)}
+                />
+              </label>
+              <label htmlFor="new-end" className="block space-y-2 text-sm">
+                終了
+                <Input
+                  id="new-end"
+                  type="datetime-local"
+                  required
+                  value={to}
+                  onChange={(event) => setTo(event.target.value)}
+                />
+              </label>
+              <TargetPicker
+                label="責任者"
+                roles={roles.data?.roles ?? []}
+                members={roster.data?.members ?? []}
+                value={responsibles}
+                onChange={setResponsibles}
+              />
+              <details>
+                <summary className="cursor-pointer text-sm">
+                  対象のロール
+                </summary>
+                <div className="mt-2">
+                  {roles.data?.roles.map((role) => (
+                    <label
+                      key={role.id}
+                      className="flex min-h-10 items-center gap-3 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={candidateRoleIds.includes(role.id)}
+                        onChange={(e) =>
+                          setCandidateRoleIds((ids) =>
+                            e.target.checked
+                              ? [...ids, role.id]
+                              : ids.filter((id) => id !== role.id)
+                          )
+                        }
+                      />
+                      {role.name}
+                    </label>
+                  ))}
+                </div>
+              </details>
+            </fieldset>
+          </ResponsivePageBody>
+        </form>
+      </ResponsivePage>
     </div>
   )
 }

@@ -42,6 +42,33 @@ describe("shift API schemas", () => {
     ).toThrow()
   })
 
+  it("accepts availability ending exactly at 24:00 in Japan", () => {
+    expect(
+      v.safeParse(replaceAvailabilityInputSchema, {
+        status: "submitted",
+        windows: [
+          {
+            date: "2026-11-01",
+            startsAt: "2026-11-01T00:00:00+09:00",
+            endsAt: "2026-11-01T15:00:00Z",
+          },
+        ],
+      }).success
+    ).toBe(true)
+    expect(
+      v.safeParse(replaceAvailabilityInputSchema, {
+        status: "submitted",
+        windows: [
+          {
+            date: "2026-11-01",
+            startsAt: "2026-11-01T00:00:00+09:00",
+            endsAt: "2026-11-01T15:00:00.001Z",
+          },
+        ],
+      }).success
+    ).toBe(false)
+  })
+
   it("rejects availability that crosses into another date in Japan", () => {
     expect(() =>
       v.parse(replaceAvailabilityInputSchema, {

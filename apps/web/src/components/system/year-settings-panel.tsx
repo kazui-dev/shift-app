@@ -7,7 +7,6 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { errorMessage } from "@/api/client"
 import { createYear, setDefaultYear } from "@/api/years"
-import { SectionHeader } from "@/components/page-layout"
 
 export function YearSettingsPanel() {
   const queryClient = useQueryClient()
@@ -48,7 +47,6 @@ export function YearSettingsPanel() {
 
   return (
     <section className="space-y-5">
-      <SectionHeader title="年度" />
       <form className="flex flex-col gap-2 sm:flex-row" onSubmit={addYear}>
         <Input
           type="number"

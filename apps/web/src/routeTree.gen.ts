@@ -30,6 +30,9 @@ import { Route as AppManageRolesRouteImport } from './routes/_app.manage.roles'
 import { Route as AppManageShiftsRouteImport } from './routes/_app.manage.shifts'
 import { Route as AppManageUsersRouteImport } from './routes/_app.manage.users'
 import { Route as AppManageYearsRouteImport } from './routes/_app.manage.years'
+import { Route as AppChatRoomIdSettingsRouteImport } from './routes/_app.chat.$roomId.settings'
+import { Route as AppManageAvailabilityDateRouteImport } from './routes/_app.manage.availability.$date'
+import { Route as AppManageAvailabilityNewRouteImport } from './routes/_app.manage.availability.new'
 import { Route as AppManageShiftsShiftIdRouteImport } from './routes/_app.manage.shifts_.$shiftId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -136,6 +139,23 @@ const AppManageYearsRoute = AppManageYearsRouteImport.update({
   path: '/years',
   getParentRoute: () => AppManageRoute,
 } as any)
+const AppChatRoomIdSettingsRoute = AppChatRoomIdSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppChatRoomIdRoute,
+} as any)
+const AppManageAvailabilityDateRoute =
+  AppManageAvailabilityDateRouteImport.update({
+    id: '/$date',
+    path: '/$date',
+    getParentRoute: () => AppManageAvailabilityRoute,
+  } as any)
+const AppManageAvailabilityNewRoute =
+  AppManageAvailabilityNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AppManageAvailabilityRoute,
+  } as any)
 const AppManageShiftsShiftIdRoute = AppManageShiftsShiftIdRouteImport.update({
   id: '/shifts_/$shiftId',
   path: '/shifts/$shiftId',
@@ -150,10 +170,10 @@ export interface FileRoutesByFullPath {
   '/system': typeof AppSystemRoute
   '/availability': typeof AppCalendarAvailabilityRoute
   '/calendar': typeof AppCalendarCalendarRoute
-  '/chat/$roomId': typeof AppChatRoomIdRoute
+  '/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/chat/new': typeof AppChatNewRoute
   '/manage/audit': typeof AppManageAuditRoute
-  '/manage/availability': typeof AppManageAvailabilityRoute
+  '/manage/availability': typeof AppManageAvailabilityRouteWithChildren
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
   '/manage/roles': typeof AppManageRolesRoute
@@ -162,6 +182,9 @@ export interface FileRoutesByFullPath {
   '/manage/years': typeof AppManageYearsRoute
   '/chat/': typeof AppChatIndexRoute
   '/manage/': typeof AppManageIndexRoute
+  '/chat/$roomId/settings': typeof AppChatRoomIdSettingsRoute
+  '/manage/availability/$date': typeof AppManageAvailabilityDateRoute
+  '/manage/availability/new': typeof AppManageAvailabilityNewRoute
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
 }
 export interface FileRoutesByTo {
@@ -170,10 +193,10 @@ export interface FileRoutesByTo {
   '/system': typeof AppSystemRoute
   '/availability': typeof AppCalendarAvailabilityRoute
   '/calendar': typeof AppCalendarCalendarRoute
-  '/chat/$roomId': typeof AppChatRoomIdRoute
+  '/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/chat/new': typeof AppChatNewRoute
   '/manage/audit': typeof AppManageAuditRoute
-  '/manage/availability': typeof AppManageAvailabilityRoute
+  '/manage/availability': typeof AppManageAvailabilityRouteWithChildren
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
   '/manage/roles': typeof AppManageRolesRoute
@@ -182,6 +205,9 @@ export interface FileRoutesByTo {
   '/manage/years': typeof AppManageYearsRoute
   '/chat': typeof AppChatIndexRoute
   '/manage': typeof AppManageIndexRoute
+  '/chat/$roomId/settings': typeof AppChatRoomIdSettingsRoute
+  '/manage/availability/$date': typeof AppManageAvailabilityDateRoute
+  '/manage/availability/new': typeof AppManageAvailabilityNewRoute
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
 }
 export interface FileRoutesById {
@@ -195,10 +221,10 @@ export interface FileRoutesById {
   '/_app/system': typeof AppSystemRoute
   '/_app/_calendar/availability': typeof AppCalendarAvailabilityRoute
   '/_app/_calendar/calendar': typeof AppCalendarCalendarRoute
-  '/_app/chat/$roomId': typeof AppChatRoomIdRoute
+  '/_app/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/_app/chat/new': typeof AppChatNewRoute
   '/_app/manage/audit': typeof AppManageAuditRoute
-  '/_app/manage/availability': typeof AppManageAvailabilityRoute
+  '/_app/manage/availability': typeof AppManageAvailabilityRouteWithChildren
   '/_app/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/_app/manage/members': typeof AppManageMembersRoute
   '/_app/manage/roles': typeof AppManageRolesRoute
@@ -207,6 +233,9 @@ export interface FileRoutesById {
   '/_app/manage/years': typeof AppManageYearsRoute
   '/_app/chat/': typeof AppChatIndexRoute
   '/_app/manage/': typeof AppManageIndexRoute
+  '/_app/chat/$roomId/settings': typeof AppChatRoomIdSettingsRoute
+  '/_app/manage/availability/$date': typeof AppManageAvailabilityDateRoute
+  '/_app/manage/availability/new': typeof AppManageAvailabilityNewRoute
   '/_app/manage/shifts_/$shiftId': typeof AppManageShiftsShiftIdRoute
 }
 export interface FileRouteTypes {
@@ -231,6 +260,9 @@ export interface FileRouteTypes {
     | '/manage/years'
     | '/chat/'
     | '/manage/'
+    | '/chat/$roomId/settings'
+    | '/manage/availability/$date'
+    | '/manage/availability/new'
     | '/manage/shifts/$shiftId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -251,6 +283,9 @@ export interface FileRouteTypes {
     | '/manage/years'
     | '/chat'
     | '/manage'
+    | '/chat/$roomId/settings'
+    | '/manage/availability/$date'
+    | '/manage/availability/new'
     | '/manage/shifts/$shiftId'
   id:
     | '__root__'
@@ -275,6 +310,9 @@ export interface FileRouteTypes {
     | '/_app/manage/years'
     | '/_app/chat/'
     | '/_app/manage/'
+    | '/_app/chat/$roomId/settings'
+    | '/_app/manage/availability/$date'
+    | '/_app/manage/availability/new'
     | '/_app/manage/shifts_/$shiftId'
   fileRoutesById: FileRoutesById
 }
@@ -432,6 +470,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManageYearsRouteImport
       parentRoute: typeof AppManageRoute
     }
+    '/_app/chat/$roomId/settings': {
+      id: '/_app/chat/$roomId/settings'
+      path: '/settings'
+      fullPath: '/chat/$roomId/settings'
+      preLoaderRoute: typeof AppChatRoomIdSettingsRouteImport
+      parentRoute: typeof AppChatRoomIdRoute
+    }
+    '/_app/manage/availability/$date': {
+      id: '/_app/manage/availability/$date'
+      path: '/$date'
+      fullPath: '/manage/availability/$date'
+      preLoaderRoute: typeof AppManageAvailabilityDateRouteImport
+      parentRoute: typeof AppManageAvailabilityRoute
+    }
+    '/_app/manage/availability/new': {
+      id: '/_app/manage/availability/new'
+      path: '/new'
+      fullPath: '/manage/availability/new'
+      preLoaderRoute: typeof AppManageAvailabilityNewRouteImport
+      parentRoute: typeof AppManageAvailabilityRoute
+    }
     '/_app/manage/shifts_/$shiftId': {
       id: '/_app/manage/shifts_/$shiftId'
       path: '/shifts/$shiftId'
@@ -456,14 +515,26 @@ const AppCalendarRouteWithChildren = AppCalendarRoute._addFileChildren(
   AppCalendarRouteChildren,
 )
 
+interface AppChatRoomIdRouteChildren {
+  AppChatRoomIdSettingsRoute: typeof AppChatRoomIdSettingsRoute
+}
+
+const AppChatRoomIdRouteChildren: AppChatRoomIdRouteChildren = {
+  AppChatRoomIdSettingsRoute: AppChatRoomIdSettingsRoute,
+}
+
+const AppChatRoomIdRouteWithChildren = AppChatRoomIdRoute._addFileChildren(
+  AppChatRoomIdRouteChildren,
+)
+
 interface AppChatRouteChildren {
-  AppChatRoomIdRoute: typeof AppChatRoomIdRoute
+  AppChatRoomIdRoute: typeof AppChatRoomIdRouteWithChildren
   AppChatNewRoute: typeof AppChatNewRoute
   AppChatIndexRoute: typeof AppChatIndexRoute
 }
 
 const AppChatRouteChildren: AppChatRouteChildren = {
-  AppChatRoomIdRoute: AppChatRoomIdRoute,
+  AppChatRoomIdRoute: AppChatRoomIdRouteWithChildren,
   AppChatNewRoute: AppChatNewRoute,
   AppChatIndexRoute: AppChatIndexRoute,
 }
@@ -471,9 +542,24 @@ const AppChatRouteChildren: AppChatRouteChildren = {
 const AppChatRouteWithChildren =
   AppChatRoute._addFileChildren(AppChatRouteChildren)
 
+interface AppManageAvailabilityRouteChildren {
+  AppManageAvailabilityDateRoute: typeof AppManageAvailabilityDateRoute
+  AppManageAvailabilityNewRoute: typeof AppManageAvailabilityNewRoute
+}
+
+const AppManageAvailabilityRouteChildren: AppManageAvailabilityRouteChildren = {
+  AppManageAvailabilityDateRoute: AppManageAvailabilityDateRoute,
+  AppManageAvailabilityNewRoute: AppManageAvailabilityNewRoute,
+}
+
+const AppManageAvailabilityRouteWithChildren =
+  AppManageAvailabilityRoute._addFileChildren(
+    AppManageAvailabilityRouteChildren,
+  )
+
 interface AppManageRouteChildren {
   AppManageAuditRoute: typeof AppManageAuditRoute
-  AppManageAvailabilityRoute: typeof AppManageAvailabilityRoute
+  AppManageAvailabilityRoute: typeof AppManageAvailabilityRouteWithChildren
   AppManageDiscordLinkRequestsRoute: typeof AppManageDiscordLinkRequestsRoute
   AppManageMembersRoute: typeof AppManageMembersRoute
   AppManageRolesRoute: typeof AppManageRolesRoute
@@ -486,7 +572,7 @@ interface AppManageRouteChildren {
 
 const AppManageRouteChildren: AppManageRouteChildren = {
   AppManageAuditRoute: AppManageAuditRoute,
-  AppManageAvailabilityRoute: AppManageAvailabilityRoute,
+  AppManageAvailabilityRoute: AppManageAvailabilityRouteWithChildren,
   AppManageDiscordLinkRequestsRoute: AppManageDiscordLinkRequestsRoute,
   AppManageMembersRoute: AppManageMembersRoute,
   AppManageRolesRoute: AppManageRolesRoute,

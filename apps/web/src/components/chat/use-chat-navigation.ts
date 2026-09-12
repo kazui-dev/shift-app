@@ -7,6 +7,7 @@ declare module "@tanstack/react-router" {
   interface HistoryState {
     chatFromList?: boolean
     chatCreate?: boolean
+    chatSettings?: boolean
   }
 }
 
