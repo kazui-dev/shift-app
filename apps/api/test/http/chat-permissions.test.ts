@@ -383,6 +383,13 @@ it("deletes a managed room, revokes all readers and queues message and image cle
   const id = f.create(yearRoom(2026, admin))
   f.as(member)
   expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(403)
+  f.db.prepare("UPDATE chat_rooms SET allow_exit=1 WHERE id=?").run(id)
+  expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
+    204
+  )
+  expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
+    room: { historical: true },
+  })
   f.as(admin)
   expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(204)
   expect(f.published).toHaveBeenLastCalledWith(
