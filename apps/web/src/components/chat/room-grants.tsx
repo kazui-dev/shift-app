@@ -120,7 +120,7 @@ export function RoomGrants({
                 options={[
                   { value: "read", label: "閲覧のみ" },
                   { value: "post", label: "閲覧・投稿" },
-                  { value: "manage", label: "管理" },
+                  { value: "manage", label: "管理権限" },
                   { value: "none", label: "権限なし" },
                 ]}
               />

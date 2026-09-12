@@ -41,7 +41,7 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
       c,
       409,
       "LAST_CHAT_MANAGER",
-      "ほかの人に設定変更権限を付けてから退出してください"
+      "ほかの人に管理権限を付けてから退出してください"
     )
   c.executionCtx.waitUntil(
     publishRoomChange(
