@@ -104,10 +104,10 @@ export function AppShell({
       ref={shell}
       data-chat-shell={isChat ? "" : undefined}
       data-app-shell=""
-      className={`${isChat ? "relative max-md:h-[var(--chat-viewport-height,100dvh)]" : fitted ? "overflow-hidden" : ""} ${
+      className={`relative grid w-full min-w-0 grid-cols-[minmax(0,1fr)] pt-[env(safe-area-inset-top)] md:grid-cols-[var(--app-sidebar-width)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:pt-0 ${isChat ? "grid-rows-[minmax(0,1fr)] max-md:h-[var(--chat-viewport-height,100dvh)]" : "grid-rows-[minmax(0,1fr)_auto]"} ${
         fitted
-          ? "flex h-dvh w-full min-w-0 flex-col overscroll-x-none overscroll-y-auto md:pl-(--app-sidebar-width)"
-          : "min-h-svh w-full min-w-0 md:pl-(--app-sidebar-width)"
+          ? `h-dvh overscroll-x-none overscroll-y-auto ${isChat ? "" : "overflow-hidden"}`
+          : "min-h-svh"
       }`}
     >
       <AppNavigation offline={offline} desktopOnly={isChat} />
@@ -117,9 +117,7 @@ export function AppShell({
       </output>
       <OfflineModeContext value={offline}>
         <ChatDelivery />
-        <main
-          className={`flex min-h-0 min-w-0 flex-1 flex-col pt-[calc(env(safe-area-inset-top)+0.75rem)] ${isChat ? "md:pt-3" : "md:pt-6"} ${isChat ? "px-0 md:px-6" : "px-4 sm:px-6"} ${isChat ? "md:pl-2" : ""} ${isChat ? "pb-0 md:pb-4" : fitted ? "pb-[calc(4.25rem+1px+env(safe-area-inset-bottom))] md:pb-4" : "pb-[calc(5.25rem+1px+env(safe-area-inset-bottom))] md:pb-8"}`}
-        >
+        <main className="row-start-1 flex min-h-0 min-w-0 flex-col md:col-start-2">
           {unsafeOfflineRoute ? null : <Outlet />}
         </main>
       </OfflineModeContext>

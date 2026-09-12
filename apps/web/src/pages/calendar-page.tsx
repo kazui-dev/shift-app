@@ -181,7 +181,7 @@ export function CalendarPage() {
       <div className="relative min-h-0 flex-1">
         <div
           ref={calendarRef}
-          className="size-full overflow-x-hidden overflow-y-auto overscroll-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="size-full overflow-x-hidden overflow-y-auto overscroll-y-auto [scrollbar-width:none]"
           onScroll={(event) => saveScrollTop(event.currentTarget.scrollTop)}
         >
           <CalendarCarousel

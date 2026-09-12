@@ -88,7 +88,7 @@ export function ChatMessages({
           ref={scroll.viewport}
           onScroll={scroll.onScroll}
           aria-label="メッセージ履歴"
-          className={`absolute inset-x-0 top-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none] max-md:[&::-webkit-scrollbar]:hidden ${room.canPost ? "bottom-[calc(var(--composer-input-height)+var(--composer-bottom))]" : "bottom-0"}`}
+          className={`absolute inset-x-0 top-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none] ${room.canPost ? "bottom-[calc(var(--composer-input-height)+var(--composer-bottom))]" : "bottom-0"}`}
         >
           <div
             ref={scroll.content}

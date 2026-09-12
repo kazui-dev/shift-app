@@ -123,6 +123,7 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
   }
   body {
     @apply relative bg-background text-foreground;
