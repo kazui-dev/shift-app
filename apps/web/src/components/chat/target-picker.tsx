@@ -68,44 +68,42 @@ export function TargetPicker({
   )
   return (
     <div className="space-y-5">
-      {selected.length > 0 && (
-        <ul
-          aria-label="選択した対象"
-          data-horizontal-scroll
-          className="flex max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none]"
-        >
-          {kinds
-            .flatMap((group) =>
-              targets.filter(
-                (target) =>
-                  target.targetType === group.type &&
-                  selected.includes(targetKey(target))
-              )
+      <ul
+        aria-label="選択した対象"
+        data-horizontal-scroll
+        className="flex h-20 max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none]"
+      >
+        {kinds
+          .flatMap((group) =>
+            targets.filter(
+              (target) =>
+                target.targetType === group.type &&
+                selected.includes(targetKey(target))
             )
-            .map((target) => (
-              <li
-                key={targetKey(target)}
-                className="relative flex w-16 shrink-0 flex-col items-center gap-1.5 pt-1"
+          )
+          .map((target) => (
+            <li
+              key={targetKey(target)}
+              className="relative flex w-16 shrink-0 flex-col items-center gap-1.5 pt-1"
+            >
+              <TargetAvatar target={target} className="size-11 text-sm" />
+              <span
+                className="w-full truncate text-center text-xs"
+                title={target.displayName}
               >
-                <TargetAvatar target={target} className="size-11 text-sm" />
-                <span
-                  className="w-full truncate text-center text-xs"
-                  title={target.displayName}
-                >
-                  {target.displayName}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`${target.displayName}の選択を解除`}
-                  onClick={() => toggle(targetKey(target))}
-                  className="absolute top-0 right-0 flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground hover:bg-accent active:bg-accent"
-                >
-                  <X className="size-3.5" />
-                </button>
-              </li>
-            ))}
-        </ul>
-      )}
+                {target.displayName}
+              </span>
+              <button
+                type="button"
+                aria-label={`${target.displayName}の選択を解除`}
+                onClick={() => toggle(targetKey(target))}
+                className="absolute top-0 right-0 flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground hover:bg-accent active:bg-accent"
+              >
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+      </ul>
       <div className="space-y-3">
         <div
           aria-label="対象の種類"
@@ -156,20 +154,24 @@ export function TargetPicker({
               >
                 <SlidersHorizontal />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-80 w-64">
+              <DropdownMenuContent
+                align="end"
+                className="pointer-events-auto max-h-80 w-64"
+              >
                 {kinds
                   .filter(
                     (group) =>
                       group.type === "role" || group.type === "activity"
                   )
                   .map((group) => (
-                    <DropdownMenuGroup key={group.type}>
+                    <DropdownMenuGroup key={group.type} className="min-h-17">
                       <DropdownMenuLabel>{group.name}</DropdownMenuLabel>
                       {targets
                         .filter((target) => target.targetType === group.type)
                         .map((target) => (
                           <DropdownMenuCheckboxItem
                             key={targetKey(target)}
+                            className="min-h-10 cursor-pointer [&_[data-slot=dropdown-menu-checkbox-item-indicator]_svg]:size-3 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:size-4 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:rounded-sm [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:border [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:border-input"
                             checked={filters.includes(targetKey(target))}
                             closeOnClick={false}
                             onCheckedChange={() =>
@@ -192,7 +194,9 @@ export function TargetPicker({
             const key = targetKey(target)
             return (
               <li key={key}>
-                <label className="flex min-h-14 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/50">
+                <label
+                  className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/50 ${selected.includes(key) ? "bg-muted/60" : ""}`}
+                >
                   <TargetAvatar target={target} />
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {target.displayName}
