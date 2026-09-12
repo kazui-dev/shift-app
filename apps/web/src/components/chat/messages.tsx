@@ -145,7 +145,7 @@ export function ChatMessages({
                         <span className="h-px flex-1 bg-border" />
                       </div>
                     )}
-                    <div className="group grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 rounded-md hover:bg-muted/25">
+                    <div className="group -mx-[var(--chat-gutter)] grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 px-[var(--chat-gutter)] hover:bg-muted/25">
                       {!grouped ? (
                         <MemberAvatar
                           name={message.memberDisplayName}
@@ -153,9 +153,12 @@ export function ChatMessages({
                           className="mt-0.5"
                         />
                       ) : (
-                        <span className="self-start pt-1 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100">
+                        <time
+                          dateTime={message.createdAt}
+                          className="flex h-7 items-center justify-center self-start text-[10px] whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-hover:opacity-100"
+                        >
                           {time(message.createdAt)}
-                        </span>
+                        </time>
                       )}
                       <div className="min-w-0">
                         {!grouped && (
