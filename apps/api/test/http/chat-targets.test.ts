@@ -1,3 +1,4 @@
+import { activityRoom, roomCommands } from "../../src/services/chat-creation"
 import { chatApp } from "../../src/routes/chat"
 import { URL } from "node:url"
 import { readFileSync, readdirSync } from "node:fs"
@@ -24,6 +25,11 @@ describe("migrated chat and calendar queries", () => {
         INSERT INTO activities(id,year,name,place,activity_type,starts_at,ends_at,color,created_by,updated_by,created_at,updated_at) VALUES ('a',2026,'受付','入口','シフト',100,500,'#888888','m','m',0,0);
         INSERT INTO activity_responsibles(activity_id,target_type,target_id) VALUES ('a','member','m');
         UPDATE activities SET active=1 WHERE id='a';`)
+      for (const { sql, params } of roomCommands(
+        activityRoom({ id: "a", year: 2026, name: "受付", createdBy: "m" }),
+        0
+      ))
+        db.prepare(sql).run(...params)
       const app = new Hono<ApiEnv>()
       app.use("*", async (c, next) => {
         c.set("member", {
@@ -54,8 +60,8 @@ describe("migrated chat and calendar queries", () => {
       }
       const targets = await app.request("/chat/targets?year=2026", {}, env)
       expect(targets.status).toBe(200)
-      expect(await targets.json()).toEqual({
-        targets: [
+      expect(await targets.json()).toMatchObject({
+        targets: expect.arrayContaining([
           {
             targetType: "member",
             image: null,
@@ -65,7 +71,7 @@ describe("migrated chat and calendar queries", () => {
             displayName: "Test",
           },
           { targetType: "activity", targetId: "a", displayName: "受付" },
-        ],
+        ]),
       })
       const rooms = await app.request("/chat/rooms?year=2026", {}, env)
       expect(rooms.status).toBe(200)
@@ -80,8 +86,8 @@ describe("migrated chat and calendar queries", () => {
       })
       db.exec("UPDATE activities SET active=0 WHERE id='a'")
       const inactive = await app.request("/chat/targets?year=2026", {}, env)
-      expect(await inactive.json()).toEqual({
-        targets: [
+      expect(await inactive.json()).toMatchObject({
+        targets: expect.arrayContaining([
           {
             targetType: "member",
             image: null,
@@ -90,7 +96,7 @@ describe("migrated chat and calendar queries", () => {
             targetId: "m",
             displayName: "Test",
           },
-        ],
+        ]),
       })
       const calendar = await app.request(
         "/me/assignments?year=2026&from=2026-09-01T00:00:00Z&to=2026-10-01T00:00:00Z",

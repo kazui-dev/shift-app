@@ -7,7 +7,8 @@
     "coverage": "vp test run --coverage",
     "typecheck": "tsc --noEmit",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
-    "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --check"
+    "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --check",
+    "chat:initialize": "node --experimental-strip-types scripts/initialize-chat.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.29",

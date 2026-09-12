@@ -1,3 +1,4 @@
+import { chatPermissions } from "./chat-permissions"
 export type RoomRow = {
   id: string
   year: number
@@ -5,7 +6,7 @@ export type RoomRow = {
   createdBy: string
   createdAt: number
   updatedAt: number
-  kind: "custom" | "global" | "shift"
+  allowExit: number
   activityId: string | null
   activityStartsAt: number | null
   activityEndsAt: number | null
@@ -16,18 +17,20 @@ export type RoomRow = {
   lastSequence: number
   exitedAt: number | null
 }
-export const roomSelection = `SELECT r.id,r.year,r.name,r.created_by AS createdBy,r.created_at AS createdAt,r.updated_at AS updatedAt,r.kind,r.activity_id AS activityId,act.starts_at AS activityStartsAt,act.ends_at AS activityEndsAt,
+export const roomSelection = `${chatPermissions} SELECT r.id,r.year,r.name,r.created_by AS createdBy,r.created_at AS createdAt,r.updated_at AS updatedAt,r.allow_exit AS allowExit,link.activity_id AS activityId,act.starts_at AS activityStartsAt,act.ends_at AS activityEndsAt,
  COALESCE(e.can_post,0) AS canPost,COALESCE(e.can_manage,0) AS canManage,COALESCE(p.muted,0) AS muted,COALESCE(p.last_read,0) AS lastRead,r.last_sequence AS lastSequence,
- CASE WHEN e.can_read=1 THEN NULL ELSE access.exited_at END AS exitedAt
+ x.created_at AS exitedAt
  FROM chat_rooms r JOIN year_memberships ym ON ym.year=r.year AND ym.member_id=? AND ym.status='active'
- LEFT JOIN activities act ON act.id=r.activity_id
- LEFT JOIN chat_effective_permissions e ON e.room_id=r.id AND e.member_id=ym.member_id
- LEFT JOIN chat_room_access access ON access.room_id=r.id AND access.member_id=ym.member_id
+ LEFT JOIN activity_chat_rooms link ON link.room_id=r.id
+ LEFT JOIN activities act ON act.id=link.activity_id
+ LEFT JOIN chat_permissions e ON e.room_id=r.id AND e.member_id=ym.member_id
+ LEFT JOIN chat_room_exits x ON x.room_id=r.id AND x.member_id=ym.member_id
  LEFT JOIN chat_room_preferences p ON p.room_id=r.id AND p.member_id=ym.member_id
- WHERE (e.can_read=1 OR access.room_id IS NOT NULL)`
+ WHERE (e.can_read=1 OR x.room_id IS NOT NULL)`
 export function roomJson(room: RoomRow) {
   return {
     ...room,
+    allowExit: room.allowExit === 1,
     historical: room.exitedAt !== null,
     activityStartsAt:
       room.activityStartsAt === null

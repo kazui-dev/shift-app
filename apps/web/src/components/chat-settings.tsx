@@ -65,6 +65,8 @@ function SettingsForm({
       await saveRoomSettings(id, value)
       await client.invalidateQueries({ queryKey: ["chat-rooms"] })
       await client.invalidateQueries({ queryKey: ["chat-settings", id] })
+      await client.invalidateQueries({ queryKey: ["chat-room", id] })
+      await client.invalidateQueries({ queryKey: ["chat-members", id] })
       onClose()
     } catch (error) {
       toast.error(errorMessage(error))
@@ -74,33 +76,27 @@ function SettingsForm({
   }
   return (
     <fieldset disabled={pending} className="min-w-0 space-y-5">
-      {initial.kind === "custom" ? (
-        <label htmlFor="chat-room-name" className="block space-y-2 text-sm">
-          チャット名
-          <Input
-            id="chat-room-name"
-            value={value.name}
-            onChange={(event) =>
-              setValue({ ...value, name: event.target.value })
-            }
-          />
-        </label>
-      ) : (
-        <p className="text-sm font-medium">{value.name}</p>
-      )}
-      {initial.kind !== "custom" && (
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {initial.kind === "global"
-            ? "年度のメンバーは全員閲覧できます。"
-            : "参加者・責任者のアクセスはシフトに連動します。"}
-          ここでは追加のアクセス権限を設定します。
-        </p>
-      )}
+      <label htmlFor="chat-room-name" className="block space-y-2 text-sm">
+        チャット名
+        <Input
+          id="chat-room-name"
+          value={value.name}
+          onChange={(event) => setValue({ ...value, name: event.target.value })}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={value.allowExit}
+          onChange={(event) =>
+            setValue({ ...value, allowExit: event.target.checked })
+          }
+        />
+        メンバーの退出を許可する
+      </label>
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">
-            {initial.kind === "custom" ? "アクセス権限" : "追加のアクセス権限"}
-          </h3>
+          <h3 className="text-sm font-medium">アクセス権限</h3>
           <Button
             variant="ghost"
             size="sm"
@@ -158,11 +154,17 @@ function SettingsForm({
                         {target.displayName}
                       </span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {target.targetType === "member"
-                          ? "メンバー"
-                          : target.targetType === "role"
-                            ? "ロール"
-                            : "シフト"}
+                        {
+                          {
+                            member: "メンバー",
+                            role: "ロール",
+                            activity: "シフト",
+                            year: "年度",
+                            access_level: "権限",
+                            permission: "権限",
+                            responsible: "責任者",
+                          }[target.targetType]
+                        }
                       </span>
                     </button>
                   </li>
@@ -234,7 +236,7 @@ function SettingsForm({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`${name}の追加設定を削除`}
+                  aria-label={`${name}の設定を削除`}
                   onClick={() =>
                     setValue({
                       ...value,
@@ -249,7 +251,7 @@ function SettingsForm({
           })}
           {!value.targets.length && (
             <p className="py-3 text-xs text-muted-foreground">
-              追加の設定はありません
+              対象が設定されていません
             </p>
           )}
         </div>

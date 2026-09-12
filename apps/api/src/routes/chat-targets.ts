@@ -97,5 +97,32 @@ chatTargetsApp.get("/targets", async (c) => {
     )
   )
 
+  targets.push(
+    {
+      targetType: "year",
+      targetId: String(year),
+      displayName: `${year}年度の全メンバー`,
+    },
+    {
+      targetType: "access_level",
+      targetId: "system_admin",
+      displayName: "システム管理者",
+    },
+    ...[
+      { id: "shift.create", name: "シフト作成" },
+      { id: "shift.manage", name: "シフト管理" },
+      { id: "member.manage", name: "メンバー管理" },
+      { id: "role.manage", name: "ロール管理" },
+    ].map(({ id, name }) => ({
+      targetType: "permission" as const,
+      targetId: id,
+      displayName: `${name}権限を持つメンバー`,
+    })),
+    ...activities.results.map((activity) => ({
+      targetType: "responsible" as const,
+      targetId: activity.targetId,
+      displayName: `${activity.displayName}の責任者`,
+    }))
+  )
   return c.json({ targets })
 })

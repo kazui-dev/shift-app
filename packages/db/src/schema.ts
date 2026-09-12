@@ -471,12 +471,9 @@ export const chatRooms = sqliteTable(
     year: integer("year")
       .notNull()
       .references(() => operatingYears.year, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["custom", "global", "shift"] })
+    allowExit: integer("allow_exit", { mode: "boolean" })
       .notNull()
-      .default("custom"),
-    activityId: text("activity_id").references(() => activities.id, {
-      onDelete: "cascade",
-    }),
+      .default(true),
     lastSequence: integer("last_sequence").notNull().default(0),
     name: text("name").notNull(),
     createdBy: text("created_by")
@@ -486,12 +483,21 @@ export const chatRooms = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
-    uniqueIndex("chat_rooms_activity_uidx").on(table.activityId),
-    uniqueIndex("chat_rooms_global_year_uidx")
-      .on(table.year)
-      .where(sql`${table.kind} = 'global'`),
     index("chat_rooms_year_updatedAt_idx").on(table.year, table.updatedAt),
   ]
+)
+
+export const activityChatRooms = sqliteTable(
+  "activity_chat_rooms",
+  {
+    activityId: text("activity_id")
+      .primaryKey()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    roomId: text("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+  },
+  (table) => [uniqueIndex("activity_chat_rooms_room_uidx").on(table.roomId)]
 )
 
 export const chatRoomTargets = sqliteTable(
@@ -501,7 +507,15 @@ export const chatRoomTargets = sqliteTable(
       .notNull()
       .references(() => chatRooms.id, { onDelete: "cascade" }),
     targetType: text("target_type", {
-      enum: ["member", "role", "activity"],
+      enum: [
+        "member",
+        "role",
+        "activity",
+        "year",
+        "access_level",
+        "permission",
+        "responsible",
+      ],
     }).notNull(),
     targetId: text("target_id").notNull(),
     canRead: integer("can_read", { mode: "boolean" }).notNull().default(true),
@@ -598,19 +612,6 @@ export const availabilityDayAnswers = sqliteTable(
   (table) => [primaryKey({ columns: [table.submissionId, table.dateId] })]
 )
 
-export const chatRoomAccess = sqliteTable(
-  "chat_room_access",
-  {
-    roomId: text("room_id")
-      .notNull()
-      .references(() => chatRooms.id, { onDelete: "cascade" }),
-    memberId: text("member_id")
-      .notNull()
-      .references(() => appUsers.id, { onDelete: "cascade" }),
-    exitedAt: integer("exited_at", { mode: "timestamp_ms" }),
-  },
-  (table) => [primaryKey({ columns: [table.roomId, table.memberId] })]
-)
 export const chatRoomPreferences = sqliteTable(
   "chat_room_preferences",
   {

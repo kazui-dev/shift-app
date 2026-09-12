@@ -3,8 +3,16 @@ import * as v from "valibot"
 import { instantSchema, operatingYearSchema } from "./shifts"
 
 export const chatTargetSchema = v.object({
-  targetType: v.picklist(["member", "role", "activity"]),
-  targetId: v.pipe(v.string(), v.uuid()),
+  targetType: v.picklist([
+    "member",
+    "role",
+    "activity",
+    "year",
+    "access_level",
+    "permission",
+    "responsible",
+  ]),
+  targetId: v.pipe(v.string(), v.minLength(1), v.maxLength(100)),
 })
 
 export const chatTargetOptionSchema = v.variant("targetType", [
@@ -26,6 +34,16 @@ export const chatTargetOptionSchema = v.variant("targetType", [
     targetId: v.pipe(v.string(), v.uuid()),
     displayName: v.string(),
   }),
+  v.strictObject({
+    targetType: v.picklist([
+      "year",
+      "access_level",
+      "permission",
+      "responsible",
+    ]),
+    targetId: v.string(),
+    displayName: v.string(),
+  }),
 ])
 
 export const chatTargetsResponseSchema = v.object({
@@ -35,7 +53,7 @@ export const chatTargetsResponseSchema = v.object({
 export const createChatRoomInputSchema = v.object({
   year: operatingYearSchema,
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
-  targets: v.pipe(v.array(chatTargetSchema), v.minLength(1), v.maxLength(100)),
+  targets: v.pipe(v.array(chatTargetSchema), v.minLength(1), v.maxLength(99)),
 })
 
 export const chatImageLimits = {
@@ -69,7 +87,7 @@ export const sendChatMessageInputSchema = v.pipe(
 )
 
 export const chatRoomResponseSchema = v.object({
-  kind: v.picklist(["custom", "global", "shift"]),
+  allowExit: v.boolean(),
   activityId: v.nullable(v.string()),
   activityStartsAt: v.nullable(instantSchema),
   activityEndsAt: v.nullable(instantSchema),
@@ -161,6 +179,7 @@ export const chatPreferencesInputSchema = v.strictObject({
   lastRead: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
 })
 export const roomSettingsInputSchema = v.strictObject({
+  allowExit: v.boolean(),
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
   targets: v.pipe(
     v.array(
@@ -177,7 +196,6 @@ export const roomSettingsInputSchema = v.strictObject({
 
 export const roomSettingsResponseSchema = v.object({
   ...roomSettingsInputSchema.entries,
-  kind: v.picklist(["custom", "global", "shift"]),
 })
 
 export const chatMembersResponseSchema = v.object({

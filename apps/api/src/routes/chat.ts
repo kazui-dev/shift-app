@@ -1,3 +1,6 @@
+import { saveRoomSettings } from "../services/chat-settings"
+import { targetExists } from "../services/chat-targets"
+import { roomRecipients, chatPermissions } from "../services/chat-permissions"
 import { withMemberImages } from "../services/chat-profiles"
 import { notifyRoomMessage } from "../services/push"
 import {
@@ -41,24 +44,6 @@ const messagesQuerySchema = v.object({
   ),
 })
 
-async function targetExists(
-  env: CloudflareBindings,
-  year: number,
-  target: { targetType: "member" | "role" | "activity"; targetId: string }
-): Promise<boolean> {
-  const queries = {
-    member: `SELECT 1 AS found FROM year_memberships
-             WHERE member_id = ? AND year = ? AND status = 'active'`,
-    role: "SELECT 1 AS found FROM year_roles WHERE id = ? AND year = ?",
-    activity: "SELECT 1 AS found FROM activities WHERE id = ? AND year = ?",
-  } as const
-  const statement = env.shift_app.prepare(queries[target.targetType])
-  const row = await statement
-    .bind(target.targetId, year)
-    .first<{ found: number }>()
-  return row?.found === 1
-}
-
 export const chatApp = new Hono<ApiEnv>()
 
 chatApp.get("/rooms", async (c) => {
@@ -67,7 +52,7 @@ chatApp.get("/rooms", async (c) => {
   const member = c.get("member")
   const rooms = await c.env.shift_app
     .prepare(
-      `${roomSelection} AND r.year=? ORDER BY CASE r.kind WHEN 'global' THEN 0 ELSE 1 END,r.updated_at DESC LIMIT 200`
+      `${roomSelection} AND r.year=? ORDER BY r.updated_at DESC LIMIT 200`
     )
     .bind(member.id, year)
     .all<RoomRow>()
@@ -94,19 +79,9 @@ chatApp.get("/rooms/:roomId/members", async (c) => {
   )
   if (!room || room.exitedAt !== null)
     return apiError(c, 404, "NOT_FOUND", "メンバーを表示できません。")
-  const members = await c.env.shift_app
-    .prepare(
-      `SELECT u.id,u.display_name AS displayName,e.can_manage AS canManage,identity.image FROM chat_effective_permissions e JOIN app_users u ON u.id=e.member_id LEFT JOIN user identity ON identity.id=u.user_id WHERE e.room_id=? AND e.can_read=1 ORDER BY u.student_id`
-    )
-    .bind(room.id)
-    .all<{
-      id: string
-      displayName: string
-      canManage: number
-      image: string | null
-    }>()
+  const members = await roomRecipients(c.env, room.id)
   return c.json({
-    members: members.results.map((member) => ({
+    members: members.map(({ muted: _muted, ...member }) => ({
       ...member,
       canManage: member.canManage === 1,
     })),
@@ -161,15 +136,25 @@ chatApp.post("/rooms", async (c) => {
          FROM operating_years WHERE year = ? RETURNING id`
       )
       .bind(roomId, input.output.name, actor.id, now, now, input.output.year),
-    ...targets.map((target) =>
-      c.env.shift_app
-        .prepare(
-          `INSERT INTO chat_room_targets
+    c.env.shift_app
+      .prepare(
+        "INSERT INTO chat_room_targets (room_id,target_type,target_id,can_read,can_post,can_manage,created_at) SELECT ?,'member',?,1,1,1,? WHERE EXISTS(SELECT 1 FROM chat_rooms WHERE id=?)"
+      )
+      .bind(roomId, actor.id, now, roomId),
+    ...targets
+      .filter(
+        (target) =>
+          !(target.targetType === "member" && target.targetId === actor.id)
+      )
+      .map((target) =>
+        c.env.shift_app
+          .prepare(
+            `INSERT INTO chat_room_targets
             (room_id, target_type, target_id, created_at)
            SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM chat_rooms WHERE id = ?)`
-        )
-        .bind(roomId, target.targetType, target.targetId, now, roomId)
-    ),
+          )
+          .bind(roomId, target.targetType, target.targetId, now, roomId)
+      ),
   ]
   const results = await c.env.shift_app.batch(statements)
   if (!results[0]?.results.length) {
@@ -241,6 +226,8 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
       attachmentIds: input.output.attachmentIds,
     })
     .catch((error) => {
+      if (error instanceof Error && error.message === "CHAT_READ_ONLY")
+        return "CHAT_READ_ONLY" as const
       if (
         error instanceof Error &&
         ["INVALID_CHAT_ATTACHMENTS", "MESSAGE_ID_CONFLICT"].includes(
@@ -250,6 +237,8 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
         return null
       throw error
     })
+  if (message === "CHAT_READ_ONLY")
+    return apiError(c, 403, "CHAT_READ_ONLY", "投稿権限が変更されました。")
   if (!message)
     return apiError(
       c,
@@ -355,7 +344,7 @@ chatApp.get("/rooms/:roomId/settings", async (c) => {
     }>()
   return c.json({
     name: room.name,
-    kind: room.kind,
+    allowExit: room.allowExit === 1,
     targets: targets.results.map((target) => ({
       ...target,
       canRead: target.canRead === 1,
@@ -382,33 +371,52 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
       "INVALID_TARGET",
       "Targets must belong to this year"
     )
-  const now = Date.now()
-  await c.env.shift_app.batch([
-    c.env.shift_app
-      .prepare("UPDATE chat_rooms SET name=?,updated_at=? WHERE id=?")
-      .bind(
-        room.kind === "custom" ? input.output.name : room.name,
-        now,
-        room.id
-      ),
-    c.env.shift_app
-      .prepare("DELETE FROM chat_room_targets WHERE room_id=?")
-      .bind(room.id),
-    ...input.output.targets.map((target) =>
-      c.env.shift_app
-        .prepare(
-          "INSERT INTO chat_room_targets (room_id,target_type,target_id,can_read,can_post,can_manage,created_at) VALUES (?,?,?,?,?,?,?)"
-        )
-        .bind(
-          room.id,
-          target.targetType,
-          target.targetId,
-          target.canRead ? 1 : 0,
-          target.canPost ? 1 : 0,
-          target.canManage ? 1 : 0,
-          now
-        )
-    ),
-  ])
+  const managers = input.output.targets.filter((target) => target.canManage)
+  const subjects = await c.env.shift_app
+    .prepare(
+      `${chatPermissions} SELECT s.target_type AS targetType,s.target_id AS targetId FROM chat_subjects s JOIN year_memberships ym ON ym.year=s.year AND ym.member_id=s.member_id AND ym.status='active' WHERE s.year=? AND NOT EXISTS(SELECT 1 FROM chat_room_exits x WHERE x.room_id=? AND x.member_id=s.member_id)`
+    )
+    .bind(room.year, room.id)
+    .all<{ targetType: string; targetId: string }>()
+  if (
+    !managers.some((target) =>
+      subjects.results.some(
+        (subject) =>
+          subject.targetType === target.targetType &&
+          subject.targetId === target.targetId
+      )
+    )
+  )
+    return apiError(
+      c,
+      409,
+      "LAST_CHAT_MANAGER",
+      "設定変更できるメンバーを残してください。"
+    )
+  if (
+    new Set(
+      input.output.targets.map(
+        (target) => `${target.targetType}:${target.targetId}`
+      )
+    ).size !== input.output.targets.length
+  )
+    return apiError(
+      c,
+      422,
+      "DUPLICATE_TARGET",
+      "同じ対象は一度だけ指定してください。"
+    )
+  try {
+    await saveRoomSettings(c.env.shift_app, room.id, actor.id, input.output)
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("chat_rooms.name"))
+      return apiError(
+        c,
+        409,
+        "CHAT_SETTINGS_CHANGED",
+        "権限が変更されました。設定を読み直してください。"
+      )
+    throw error
+  }
   return c.body(null, 204)
 })

@@ -1,3 +1,5 @@
+import { findAccessibleRoom } from "../services/chat-access"
+import { roomRecipients } from "../services/chat-permissions"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { ChatAttachments } from "./chat-attachments"
 import { DurableObject } from "cloudflare:workers"
@@ -145,14 +147,13 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     createdAt: number
     attachmentIds: string[]
   }): Promise<ChatMessage> {
-    const permission = await this.env.shift_app
-      .prepare(
-        "SELECT can_post FROM chat_effective_permissions WHERE room_id=? AND member_id=?"
-      )
-      .bind(input.roomId, input.memberId)
-      .first<{ can_post: number }>()
-    if (this.deleted || permission?.can_post !== 1)
-      throw new Error("Chat posting permission has changed")
+    const permission = await findAccessibleRoom(
+      this.env,
+      input.roomId,
+      input.memberId
+    )
+    if (this.deleted || permission?.canPost !== 1)
+      throw new Error("CHAT_READ_ONLY")
     const existing = this.ctx.storage.sql
       .exec<StoredMessage>(
         `SELECT sequence, id, member_id AS memberId,
@@ -188,13 +189,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     })
     const message = this.toMessage(row)
     const payload = JSON.stringify({ type: "message", message })
-    const allowed = await this.env.shift_app
-      .prepare(
-        "SELECT member_id FROM chat_effective_permissions WHERE room_id=? AND can_read=1"
-      )
-      .bind(input.roomId)
-      .all<{ member_id: string }>()
-    const recipients = new Set(allowed.results.map((item) => item.member_id))
+    const allowed = await roomRecipients(this.env, input.roomId)
+    const recipients = new Set(allowed.map((item) => item.id))
     for (const socket of this.ctx.getWebSockets()) {
       const attachment: unknown = socket.deserializeAttachment()
       if (

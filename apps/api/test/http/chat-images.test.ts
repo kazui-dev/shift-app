@@ -18,7 +18,7 @@ const room: RoomRow = {
   createdBy: "m",
   createdAt: 0,
   updatedAt: 0,
-  kind: "custom",
+  allowExit: 1,
   activityId: null,
   activityStartsAt: null,
   activityEndsAt: null,

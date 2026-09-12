@@ -1,3 +1,4 @@
+import { activityRoom, roomStatements } from "../../services/chat-creation"
 import { canManageYear } from "../../services/role-authority"
 import { Hono } from "hono"
 import * as v from "valibot"
@@ -142,6 +143,16 @@ yearActivitiesApp.post("/:year/activities", async (c) => {
 
   const results = await c.env.shift_app.batch([
     statement,
+    ...roomStatements(
+      c.env.shift_app,
+      activityRoom({
+        id,
+        year,
+        name: parsed.output.name,
+        createdBy: member.id,
+      }),
+      now
+    ),
     ...parsed.output.responsibles.map((target) =>
       c.env.shift_app
         .prepare(

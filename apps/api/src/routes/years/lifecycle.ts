@@ -1,3 +1,4 @@
+import { yearRoom, roomStatements } from "../../services/chat-creation"
 import { Hono } from "hono"
 import * as v from "valibot"
 
@@ -81,18 +82,31 @@ yearLifecycleApp.post("/", async (c) => {
   }
 
   const now = Date.now()
-  const result = await c.env.shift_app
-    .prepare(
-      `INSERT OR IGNORE INTO operating_years
-        (year, created_at, updated_at)
-       VALUES (?, ?, ?)`
+  let result: D1Result
+  try {
+    const results = await c.env.shift_app.batch([
+      c.env.shift_app
+        .prepare(
+          "INSERT INTO operating_years(year,created_at,updated_at) VALUES(?,?,?)"
+        )
+        .bind(parsed.output.year, now, now),
+      ...roomStatements(
+        c.env.shift_app,
+        yearRoom(parsed.output.year, c.get("member").id),
+        now
+      ),
+    ])
+    if (!results[0]) throw new Error("Year creation failed")
+    result = results[0]
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("UNIQUE constraint failed: operating_years.year")
     )
-    .bind(parsed.output.year, now, now)
-    .run()
-
-  if (result.meta.changes === 0) {
-    return apiError(c, 409, "YEAR_EXISTS", "Operating year already exists")
+      return apiError(c, 409, "YEAR_EXISTS", "Operating year already exists")
+    throw error
   }
+  if (!result.success) throw new Error("Year creation failed")
   const settings = await c.env.shift_app
     .prepare(
       "SELECT default_year AS defaultYear FROM year_settings WHERE id = 1"

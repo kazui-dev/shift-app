@@ -30,7 +30,7 @@ const queuedSchema = v.object({
   status: v.picklist(["waiting", "sending", "failed"]),
 })
 const stateSchema = v.object({
-  version: v.literal(3),
+  version: v.literal(4),
   drafts: v.record(v.string(), draftSchema),
   queue: v.array(queuedSchema),
 })
@@ -47,7 +47,7 @@ function db() {
 }
 
 export class ChatStore {
-  private state: State = { version: 3, drafts: {}, queue: [], ready: false }
+  private state: State = { version: 4, drafts: {}, queue: [], ready: false }
   private listeners = new Set<() => void>()
   private writing = Promise.resolve()
   private running = false
@@ -81,7 +81,7 @@ export class ChatStore {
         this.publish({
           ...(parsed.success
             ? parsed.output
-            : { version: 3, drafts: {}, queue: [] }),
+            : { version: 4, drafts: {}, queue: [] }),
           ready: true,
         })
       if (!parsed.success && this.active) await this.persist()
@@ -98,7 +98,7 @@ export class ChatStore {
         this.active
           ? set(
               this.userId,
-              { version: 3, drafts: state.drafts, queue: state.queue },
+              { version: 4, drafts: state.drafts, queue: state.queue },
               db()
             )
           : undefined
