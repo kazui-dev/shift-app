@@ -99,8 +99,7 @@ chatApp.get("/rooms/:roomId/members", async (c) => {
     c.req.param("roomId"),
     c.get("member").id
   )
-  if (!room || room.exitedAt !== null)
-    return apiError(c, 404, "NOT_FOUND", "メンバーを表示できません。")
+  if (!room) return apiError(c, 404, "NOT_FOUND", "メンバーを表示できません。")
   const members = await roomRecipients(c.env, room.id)
   return c.json({
     members: members.map(({ muted: _muted, ...member }) => ({
@@ -217,8 +216,7 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const history = await stub.getMessages(
     query.output.before ?? null,
-    query.output.limit,
-    room.exitedAt
+    query.output.limit
   )
   return c.json({
     ...history,

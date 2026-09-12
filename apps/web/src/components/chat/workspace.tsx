@@ -53,7 +53,7 @@ export function ChatWorkspace({
     setMembersFor(undefined)
   }, [roomId, showingRoom])
   useEffect(() => {
-    if (!room || !showingRoom || offline || room.historical) return
+    if (!room || !showingRoom || offline) return
     void client.prefetchQuery(membersQuery(room.id))
     if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
   }, [client, room, showingRoom, offline])
@@ -128,7 +128,6 @@ export function ChatWorkspace({
               <RoomMembers
                 roomId={room.id}
                 active={!offline && (desktop || membersOpen)}
-                historical={room.historical}
               />
             </>
           )

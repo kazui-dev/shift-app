@@ -340,11 +340,6 @@ export function ChatMessages({
                 )
               })}
             </ol>
-            {room.historical && (
-              <p className="mt-5 text-center text-xs text-muted-foreground">
-                退出前の履歴です
-              </p>
-            )}
           </div>
         </section>
         {scroll.showLatest && (

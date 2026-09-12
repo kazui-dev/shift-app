@@ -93,7 +93,6 @@ export const chatRoomResponseSchema = v.object({
   activityId: v.nullable(v.string()),
   activityStartsAt: v.nullable(instantSchema),
   activityEndsAt: v.nullable(instantSchema),
-  historical: v.boolean(),
   canPost: v.boolean(),
   canManage: v.boolean(),
   muted: v.boolean(),
@@ -157,6 +156,10 @@ export const chatMessageEnvelopeSchema = v.object({
 
 export const chatEventSchema = v.variant("type", [
   v.object({ type: v.literal("access_changed") }),
+  v.object({
+    type: v.literal("room_removed"),
+    roomId: v.pipe(v.string(), v.uuid()),
+  }),
   v.object({
     type: v.literal("room_changed"),
     roomId: v.pipe(v.string(), v.uuid()),

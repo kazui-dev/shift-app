@@ -266,3 +266,17 @@ it("persists a reply target with the queued draft and includes it when sending",
     expect.objectContaining({ replyToId: reply.id, content: "Reply" })
   )
 })
+
+it("removes only the departed chat's drafts and pending messages from durable storage", async () => {
+  const value = await store()
+  value.edit("left", { content: "discard", files: [] })
+  await value.enqueue("left")
+  value.edit("left", { content: "draft", files: [] })
+  value.edit("kept", { content: "keep", files: [] })
+  await value.removeRoom("left")
+  expect(value.snapshot().drafts).toEqual({
+    kept: { content: "keep", files: [] },
+  })
+  expect(value.snapshot().queue).toEqual([])
+  expect(set).toHaveBeenLastCalledWith("member", value.snapshot())
+})

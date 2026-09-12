@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import type { ChatEvent } from "@workspace/shared/communications"
-import { receiveMessage, updateRoom } from "./chat-cache"
+import { receiveMessage, updateRoom, removeRoom } from "./chat-cache"
 
 export function applyChatEvent(
   client: QueryClient,
@@ -20,6 +20,10 @@ export function applyChatEvent(
     return
   }
   const id = event.roomId
+  if (event.type === "room_removed") {
+    removeRoom(client, id)
+    return
+  }
   if (event.type === "room_changed") {
     void client.invalidateQueries({ queryKey: ["chat-rooms"] })
     for (const key of [

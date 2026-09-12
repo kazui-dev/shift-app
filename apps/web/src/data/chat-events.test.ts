@@ -13,7 +13,6 @@ const room = (id: string, updatedAt: string) => ({
   activityId: null,
   activityStartsAt: null,
   activityEndsAt: null,
-  historical: false,
   canPost: true,
   canManage: true,
   muted: false,
@@ -128,5 +127,27 @@ it("never publishes an unread badge for an own post received from another device
   expect(unread.every((count) => count === 0)).toBe(true)
   expect(client.getQueryData(key)?.rooms[0]?.lastRead).toBe(2)
   unsubscribe()
+  client.clear()
+})
+
+it("removes an exited chat and its cached history on the same event stream", () => {
+  const client = new QueryClient()
+  const key = roomsQuery(2026).queryKey
+  client.setQueryData(key, {
+    rooms: [room("left", message.createdAt), room("kept", message.createdAt)],
+  })
+  client.setQueryData(messagesQuery("left").queryKey, {
+    pages: [{ messages: [message], hasMore: false }],
+    pageParams: [null],
+  })
+  client.setQueryData(["chat-room", "left"], {
+    room: room("left", message.createdAt),
+  })
+  applyChatEvent(client, { type: "room_removed", roomId: "left" }, "me")
+  expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
+    "kept",
+  ])
+  expect(client.getQueryData(messagesQuery("left").queryKey)).toBeUndefined()
+  expect(client.getQueryData(["chat-room", "left"])).toBeUndefined()
   client.clear()
 })

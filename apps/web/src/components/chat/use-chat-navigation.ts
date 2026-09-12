@@ -6,6 +6,7 @@ import { ChatNavigation } from "./navigation"
 declare module "@tanstack/react-router" {
   interface HistoryState {
     chatList?: boolean
+    chatRemoved?: string
     chatFromList?: boolean
     chatCreate?: boolean
     chatSettings?: boolean
@@ -47,6 +48,8 @@ export function useChatNavigation() {
         chatRoomId(location.pathname),
         action.type === "BACK" ? "back" : "navigate"
       )
+      if (location.state.chatRemoved)
+        navigation.remove(location.state.chatRemoved)
     })
     navigation.receive(chatRoomId(router.history.location.pathname))
     return unsubscribe

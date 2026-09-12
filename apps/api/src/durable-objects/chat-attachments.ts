@@ -108,14 +108,12 @@ export class ChatAttachments {
       messageId
     )
   }
-  readable(id: string, beforeTime: number | null) {
+  readable(id: string) {
     return (
       this.storage.sql
         .exec<{ objectKey: string }>(
-          `SELECT a.object_key AS objectKey FROM attachments a JOIN messages m ON m.id=a.message_id WHERE a.id=? AND a.ready=1 AND (? IS NULL OR m.created_at<=?)`,
-          id,
-          beforeTime,
-          beforeTime
+          `SELECT a.object_key AS objectKey FROM attachments a JOIN messages m ON m.id=a.message_id WHERE a.id=? AND a.ready=1`,
+          id
         )
         .toArray()[0] ?? null
     )

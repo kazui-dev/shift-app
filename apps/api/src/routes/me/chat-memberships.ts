@@ -12,7 +12,6 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
   const room = await findAccessibleRoom(c.env, c.req.param("roomId"), member.id)
   if (!room)
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません")
-  if (room.exitedAt !== null) return c.body(null, 204)
   if (!room.allowExit)
     return apiError(c, 409, "EXIT_DISABLED", "このチャットは退出できません")
   const previous = await roomRecipients(c.env, room.id)

@@ -81,11 +81,6 @@ export function RoomList({
                       {schedule}
                     </span>
                   )}
-                  {room.historical && (
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      退出前の履歴
-                    </span>
-                  )}
                 </span>
                 {room.muted && (
                   <BellOff

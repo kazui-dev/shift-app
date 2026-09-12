@@ -23,7 +23,6 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
       sequence &&
       !offline &&
       active &&
-      !room.historical &&
       document.visibilityState === "visible" &&
       sequence > readSequence.current
     ) {
@@ -43,14 +42,6 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
           readSequence.current = room.lastRead
         })
     }
-  }, [
-    messages,
-    offline,
-    active,
-    room.historical,
-    room.id,
-    room.lastRead,
-    client,
-  ])
+  }, [messages, offline, active, room.id, room.lastRead, client])
   return { messages, initialRead: initialRead.current, query, markRead }
 }
