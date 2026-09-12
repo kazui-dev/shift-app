@@ -8,8 +8,6 @@ import { monitorUpdates } from "@/lib/update-monitor"
 
 import { Button } from "@workspace/ui/components/button"
 
-const updateCheckInterval = 5 * 60 * 1000
-
 export function PwaUpdateNotice() {
   const [dismissed, setDismissed] = useState(false)
   const [updating, setUpdating] = useState(false)
@@ -40,7 +38,6 @@ export function PwaUpdateNotice() {
         )
       },
     })
-    const timer = window.setInterval(check, updateCheckInterval)
     window.addEventListener("focus", check)
     window.addEventListener("online", check)
     document.addEventListener("visibilitychange", check)
@@ -48,7 +45,6 @@ export function PwaUpdateNotice() {
       disposed = true
       monitor?.dispose()
       updateAbort.current?.abort()
-      window.clearInterval(timer)
       window.removeEventListener("focus", check)
       window.removeEventListener("online", check)
       document.removeEventListener("visibilitychange", check)

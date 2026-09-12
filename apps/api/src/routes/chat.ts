@@ -1,4 +1,4 @@
-import { publishRoomChange } from "../services/chat-directory"
+import { publishChatEvent, publishRoomChange } from "../services/chat-directory"
 import { editChatMessageInputSchema } from "@workspace/shared/communications"
 import { saveRoomSettings } from "../services/chat-settings"
 import { deleteRoom } from "../services/chat-deletion"
@@ -81,9 +81,17 @@ chatApp.delete("/rooms/:roomId", async (c) => {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません。")
   if (!room.canManage)
     return apiError(c, 403, "FORBIDDEN", "ルームの管理権限が必要です。")
+  const previous = await roomRecipients(c.env, room.id)
   const deleted = await deleteRoom(c.env.shift_app, room.id, actor.id)
   if (!deleted)
     return apiError(c, 409, "CHAT_SETTINGS_CHANGED", "権限が変更されました。")
+  c.executionCtx.waitUntil(
+    publishRoomChange(
+      c.env,
+      room.id,
+      previous.map((member) => member.id)
+    )
+  )
   return c.body(null, 204)
 })
 
@@ -301,7 +309,21 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
         input.output.content || "画像が送信されました"
       )
     )
+  await c.env.shift_app
+    .prepare(
+      "INSERT INTO chat_room_preferences(room_id,member_id,last_read) VALUES(?,?,?) ON CONFLICT(room_id,member_id) DO UPDATE SET last_read=MAX(last_read,excluded.last_read)"
+    )
+    .bind(room.id, member.id, message.sequence)
+    .run()
   const [enriched] = await withMemberImages(c.env, [message])
+  if (enriched)
+    c.executionCtx.waitUntil(
+      publishChatEvent(c.env, {
+        type: "message",
+        roomId: room.id,
+        message: enriched,
+      })
+    )
   return c.json({ message: enriched }, 201)
 })
 
@@ -352,33 +374,17 @@ for (const method of ["patch", "delete"] as const) {
       return apiError(c, 422, "EMPTY_MESSAGE", "本文または画像が必要です。")
     }
     const [message] = await withMemberImages(c.env, [result.message])
+    if (message)
+      c.executionCtx.waitUntil(
+        publishChatEvent(c.env, {
+          type: "message_changed",
+          roomId: roomId.output,
+          message,
+        })
+      )
     return c.json({ message })
   })
 }
-
-chatApp.get("/rooms/:roomId/ws", async (c) => {
-  if (c.req.header("Origin") !== c.env.BETTER_AUTH_URL) {
-    return apiError(c, 403, "FORBIDDEN_ORIGIN", "Request origin is not allowed")
-  }
-  const id = v.safeParse(idSchema, c.req.param("roomId"))
-  if (!id.success) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
-  }
-  const member = c.get("member")
-  const room = await findAccessibleRoom(c.env, id.output, member.id)
-  if (!room) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "Chat room not found")
-  }
-  if (room.exitedAt !== null)
-    return apiError(c, 403, "CHAT_READ_ONLY", "Room access has ended")
-  const headers = new Headers(c.req.raw.headers)
-  headers.delete("Cookie")
-  headers.set("X-Chat-Member-Id", member.id)
-  headers.set("X-Chat-Room-Id", room.id)
-  return c.env.CHAT_ROOMS.getByName(room.id).fetch(
-    new Request(c.req.raw, { headers })
-  )
-})
 
 chatApp.patch("/rooms/:roomId/preferences", async (c) => {
   const input = v.safeParse(
@@ -410,6 +416,16 @@ chatApp.patch("/rooms/:roomId/preferences", async (c) => {
       input.output.muted === undefined ? 0 : 1
     )
     .run()
+  const current = await findAccessibleRoom(c.env, room.id, memberId)
+  if (current)
+    c.executionCtx.waitUntil(
+      c.env.CHAT_DIRECTORY.getByName("rooms").publish([memberId], {
+        type: "preferences_changed",
+        roomId: room.id,
+        lastRead: current.lastRead,
+        muted: current.muted === 1,
+      })
+    )
   return c.body(null, 204)
 })
 chatApp.get("/rooms/:roomId/settings", async (c) => {
@@ -496,6 +512,7 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
       "DUPLICATE_TARGET",
       "同じ対象は一度だけ指定してください。"
     )
+  const previous = await roomRecipients(c.env, room.id)
   try {
     await saveRoomSettings(c.env.shift_app, room.id, actor.id, input.output)
   } catch (error) {
@@ -508,5 +525,12 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
       )
     throw error
   }
+  c.executionCtx.waitUntil(
+    publishRoomChange(
+      c.env,
+      room.id,
+      previous.map((member) => member.id)
+    )
+  )
   return c.body(null, 204)
 })

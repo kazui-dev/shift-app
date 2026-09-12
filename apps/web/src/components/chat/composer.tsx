@@ -16,7 +16,9 @@ export function ChatComposer({
   onChange,
   onAddFiles,
   onSend,
+  editing,
 }: {
+  editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   roomName: string
   draft: ChatDraft
   disabled: boolean
@@ -35,8 +37,9 @@ export function ChatComposer({
     !disabled
   )
   useEffect(() => {
-    if (draft.reply?.id) input.current?.focus()
-  }, [draft.reply?.id, input])
+    if (draft.reply?.id || editing?.id)
+      input.current?.focus({ preventScroll: true })
+  }, [draft.reply?.id, editing?.id, input])
   const [dragging, setDragging] = useState(false)
   const touch = useMediaQuery("(pointer: coarse)")
   const textClass =
@@ -50,6 +53,7 @@ export function ChatComposer({
     return () => field?.removeEventListener("cancel", finishPicking)
   }, [finishPicking])
   async function addFiles(incoming: File[]) {
+    if (editing) return
     if (incoming.length + draft.files.length > chatImageLimits.count) {
       toast.error("添付できる画像は10枚までです。")
       return
@@ -192,12 +196,32 @@ export function ChatComposer({
         data-expanded={expanded}
         onSubmit={(event) => {
           event.preventDefault()
-          if (!disabled && (draft.content.trim() || draft.files.length)) {
+          if (
+            !disabled &&
+            (draft.content.trim() || draft.files.length || editing?.hasImages)
+          ) {
             onSend()
           }
         }}
         className={`rounded-3xl border bg-background shadow-xs ${dragging ? "border-ring" : "border-input"}`}
       >
+        {editing && (
+          <div className="flex items-center justify-between px-4 pt-2 text-xs text-muted-foreground">
+            <span>メッセージ編集中</span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon-xs"
+              className="rounded-full"
+              aria-label="編集を取り消す"
+              disabled={disabled}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={editing.onCancel}
+            >
+              <X />
+            </Button>
+          </div>
+        )}
         <input
           ref={fileInput}
           type="file"
@@ -219,7 +243,7 @@ export function ChatComposer({
             variant="ghost"
             size="icon-sm"
             disabled={disabled}
-            className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted"
+            className={`${editing ? "invisible" : ""} absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted`}
             data-pressed={pressed || pickerOpen}
             onPointerDown={(event) => {
               event.preventDefault()
@@ -241,7 +265,7 @@ export function ChatComposer({
             ref={input}
             rows={1}
             maxLength={2000}
-            aria-label="メッセージ"
+            aria-label={editing ? "メッセージを編集" : "メッセージ"}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             placeholder={`${roomName}へメッセージを送信`}
@@ -285,10 +309,13 @@ export function ChatComposer({
             type="submit"
             onPointerDown={(event) => event.preventDefault()}
             size="icon-sm"
-            className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
-            aria-label="送信"
+            className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!editing && !draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
+            aria-label={editing ? "保存" : "送信"}
             disabled={
-              disabled || (!draft.content.trim() && !draft.files.length)
+              disabled ||
+              (!draft.content.trim() &&
+                !draft.files.length &&
+                !editing?.hasImages)
             }
           >
             <SendHorizontal />

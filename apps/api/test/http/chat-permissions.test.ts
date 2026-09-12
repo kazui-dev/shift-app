@@ -2,7 +2,7 @@ import { activityActionsApp } from "../../src/routes/activity-actions"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { Hono } from "hono"
-import { afterEach, expect, it } from "vite-plus/test"
+import { afterEach, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
 import { chatApp } from "../../src/routes/chat"
 import { chatMembershipsApp } from "../../src/routes/me/chat-memberships"
@@ -15,6 +15,11 @@ import {
   roomCommands,
 } from "../../src/services/chat-creation"
 import { chatPermissions } from "../../src/services/chat-permissions"
+
+vi.mock("../../src/services/push", () => ({
+  notifyRoomMessage: async () => {},
+  sendMemberNotification: async () => {},
+}))
 
 const databases: DatabaseSync[] = []
 afterEach(() => {
@@ -79,7 +84,20 @@ function fixture() {
     })
     return statement([])
   }
+  const delivered = {
+    id: "40000000-0000-4000-8000-000000000001",
+    sequence: 1,
+    memberId: admin,
+    memberDisplayName: "管理者",
+    content: "投稿",
+    attachments: [],
+    createdAt: "2026-09-13T00:00:00Z",
+  }
+  const published = vi.fn<(recipients: string[], event: unknown) => void>()
+  const tasks: Promise<unknown>[] = []
   const env = {
+    CHAT_ROOMS: { getByName: () => ({ sendMessage: async () => delivered }) },
+    CHAT_DIRECTORY: { getByName: () => ({ publish: published }) },
     shift_app: {
       prepare,
       batch: async (statements: { all: () => Promise<unknown> }[]) => {
@@ -119,8 +137,8 @@ function fixture() {
       db.prepare(sql).run(...params)
     return room.id
   }
-  const request = (path: string, method = "GET", body?: unknown) =>
-    app.request(
+  const request = async (path: string, method = "GET", body?: unknown) => {
+    const response = await app.request(
       path,
       {
         method,
@@ -131,9 +149,18 @@ function fixture() {
               body: JSON.stringify(body),
             }),
       },
-      env
+      env,
+      {
+        waitUntil: (task) => tasks.push(task),
+        passThroughOnException() {},
+        props: {},
+      }
     )
+    await Promise.all(tasks.splice(0))
+    return response
+  }
   return {
+    published,
     db,
     create,
     request,
@@ -283,6 +310,10 @@ it("treats the year room as editable grants, validates scopes, and preserves a m
   expect(
     (await f.request(`/chat/rooms/${id}/settings`, "PUT", settings)).status
   ).toBe(204)
+  expect(f.published).toHaveBeenLastCalledWith(
+    expect.arrayContaining([admin, member, other]),
+    { type: "room_changed", roomId: id }
+  )
   expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
   f.as(member)
   expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
@@ -301,6 +332,10 @@ it("allows explicit exit history but excludes exits from current recipients", as
   f.as(member)
   expect((await f.request(`/me/chat-memberships/${id}`, "DELETE")).status).toBe(
     204
+  )
+  expect(f.published).toHaveBeenLastCalledWith(
+    expect.arrayContaining([admin, member, other]),
+    { type: "room_changed", roomId: id }
   )
   expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
     room: { historical: true, canPost: false, unreadCount: 0 },
@@ -350,6 +385,10 @@ it("deletes a managed room, revokes all readers and queues message and image cle
   expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(403)
   f.as(admin)
   expect((await f.request(`/chat/rooms/${id}`, "DELETE")).status).toBe(204)
+  expect(f.published).toHaveBeenLastCalledWith(
+    expect.arrayContaining([admin, member, other]),
+    { type: "room_changed", roomId: id }
+  )
   expect(
     f.db
       .prepare("SELECT room_id FROM chat_room_deletions WHERE room_id=?")
@@ -548,4 +587,47 @@ it("keeps room settings changes out of latest-post ordering", async () => {
   expect(await (await f.request("/chat/rooms?year=2026")).json()).toMatchObject(
     { rooms: [{ id: newer.id }, { id: older.id }] }
   )
+})
+
+it("commits room order and the sender's read position before publishing a post to the shared stream", async () => {
+  const f = fixture()
+  const id = f.create(yearRoom(2026, admin))
+  f.published.mockImplementation(() => {
+    expect(
+      f.db.prepare("SELECT last_sequence FROM chat_rooms WHERE id=?").get(id)
+    ).toMatchObject({ last_sequence: 1 })
+    expect(
+      f.db
+        .prepare(
+          "SELECT last_read FROM chat_room_preferences WHERE room_id=? AND member_id=?"
+        )
+        .get(id, admin)
+    ).toMatchObject({ last_read: 1 })
+  })
+  const response = await f.request(`/chat/rooms/${id}/messages`, "POST", {
+    id: "40000000-0000-4000-8000-000000000001",
+    content: "投稿",
+    attachmentIds: [],
+  })
+  expect(response.status).toBe(201)
+  expect(f.published).toHaveBeenCalledWith(
+    expect.arrayContaining([admin, member, other]),
+    expect.objectContaining({
+      type: "message",
+      roomId: id,
+      message: expect.objectContaining({ content: "投稿", memberImage: null }),
+    })
+  )
+  const preferences = await f.request(
+    `/chat/rooms/${id}/preferences`,
+    "PATCH",
+    { muted: true, lastRead: 1 }
+  )
+  expect(preferences.status).toBe(204)
+  expect(f.published).toHaveBeenLastCalledWith([admin], {
+    type: "preferences_changed",
+    roomId: id,
+    lastRead: 1,
+    muted: true,
+  })
 })

@@ -1,7 +1,11 @@
 import { Hono } from "hono"
 import { apiError, type ApiEnv } from "../../lib/http"
 import { findAccessibleRoom } from "../../services/chat-access"
-import { chatPermissions } from "../../services/chat-permissions"
+import { publishRoomChange } from "../../services/chat-directory"
+import {
+  roomRecipients,
+  chatPermissions,
+} from "../../services/chat-permissions"
 export const chatMembershipsApp = new Hono<ApiEnv>()
 chatMembershipsApp.delete("/:roomId", async (c) => {
   const member = c.get("member")
@@ -11,6 +15,7 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
   if (room.exitedAt !== null) return c.body(null, 204)
   if (!room.allowExit)
     return apiError(c, 409, "EXIT_DISABLED", "このルームは退出できません")
+  const previous = await roomRecipients(c.env, room.id)
   const result = await c.env.shift_app
     .prepare(`${chatPermissions}
     INSERT OR IGNORE INTO chat_room_exits(room_id,member_id,created_at)
@@ -39,5 +44,12 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
       "LAST_CHAT_MANAGER",
       "ほかの人に設定変更権限を付けてから退出してください"
     )
+  c.executionCtx.waitUntil(
+    publishRoomChange(
+      c.env,
+      room.id,
+      previous.map((recipient) => recipient.id)
+    )
+  )
   return c.body(null, 204)
 })

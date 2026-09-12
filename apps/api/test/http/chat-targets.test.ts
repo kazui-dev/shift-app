@@ -150,7 +150,10 @@ describe("migrated chat and calendar queries", () => {
         }
       )
       await Promise.all(tasks)
-      expect(published).toHaveBeenCalledWith(["m"])
+      expect(published).toHaveBeenCalledWith(["m"], {
+        type: "room_changed",
+        roomId: expect.any(String),
+      })
       expect(created.status).toBe(201)
       db.exec("UPDATE shift_assignments SET status='cancelled' WHERE id='sa'")
       const cancelled = await app.request("/chat/targets?year=2026", {}, env)

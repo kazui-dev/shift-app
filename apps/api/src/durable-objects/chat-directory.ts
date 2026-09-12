@@ -1,16 +1,24 @@
+import type { ChatEvent } from "@workspace/shared/communications"
 import { DurableObject } from "cloudflare:workers"
 
 export class ChatDirectory extends DurableObject<CloudflareBindings> {
-  publish(memberIds: string[]) {
+  accessChanged() {
+    for (const socket of this.ctx.getWebSockets())
+      this.deliver(socket, { type: "access_changed" })
+  }
+  private deliver(socket: WebSocket, event: ChatEvent) {
+    try {
+      socket.send(JSON.stringify(event))
+    } catch {
+      socket.close(1011, "Delivery failed")
+    }
+  }
+  publish(memberIds: string[], event: ChatEvent) {
     const recipients = new Set(memberIds)
     for (const socket of this.ctx.getWebSockets()) {
       const member: unknown = socket.deserializeAttachment()
       if (typeof member !== "string" || !recipients.has(member)) continue
-      try {
-        socket.send(JSON.stringify({ type: "rooms_changed" }))
-      } catch {
-        socket.close(1011, "Delivery failed")
-      }
+      this.deliver(socket, event)
     }
   }
   override fetch(request: Request) {
