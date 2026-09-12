@@ -97,10 +97,16 @@ export class ChatAttachments {
   forMessage(messageId: string): ChatAttachment[] {
     return this.storage.sql
       .exec<ChatAttachment>(
-        "SELECT id,width,height,bytes FROM attachments WHERE message_id=? ORDER BY rowid",
+        "SELECT id,width,height,bytes FROM attachments WHERE message_id=? AND ready=1 ORDER BY rowid",
         messageId
       )
       .toArray()
+  }
+  deleteMessage(messageId: string) {
+    this.storage.sql.exec(
+      "UPDATE attachments SET ready=-1 WHERE message_id=?",
+      messageId
+    )
   }
   readable(id: string, beforeTime: number | null) {
     return (
@@ -131,7 +137,7 @@ export class ChatAttachments {
     // Mark before external I/O so a concurrent send cannot claim a deleted image.
     const rows = this.storage.sql
       .exec<{ id: string; objectKey: string }>(
-        `UPDATE attachments SET ready=-1 WHERE ${all ? "1=1" : "message_id IS NULL AND (created_at<? OR ready=-1)"} RETURNING id,object_key AS objectKey`,
+        `UPDATE attachments SET ready=-1 WHERE ${all ? "1=1" : "ready=-1 OR (message_id IS NULL AND created_at<?)"} RETURNING id,object_key AS objectKey`,
         ...(all ? [] : [Date.now() - expiry])
       )
       .toArray()

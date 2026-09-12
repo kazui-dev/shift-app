@@ -122,6 +122,7 @@ export class ChatStore {
                     .filter(Boolean)
                     .join("\n"),
                   files: [...draft.files, ...newer.files],
+                  reply: newer.reply ?? draft.reply,
                 },
         },
         queue: this.state.queue.filter((item) => item.id !== message.id),
@@ -192,6 +193,7 @@ export class ChatStore {
         const result = await sendChatMessage(message.roomId, {
           id: message.id,
           content: message.content,
+          ...(message.reply ? { replyToId: message.reply.id } : {}),
           attachmentIds: files.flatMap((file) =>
             file.uploaded ? [file.uploaded.id] : []
           ),

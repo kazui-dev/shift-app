@@ -34,6 +34,9 @@ export function ChatComposer({
     focused,
     !disabled
   )
+  useEffect(() => {
+    if (draft.reply?.id) input.current?.focus()
+  }, [draft.reply?.id, input])
   const [dragging, setDragging] = useState(false)
   const touch = useMediaQuery("(pointer: coarse)")
   const textClass =
@@ -125,6 +128,25 @@ export function ChatComposer({
   }, [])
   return (
     <div className="min-w-0">
+      {draft.reply && (
+        <div
+          className="flex items-center gap-2 rounded-t-xl bg-muted px-3 py-2 text-xs"
+          aria-label="返信先"
+        >
+          <span className="min-w-0 flex-1 truncate">
+            {draft.reply.memberDisplayName}への返信
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label="返信を取り消す"
+            onClick={() => onChange({ ...draft, reply: undefined })}
+          >
+            <X />
+          </Button>
+        </div>
+      )}
       {draft.files.length > 0 && (
         <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-30%">
           <ul

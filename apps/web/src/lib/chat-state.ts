@@ -1,5 +1,8 @@
 import * as v from "valibot"
-import { chatAttachmentSchema } from "@workspace/shared/communications"
+import {
+  chatAttachmentSchema,
+  chatReplySchema,
+} from "@workspace/shared/communications"
 const fileSchema = v.object({
   id: v.string(),
   name: v.string(),
@@ -15,6 +18,7 @@ const fileSchema = v.object({
 const draftSchema = v.object({
   content: v.string(),
   files: v.array(fileSchema),
+  reply: v.optional(chatReplySchema),
 })
 const queuedSchema = v.object({
   id: v.string(),
@@ -22,6 +26,7 @@ const queuedSchema = v.object({
   createdAt: v.string(),
   content: v.string(),
   files: v.array(fileSchema),
+  reply: v.optional(chatReplySchema),
   status: v.picklist(["waiting", "sending", "failed"]),
 })
 export const stateSchema = v.object({

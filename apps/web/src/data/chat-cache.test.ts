@@ -114,3 +114,30 @@ it("reorders rooms immediately on new delivery without letting old acknowledgeme
   )
   client.clear()
 })
+
+it("acknowledges an own message in the visible room without an intermediate unread badge", () => {
+  const client = new QueryClient()
+  client.setQueryData(["chat-room", "room"], {
+    room: { id: "room", lastRead: 1, lastSequence: 1, unreadCount: 0 },
+  })
+  const counts: number[] = []
+  const stop = client.getQueryCache().subscribe(() => {
+    const data = client.getQueryData<{ room: { unreadCount: number } }>([
+      "chat-room",
+      "room",
+    ])
+    if (data) counts.push(data.room.unreadCount)
+  })
+  receiveMessage(client, "room", message(2), true)
+  receiveMessage(client, "room", message(2), true)
+  expect(counts.every((count) => count === 0)).toBe(true)
+  expect(client.getQueryData(["chat-room", "room"])).toMatchObject({
+    room: { lastRead: 2, lastSequence: 2, unreadCount: 0 },
+  })
+  receiveMessage(client, "room", message(3))
+  expect(client.getQueryData(["chat-room", "room"])).toMatchObject({
+    room: { unreadCount: 1 },
+  })
+  stop()
+  client.clear()
+})

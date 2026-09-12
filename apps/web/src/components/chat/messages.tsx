@@ -1,3 +1,4 @@
+import { MessageActions } from "./message-actions"
 import { useLayoutEffect, useMemo, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { ArrowDown } from "lucide-react"
@@ -119,6 +120,9 @@ export function ChatMessages({
                 const grouped =
                   previous?.memberId === message.memberId &&
                   !dayChanged &&
+                  !message.reply &&
+                  !message.deleted &&
+                  !previous?.deleted &&
                   !unread &&
                   Date.parse(message.createdAt) -
                     Date.parse(previous.createdAt) <
@@ -145,102 +149,146 @@ export function ChatMessages({
                         <span className="h-px flex-1 bg-border" />
                       </div>
                     )}
-                    <div className="group -mx-[var(--chat-gutter)] grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3 px-[var(--chat-gutter)] hover:bg-muted/25">
-                      {!grouped ? (
-                        <MemberAvatar
-                          name={message.memberDisplayName}
-                          image={message.memberImage}
-                          className="mt-0.5"
-                        />
-                      ) : (
-                        <time
-                          dateTime={message.createdAt}
-                          className="flex h-7 items-center justify-center self-start text-[10px] whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-hover:opacity-100"
-                        >
-                          {time(message.createdAt)}
-                        </time>
-                      )}
-                      <div className="min-w-0">
-                        {!grouped && (
-                          <p className="flex items-baseline gap-2">
-                            <span className="text-sm font-semibold">
-                              {message.memberDisplayName}
+                    <MessageActions
+                      message={message}
+                      room={room}
+                      memberId={member.id}
+                      offline={offline}
+                      onReply={() => {
+                        if (message.sequence !== null)
+                          store.edit(room.id, {
+                            ...store.draft(room.id),
+                            reply: {
+                              id: message.id,
+                              sequence: message.sequence,
+                              memberDisplayName: message.memberDisplayName,
+                              content: message.content,
+                            },
+                          })
+                      }}
+                    >
+                      <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
+                        {message.reply && (
+                          <div className="col-start-2 mb-1 flex gap-2 text-xs text-muted-foreground">
+                            <span className="shrink-0">
+                              ↪ {message.reply.memberDisplayName}
                             </span>
-                            <time
-                              dateTime={message.createdAt}
-                              className="text-[11px] text-muted-foreground"
-                            >
-                              {time(message.createdAt)}
-                            </time>
-                          </p>
+                            <span className="truncate">
+                              {message.reply.deleted
+                                ? "削除されたメッセージ"
+                                : message.reply.content || "画像"}
+                            </span>
+                          </div>
                         )}
-                        {message.content && (
-                          <p className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap">
-                            {message.content}
-                          </p>
-                        )}
-                        <MessageImages
-                          roomId={room.id}
-                          images={message.attachments}
-                          onOpen={(image) => {
-                            if (message.sequence !== null)
-                              void navigate({
-                                to: "/chat/$roomId",
-                                params: { roomId: room.id },
-                                search: { image, message: message.sequence },
-                                state: { chatImage: true },
-                                resetScroll: false,
-                              })
-                          }}
-                        />
-                        {message.files.length > 0 && (
-                          <div
-                            className={`mt-2 grid max-w-lg gap-2 ${message.files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                        {!grouped ? (
+                          <MemberAvatar
+                            name={message.memberDisplayName}
+                            image={message.memberImage}
+                            className="mt-0.5"
+                          />
+                        ) : (
+                          <time
+                            dateTime={message.createdAt}
+                            className="flex h-7 items-center justify-center self-start text-[10px] whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-data-active:opacity-100"
                           >
-                            {message.files.map((file) => (
-                              <div
-                                key={file.id}
-                                className="max-w-full overflow-hidden rounded-xl border"
-                                style={imageSize(
-                                  file.uploaded ?? file.dimensions
-                                )}
-                              >
-                                <LocalImage
-                                  blob={file.blob}
-                                  alt={file.name}
-                                  className="size-full object-contain"
-                                />
-                              </div>
-                            ))}
-                          </div>
+                            {time(message.createdAt)}
+                          </time>
                         )}
-                        {(message.status === "failed" ||
-                          (offline && message.status !== "sent")) && (
-                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                            {message.status === "failed" ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => store.retry(message.id)}
+                        <div className="min-w-0">
+                          {!grouped && (
+                            <p className="flex items-baseline gap-2">
+                              <span className="text-sm font-semibold">
+                                {message.memberDisplayName}
+                              </span>
+                              <time
+                                dateTime={message.createdAt}
+                                className="text-[11px] text-muted-foreground"
                               >
-                                再送
-                              </Button>
-                            ) : (
-                              "接続後に送信"
-                            )}
-                            {message.status !== "sending" && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => store.cancel(message.id)}
-                              >
-                                取り消す
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                                {time(message.createdAt)}
+                              </time>
+                            </p>
+                          )}
+                          {message.deleted && (
+                            <p className="text-sm leading-7 text-muted-foreground">
+                              削除されたメッセージ
+                            </p>
+                          )}
+                          {message.content && (
+                            <p
+                              data-message-body
+                              className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
+                            >
+                              {message.content}
+                              {message.editedAt && (
+                                <span className="ml-2 text-[10px] text-muted-foreground">
+                                  （編集済み）
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          <MessageImages
+                            roomId={room.id}
+                            images={message.attachments}
+                            onOpen={(image) => {
+                              if (message.sequence !== null)
+                                void navigate({
+                                  to: "/chat/$roomId",
+                                  params: { roomId: room.id },
+                                  search: { image, message: message.sequence },
+                                  state: { chatImage: true },
+                                  resetScroll: false,
+                                })
+                            }}
+                          />
+                          {message.files.length > 0 && (
+                            <div
+                              className={`mt-2 grid max-w-lg gap-2 ${message.files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+                            >
+                              {message.files.map((file) => (
+                                <div
+                                  key={file.id}
+                                  className="max-w-full overflow-hidden rounded-xl border"
+                                  style={imageSize(
+                                    file.uploaded ?? file.dimensions
+                                  )}
+                                >
+                                  <LocalImage
+                                    blob={file.blob}
+                                    alt={file.name}
+                                    className="size-full object-contain"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {(message.status === "failed" ||
+                            (offline && message.status !== "sent")) && (
+                            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                              {message.status === "failed" ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => store.retry(message.id)}
+                                >
+                                  再送
+                                </Button>
+                              ) : (
+                                "接続後に送信"
+                              )}
+                              {message.status !== "sending" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => store.cancel(message.id)}
+                                >
+                                  取り消す
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    </MessageActions>
                   </li>
                 )
               })}

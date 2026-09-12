@@ -53,7 +53,8 @@ export function updateRoom(
 export function receiveMessage(
   client: QueryClient,
   id: string,
-  message: Message
+  message: Message,
+  read = false
 ) {
   const options = messagesQuery(id)
   const current = client.getQueryData(options.queryKey)
@@ -88,6 +89,9 @@ export function receiveMessage(
     })
   updateRoom(client, id, (room) => {
     const lastSequence = Math.max(room.lastSequence, message.sequence)
+    const lastRead = read
+      ? Math.max(room.lastRead, message.sequence)
+      : room.lastRead
     return {
       ...room,
       updatedAt:
@@ -95,7 +99,8 @@ export function receiveMessage(
           ? message.createdAt
           : room.updatedAt,
       lastSequence,
-      unreadCount: Math.max(0, lastSequence - room.lastRead),
+      lastRead,
+      unreadCount: Math.max(0, lastSequence - lastRead),
     }
   })
   return continuous

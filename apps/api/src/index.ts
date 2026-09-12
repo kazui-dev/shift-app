@@ -1,3 +1,4 @@
+export { ChatDirectory } from "./durable-objects/chat-directory"
 import { cleanDeletedRooms } from "./services/chat-cleanup"
 import { app } from "./app"
 import { sendDueAssignmentReminders } from "./services/push"

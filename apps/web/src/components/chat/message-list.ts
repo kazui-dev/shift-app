@@ -29,6 +29,7 @@ export function messageRows(
         memberDisplayName: member.displayName,
         memberImage: member.image,
         content: message.content,
+        reply: message.reply,
         createdAt: message.createdAt,
         attachments: [],
         files: message.files,
