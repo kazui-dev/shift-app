@@ -28,7 +28,6 @@ const room: RoomRow = {
   lastRead: 0,
   lastSequence: 0,
   exitedAt: null,
-  status: "active",
 }
 const getAttachment =
   vi.fn<

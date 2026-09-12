@@ -3,10 +3,8 @@ import {
   readNotificationPermission,
   watchNotificationPermission,
 } from "./notification-permission"
-
 afterEach(() => vi.unstubAllGlobals())
-
-it("reads the browser's current notification permission instead of storing a copy", () => {
+it("reads the current notification getter", () => {
   const notification: { permission: NotificationPermission } = {
     permission: "denied",
   }
@@ -14,36 +12,46 @@ it("reads the browser's current notification permission instead of storing a cop
   expect(readNotificationPermission()).toBe("denied")
   notification.permission = "granted"
   expect(readNotificationPermission()).toBe("granted")
-  notification.permission = "denied"
-  expect(readNotificationPermission()).toBe("denied")
 })
-
-it("observes permission changes and visible app restoration and removes listeners on disposal", async () => {
-  const status = new EventTarget(),
-    browser = new EventTarget()
+it("uses permission events even when Notification.permission disagrees and re-queries on return", async () => {
+  const status = Object.assign(new EventTarget(), { state: "denied" })
+  const next = Object.assign(new EventTarget(), { state: "granted" })
+  const query = vi.fn<() => Promise<typeof status>>().mockResolvedValue(status)
+  const browser = new EventTarget()
   const doc = Object.assign(new EventTarget(), { visibilityState: "visible" })
-  vi.stubGlobal("navigator", { permissions: { query: async () => status } })
+  vi.stubGlobal("navigator", { permissions: { query } })
+  vi.stubGlobal("Notification", { permission: "granted" })
   vi.stubGlobal("window", browser)
   vi.stubGlobal("document", doc)
-  const changed = vi.fn<() => void>()
+  const changed = vi.fn<(permission: NotificationPermission) => void>()
   const stop = watchNotificationPermission(changed)
-  await vi.waitFor(() => expect(changed).toHaveBeenCalledOnce())
+  await vi.waitFor(() => expect(changed).toHaveBeenLastCalledWith("denied"))
+  status.state = "prompt"
   status.dispatchEvent(new Event("change"))
+  expect(changed).toHaveBeenLastCalledWith("default")
+  query.mockResolvedValue(next)
   browser.dispatchEvent(new Event("focus"))
-  browser.dispatchEvent(new Event("pageshow"))
-  doc.dispatchEvent(new Event("visibilitychange"))
-  expect(changed).toHaveBeenCalledTimes(5)
-  doc.visibilityState = "hidden"
-  browser.dispatchEvent(new Event("focus"))
-  expect(changed).toHaveBeenCalledTimes(5)
+  await vi.waitFor(() => expect(changed).toHaveBeenLastCalledWith("granted"))
+  next.state = "denied"
+  next.dispatchEvent(new Event("change"))
+  expect(changed).toHaveBeenLastCalledWith("denied")
   stop()
-  status.dispatchEvent(new Event("change"))
-  doc.visibilityState = "visible"
+  changed.mockClear()
+  next.dispatchEvent(new Event("change"))
   browser.dispatchEvent(new Event("focus"))
-  expect(changed).toHaveBeenCalledTimes(5)
-  const disposeEarly = watchNotificationPermission(changed)
-  disposeEarly()
   await Promise.resolve()
-  await Promise.resolve()
-  expect(changed).toHaveBeenCalledTimes(5)
+  expect(changed).not.toHaveBeenCalled()
+})
+it("falls back to Notification when Permissions API is unavailable", async () => {
+  vi.stubGlobal("navigator", {})
+  vi.stubGlobal("Notification", { permission: "denied" })
+  vi.stubGlobal("window", new EventTarget())
+  vi.stubGlobal(
+    "document",
+    Object.assign(new EventTarget(), { visibilityState: "visible" })
+  )
+  const changed = vi.fn<(permission: NotificationPermission) => void>()
+  const stop = watchNotificationPermission(changed)
+  await vi.waitFor(() => expect(changed).toHaveBeenCalledWith("denied"))
+  stop()
 })

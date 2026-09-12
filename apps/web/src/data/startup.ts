@@ -36,7 +36,6 @@ export async function prepareApp(
     const calendar = client.prefetchQuery(assignmentMonthQuery(month, year))
     const rooms = client.prefetchQuery(roomsQuery(year))
     const availability = client.prefetchQuery(availabilityQuery(year))
-    void client.prefetchQuery(roomsQuery(year, true))
     void client.prefetchQuery(targetsQuery(year))
     if (pathname === "/calendar")
       wait(assignmentMonthQuery(month, year).queryKey, calendar)

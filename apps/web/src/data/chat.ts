@@ -1,5 +1,6 @@
 import {
   infiniteQueryOptions,
+  skipToken,
   queryOptions,
   type QueryClient,
 } from "@tanstack/react-query"
@@ -32,10 +33,10 @@ export function prepareConversation(client: QueryClient, id: string) {
   ])
 }
 
-export const roomsQuery = (year: number, closed = false) =>
+export const roomsQuery = (year: number | null) =>
   queryOptions({
-    queryKey: ["chat-rooms", year, closed],
-    queryFn: () => getChatRooms(year, closed),
+    queryKey: ["chat-rooms", year],
+    queryFn: year === null ? skipToken : () => getChatRooms(year),
     staleTime: 60_000,
   })
 export const targetsQuery = (year: number) =>

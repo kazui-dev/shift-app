@@ -1,25 +1,28 @@
 import {
+  notificationDevicesSchema,
   pushConfigResponseSchema,
-  pushSubscriptionsSchema,
   type PushSubscriptionInput,
 } from "@workspace/shared/communications"
 import { apiJson, apiVoid } from "./client"
-
-const url = "/api/me/push-subscriptions"
+const url = "/api/me/notification-devices"
 export const getPushConfig = () =>
   apiJson("/api/push/config", pushConfigResponseSchema)
-export const getPushSubscriptions = () => apiJson(url, pushSubscriptionsSchema)
-export const savePushSubscription = (subscription: PushSubscriptionInput) =>
-  apiVoid(url, {
-    method: "POST",
+export const getNotificationDevices = () =>
+  apiJson(url, notificationDevicesSchema)
+export const saveNotificationPreference = (id: string, enabled: boolean) =>
+  apiVoid(`${url}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  })
+export const saveDeviceSubscription = (
+  id: string,
+  subscription: PushSubscriptionInput
+) =>
+  apiVoid(`${url}/${id}/subscription`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(subscription),
-  })
-export const disablePushSubscription = (endpoint: string) =>
-  apiVoid(url, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ endpoint }),
   })
 export function base64UrlBytes(value: string): Uint8Array<ArrayBuffer> {
   const padded = value + "=".repeat((4 - (value.length % 4)) % 4)

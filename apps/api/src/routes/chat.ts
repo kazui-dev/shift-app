@@ -67,13 +67,9 @@ chatApp.get("/rooms", async (c) => {
   const member = c.get("member")
   const rooms = await c.env.shift_app
     .prepare(
-      `${roomSelection} AND r.year=? AND r.status=? ORDER BY CASE r.kind WHEN 'global' THEN 0 ELSE 1 END,r.updated_at DESC LIMIT 200`
+      `${roomSelection} AND r.year=? ORDER BY CASE r.kind WHEN 'global' THEN 0 ELSE 1 END,r.updated_at DESC LIMIT 200`
     )
-    .bind(
-      member.id,
-      year,
-      c.req.query("closed") === "true" ? "archived" : "active"
-    )
+    .bind(member.id, year)
     .all<RoomRow>()
 
   return c.json({ rooms: rooms.results.map(roomJson) })
@@ -160,8 +156,8 @@ chatApp.post("/rooms", async (c) => {
     c.env.shift_app
       .prepare(
         `INSERT INTO chat_rooms
-          (id, year, name, status, created_by, created_at, updated_at)
-         SELECT ?, year, ?, 'active', ?, ?, ?
+          (id, year, name, created_by, created_at, updated_at)
+         SELECT ?, year, ?, ?, ?, ?
          FROM operating_years WHERE year = ? RETURNING id`
       )
       .bind(roomId, input.output.name, actor.id, now, now, input.output.year),
@@ -360,7 +356,6 @@ chatApp.get("/rooms/:roomId/settings", async (c) => {
   return c.json({
     name: room.name,
     kind: room.kind,
-    closed: room.status === "archived",
     targets: targets.results.map((target) => ({
       ...target,
       canRead: target.canRead === 1,
@@ -377,13 +372,6 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
     room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
   if (!room?.canManage)
     return apiError(c, 403, "FORBIDDEN", "Room management is required")
-  if (room.kind !== "custom" && input.output.closed)
-    return apiError(
-      c,
-      409,
-      "AUTOMATIC_ROOM",
-      "このルームはシフト・年度から管理します。"
-    )
   const valid = await Promise.all(
     input.output.targets.map((target) => targetExists(c.env, room.year, target))
   )
@@ -397,10 +385,9 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
   const now = Date.now()
   await c.env.shift_app.batch([
     c.env.shift_app
-      .prepare("UPDATE chat_rooms SET name=?,status=?,updated_at=? WHERE id=?")
+      .prepare("UPDATE chat_rooms SET name=?,updated_at=? WHERE id=?")
       .bind(
         room.kind === "custom" ? input.output.name : room.name,
-        input.output.closed ? "archived" : "active",
         now,
         room.id
       ),

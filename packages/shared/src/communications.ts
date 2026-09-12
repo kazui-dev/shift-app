@@ -80,7 +80,6 @@ export const chatRoomResponseSchema = v.object({
   lastRead: v.number(),
   lastSequence: v.number(),
   unreadCount: v.number(),
-  status: v.picklist(["active", "archived"]),
   id: v.pipe(v.string(), v.uuid()),
   year: operatingYearSchema,
   name: v.string(),
@@ -137,12 +136,13 @@ export const pushSubscriptionInputSchema = v.object({
   }),
 })
 
-export const pushEndpointSchema = v.strictObject({
-  endpoint: v.pipe(v.string(), v.url(), v.maxLength(4096)),
+export const notificationPreferenceSchema = v.strictObject({
+  enabled: v.boolean(),
 })
-export const pushSubscriptionsSchema = v.array(
+export const notificationDevicesSchema = v.array(
   v.object({
-    endpoint: v.pipe(v.string(), v.url()),
+    id: v.pipe(v.string(), v.uuid()),
+    endpoint: v.nullable(v.pipe(v.string(), v.url())),
     enabled: v.boolean(),
   })
 )
@@ -162,7 +162,6 @@ export const chatPreferencesInputSchema = v.strictObject({
 })
 export const roomSettingsInputSchema = v.strictObject({
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
-  closed: v.boolean(),
   targets: v.pipe(
     v.array(
       v.object({

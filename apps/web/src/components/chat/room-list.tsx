@@ -2,13 +2,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { prepareConversation } from "@/data/chat"
 import { useState } from "react"
 import { Link } from "@tanstack/react-router"
-import {
-  BellOff,
-  ChevronRight,
-  Plus,
-  Search,
-  MessageCircle,
-} from "lucide-react"
+import { BellOff, Plus, Search, MessageCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import type { getChatRooms } from "@/api/chat"
@@ -17,28 +11,18 @@ import { roomSchedule } from "./room-schedule"
 type Room = Awaited<ReturnType<typeof getChatRooms>>["rooms"][number]
 export function RoomList({
   rooms,
-  closedRooms,
-  expanded,
   loading,
-  loadingClosed,
-  closedError,
   selectedId,
   fromList,
   offline,
-  onExpand,
   onCreate,
   onOpen,
 }: {
   rooms: Room[]
-  closedRooms: Room[]
-  expanded: boolean
   loading: boolean
-  loadingClosed: boolean
-  closedError: boolean
   selectedId: string | null
   fromList: boolean
   offline: boolean
-  onExpand: () => void
   onOpen: (id: string) => void
   onCreate: () => void
 }) {
@@ -47,84 +31,82 @@ export function RoomList({
     if (!offline) void prepareConversation(client, id)
   }
   const [search, setSearch] = useState("")
-  function items(values: Room[]) {
-    return (
-      <ul className="space-y-0.5">
-        {values
-          .filter((room) =>
-            room.name
-              .toLocaleLowerCase()
-              .includes(search.trim().toLocaleLowerCase())
+  const items = (
+    <ul className="space-y-0.5">
+      {rooms
+        .filter((room) =>
+          room.name
+            .toLocaleLowerCase()
+            .includes(search.trim().toLocaleLowerCase())
+        )
+        .map((room) => {
+          const schedule = roomSchedule(room)
+          return (
+            <li key={room.id}>
+              <Link
+                to="/chat/$roomId"
+                state={{ chatFromList: fromList }}
+                params={{ roomId: room.id }}
+                onPointerEnter={(event) => {
+                  if (event.pointerType === "mouse") prepare(room.id)
+                }}
+                onFocus={() => prepare(room.id)}
+                onClick={(event) => {
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return
+                  event.preventDefault()
+                  prepare(room.id)
+                  onOpen(room.id)
+                }}
+                aria-current={selectedId === room.id ? "page" : undefined}
+                className={`flex min-h-14 items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted ${selectedId === room.id ? "bg-muted/70" : ""}`}
+              >
+                <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+                  <MessageCircle className="size-5" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`block truncate text-sm ${room.unreadCount || selectedId === room.id ? "font-semibold" : "font-medium"}`}
+                  >
+                    {room.name}
+                  </span>
+                  {schedule && (
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      {schedule}
+                    </span>
+                  )}
+                  {room.historical && (
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      退出前の履歴
+                    </span>
+                  )}
+                </span>
+                {room.muted && (
+                  <BellOff
+                    aria-label="ミュート中"
+                    className="size-3.5 shrink-0 text-muted-foreground"
+                  />
+                )}
+                {room.unreadCount > 0 && (
+                  <span
+                    aria-label={`${room.unreadCount}件の未読`}
+                    className="min-w-5 rounded-full bg-foreground px-1.5 text-center text-[11px] font-medium text-background tabular-nums"
+                  >
+                    {room.unreadCount}
+                  </span>
+                )}
+              </Link>
+            </li>
           )
-          .map((room) => {
-            const schedule = roomSchedule(room)
-            return (
-              <li key={room.id}>
-                <Link
-                  to="/chat/$roomId"
-                  state={{ chatFromList: fromList }}
-                  params={{ roomId: room.id }}
-                  onPointerEnter={(event) => {
-                    if (event.pointerType === "mouse") prepare(room.id)
-                  }}
-                  onFocus={() => prepare(room.id)}
-                  onClick={(event) => {
-                    if (
-                      event.button !== 0 ||
-                      event.metaKey ||
-                      event.ctrlKey ||
-                      event.shiftKey ||
-                      event.altKey
-                    )
-                      return
-                    event.preventDefault()
-                    prepare(room.id)
-                    onOpen(room.id)
-                  }}
-                  aria-current={selectedId === room.id ? "page" : undefined}
-                  className={`flex min-h-14 items-center gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 active:bg-muted ${selectedId === room.id ? "bg-muted/70" : ""}`}
-                >
-                  <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
-                    <MessageCircle className="size-5" aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={`block truncate text-sm ${room.unreadCount || selectedId === room.id ? "font-semibold" : "font-medium"}`}
-                    >
-                      {room.name}
-                    </span>
-                    {schedule && (
-                      <span className="mt-1 block truncate text-xs text-muted-foreground">
-                        {schedule}
-                      </span>
-                    )}
-                    {room.historical && (
-                      <span className="mt-1 block text-xs text-muted-foreground">
-                        退出前の履歴
-                      </span>
-                    )}
-                  </span>
-                  {room.muted && (
-                    <BellOff
-                      aria-label="ミュート中"
-                      className="size-3.5 shrink-0 text-muted-foreground"
-                    />
-                  )}
-                  {room.unreadCount > 0 && (
-                    <span
-                      aria-label={`${room.unreadCount}件の未読`}
-                      className="min-w-5 rounded-full bg-foreground px-1.5 text-center text-[11px] font-medium text-background tabular-nums"
-                    >
-                      {room.unreadCount}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            )
-          })}
-      </ul>
-    )
-  }
+        })}
+    </ul>
+  )
   return (
     <>
       <div className="flex shrink-0 items-start gap-1 px-1 pb-3">
@@ -158,33 +140,7 @@ export function RoomList({
             読み込み中…
           </output>
         ) : (
-          <>
-            {items(rooms)}
-            <div className="mt-8">
-              <button
-                type="button"
-                onClick={onExpand}
-                aria-expanded={expanded}
-                aria-controls="archived-chat-rooms"
-                className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-sm text-muted-foreground hover:bg-muted/50"
-              >
-                アーカイブ
-                <ChevronRight
-                  className={`size-4 transition-transform ${expanded ? "rotate-90" : ""}`}
-                />
-              </button>
-              {expanded && (
-                <div id="archived-chat-rooms" className="mt-1">
-                  {!loadingClosed && !closedError && !closedRooms.length && (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">
-                      アーカイブはありません
-                    </p>
-                  )}
-                  {items(closedRooms)}
-                </div>
-              )}
-            </div>
-          </>
+          items
         )}
       </div>
     </>

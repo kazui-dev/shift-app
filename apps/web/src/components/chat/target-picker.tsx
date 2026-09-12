@@ -208,7 +208,7 @@ export function TargetPicker({
         </ul>
         {!candidates.length && (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            該当する対象はありません
+            見つかりませんでした
           </p>
         )}
       </div>

@@ -254,22 +254,6 @@ function SettingsForm({
           )}
         </div>
       </div>
-      {initial.kind === "custom" && (
-        <div className="border-t pt-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setValue({ ...value, closed: !value.closed })}
-          >
-            {value.closed ? "アーカイブから戻す" : "アーカイブする"}
-          </Button>
-          {value.closed && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              保存するとアーカイブされ、履歴の閲覧のみになります。
-            </p>
-          )}
-        </div>
-      )}
       <div className="flex justify-end">
         <Button onClick={() => void save()}>保存</Button>
       </div>
