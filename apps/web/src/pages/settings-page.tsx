@@ -33,7 +33,7 @@ export function SettingsPage() {
 
   return (
     <section className="w-full min-w-0 space-y-8">
-      <PageHeader title="設定" />
+      <PageHeader title="設定" className="min-h-0" />
       <div className="flex min-h-18 items-center justify-between gap-4 border-y py-3">
         <label htmlFor="display-year" className="font-medium">
           表示年度
