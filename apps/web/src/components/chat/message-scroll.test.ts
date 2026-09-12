@@ -180,3 +180,53 @@ it("does not write scroll position during reading or affordance-only rerenders",
   scroll.layout()
   expect(moves).toHaveLength(count)
 })
+
+it("jumps to a reply target and keeps its position when new messages arrive", () => {
+  const { view, scroll } = fixture()
+  scroll.layout()
+  expect(scroll.target("reading", false)).toBe(true)
+  expect(view.top).toBe(800)
+  view.extent += 300
+  scroll.layout()
+  expect(view.top).toBe(800)
+  view.present = false
+  expect(scroll.target("missing", false)).toBe(false)
+  expect(view.top).toBe(800)
+})
+
+it("smoothly navigates to a reply without following the latest message, and allows interruption", () => {
+  const { view, scroll, moves } = fixture()
+  scroll.layout()
+  expect(scroll.target("reading", true)).toBe(true)
+  expect(moves.at(-1)).toEqual({ top: 800, smooth: true })
+  view.top = 1100
+  scroll.scroll()
+  scroll.layout()
+  expect(moves.at(-1)).toEqual({ top: 800, smooth: true })
+  scroll.interrupt()
+  view.extent += 100
+  scroll.layout()
+  expect(view.top).toBe(1100)
+  expect(moves.at(-1)?.smooth).toBe(false)
+})
+
+it("limits long reply jumps to one viewport of animated travel", () => {
+  const { view, scroll, moves } = fixture()
+  view.extent = 50000
+  scroll.layout()
+  scroll.target("reading", true)
+  expect(moves.slice(-2)).toEqual([
+    { top: 1400, smooth: false },
+    { top: 800, smooth: true },
+  ])
+  expect(scroll.arrived("reading")).toBe(false)
+  view.top = 800
+  scroll.scroll()
+  expect(scroll.arrived("reading")).toBe(true)
+  view.row = 40000
+  scroll.target("reading", true)
+  expect(moves.slice(-2)).toEqual([
+    { top: 39200, smooth: false },
+    { top: 39800, smooth: true },
+  ])
+})

@@ -224,7 +224,6 @@ export function AvailabilitySummary({ year }: { year: number }) {
       {removing && (
         <ConfirmDialog
           title="日程を削除しますか"
-          description="フォームから非表示にします。過去の提出内容とシフトは保持されます。"
           confirmLabel="削除"
           onCancel={() => setRemoving(null)}
           onConfirm={() =>

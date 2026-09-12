@@ -11,6 +11,7 @@ export function useMessageEdit(roomId: string) {
   const [editing, setEditing] = useState<{
     id: string
     content: string
+    original: string
     hasImages: boolean
   } | null>(null)
   const [pending, setPending] = useState(false)
@@ -21,6 +22,10 @@ export function useMessageEdit(roomId: string) {
   async function save(content: string) {
     if (!editing || saving.current || (!content.trim() && !editing.hasImages))
       return
+    if (content.trim() === editing.original) {
+      cancel()
+      return
+    }
     saving.current = true
     setPending(true)
     try {
@@ -48,6 +53,7 @@ export function useMessageEdit(roomId: string) {
         setEditing({
           id: message.id,
           content: message.content,
+          original: message.content,
           hasImages: message.attachments.length > 0,
         })
     },

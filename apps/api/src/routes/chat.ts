@@ -372,7 +372,7 @@ for (const method of ["patch", "delete"] as const) {
       return apiError(c, 422, "EMPTY_MESSAGE", "本文または画像が必要です。")
     }
     const [message] = await withMemberImages(c.env, [result.message])
-    if (message)
+    if (message && result.changed)
       c.executionCtx.waitUntil(
         publishChatEvent(c.env, {
           type: "message_changed",

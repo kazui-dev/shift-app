@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test"
-import { messageRows } from "./message-list"
+import { messageRows, unreadMessage } from "./message-list"
 import type { QueuedMessage } from "@/lib/chat-store"
 const member = {
   id: "member",
@@ -49,4 +49,56 @@ it("keeps failed messages in the same list for retry", () => {
   ).toMatchObject([
     { id: queued.id, content: queued.content, status: "failed" },
   ])
+})
+
+it("hides tombstones without reintroducing their queued copy or hiding replies", () => {
+  const deleted = {
+    id: queued.id,
+    sequence: 1,
+    memberId: member.id,
+    memberDisplayName: member.displayName,
+    memberImage: member.image,
+    content: "",
+    attachments: [],
+    createdAt: queued.createdAt,
+    deleted: true,
+  }
+  const reply = {
+    ...deleted,
+    id: "reply",
+    sequence: 2,
+    content: "返信",
+    deleted: false,
+    reply: {
+      id: deleted.id,
+      sequence: 1,
+      memberDisplayName: member.displayName,
+      content: "",
+      deleted: true,
+    },
+  }
+  expect(messageRows([deleted, reply], [queued], member)).toMatchObject([
+    { id: "reply", reply: { deleted: true } },
+  ])
+})
+
+it("anchors unread history on the next visible message after a deleted sequence", () => {
+  const rows = messageRows(
+    [1, 2, 3].map((sequence) => ({
+      id: String(sequence),
+      sequence,
+      memberId: member.id,
+      memberDisplayName: member.displayName,
+      memberImage: member.image,
+      content: "本文",
+      attachments: [],
+      createdAt: queued.createdAt,
+      deleted: sequence === 2,
+    })),
+    [queued],
+    member
+  )
+  expect(unreadMessage(rows, 1)?.sequence).toBe(3)
+  expect(unreadMessage(rows, 3)).toBeUndefined()
+  expect(unreadMessage(rows, 0)).toBeUndefined()
 })

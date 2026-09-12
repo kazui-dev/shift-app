@@ -87,7 +87,6 @@ export function DiscordLinkRequestCard({
       {confirmApproval && (
         <ConfirmDialog
           title="Discord連携を置き換えますか"
-          description="既存のDiscord連携を置き換えます。本人確認済みの場合だけ続けてください。"
           confirmLabel="承認する"
           onCancel={() => setConfirmApproval(false)}
           onConfirm={() => {

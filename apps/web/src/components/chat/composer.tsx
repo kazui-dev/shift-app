@@ -36,10 +36,13 @@ export function ChatComposer({
     focused,
     !disabled
   )
+  const modeId = editing?.id ?? draft.reply?.id
+  const previousMode = useRef(modeId)
   useEffect(() => {
-    if (draft.reply?.id || editing?.id)
-      input.current?.focus({ preventScroll: true })
-  }, [draft.reply?.id, editing?.id, input])
+    if (modeId) input.current?.focus({ preventScroll: true })
+    else if (previousMode.current) input.current?.blur()
+    previousMode.current = modeId
+  }, [modeId, input])
   const mode = editing
     ? {
         label: "メッセージ編集中",
@@ -50,7 +53,7 @@ export function ChatComposer({
       ? {
           label: `${draft.reply.memberDisplayName}への返信`,
           cancelLabel: "返信を取り消す",
-          cancel: () => onChange({ ...draft, reply: undefined }),
+          cancel: () => onChange({ content: "", files: [] }),
         }
       : null
   const cancelMode = useEffectEvent((event: KeyboardEvent) => {

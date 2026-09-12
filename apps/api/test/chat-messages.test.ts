@@ -239,3 +239,34 @@ it("rejects empty text-only edits and preserves idempotent sending", async () =>
     })
   ).toEqual({ error: "empty" })
 })
+
+it("does not create or advance an edit timestamp when content is unchanged", async () => {
+  const { value } = fixture()
+  const original = await value.sendMessage(input("first"))
+  const edit = {
+    roomId: "room",
+    memberId: "author",
+    id: "first",
+    content: "original",
+  }
+  expect(await value.changeMessage(edit)).toEqual({
+    message: original,
+    changed: false,
+  })
+  const changed = await value.changeMessage({ ...edit, content: "updated" })
+  expect(changed).toMatchObject({
+    changed: true,
+    message: { editedAt: expect.any(String) },
+  })
+  expect(await value.changeMessage({ ...edit, content: "updated" })).toEqual({
+    ...changed,
+    changed: false,
+  })
+  expect(
+    await value.changeMessage({
+      ...edit,
+      memberId: "other",
+      content: "updated",
+    })
+  ).toEqual({ error: "forbidden" })
+})

@@ -143,7 +143,6 @@ export function MemberManager({ year }: { year: number }) {
       {leaving && (
         <ConfirmDialog
           title="年度への参加を解除しますか"
-          description="過去の実績は残ります。最後の責任者となっているシフトは無効になります。"
           confirmLabel="参加解除"
           onCancel={() => setLeaving(null)}
           onConfirm={() => {

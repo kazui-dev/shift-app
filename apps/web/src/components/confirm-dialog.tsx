@@ -1,9 +1,9 @@
+import { useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -11,32 +11,43 @@ import {
 
 export function ConfirmDialog({
   title,
-  description,
   confirmLabel,
   onCancel,
   onConfirm,
 }: {
   title: string
-  description: string
   confirmLabel: string
   onCancel: () => void
   onConfirm: () => void
 }) {
+  const [open, setOpen] = useState(true)
   return (
     <AlertDialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onCancel()
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancel()
       }}
     >
-      <AlertDialogContent size="sm">
+      <AlertDialogContent
+        size="sm"
+        finalFocus={false}
+        aria-describedby={undefined}
+      >
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
+          <AlertDialogTitle>
+            {title.replace(/[？?。]+$/, "")}？
+          </AlertDialogTitle>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="ghost">キャンセル</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={onConfirm}>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={!open}
+            onClick={() => {
+              setOpen(false)
+              onConfirm()
+            }}
+          >
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

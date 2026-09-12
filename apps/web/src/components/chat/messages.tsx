@@ -1,3 +1,4 @@
+import { useReplyTarget } from "./use-reply-target"
 import { useMessageEdit } from "./use-message-edit"
 import { MessageActions } from "./message-actions"
 import { useLayoutEffect, useMemo, useRef } from "react"
@@ -12,7 +13,7 @@ import { useMessages } from "./use-messages"
 import { useMessageScroll } from "./use-message-scroll"
 import { MessageImages, LocalImage } from "./images"
 import { MemberAvatar } from "../member-avatar"
-import { messageRows } from "./message-list"
+import { messageRows, unreadMessage } from "./message-list"
 import { chatImageLimits } from "@workspace/shared/communications"
 import { imageSize } from "./image-size"
 import { RoutedImage } from "./routed-image"
@@ -80,8 +81,11 @@ export function ChatMessages({
     active,
     rows,
     history.initialRead,
-    history.markRead
+    history.markRead,
+    history.query.data !== undefined
   )
+  const firstUnread = unreadMessage(rows, history.initialRead)
+  const setReplyTarget = useReplyTarget(history, scroll, active, offline)
   return (
     <>
       <div
@@ -119,7 +123,7 @@ export function ChatMessages({
                   unread =
                     history.initialRead > 0 &&
                     message.memberId !== member.id &&
-                    message.sequence === history.initialRead + 1
+                    message.id === firstUnread?.id
                 const grouped =
                   previous?.memberId === message.memberId &&
                   !dayChanged &&
@@ -160,8 +164,8 @@ export function ChatMessages({
                       editing={edit.editing?.id === message.id}
                       onEdit={() => {
                         store.edit(room.id, {
-                          ...store.draft(room.id),
-                          reply: undefined,
+                          content: "",
+                          files: [],
                         })
                         edit.start(message)
                       }}
@@ -189,24 +193,33 @@ export function ChatMessages({
                             >
                               <span className="pointer-events-none absolute top-2 bottom-[-2px] left-4 w-6 rounded-tl-md border-t border-l border-muted-foreground/40" />
                             </div>
-                            <div
+                            <button
+                              type="button"
                               data-message-reply
-                              className="col-start-2 mb-1 flex h-4 min-w-0 items-center gap-1.5 text-xs leading-4 text-muted-foreground"
+                              disabled={!!message.reply.deleted}
+                              onClick={() =>
+                                setReplyTarget(message.reply?.id ?? null)
+                              }
+                              className="col-start-2 mb-1 flex h-4 min-w-0 items-center gap-1.5 text-left text-xs leading-4 text-muted-foreground enabled:cursor-pointer enabled:hover:text-foreground"
                             >
-                              <MemberAvatar
-                                name={message.reply.memberDisplayName}
-                                image={message.reply.memberImage ?? null}
-                                className="size-4 text-[8px]"
-                              />
-                              <span className="max-w-32 shrink-0 truncate">
-                                {message.reply.memberDisplayName}
-                              </span>
-                              <span className="truncate">
-                                {message.reply.deleted
-                                  ? "削除されたメッセージ"
-                                  : message.reply.content || "画像"}
-                              </span>
-                            </div>
+                              {message.reply.deleted ? (
+                                "削除されたメッセージ"
+                              ) : (
+                                <>
+                                  <MemberAvatar
+                                    name={message.reply.memberDisplayName}
+                                    image={message.reply.memberImage ?? null}
+                                    className="size-4 text-[8px]"
+                                  />
+                                  <span className="max-w-32 shrink-0 truncate">
+                                    {message.reply.memberDisplayName}
+                                  </span>
+                                  <span className="truncate">
+                                    {message.reply.content || "画像"}
+                                  </span>
+                                </>
+                              )}
+                            </button>
                           </>
                         )}
                         {!grouped ? (
@@ -237,25 +250,19 @@ export function ChatMessages({
                               </time>
                             </p>
                           )}
-                          {message.deleted && (
-                            <p className="text-sm leading-7 text-muted-foreground">
-                              削除されたメッセージ
+                          {(message.content || message.editedAt) && (
+                            <p
+                              data-message-body
+                              className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
+                            >
+                              {message.content}
+                              {message.editedAt && (
+                                <span className="ml-2 text-[10px] text-muted-foreground">
+                                  (編集済)
+                                </span>
+                              )}
                             </p>
                           )}
-                          {!message.deleted &&
-                            (message.content || message.editedAt) && (
-                              <p
-                                data-message-body
-                                className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
-                              >
-                                {message.content}
-                                {message.editedAt && (
-                                  <span className="ml-2 text-[10px] text-muted-foreground">
-                                    (編集済)
-                                  </span>
-                                )}
-                              </p>
-                            )}
                           <MessageImages
                             roomId={room.id}
                             images={message.attachments}

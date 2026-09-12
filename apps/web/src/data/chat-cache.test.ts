@@ -1,7 +1,11 @@
 import { expect, it } from "vite-plus/test"
 import { QueryClient } from "@tanstack/react-query"
 import { roomsQuery, messagesQuery } from "./chat"
-import { receiveMessage, removeRoom } from "./chat-cache"
+import {
+  receiveMessage,
+  removeRoom,
+  optimisticallyDeleteMessage,
+} from "./chat-cache"
 
 const message = (sequence: number) => ({
   sequence,
@@ -139,5 +143,76 @@ it("acknowledges an own message in the visible room without an intermediate unre
     room: { unreadCount: 1 },
   })
   stop()
+  client.clear()
+})
+
+it("immediately hides a deleted message and its reply details, and rolls back only its own changes", () => {
+  const client = new QueryClient()
+  const key = messagesQuery("room").queryKey
+  const original = message(1)
+  const reply = {
+    ...message(2),
+    reply: {
+      id: original.id,
+      sequence: 1,
+      memberDisplayName: "名前",
+      content: original.content,
+    },
+  }
+  client.setQueryData(key, {
+    pages: [{ messages: [original, reply], hasMore: false }],
+    pageParams: [null],
+  })
+  const rollback = optimisticallyDeleteMessage(client, "room", original.id)
+  expect(client.getQueryData(key)?.pages[0]?.messages).toMatchObject([
+    { deleted: true, content: "" },
+    { reply: { deleted: true, content: "" } },
+  ])
+  receiveMessage(client, "room", message(3))
+  rollback()
+  expect(client.getQueryData(key)?.pages[0]?.messages).toEqual([
+    original,
+    reply,
+    message(3),
+  ])
+  const rollbackAgain = optimisticallyDeleteMessage(client, "room", original.id)
+  const updated = { ...reply, content: "changed concurrently" }
+  receiveMessage(client, "room", updated)
+  rollbackAgain()
+  expect(client.getQueryData(key)?.pages[0]?.messages[1]).toEqual(updated)
+  receiveMessage(client, "room", { ...original, deleted: true, content: "" })
+  expect(client.getQueryData(key)?.pages[0]?.messages[1]?.reply).toMatchObject({
+    deleted: true,
+    content: "",
+  })
+  client.clear()
+})
+
+it("updates unloaded reply targets without inserting an old sequence into the newest page", () => {
+  const client = new QueryClient()
+  const key = messagesQuery("room").queryKey
+  client.setQueryData(key, {
+    pages: [
+      {
+        messages: [
+          {
+            ...message(100),
+            reply: {
+              id: "id-1",
+              sequence: 1,
+              memberDisplayName: "名前",
+              content: "本文",
+            },
+          },
+        ],
+        hasMore: true,
+      },
+    ],
+    pageParams: [null],
+  })
+  receiveMessage(client, "room", { ...message(1), deleted: true, content: "" })
+  expect(client.getQueryData(key)?.pages[0]?.messages).toMatchObject([
+    { sequence: 100, reply: { deleted: true, content: "" } },
+  ])
   client.clear()
 })
