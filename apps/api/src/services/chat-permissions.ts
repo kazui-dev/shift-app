@@ -1,13 +1,9 @@
 // The database stores grants; the server resolves their current subjects.
 export const chatPermissions = `WITH chat_subjects AS (
- SELECT ym.year,ym.member_id,'member' AS target_type,ym.member_id AS target_id
- FROM year_memberships ym WHERE ym.status='active'
- UNION ALL
- SELECT ym.year,ym.member_id,'year',CAST(ym.year AS TEXT)
- FROM year_memberships ym WHERE ym.status='active'
- UNION ALL
- SELECT ym.year,ym.member_id,'access_level',u.access_level
- FROM year_memberships ym JOIN app_users u ON u.id=ym.member_id WHERE ym.status='active'
+ SELECT ym.year,ym.member_id,j.key AS target_type,j.value AS target_id
+ FROM year_memberships ym JOIN app_users u ON u.id=ym.member_id
+ JOIN json_each(json_object('member',ym.member_id,'year',CAST(ym.year AS TEXT),'access_level',u.access_level)) j
+ WHERE ym.status='active'
  UNION ALL
  SELECT r.year,mr.member_id,'role',r.id FROM member_year_roles mr JOIN year_roles r ON r.id=mr.role_id
  UNION ALL
