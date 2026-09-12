@@ -11,17 +11,22 @@ export type MessageRow = Omit<Message, "sequence"> & {
 export function messageRows(
   messages: Message[],
   queue: QueuedMessage[],
-  member: { id: string; displayName: string; image: string | null }
+  member: { id: string; displayName: string; image: string | null },
+  retained?: MessageRow | null
 ): MessageRow[] {
   const ids = new Set(messages.map((message) => message.id))
   return [
     ...messages
-      .filter((message) => !message.deleted)
-      .map((message) => ({
-        ...message,
-        files: [],
-        status: "sent" as const,
-      })),
+      .filter((message) => !message.deleted || message.id === retained?.id)
+      .map((message) =>
+        message.id === retained?.id
+          ? retained
+          : {
+              ...message,
+              files: [],
+              status: "sent" as const,
+            }
+      ),
     ...queue
       .filter((message) => !ids.has(message.id))
       .map((message) => ({

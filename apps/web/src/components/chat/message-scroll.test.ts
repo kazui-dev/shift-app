@@ -210,23 +210,19 @@ it("smoothly navigates to a reply without following the latest message, and allo
   expect(moves.at(-1)?.smooth).toBe(false)
 })
 
-it("limits long reply jumps to one viewport of animated travel", () => {
+it("uses native smooth scrolling for the whole journey without teleporting near distant replies", () => {
   const { view, scroll, moves } = fixture()
   view.extent = 50000
   scroll.layout()
   scroll.target("reading", true)
-  expect(moves.slice(-2)).toEqual([
-    { top: 1400, smooth: false },
-    { top: 800, smooth: true },
-  ])
+  expect(moves.slice(1)).toEqual([{ top: 800, smooth: true }])
+  expect(view.top).toBe(49400)
   expect(scroll.arrived("reading")).toBe(false)
   view.top = 800
   scroll.scroll()
   expect(scroll.arrived("reading")).toBe(true)
   view.row = 40000
   scroll.target("reading", true)
-  expect(moves.slice(-2)).toEqual([
-    { top: 39200, smooth: false },
-    { top: 39800, smooth: true },
-  ])
+  expect(moves.at(-1)).toEqual({ top: 39800, smooth: true })
+  expect(view.top).toBe(800)
 })

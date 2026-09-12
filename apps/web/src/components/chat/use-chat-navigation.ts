@@ -5,6 +5,7 @@ import { ChatNavigation } from "./navigation"
 
 declare module "@tanstack/react-router" {
   interface HistoryState {
+    chatList?: boolean
     chatFromList?: boolean
     chatCreate?: boolean
     chatSettings?: boolean
@@ -27,7 +28,11 @@ export function useChatNavigation() {
           })
         },
         list: () => {
-          void router.navigate({ to: "/chat", replace: true })
+          void router.navigate({
+            to: "/chat",
+            replace: true,
+            state: { chatList: true },
+          })
         },
       })
   )
@@ -52,5 +57,6 @@ export function useChatNavigation() {
     open: navigation.open,
     back: navigation.back,
     resume: navigation.resume,
+    remove: navigation.remove,
   }
 }

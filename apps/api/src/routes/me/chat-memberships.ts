@@ -11,10 +11,10 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
   const member = c.get("member")
   const room = await findAccessibleRoom(c.env, c.req.param("roomId"), member.id)
   if (!room)
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "ルームが見つかりません")
+    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません")
   if (room.exitedAt !== null) return c.body(null, 204)
   if (!room.allowExit)
-    return apiError(c, 409, "EXIT_DISABLED", "このルームは退出できません")
+    return apiError(c, 409, "EXIT_DISABLED", "このチャットは退出できません")
   const previous = await roomRecipients(c.env, room.id)
   const result = await c.env.shift_app
     .prepare(`${chatPermissions}

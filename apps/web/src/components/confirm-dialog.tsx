@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,18 +14,26 @@ export function ConfirmDialog({
   confirmLabel,
   onCancel,
   onConfirm,
+  onClosed,
 }: {
   title: string
   confirmLabel: string
   onCancel: () => void
   onConfirm: () => void
+  onClosed?: () => void
 }) {
   const [open, setOpen] = useState(true)
+  const confirmed = useRef(false)
   return (
     <AlertDialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) onCancel()
+        setOpen(next)
+      }}
+      onOpenChangeComplete={(next) => {
+        if (next) return
+        if (!confirmed.current) onCancel()
+        else onClosed?.()
       }}
     >
       <AlertDialogContent
@@ -44,6 +52,7 @@ export function ConfirmDialog({
             variant="destructive"
             disabled={!open}
             onClick={() => {
+              confirmed.current = true
               setOpen(false)
               onConfirm()
             }}

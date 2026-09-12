@@ -48,6 +48,15 @@ export class ChatNavigation {
     else if (!this.returning) this.history.list()
   }
 
+  remove = (id: string) => {
+    if (this.view.retainedId !== id) return
+    const selected = this.view.roomId === id
+    this.returning = false
+    this.view = { roomId: undefined, retainedId: undefined }
+    for (const changed of this.listeners) changed()
+    if (selected) this.history.list()
+  }
+
   resume = () => {
     if (this.view.retainedId !== undefined) this.open(this.view.retainedId)
   }

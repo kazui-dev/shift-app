@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { CornerUpLeft, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -8,12 +7,8 @@ import {
   DrawerTitle,
 } from "@workspace/ui/components/drawer"
 import { useMediaQuery } from "@/hooks/use-media-query"
-import { toast } from "@workspace/ui/lib/toast"
 import { messagePermissions } from "@workspace/shared/communications"
-import { deleteChatMessage, type ChatRoom } from "@/api/chat"
-import { errorMessage } from "@/api/client"
-import { receiveMessage, optimisticallyDeleteMessage } from "@/data/chat-cache"
-import { ConfirmDialog } from "../confirm-dialog"
+import type { ChatRoom } from "@/api/chat"
 import type { MessageRow } from "./message-list"
 
 export function MessageActions({
@@ -23,6 +18,7 @@ export function MessageActions({
   offline,
   onReply,
   onEdit,
+  onDelete,
   editing,
   children,
 }: {
@@ -31,11 +27,11 @@ export function MessageActions({
   memberId: string
   offline: boolean
   onEdit: () => void
+  onDelete: () => void
   editing: boolean
   onReply: () => void
   children: ReactNode
 }) {
-  const client = useQueryClient()
   const mobile = useMediaQuery("(max-width: 767px)")
   const [pressed, setPressed] = useState(false)
   const root = useRef<HTMLDivElement>(null)
@@ -45,9 +41,7 @@ export function MessageActions({
     timer: ReturnType<typeof setTimeout>
   } | null>(null)
   const consumed = useRef(false)
-  const [opened, setOpened] = useState(false),
-    [removing, setRemoving] = useState(false)
-  const [pending, setPending] = useState(false)
+  const [opened, setOpened] = useState(false)
   const permission = messagePermissions({
     memberId,
     authorId: message.memberId,
@@ -160,27 +154,6 @@ export function MessageActions({
       element.removeEventListener("keydown", key)
     }
   }, [available, editing])
-  async function remove() {
-    if (pending) return
-    setPending(true)
-    setRemoving(false)
-    setOpened(false)
-    await client.cancelQueries({ queryKey: ["chat-messages", room.id] })
-    const rollback = optimisticallyDeleteMessage(client, room.id, message.id)
-    try {
-      const { message: updated } = await deleteChatMessage(room.id, message.id)
-      receiveMessage(client, room.id, updated)
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ["chat-messages", room.id] }),
-        client.invalidateQueries({ queryKey: ["chat-image-message", room.id] }),
-      ])
-    } catch (error) {
-      rollback()
-      toast.error(errorMessage(error))
-    } finally {
-      setPending(false)
-    }
-  }
   return (
     <div
       ref={root}
@@ -188,7 +161,7 @@ export function MessageActions({
       data-message-actions
       data-active={opened || pressed || undefined}
       data-editing={editing || undefined}
-      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:bg-foreground/5 [@media(hover:hover)]:hover:bg-foreground/5"} ${!editing && (opened || pressed) ? "bg-foreground/5" : ""}`}
+      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has([data-message-reply]:focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has([data-message-reply]:hover))]:bg-foreground/5"} ${!editing && (opened || pressed) ? "bg-foreground/5" : ""}`}
     >
       {available && (
         <button
@@ -256,7 +229,7 @@ export function MessageActions({
                     variant="ghost"
                     className="h-12 justify-start text-destructive"
                     onClick={() => {
-                      setRemoving(true)
+                      onDelete()
                       setOpened(false)
                     }}
                   >
@@ -308,7 +281,7 @@ export function MessageActions({
                 aria-label="削除"
                 title="削除"
                 onClick={() => {
-                  setRemoving(true)
+                  onDelete()
                   setOpened(false)
                 }}
               >
@@ -317,16 +290,6 @@ export function MessageActions({
             )}
           </div>
         ))}
-      {removing && (
-        <ConfirmDialog
-          title="メッセージを削除しますか"
-          confirmLabel="削除"
-          onCancel={() => {
-            if (!pending) setRemoving(false)
-          }}
-          onConfirm={() => void remove()}
-        />
-      )}
     </div>
   )
 }

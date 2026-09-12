@@ -59,3 +59,37 @@ it("does not add connection error toasts while offline", async () => {
   ).rejects.toBe(failure)
   expect(toast.error).not.toHaveBeenCalled()
 })
+
+it("leaves missing chat resources to navigation instead of displaying a deletion error toast", async () => {
+  const missing = new ApiError(
+    "チャットが見つかりません。",
+    404,
+    "CHAT_ROOM_NOT_FOUND"
+  )
+  await Promise.all(
+    [
+      "chat-room",
+      "chat-messages",
+      "chat-settings",
+      "chat-members",
+      "chat-image-message",
+    ].map((root) =>
+      expect(
+        queryClient.fetchQuery({
+          queryKey: [root, "removed"],
+          queryFn: () => Promise.reject(missing),
+          retry: false,
+        })
+      ).rejects.toBe(missing)
+    )
+  )
+  expect(toast.error).not.toHaveBeenCalled()
+  await expect(
+    queryClient.fetchQuery({
+      queryKey: ["activity", "missing"],
+      queryFn: () => Promise.reject(missing),
+      retry: false,
+    })
+  ).rejects.toBe(missing)
+  expect(toast.error).toHaveBeenCalledTimes(1)
+})

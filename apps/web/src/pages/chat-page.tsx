@@ -9,7 +9,7 @@ import {
 } from "@tanstack/react-router"
 import { useChatNavigation } from "@/components/chat/use-chat-navigation"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { getChatRoom } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -30,10 +30,14 @@ export function ChatPage() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+  const explicitList = useRouterState({
+    select: (state) => !!state.location.state.chatList,
+  })
+  const previousRoom = useRef<{ id: string; historical: boolean } | null>(null)
   const creating = pathname === "/chat/new"
   const desktop = useMediaQuery("(min-width: 768px)")
   const { report } = useSearch({ strict: false })
-  const { roomId, retainedId, open, back, resume } = useChatNavigation()
+  const { roomId, retainedId, open, back, resume, remove } = useChatNavigation()
   const display = useDisplayYear(),
     offline = useOfflineMode()
   const closeCreate = () => {
@@ -51,17 +55,26 @@ export function ChatPage() {
   })
   const missing = room.error instanceof ApiError && room.error.status === 404
   useEffect(() => {
-    if (!missing || offline || !retainedId) return
-    removeRoom(client, retainedId)
-    if (roomId) back()
-  }, [client, missing, offline, retainedId, roomId, back])
+    const current = room.data?.room
+    const previous = previousRoom.current
+    const exited =
+      current?.id === previous?.id &&
+      current?.historical &&
+      !previous?.historical
+    previousRoom.current = current
+      ? { id: current.id, historical: current.historical }
+      : null
+    if ((!missing && !exited) || offline || !retainedId) return
+    remove(retainedId)
+    if (missing) removeRoom(client, retainedId)
+  }, [client, missing, offline, retainedId, room.data?.room, remove])
   const year = (roomId ? room.data?.room.year : undefined) ?? display.year
   const rooms = useQuery({
     ...roomsQuery(year),
     enabled: !offline,
   })
   const autoRoom =
-    desktop && pathname === "/chat" && !roomId && year !== null
+    desktop && !explicitList && pathname === "/chat" && !roomId && year !== null
       ? restoreChatView(memberId, year, rooms.data?.rooms ?? [])
       : undefined
   const loadedId = room.data?.room.id
@@ -89,7 +102,7 @@ export function ChatPage() {
           }
           report={report}
           offline={offline}
-          error={room.isError}
+          error={room.isError && !missing}
           onRetry={() => void room.refetch()}
           onBack={back}
           onResume={resume}
