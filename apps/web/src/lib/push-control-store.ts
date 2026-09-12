@@ -17,14 +17,10 @@ import {
 
 type State = {
   enabled: boolean | null
-  permission: NotificationPermission | null
-  requesting: boolean
   error: string | null
 }
 const empty: State = {
   enabled: null,
-  permission: null,
-  requesting: false,
   error: null,
 }
 const listeners = new Set<() => void>()
@@ -35,6 +31,8 @@ let generation = 0
 let edit = 0
 let confirmed = false
 let registered = false
+let permission: NotificationPermission | null = null
+let requesting = false
 let writes: Promise<void> = Promise.resolve()
 let preparation: Promise<void> | null = null
 let syncing: Promise<void> | null = null
@@ -59,16 +57,18 @@ export function resetPushControl() {
   edit = 0
   confirmed = false
   registered = false
+  permission = null
+  requesting = false
   writes = Promise.resolve()
   preparation = null
   syncing = null
   state = empty
   publish({})
 }
-function permissionChanged(permission: NotificationPermission) {
-  publish({ permission })
+function permissionChanged(next: NotificationPermission) {
+  permission = next
   if (permission !== "granted") registered = false
-  else if (state.enabled && !state.requesting) void syncSubscription()
+  else if (state.enabled && !requesting) void syncSubscription()
 }
 export function preparePushControl(memberId: string): Promise<void> {
   if (!pushSupported()) return Promise.resolve()
@@ -76,7 +76,7 @@ export function preparePushControl(memberId: string): Promise<void> {
   resetPushControl()
   owner = memberId
   const account = generation
-  publish({ permission: readNotificationPermission() })
+  permission = readNotificationPermission()
   stopWatching = watchNotificationPermission(permissionChanged)
   preparation = (async () => {
     const key = `notification-device:${memberId}`
@@ -114,24 +114,19 @@ export function preparePushControl(memberId: string): Promise<void> {
     } catch {
       /* The current session remains usable. */
     }
-    if (state.enabled && state.permission === "granted") void syncSubscription()
+    if (state.enabled && permission === "granted") void syncSubscription()
   })()
   return preparation
 }
 async function syncSubscription(report = false): Promise<void> {
   if (syncing) return syncing
-  if (!owner || !state.enabled || state.permission !== "granted" || registered)
-    return
+  if (!owner || !state.enabled || permission !== "granted" || registered) return
   const account = generation,
     id = deviceId
   syncing = (async () => {
     try {
       await writes
-      if (
-        account !== generation ||
-        !state.enabled ||
-        state.permission !== "granted"
-      )
+      if (account !== generation || !state.enabled || permission !== "granted")
         return
       let subscription = await subscribePush()
       if (account !== generation) return
@@ -147,8 +142,11 @@ async function syncSubscription(report = false): Promise<void> {
         await saveDeviceSubscription(id, subscription)
       }
       if (account === generation) registered = true
-    } catch {
-      if (account === generation && report)
+    } catch (error) {
+      const denied =
+        error instanceof DOMException &&
+        (error.name === "NotAllowedError" || error.name === "SecurityError")
+      if (account === generation && report && !denied)
         publish({ error: "通知の登録に失敗しました" })
     } finally {
       if (account === generation) syncing = null
@@ -156,29 +154,24 @@ async function syncSubscription(report = false): Promise<void> {
   })()
   return syncing
 }
-export async function enableNotifications(
-  showSettingsHint = true
-): Promise<void> {
-  if (!owner || state.requesting) return
+async function enableNotifications(): Promise<void> {
+  if (!owner || requesting) return
   const account = generation
-  publish({ requesting: true, error: null })
+  requesting = true
   try {
-    const permission =
-      state.permission === "granted" &&
-      readNotificationPermission() === "granted"
+    const next =
+      permission === "granted" && readNotificationPermission() === "granted"
         ? "granted"
         : await Notification.requestPermission()
     if (account !== generation) return
-    permissionChanged(permission)
-    publish({ requesting: false })
-    if (permission === "granted") void syncSubscription(true)
-    else if (permission === "denied" && showSettingsHint)
-      publish({ error: "端末の設定から通知を許可してください" })
+    permissionChanged(next)
   } catch {
-    if (account === generation)
-      publish({ error: "通知の許可を確認できませんでした" })
+    // Permission refusal or dismissal does not change the app preference.
   } finally {
-    if (account === generation) publish({ requesting: false })
+    if (account === generation) {
+      requesting = false
+      if (permission === "granted") void syncSubscription(true)
+    }
   }
 }
 export function setPushEnabled(enabled: boolean): Promise<void> {
@@ -202,6 +195,6 @@ export function setPushEnabled(enabled: boolean): Promise<void> {
           })
       }
     })
-  if (enabled) void enableNotifications(false)
+  if (enabled) void enableNotifications()
   return writes
 }
