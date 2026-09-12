@@ -1,18 +1,5 @@
-import {
-  useEffect,
-  useCallback,
-  useLayoutEffect,
-  useEffectEvent,
-  useRef,
-  type FormEvent,
-} from "react"
-import {
-  skipToken,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
-import useEmblaCarousel from "embla-carousel-react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -28,39 +15,23 @@ import { targetsQuery, roomQuery, roomsQuery } from "@/data/chat"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { TargetPicker } from "./target-picker"
 import { targetKey } from "./target-key"
-import { boundPages, pageDrag } from "./page-motion"
 
 export function CreateChat({
   year,
-  open,
   onClose,
   onCreated,
 }: {
   year: number
-  open: boolean
   onClose: () => void
   onCreated: (id: string) => void
 }) {
   const desktop = useMediaQuery("(min-width: 768px)")
-  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
   const client = useQueryClient()
-  const draftKey = ["chat-draft", year]
-  const { data: draft = { name: "", selected: [] } } = useQuery({
-    queryKey: draftKey,
-    queryFn: skipToken,
-    initialData: (): { name: string; selected: string[] } => ({
-      name: "",
-      selected: [],
-    }),
-  })
-  const { name, selected } = draft
-  const setName = (nextName: string) =>
-    client.setQueryData(draftKey, { ...draft, name: nextName })
-  const setSelected = (nextSelected: string[]) =>
-    client.setQueryData(draftKey, { ...draft, selected: nextSelected })
+  const [name, setName] = useState("")
+  const [selected, setSelected] = useState<string[]>([])
   const nameInput = useRef<HTMLInputElement>(null)
   const page = useRef<HTMLDivElement>(null)
-  const targets = useQuery(targetsQuery(year))
+  const targets = useQuery({ ...targetsQuery(year), refetchOnMount: "always" })
   const chosen =
     targets.data?.targets.filter((target) =>
       selected.includes(targetKey(target))
@@ -89,70 +60,18 @@ export function CreateChat({
           : { rooms: [room] }
       )
       void client.invalidateQueries({ queryKey: ["chat-rooms", year] })
-      client.setQueryData(draftKey, { name: "", selected: [] })
       onCreated(room.id)
     },
   })
   const closing = useRef(false)
-  useLayoutEffect(() => {
-    if (open) closing.current = false
-  }, [open])
-  const requestClose = useCallback(() => {
+  const requestClose = () => {
     if (closing.current || create.isPending) return
     closing.current = true
     onClose()
-  }, [create.isPending, onClose])
-  const close = useEffectEvent(requestClose)
-  const shown = useRef(open)
-  useLayoutEffect(() => {
-    shown.current = open
-  }, [open])
-  const pending = useRef(create.isPending)
-  useLayoutEffect(() => {
-    pending.current = create.isPending
-  }, [create.isPending])
-  const watchDrag = useCallback(
-    (_api: unknown, event: MouseEvent | TouchEvent) =>
-      shown.current && !pending.current && pageDrag(event),
-    []
-  )
-  const [viewport, carousel] = useEmblaCarousel({
-    active: !desktop,
-    startIndex: 0,
-    align: "start",
-    containScroll: false,
-    watchDrag,
-    watchFocus: false,
-    duration: reducedMotion ? 0 : 20,
-  })
+  }
   useEffect(() => {
-    if (!carousel || desktop) return undefined
-    let restore = boundPages(carousel)
-    const select = () => {
-      if (shown.current && carousel.selectedScrollSnap() === 0) close()
-    }
-    const reset = () => {
-      restore()
-      restore = boundPages(carousel)
-      carousel.scrollTo(shown.current ? 1 : 0, true)
-    }
-    carousel.on("select", select).on("reInit", reset)
-    return () => {
-      carousel.off("select", select).off("reInit", reset)
-      restore()
-    }
-  }, [carousel, desktop])
-  useLayoutEffect(() => {
-    if (
-      !desktop &&
-      carousel &&
-      carousel.selectedScrollSnap() !== (open ? 1 : 0)
-    )
-      carousel.scrollTo(open ? 1 : 0, reducedMotion)
-  }, [carousel, desktop, open, reducedMotion])
-  useEffect(() => {
-    if (open && !desktop) page.current?.focus({ preventScroll: true })
-  }, [open, desktop])
+    if (!desktop) page.current?.focus({ preventScroll: true })
+  }, [desktop])
   function submit(event: FormEvent) {
     event.preventDefault()
     if (name.trim() && chosen.length && !create.isPending) create.mutate()
@@ -177,7 +96,7 @@ export function CreateChat({
           disabled={create.isPending}
           onClick={requestClose}
         >
-          <ArrowLeft />
+          <ArrowLeft className="size-5" />
         </Button>
         {title}
         <Button
@@ -193,7 +112,7 @@ export function CreateChat({
           {create.isPending ? "作成中" : "作成"}
         </Button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-auto px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:[scrollbar-width:none]">
+      <div className="min-h-0 flex-1 touch-pan-y touch-pinch-zoom overflow-y-auto overscroll-x-contain overscroll-y-auto px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-md:[scrollbar-width:none]">
         <fieldset disabled={create.isPending} className="min-w-0 space-y-5">
           <div className="space-y-2.5">
             <label
@@ -224,7 +143,7 @@ export function CreateChat({
   if (desktop)
     return (
       <Dialog
-        open={open}
+        open
         onOpenChange={(value) => {
           if (!value) requestClose()
         }}
@@ -240,22 +159,12 @@ export function CreateChat({
     )
   return (
     <div
-      ref={viewport}
-      inert={!open}
-      aria-hidden={!open}
-      className={`absolute inset-0 z-30 overflow-clip ${open ? "" : "pointer-events-none"}`}
+      ref={page}
+      tabIndex={-1}
       aria-label="新しいチャット"
+      className="absolute inset-0 z-30 flex min-w-0 animate-in flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none slide-in-from-right-full motion-reduce:animate-none"
     >
-      <div className="flex h-full touch-pan-y touch-pinch-zoom">
-        <div aria-hidden className="min-w-0 flex-[0_0_100%]" />
-        <div
-          ref={page}
-          tabIndex={-1}
-          className="flex h-full min-w-0 flex-[0_0_100%] flex-col bg-background pt-[env(safe-area-inset-top)] outline-none"
-        >
-          {form}
-        </div>
-      </div>
+      {form}
     </div>
   )
 }

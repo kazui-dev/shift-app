@@ -24,10 +24,12 @@ describe("communication schemas", () => {
     ).toBe("本部連絡")
   })
 
-  it("keeps chat target discovery limited to display identity", () => {
+  it("includes filter memberships without exposing student identifiers", () => {
     const target = {
       targetType: "member",
       image: null,
+      roleIds: [],
+      activityIds: [],
       targetId: "6632fe2d-1064-442c-8884-3b674f564e60",
       displayName: "旭祭 太郎",
     } as const
@@ -107,7 +109,14 @@ it("accepts images without text but rejects empty messages and excessive attachm
     v.safeParse(sendChatMessageInputSchema, {
       id,
       content: "",
-      attachmentIds: Array.from({ length: 5 }, () => crypto.randomUUID()),
+      attachmentIds: Array.from({ length: 10 }, () => crypto.randomUUID()),
+    }).success
+  ).toBe(true)
+  expect(
+    v.safeParse(sendChatMessageInputSchema, {
+      id,
+      content: "",
+      attachmentIds: Array.from({ length: 11 }, () => crypto.randomUUID()),
     }).success
   ).toBe(false)
 })

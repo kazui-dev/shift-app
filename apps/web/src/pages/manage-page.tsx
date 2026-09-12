@@ -105,7 +105,7 @@ export function ManagePage({ view }: { view: ManageView }) {
           <div className="space-y-6">
             {year !== null && (
               <section>
-                <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
                   <h2 className="text-xs font-medium text-muted-foreground">
                     管理
                   </h2>

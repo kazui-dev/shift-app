@@ -14,29 +14,41 @@ export function LocalImage({
   alt: string
   className?: string
 }) {
-  const [url, setUrl] = useState<string>(),
-    [failed, setFailed] = useState(false)
+  const [source, setSource] = useState<{ blob: Blob; url: string | null }>()
   useEffect(() => {
     const value = URL.createObjectURL(blob)
-    setUrl(value)
-    setFailed(false)
-    return () => URL.revokeObjectURL(value)
+    let active = true
+    const image = new Image()
+    image.src = value
+    void image
+      .decode()
+      .then(() => {
+        if (active) setSource({ blob, url: value })
+      })
+      .catch(() => {
+        if (active) setSource({ blob, url: null })
+      })
+    return () => {
+      active = false
+      URL.revokeObjectURL(value)
+    }
   }, [blob])
-  return failed ? (
+  if (source?.blob !== blob) return null
+  return source.url === null ? (
     <span
       className={`flex items-center justify-center bg-muted ${className}`}
       title={alt}
     >
       <ImageIcon className="size-5 text-muted-foreground" aria-label={alt} />
     </span>
-  ) : url ? (
+  ) : (
     <img
-      src={url}
+      src={source.url}
       alt={alt}
       className={className}
-      onError={() => setFailed(true)}
+      onError={() => setSource({ blob, url: null })}
     />
-  ) : null
+  )
 }
 export function MessageImages({
   roomId,

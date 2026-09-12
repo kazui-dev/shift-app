@@ -1,8 +1,18 @@
+import { matchesMemberFilter } from "./member-filter"
 import { targetKey } from "./target-key"
 import { useState } from "react"
-import { Search, X } from "lucide-react"
+import { Search, X, SlidersHorizontal } from "lucide-react"
 import type { ChatTargetOption } from "@workspace/shared/communications"
 import { Input } from "@workspace/ui/components/input"
+import { Button } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuCheckboxItem,
+} from "@workspace/ui/components/dropdown-menu"
 import { TargetAvatar } from "./target-avatar"
 
 const kinds = [
@@ -22,6 +32,25 @@ export function TargetPicker({
 }) {
   const [kind, setKind] = useState<ChatTargetOption["targetType"]>("member")
   const [search, setSearch] = useState("")
+  const [filters, setFilters] = useState<string[]>([])
+  const toggleFilter = (key: string) =>
+    setFilters((values) =>
+      values.includes(key)
+        ? values.filter((value) => value !== key)
+        : [...values, key]
+    )
+  const roleIds = targets
+    .filter(
+      (target) =>
+        target.targetType === "role" && filters.includes(targetKey(target))
+    )
+    .map((target) => target.targetId)
+  const activityIds = targets
+    .filter(
+      (target) =>
+        target.targetType === "activity" && filters.includes(targetKey(target))
+    )
+    .map((target) => target.targetId)
   const toggle = (key: string) =>
     onChange(
       selected.includes(key)
@@ -31,53 +60,52 @@ export function TargetPicker({
   const candidates = targets.filter(
     (target) =>
       target.targetType === kind &&
+      (target.targetType !== "member" ||
+        matchesMemberFilter(target, roleIds, activityIds)) &&
       target.displayName
         .toLocaleLowerCase()
         .includes(search.trim().toLocaleLowerCase())
   )
   return (
     <div className="space-y-5">
-      <div className="space-y-3">
-        {kinds.map((group) => {
-          const values = targets.filter(
-            (target) =>
-              target.targetType === group.type &&
-              selected.includes(targetKey(target))
-          )
-          if (!values.length) return null
-          return (
-            <ul
-              key={group.type}
-              aria-label={`選択した${group.name}`}
-              data-horizontal-scroll
-              className="flex gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none]"
-            >
-              {values.map((target) => (
-                <li
-                  key={targetKey(target)}
-                  className="relative flex w-16 shrink-0 flex-col items-center gap-1.5 pt-1"
+      {selected.length > 0 && (
+        <ul
+          aria-label="選択した対象"
+          data-horizontal-scroll
+          className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none]"
+        >
+          {kinds
+            .flatMap((group) =>
+              targets.filter(
+                (target) =>
+                  target.targetType === group.type &&
+                  selected.includes(targetKey(target))
+              )
+            )
+            .map((target) => (
+              <li
+                key={targetKey(target)}
+                className="relative flex w-16 shrink-0 flex-col items-center gap-1.5 pt-1"
+              >
+                <TargetAvatar target={target} className="size-11 text-sm" />
+                <span
+                  className="w-full truncate text-center text-xs"
+                  title={target.displayName}
                 >
-                  <TargetAvatar target={target} className="size-11 text-sm" />
-                  <span
-                    className="w-full truncate text-center text-xs"
-                    title={target.displayName}
-                  >
-                    {target.displayName}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`${target.displayName}の選択を解除`}
-                    onClick={() => toggle(targetKey(target))}
-                    className="absolute top-0 right-0 flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground hover:bg-accent active:bg-accent"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )
-        })}
-      </div>
+                  {target.displayName}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`${target.displayName}の選択を解除`}
+                  onClick={() => toggle(targetKey(target))}
+                  className="absolute top-0 right-0 flex size-6 items-center justify-center rounded-full border-2 border-background bg-muted text-muted-foreground hover:bg-accent active:bg-accent"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
       <div className="space-y-3">
         <div
           aria-label="対象の種類"
@@ -98,19 +126,63 @@ export function TargetPicker({
             </button>
           ))}
         </div>
-        <div className="relative">
-          <Search
-            aria-hidden
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-          />
-          <Input
-            type="search"
-            aria-label="対象を検索"
-            placeholder="名前で検索"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              type="search"
+              aria-label="対象を検索"
+              placeholder="名前で検索"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="pl-9"
+            />
+          </div>
+          {kind === "member" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="メンバーを絞り込む"
+                    className={filters.length ? "bg-muted" : ""}
+                  />
+                }
+              >
+                <SlidersHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-80 w-64">
+                {kinds
+                  .filter((group) => group.type !== "member")
+                  .map((group) => (
+                    <DropdownMenuGroup key={group.type}>
+                      <DropdownMenuLabel>{group.name}</DropdownMenuLabel>
+                      {targets
+                        .filter((target) => target.targetType === group.type)
+                        .map((target) => (
+                          <DropdownMenuCheckboxItem
+                            key={targetKey(target)}
+                            checked={filters.includes(targetKey(target))}
+                            closeOnClick={false}
+                            onCheckedChange={() =>
+                              toggleFilter(targetKey(target))
+                            }
+                          >
+                            <span className="truncate">
+                              {target.displayName}
+                            </span>
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuGroup>
+                  ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
         <ul>
           {candidates.map((target) => {

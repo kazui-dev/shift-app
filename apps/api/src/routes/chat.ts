@@ -19,7 +19,6 @@ import {
 import {
   apiError,
   type ApiEnv,
-  canManageShifts,
   hasActiveYearMembership,
   readJson,
   parseYear,
@@ -148,17 +147,6 @@ chatApp.post("/rooms", async (c) => {
       ])
     ).values(),
   ]
-  if (
-    targets.some((target) => target.targetType !== "member") &&
-    !(await canManageShifts(c.env, actor, input.output.year))
-  ) {
-    return apiError(
-      c,
-      403,
-      "FORBIDDEN",
-      "Shift management permission is required for role or activity rooms"
-    )
-  }
   const validTargets = await Promise.all(
     targets.map((target) => targetExists(c.env, input.output.year, target))
   )

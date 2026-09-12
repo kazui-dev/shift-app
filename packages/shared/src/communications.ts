@@ -10,6 +10,8 @@ export const chatTargetSchema = v.object({
 export const chatTargetOptionSchema = v.variant("targetType", [
   v.strictObject({
     targetType: v.literal("member"),
+    roleIds: v.array(v.pipe(v.string(), v.uuid())),
+    activityIds: v.array(v.pipe(v.string(), v.uuid())),
     image: v.nullable(v.pipe(v.string(), v.url())),
     targetId: v.pipe(v.string(), v.uuid()),
     displayName: v.string(),
@@ -38,7 +40,7 @@ export const createChatRoomInputSchema = v.object({
 
 export const chatImageLimits = {
   bytes: 10 * 1024 * 1024,
-  count: 4,
+  count: 10,
   pixels: 40_000_000,
 } as const
 export const chatAttachmentSchema = v.object({

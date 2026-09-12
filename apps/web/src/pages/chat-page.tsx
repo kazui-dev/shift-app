@@ -112,11 +112,10 @@ export function ChatPage() {
           )}
         </ChatPanels>
       </div>
-      {year !== null && (
+      {year !== null && creating && (
         <CreateChat
           key={year}
           year={year}
-          open={creating}
           onClose={closeCreate}
           onCreated={(id) => {
             open(id, true)

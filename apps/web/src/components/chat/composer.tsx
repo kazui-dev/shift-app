@@ -26,7 +26,6 @@ export function ChatComposer({
 }) {
   const form = useRef<HTMLFormElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const picking = useRef(false)
   const [focused, setFocused] = useState(false)
   const [pressed, setPressed] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -40,7 +39,6 @@ export function ChatComposer({
   const textClass =
     "min-h-0 [field-sizing:fixed] touch-pan-y touch-pinch-zoom resize-none overscroll-contain rounded-none border-0 bg-transparent px-10 py-1 text-base leading-6 shadow-none transition-none focus-visible:ring-0 md:text-sm dark:bg-transparent"
   const finishPicking = useCallback(() => {
-    picking.current = false
     setPickerOpen(false)
   }, [])
   useEffect(() => {
@@ -49,8 +47,8 @@ export function ChatComposer({
     return () => field?.removeEventListener("cancel", finishPicking)
   }, [finishPicking])
   async function addFiles(incoming: File[]) {
-    if (incoming.length > chatImageLimits.count) {
-      toast.error("画像は1回に4枚まで添付できます。")
+    if (incoming.length + draft.files.length > chatImageLimits.count) {
+      toast.error("添付できる画像は10枚までです。")
       return
     }
     const accepted: ChatFile[] = []
@@ -116,49 +114,17 @@ export function ChatComposer({
     }
   }, [])
   return (
-    <form
-      ref={form}
-      data-chat-composer
-      aria-label="メッセージを作成"
-      data-expanded={expanded}
-      onFocusCapture={() => setFocused(true)}
-      onBlurCapture={(event) => {
-        if (
-          !picking.current &&
-          !event.currentTarget.contains(event.relatedTarget)
-        )
-          setFocused(false)
-      }}
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!disabled && (draft.content.trim() || draft.files.length)) {
-          onSend()
-          input.current?.focus({ preventScroll: true })
-        }
-      }}
-      className={`rounded-3xl border bg-background shadow-xs ${dragging ? "border-ring" : "border-input"}`}
-    >
-      <input
-        ref={fileInput}
-        type="file"
-        multiple
-        accept="image/*"
-        className="hidden"
-        onChange={(event) => {
-          void addFiles(Array.from(event.target.files ?? []))
-          event.target.value = ""
-          finishPicking()
-        }}
-      />
+    <div className="min-w-0">
       {draft.files.length > 0 && (
         <ul
-          className="flex gap-2 overflow-x-auto px-3 pt-3"
+          data-horizontal-scroll
+          className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
           aria-label="添付する画像"
         >
           {draft.files.map((file) => (
             <li
               key={file.id}
-              className="relative size-20 shrink-0 overflow-hidden rounded-xl border"
+              className="relative size-20 shrink-0 overflow-hidden rounded-xl"
             >
               <LocalImage
                 blob={file.blob}
@@ -171,6 +137,7 @@ export function ChatComposer({
                 size="icon-xs"
                 className="absolute top-1 right-1 rounded-full"
                 aria-label={`${file.name}を外す`}
+                onPointerDown={(event) => event.preventDefault()}
                 onClick={() =>
                   onChange({
                     ...draft,
@@ -184,83 +151,116 @@ export function ChatComposer({
           ))}
         </ul>
       )}
-      <div
-        ref={body}
-        className="relative h-12 overflow-hidden px-2 pt-2 transition-[height] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none"
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          disabled={disabled}
-          className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted"
-          data-pressed={pressed || pickerOpen}
-          onPointerDown={() => setPressed(true)}
-          onPointerUp={() => setPressed(false)}
-          onPointerCancel={() => setPressed(false)}
-          onPointerLeave={() => setPressed(false)}
-          aria-label="画像を添付"
-          title="画像を添付"
-          onClick={() => {
-            picking.current = true
-            setPickerOpen(true)
-            fileInput.current?.click()
-          }}
-        >
-          <Plus />
-        </Button>
-        <Textarea
-          ref={input}
-          rows={1}
-          maxLength={2000}
-          aria-label="メッセージ"
-          placeholder={`${roomName} へメッセージを送信`}
-          disabled={disabled}
-          value={draft.content}
-          enterKeyHint={touch ? "enter" : "send"}
-          className={`${textClass} placeholder:truncate`}
-          onChange={(event) =>
-            onChange({ ...draft, content: event.currentTarget.value })
+      <form
+        ref={form}
+        data-chat-composer
+        aria-label="メッセージを作成"
+        data-expanded={expanded}
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!disabled && (draft.content.trim() || draft.files.length)) {
+            onSend()
           }
-          onPaste={(event) => {
-            const images = Array.from(event.clipboardData.files)
-            if (images.length) {
-              event.preventDefault()
-              void addFiles(images)
-            }
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing &&
-              event.keyCode !== 229 &&
-              !touch
-            ) {
-              event.preventDefault()
-              event.currentTarget.form?.requestSubmit()
-            }
+        }}
+        className={`rounded-3xl border bg-background shadow-xs ${dragging ? "border-ring" : "border-input"}`}
+      >
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            void addFiles(Array.from(event.target.files ?? []))
+            event.target.value = ""
+            finishPicking()
           }}
         />
-        <Textarea
-          ref={measure}
-          aria-hidden="true"
-          tabIndex={-1}
-          readOnly
-          value={draft.content}
-          rows={1}
-          className={`${textClass} pointer-events-none invisible absolute inset-x-2 top-2 h-0 w-[calc(100%-1rem)] overflow-hidden`}
-        />
-        <Button
-          type="submit"
-          size="icon-sm"
-          className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
-          aria-label="送信"
-          disabled={disabled || (!draft.content.trim() && !draft.files.length)}
+        <div
+          ref={body}
+          className="relative h-12 overflow-hidden px-2 pt-2 transition-[height] duration-200 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none"
         >
-          <SendHorizontal />
-        </Button>
-      </div>
-    </form>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={disabled}
+            className="absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted"
+            data-pressed={pressed || pickerOpen}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              setPressed(true)
+            }}
+            onPointerUp={() => setPressed(false)}
+            onPointerCancel={() => setPressed(false)}
+            onPointerLeave={() => setPressed(false)}
+            aria-label="画像を添付"
+            title="画像を添付"
+            onClick={() => {
+              setPickerOpen(true)
+              fileInput.current?.click()
+            }}
+          >
+            <Plus />
+          </Button>
+          <Textarea
+            ref={input}
+            rows={1}
+            maxLength={2000}
+            aria-label="メッセージ"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder={`${roomName}へメッセージを送信`}
+            disabled={disabled}
+            value={draft.content}
+            enterKeyHint={touch ? "enter" : "send"}
+            className={`${textClass} placeholder:truncate`}
+            onChange={(event) =>
+              onChange({ ...draft, content: event.currentTarget.value })
+            }
+            onPaste={(event) => {
+              const images = Array.from(event.clipboardData.files)
+              if (images.length) {
+                event.preventDefault()
+                void addFiles(images)
+              }
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing &&
+                event.keyCode !== 229 &&
+                !touch
+              ) {
+                event.preventDefault()
+                event.currentTarget.form?.requestSubmit()
+              }
+            }}
+          />
+          <Textarea
+            ref={measure}
+            aria-hidden="true"
+            tabIndex={-1}
+            readOnly
+            value={draft.content}
+            rows={1}
+            className={`${textClass} pointer-events-none invisible absolute inset-x-2 top-2 h-0 w-[calc(100%-1rem)] overflow-hidden`}
+          />
+          <Button
+            type="submit"
+            onPointerDown={(event) => event.preventDefault()}
+            size="icon-sm"
+            className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
+            aria-label="送信"
+            disabled={
+              disabled || (!draft.content.trim() && !draft.files.length)
+            }
+          >
+            <SendHorizontal />
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }

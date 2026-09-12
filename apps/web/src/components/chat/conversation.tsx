@@ -473,7 +473,7 @@ function Conversation({
                   current.files.length + files.length >
                   chatImageLimits.count
                 ) {
-                  toast.error("画像は1回に4枚まで添付できます。")
+                  toast.error("添付できる画像は10枚までです。")
                   return
                 }
                 store.edit(room.id, {
