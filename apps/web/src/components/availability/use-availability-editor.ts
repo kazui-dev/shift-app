@@ -43,6 +43,7 @@ export function useAvailabilityEditor(
   const latest = useRef(answers)
   const confirmed = useRef(JSON.stringify(initial))
   const writes = useRef(Promise.resolve())
+  const pending = useRef(0)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const active = useRef(true)
   latest.current = answers
@@ -50,7 +51,9 @@ export function useAvailabilityEditor(
     clearTimeout(timer.current)
     const current = latest.current
     const json = JSON.stringify(current)
-    if (!publish && json === confirmed.current) return writes.current
+    if (!publish && !pending.current && json === confirmed.current)
+      return writes.current
+    pending.current++
     if (active.current) {
       setStatus("保存中")
       setError(null)
@@ -58,6 +61,11 @@ export function useAvailabilityEditor(
     const task = writes.current
       .catch(() => {})
       .then(async () => {
+        if (!publish && json === confirmed.current) {
+          if (active.current && JSON.stringify(latest.current) === json)
+            setStatus("保存済み")
+          return
+        }
         const result = await replaceAvailability(year, {
           answers: current,
           submit: publish,
@@ -83,6 +91,9 @@ export function useAvailabilityEditor(
         }
         throw failure
       })
+      .finally(() => {
+        pending.current--
+      })
     writes.current = task
     return task
   }
@@ -90,7 +101,7 @@ export function useAvailabilityEditor(
   saveRef.current = save
   useEffect(() => {
     const json = JSON.stringify(answers)
-    if (json === confirmed.current) return undefined
+    if (!pending.current && json === confirmed.current) return undefined
     try {
       localStorage.setItem(key, json)
     } catch {
