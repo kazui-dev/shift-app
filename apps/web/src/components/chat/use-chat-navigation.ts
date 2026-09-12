@@ -32,6 +32,11 @@ export function useChatNavigation() {
   )
   useLayoutEffect(() => {
     const unsubscribe = router.history.subscribe(({ location, action }) => {
+      if (
+        location.pathname !== "/chat" &&
+        !location.pathname.startsWith("/chat/")
+      )
+        return
       navigation.receive(
         chatRoomId(location.pathname),
         action.type === "BACK" ? "back" : "navigate"

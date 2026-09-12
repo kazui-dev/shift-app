@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
-import { get, set } from "idb-keyval"
+import { loadChat as get, saveChat as set } from "./chat-storage"
 import { toast } from "@workspace/ui/lib/toast"
 import { sendChatMessage, uploadChatImage } from "@/api/chat"
 import { ChatStore } from "./chat-store"
 
-vi.mock("idb-keyval", () => ({
-  createStore: () => ({}),
-  get: vi.fn<typeof get>(),
-  set: vi.fn<typeof set>(),
-  clear: vi.fn<() => Promise<void>>(),
+vi.mock("./chat-storage", () => ({
+  loadChat: vi.fn<typeof get>(),
+  saveChat: vi.fn<typeof set>(),
+  clearChat: vi.fn<() => Promise<void>>(),
 }))
 vi.mock("@/api/chat", () => ({
   sendChatMessage: vi.fn<typeof sendChatMessage>(),
@@ -191,9 +190,48 @@ it("keeps the draft when local storage is full", async () => {
   )
   value.edit("one", { content: "消さない", files: [] })
   await vi.waitFor(() =>
-    expect(toast.error).toHaveBeenCalledWith("下書きを保存できませんでした", {
-      id: "chat-storage",
-    })
+    expect(toast.error).toHaveBeenCalledWith(
+      "端末の空き容量が足りず、入力内容を保存できません。",
+      {
+        id: "chat-storage",
+      }
+    )
   )
   expect(value.draft("one").content).toBe("消さない")
+})
+
+it("waits for restored drafts before an app update can persist and reload", async () => {
+  let restore: ((value: unknown) => void) | undefined
+  vi.mocked(get).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        restore = resolve
+      })
+  )
+  const value = new ChatStore("member")
+  active.push(value)
+  let settled = false
+  const waiting = value.settle().then(() => {
+    settled = true
+  })
+  await Promise.resolve()
+  expect(settled).toBe(false)
+  expect(set).not.toHaveBeenCalled()
+  restore?.({
+    version: 4,
+    drafts: { one: { content: "更新前の入力", files: [] } },
+    queue: [],
+  })
+  await waiting
+  expect(value.draft("one").content).toBe("更新前の入力")
+  expect(settled).toBe(true)
+})
+it("coalesces rapid edits into the latest snapshot", async () => {
+  const value = await store()
+  vi.mocked(set).mockClear()
+  for (const content of ["a", "ab", "abc"])
+    value.edit("one", { content, files: [] })
+  await value.settle()
+  expect(set).toHaveBeenCalledTimes(1)
+  expect(vi.mocked(set).mock.calls[0]?.[1].drafts["one"]?.content).toBe("abc")
 })

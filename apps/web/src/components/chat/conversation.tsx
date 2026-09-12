@@ -396,6 +396,11 @@ function Conversation({
                         <MessageImages
                           roomId={room.id}
                           images={message.attachments}
+                          caption={{
+                            author: message.memberDisplayName,
+                            content: message.content,
+                            createdAt: message.createdAt,
+                          }}
                         />
                         {message.files.length > 0 && (
                           <div

@@ -18,9 +18,10 @@ import { CreateChat } from "@/components/chat/create-chat"
 export function ChatPage() {
   const client = useQueryClient()
   const router = useRouter()
-  const creating = useRouterState({
-    select: (state) => state.location.pathname === "/chat/new",
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
   })
+  const creating = pathname === "/chat/new"
   const desktop = useMediaQuery("(min-width: 768px)")
   const { report } = useSearch({ strict: false })
   const { roomId, retainedId, open, back, resume } = useChatNavigation()
@@ -47,8 +48,8 @@ export function ChatPage() {
   })
   const first = rooms.data?.rooms[0]?.id
   useEffect(() => {
-    if (desktop && !creating && !roomId && first) open(first, true)
-  }, [desktop, creating, roomId, first, open])
+    if (desktop && pathname === "/chat" && !roomId && first) open(first, true)
+  }, [desktop, pathname, roomId, first, open])
   return (
     <>
       <div

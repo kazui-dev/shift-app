@@ -9,6 +9,7 @@ import { del, get, set } from "idb-keyval"
 
 import { toast } from "@workspace/ui/lib/toast"
 import { errorMessage } from "@/api/client"
+import { clearChatImages } from "./chat-images"
 import { clearChatStorage } from "./chat-store"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
@@ -60,5 +61,6 @@ export async function clearPersistedUserData(
   })
   client.getMutationCache().clear()
   await persister.removeClient()
+  clearChatImages()
   await clearChatStorage()
 }

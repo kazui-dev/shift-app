@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
 import type { ChatAttachment } from "@workspace/shared/communications"
-import { chatImageUrl } from "@/api/chat"
+import { RemoteImage } from "./remote-image"
 import { ImageViewer } from "./image-viewer"
 import { imageSize } from "./image-size"
 
@@ -53,11 +53,15 @@ export function LocalImage({
 export function MessageImages({
   roomId,
   images,
+  caption,
 }: {
   roomId: string
   images: ChatAttachment[]
+  caption: { author: string; content: string; createdAt: string }
 }) {
-  const [opened, setOpened] = useState<ChatAttachment | null>(null)
+  const [opened, setOpened] = useState<
+    (ChatAttachment & { src: string }) | null
+  >(null)
   if (!images.length) return null
   return (
     <>
@@ -65,30 +69,26 @@ export function MessageImages({
         className={`mt-2 grid max-w-lg gap-2 ${images.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
       >
         {images.map((image, index) => (
-          <button
+          <div
             key={image.id}
-            data-page-swipe
-            type="button"
-            onClick={() => setOpened(image)}
-            aria-label={`画像${index + 1}を拡大`}
-            className="max-w-full overflow-hidden rounded-xl border text-left"
+            className="max-w-full overflow-hidden rounded-xl border"
             style={imageSize(image)}
           >
-            <img
-              src={chatImageUrl(roomId, image.id)}
+            <RemoteImage
+              roomId={roomId}
+              id={image.id}
               width={image.width}
               height={image.height}
-              alt={`添付画像 ${index + 1}`}
-              loading="lazy"
-              draggable={false}
-              className="size-full object-contain"
+              alt={`画像${index + 1}を拡大`}
+              onOpen={(src) => setOpened({ ...image, src })}
             />
-          </button>
+          </div>
         ))}
       </div>
       {opened && (
         <ImageViewer
-          src={chatImageUrl(roomId, opened.id)}
+          src={opened.src}
+          caption={caption}
           width={opened.width}
           height={opened.height}
           onClose={() => setOpened(null)}

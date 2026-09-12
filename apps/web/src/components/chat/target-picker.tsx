@@ -19,7 +19,6 @@ const kinds = [
   { type: "member", name: "メンバー" },
   { type: "role", name: "ロール" },
   { type: "activity", name: "シフト" },
-  { type: "condition", name: "条件" },
 ] as const
 
 export function TargetPicker({
@@ -60,9 +59,7 @@ export function TargetPicker({
     )
   const candidates = targets.filter(
     (target) =>
-      (kind === "condition"
-        ? !["member", "role", "activity"].includes(target.targetType)
-        : target.targetType === kind) &&
+      target.targetType === kind &&
       (target.targetType !== "member" ||
         matchesMemberFilter(target, roleIds, activityIds)) &&
       target.displayName
@@ -81,11 +78,7 @@ export function TargetPicker({
             .flatMap((group) =>
               targets.filter(
                 (target) =>
-                  (group.type === "condition"
-                    ? !["member", "role", "activity"].includes(
-                        target.targetType
-                      )
-                    : target.targetType === group.type) &&
+                  target.targetType === group.type &&
                   selected.includes(targetKey(target))
               )
             )
