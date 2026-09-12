@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { chatImageUrl } from "@/api/chat"
-import { ResponsiveDialog } from "../responsive-overlay"
+import { ImageViewer } from "./image-viewer"
 import { imageSize } from "./image-size"
 
 export function LocalImage({
@@ -87,22 +87,12 @@ export function MessageImages({
         ))}
       </div>
       {opened && (
-        <ResponsiveDialog
-          open
-          title="画像"
-          className="md:max-w-5xl"
-          onOpenChange={(open) => {
-            if (!open) setOpened(null)
-          }}
-        >
-          <img
-            src={chatImageUrl(roomId, opened.id)}
-            width={opened.width}
-            height={opened.height}
-            alt="添付画像"
-            className="max-h-[65dvh] w-full object-contain"
-          />
-        </ResponsiveDialog>
+        <ImageViewer
+          src={chatImageUrl(roomId, opened.id)}
+          width={opened.width}
+          height={opened.height}
+          onClose={() => setOpened(null)}
+        />
       )}
     </>
   )

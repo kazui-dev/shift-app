@@ -75,7 +75,7 @@ export function TargetPicker({
         <ul
           aria-label="選択した対象"
           data-horizontal-scroll
-          className="flex max-w-full min-w-0 touch-pan-x touch-pinch-zoom gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none]"
+          className="flex max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain py-1 [scrollbar-width:none]"
         >
           {kinds
             .flatMap((group) =>

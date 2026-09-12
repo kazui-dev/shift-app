@@ -29,7 +29,7 @@ export function ChatPanels({
       aria-label="チャット"
       className="min-h-0 min-w-0 flex-1 overflow-clip"
     >
-      <div className="flex h-full min-h-0 touch-pan-y touch-pinch-zoom md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="flex h-full min-h-0 touch-pan-y md:grid md:grid-cols-[17rem_minmax(0,1fr)]">
         <aside
           ref={listPanel}
           aria-label="チャット一覧"
