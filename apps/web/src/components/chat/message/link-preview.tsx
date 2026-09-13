@@ -3,6 +3,7 @@ import { useChatMember } from "@/components/chat/use-chat-member"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
 import { useQuery } from "@tanstack/react-query"
 import { messageLinks } from "@workspace/shared/messages"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { linkPreviewQuery } from "@/data/chat"
 import { acquireLinkImage, cachedLinkImage } from "@/lib/chat/images"
 import { useHeldImage } from "@/components/chat/image/use-held-image"
@@ -56,9 +57,13 @@ function LinkPreview({
     hasImage,
     () => cachedLinkImage(user, roomId, messageId, url)
   )
-  // Nothing shows until a preview exists; the history keeps its anchor as the card appears.
+  // Hold the card's space until the preview settles, so reading never jumps.
+  const settling = !offline && query.data === undefined && !query.isError
   return (
-    <div ref={ref} data-message-media={preview ? "" : undefined}>
+    <div ref={ref} data-message-media={preview || settling ? "" : undefined}>
+      {settling && (
+        <Skeleton aria-hidden className="mt-1 h-28 max-w-lg rounded-lg" />
+      )}
       {preview && (
         <a
           href={url}
