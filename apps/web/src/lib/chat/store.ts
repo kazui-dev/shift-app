@@ -10,6 +10,7 @@ import {
   type QueuedMessage,
 } from "@/lib/chat/state"
 import { loadChat, saveChat, clearChat } from "@/lib/chat/storage"
+import { seedChatImage } from "@/lib/chat/images"
 export type { ChatFile, ChatDraft, QueuedMessage } from "@/lib/chat/state"
 type State = SavedChat & { ready: boolean }
 const empty: ChatDraft = { content: "", files: [] }
@@ -199,6 +200,14 @@ export class ChatStore {
           )
         )
         if (!this.active) return
+        for (const file of files)
+          if (file.uploaded)
+            seedChatImage(
+              this.userId,
+              message.roomId,
+              file.uploaded.id,
+              file.blob
+            )
         this.update(message.id, { files })
         await this.persist()
         const result = await sendChatMessage(message.roomId, {

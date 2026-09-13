@@ -51,7 +51,7 @@ function LinkPreview({
   // Hold the card's space until the preview settles, so reading never jumps.
   const settling = !offline && query.data === undefined && !query.isError
   return (
-    <div ref={ref}>
+    <div ref={ref} data-message-media={preview || settling ? "" : undefined}>
       {settling && (
         <Skeleton aria-hidden className="mt-1 h-28 max-w-lg rounded-lg" />
       )}

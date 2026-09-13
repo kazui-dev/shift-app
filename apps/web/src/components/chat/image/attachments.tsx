@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
 import type { ChatAttachment } from "@workspace/shared/communications"
+import type { ChatFile } from "@/lib/chat/store"
 import { RemoteImage } from "@/components/chat/image/remote"
 import { imageSize } from "@/components/chat/image/size"
 import { mosaic } from "@/components/chat/image/mosaic"
@@ -50,6 +51,110 @@ export function LocalImage({
     />
   )
 }
+type FrameImage =
+  | {
+      kind: "remote"
+      key: string
+      size: ChatAttachment
+      roomId: string
+      label: string
+      onOpen: () => void
+    }
+  | {
+      kind: "pending"
+      key: string
+      size: { width: number; height: number } | undefined
+      file: ChatFile
+    }
+
+function FrameContent({
+  image,
+  fit,
+}: {
+  image: FrameImage
+  fit: "contain" | "cover"
+}) {
+  return image.kind === "remote" ? (
+    <RemoteImage
+      roomId={image.roomId}
+      id={image.size.id}
+      width={image.size.width}
+      height={image.size.height}
+      alt={image.label}
+      fit={fit}
+      onOpen={image.onOpen}
+    />
+  ) : (
+    <LocalImage
+      blob={image.file.blob}
+      alt={image.file.name}
+      className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
+    />
+  )
+}
+
+/**
+ * One image keeps its own proportions; several share one rounded frame,
+ * arranged by the mosaic rule. Sent and still-sending images use the same frame.
+ */
+function ImageFrame({ images }: { images: FrameImage[] }) {
+  const [first] = images
+  if (!first) return null
+  if (images.length === 1)
+    return (
+      <div
+        data-message-media
+        className="mt-2 max-w-full overflow-hidden rounded-lg"
+        style={imageSize(first.size)}
+      >
+        <FrameContent image={first} fit="contain" />
+      </div>
+    )
+  const tile = (image: FrameImage, className = "") => (
+    <div
+      key={image.key}
+      className={`relative min-h-0 min-w-0 overflow-hidden bg-muted ${className}`}
+    >
+      {/* Positioned so a loaded image can never resize its tile. */}
+      <div className="absolute inset-0">
+        <FrameContent image={image} fit="cover" />
+      </div>
+    </div>
+  )
+  const layout = mosaic(images.length)
+  if (layout.split)
+    return (
+      <div
+        data-message-media
+        className="mt-2 grid aspect-[4/3] w-full max-w-lg grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-lg"
+      >
+        {images.map((image, index) =>
+          tile(image, index === 0 ? "row-span-2" : "")
+        )}
+      </div>
+    )
+  let offset = 0
+  return (
+    <div
+      data-message-media
+      className="mt-2 flex w-full max-w-lg flex-col gap-1 overflow-hidden rounded-lg"
+    >
+      {layout.rows.map((size) => {
+        const start = offset
+        offset += size
+        return (
+          <div
+            key={start}
+            className={`grid grid-rows-[minmax(0,1fr)] gap-1 ${size === 1 ? "aspect-video grid-cols-1" : size === 2 ? "aspect-[2/1] grid-cols-2" : "aspect-[3/1] grid-cols-3"}`}
+          >
+            {images.slice(start, start + size).map((image) => tile(image))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function MessageImages({
   roomId,
   images,
@@ -59,70 +164,30 @@ export function MessageImages({
   images: ChatAttachment[]
   onOpen: (id: string) => void
 }) {
-  const [first] = images
-  if (!first) return null
-  if (images.length === 1)
-    return (
-      <div
-        className="mt-2 max-w-full overflow-hidden rounded-lg"
-        style={imageSize(first)}
-      >
-        <RemoteImage
-          roomId={roomId}
-          id={first.id}
-          width={first.width}
-          height={first.height}
-          alt="画像1を拡大"
-          onOpen={() => onOpen(first.id)}
-        />
-      </div>
-    )
-  const tile = (image: ChatAttachment, index: number, className = "") => (
-    <div
-      key={image.id}
-      className={`relative min-h-0 min-w-0 overflow-hidden bg-muted ${className}`}
-    >
-      {/* Positioned so a loaded image can never resize its tile. */}
-      <div className="absolute inset-0">
-        <RemoteImage
-          roomId={roomId}
-          id={image.id}
-          width={image.width}
-          height={image.height}
-          alt={`画像${index + 1}を拡大`}
-          fit="cover"
-          onOpen={() => onOpen(image.id)}
-        />
-      </div>
-    </div>
-  )
-  // Several images share one rounded frame, arranged as in the mosaic rule.
-  const layout = mosaic(images.length)
-  if (layout.split)
-    return (
-      <div className="mt-2 grid aspect-[4/3] w-full max-w-lg grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-lg">
-        {images.map((image, index) =>
-          tile(image, index, index === 0 ? "row-span-2" : "")
-        )}
-      </div>
-    )
-  let offset = 0
   return (
-    <div className="mt-2 flex w-full max-w-lg flex-col gap-1 overflow-hidden rounded-lg">
-      {layout.rows.map((size) => {
-        const start = offset
-        offset += size
-        return (
-          <div
-            key={start}
-            className={`grid grid-rows-[minmax(0,1fr)] gap-1 ${size === 1 ? "aspect-video grid-cols-1" : size === 2 ? "aspect-[2/1] grid-cols-2" : "aspect-[3/1] grid-cols-3"}`}
-          >
-            {images
-              .slice(start, start + size)
-              .map((image, index) => tile(image, start + index))}
-          </div>
-        )
-      })}
-    </div>
+    <ImageFrame
+      images={images.map((image, index) => ({
+        kind: "remote" as const,
+        key: image.id,
+        size: image,
+        roomId,
+        label: `画像${index + 1}を拡大`,
+        onOpen: () => onOpen(image.id),
+      }))}
+    />
+  )
+}
+
+/** Images of a message that is still sending, framed as they will be once sent. */
+export function PendingImages({ files }: { files: ChatFile[] }) {
+  return (
+    <ImageFrame
+      images={files.map((file) => ({
+        kind: "pending" as const,
+        key: file.id,
+        size: file.uploaded ?? file.dimensions,
+        file,
+      }))}
+    />
   )
 }

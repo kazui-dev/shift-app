@@ -21,45 +21,47 @@ export function RemoteImage({
   onOpen: (src: string) => void
 }) {
   const { state } = getRouteApi("/_app").useRouteContext()
+  const user = state.member.studentId
   const element = useRef<HTMLButtonElement>(null)
   // An image already in memory shows on the first render, not after loading.
-  const [src, setSrc] = useState(() =>
-    cachedChatImage(state.member.studentId, roomId, id)
-  )
+  const [src, setSrc] = useState(() => cachedChatImage(user, roomId, id))
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   // Load two screens ahead, and keep the image shown until six screens away so
   // scrolling back never finds it blank. Farther images return to the cache.
   const near = useNearHistory(element, 2)
   const kept = useNearHistory(element, 6)
-  const acquired = useRef<ReturnType<typeof acquireChatImage> | null>(null)
+  const wasKept = useRef(false)
+  const held = useRef<ReturnType<typeof acquireChatImage> | null>(null)
   useEffect(
     () => () => {
-      acquired.current?.release()
-      acquired.current = null
+      held.current?.release()
+      held.current = null
     },
-    [state.member.studentId, roomId, id, attempt]
+    [user, roomId, id, attempt]
   )
   useEffect(() => {
-    if (!kept) {
-      if (!acquired.current) return
-      acquired.current.release()
-      acquired.current = null
+    if (kept) wasKept.current = true
+    else if (wasKept.current) {
+      wasKept.current = false
+      held.current?.release()
+      held.current = null
       setSrc(undefined)
       return
     }
-    if (!near || acquired.current) return
-    const image = acquireChatImage(state.member.studentId, roomId, id)
-    acquired.current = image
+    // A shown image is held, so the memory cache never revokes its URL.
+    if (held.current || (!near && !src)) return
+    const image = acquireChatImage(user, roomId, id)
+    held.current = image
     setFailed(false)
     void image.promise
       .then((url) => {
-        if (acquired.current === image) setSrc(url)
+        if (held.current === image) setSrc(url)
       })
       .catch(() => {
-        if (acquired.current === image) setFailed(true)
+        if (held.current === image) setFailed(true)
       })
-  }, [near, kept, state.member.studentId, roomId, id, attempt])
+  }, [near, kept, src, user, roomId, id, attempt])
   return (
     <button
       data-page-swipe
@@ -79,6 +81,11 @@ export function RemoteImage({
           alt={alt}
           draggable={false}
           className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
+          onError={() => {
+            // The URL was revoked or broke: load the image again.
+            setSrc(undefined)
+            setAttempt((value) => value + 1)
+          }}
         />
       ) : (
         <span className="flex size-full items-center justify-center text-xs text-muted-foreground">

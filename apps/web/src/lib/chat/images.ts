@@ -82,6 +82,29 @@ export function acquireChatImage(user: string, room: string, id: string) {
     },
   }
 }
+/**
+ * Keeps a just-uploaded image, so its message shows it the moment the send is
+ * confirmed instead of downloading what this device already has.
+ */
+export function seedChatImage(
+  user: string,
+  room: string,
+  id: string,
+  blob: Blob
+) {
+  const key = JSON.stringify([user, room, id])
+  if (images.has(key)) return
+  const url = URL.createObjectURL(blob)
+  images.set(key, {
+    promise: Promise.resolve(url),
+    controller: new AbortController(),
+    users: 0,
+    bytes: blob.size,
+    url,
+  })
+  trim()
+  void storeCachedImage(user, room, id, blob)
+}
 export function clearChatImages() {
   for (const entry of images.values()) {
     entry.controller.abort()

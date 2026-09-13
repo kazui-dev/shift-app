@@ -2,8 +2,10 @@ import { japanDateWeekday, japanTime } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import type { ChatRoom } from "@/api/chat"
 import { MemberAvatar } from "@/components/member-avatar"
-import { imageSize } from "@/components/chat/image/size"
-import { LocalImage, MessageImages } from "@/components/chat/image/attachments"
+import {
+  MessageImages,
+  PendingImages,
+} from "@/components/chat/image/attachments"
 import { MessageActions } from "@/components/chat/message/actions"
 import {
   groupedWithPrevious,
@@ -133,7 +135,8 @@ export function ChatMessageRow({
               className="mt-0.5"
             />
           )}
-          <div className="min-w-0">
+          {/* A message ending in media keeps it off the highlight's bottom edge. */}
+          <div className="min-w-0 [&>[data-message-media]:last-child]:mb-1">
             {!grouped && (
               <p className="flex items-baseline gap-2">
                 <span className="text-sm font-semibold">
@@ -176,25 +179,7 @@ export function ChatMessageRow({
                   actions.onOpenImage(image, message.sequence)
               }}
             />
-            {message.files.length > 0 && (
-              <div
-                className={`mt-2 grid max-w-lg gap-2 ${message.files.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
-              >
-                {message.files.map((file) => (
-                  <div
-                    key={file.id}
-                    className="max-w-full overflow-hidden rounded-xl border"
-                    style={imageSize(file.uploaded ?? file.dimensions)}
-                  >
-                    <LocalImage
-                      blob={file.blob}
-                      alt={file.name}
-                      className="size-full object-contain"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+            <PendingImages files={message.files} />
             {message.status === "failed" && (
               <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                 <Button size="sm" variant="ghost" onClick={actions.onRetry}>
