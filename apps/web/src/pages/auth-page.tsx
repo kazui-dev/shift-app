@@ -13,8 +13,8 @@ import { toast } from "@workspace/ui/lib/toast"
 
 import { createAccount } from "@/api/account"
 import { ApiError } from "@/api/client"
-import { authClient } from "@/lib/auth-client"
-import { accountStateQueryOptions } from "@/lib/account-state"
+import { authClient } from "@/lib/account/auth-client"
+import { accountStateQueryOptions } from "@/lib/account/state"
 import { AuthShell } from "@/components/auth-shell"
 
 function DiscordIcon(props: ComponentProps<"svg">) {

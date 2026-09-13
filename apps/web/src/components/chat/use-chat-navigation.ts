@@ -1,7 +1,7 @@
-import { chatRoomId } from "@/lib/chat-location"
+import { chatRoomId } from "@/lib/chat/location"
 import { useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { useRouter } from "@tanstack/react-router"
-import { ChatNavigation } from "./navigation"
+import { ChatNavigation } from "@/components/chat/navigation"
 
 export function useChatNavigation() {
   const router = useRouter()

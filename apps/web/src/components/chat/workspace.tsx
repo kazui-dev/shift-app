@@ -1,4 +1,4 @@
-import { useChatInfo } from "./use-chat-info"
+import { useChatInfo } from "@/components/chat/use-chat-info"
 import { useEffect, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -12,10 +12,10 @@ import { membersQuery, settingsQuery } from "@/data/chat"
 import { attendanceQuery } from "@/data/attendance"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { ShiftAttendance } from "../shifts/shift-attendance"
-import { ChatPanels } from "./panels"
-import { ChatMessages } from "./messages"
-import { RoomHeader, MembersHeader } from "./room-header"
-import { RoomMembers } from "./room-members"
+import { ChatPanels } from "@/components/chat/panels"
+import { ChatMessages } from "@/components/chat/message/history"
+import { RoomHeader, MembersHeader } from "@/components/chat/room/header"
+import { RoomMembers } from "@/components/chat/room/members"
 
 export function ChatWorkspace({
   room,

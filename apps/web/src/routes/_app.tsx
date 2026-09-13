@@ -1,9 +1,9 @@
-import { preparePushControl } from "@/lib/push-control-store"
+import { preparePushControl } from "@/lib/push/control-store"
 import { prepareApp } from "@/data/startup"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
 import { AuthenticatedLayout } from "@/components/authenticated-layout"
-import { resolveAccountState } from "@/lib/account-state"
+import { resolveAccountState } from "@/lib/account/state"
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {

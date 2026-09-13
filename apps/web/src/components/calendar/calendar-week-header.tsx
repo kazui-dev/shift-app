@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react"
 import { japanFullDate } from "@workspace/shared/japan-time"
 
-import { calendarWeekSlideDates } from "@/lib/calendar-carousel"
-import { localDate, moveDate, weekDates } from "@/lib/calendar-dates"
-import { loopCarouselSlots } from "@/lib/loop-carousel"
+import { calendarWeekSlideDates } from "@/lib/calendar/carousel"
+import { localDate, moveDate, weekDates } from "@/lib/calendar/dates"
+import { loopCarouselSlots } from "@/lib/calendar/loop-carousel"
 import { resetCalendarWeekHeader } from "./calendar-week-presentation"
 import { useLoopCarousel } from "./use-loop-carousel"
 

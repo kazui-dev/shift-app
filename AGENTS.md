@@ -29,7 +29,11 @@ and Durable Objects. Read `docs/architecture.md` before changing boundaries and
   logic. `packages/db` owns Drizzle schema only.
 - `apps/api/src/routes` owns HTTP composition, `domain` owns pure business logic,
   `services` owns external I/O workflows, and `durable-objects` owns stateful
-  coordination. Keep tests under `apps/api/test`, not beside production files.
+  coordination. Keep tests under `apps/api/test`, not beside production files,
+  in `unit`, `http` or `storage`, and share database fixtures through
+  `apps/api/test/support`.
+- Return API failures from the catalog in `apps/api/src/lib/errors.ts`, and build
+  web cache keys from `apps/web/src/data/keys.ts`. Neither belongs inline.
 - API routes use plural resource nouns. Nest only canonical child collections;
   put current-user resources under `/me`. Use `PUT` for replaceable singleton
   resources and `PATCH` for partial state changes.

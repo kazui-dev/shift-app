@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from "vite-plus/test"
 import { QueryClient } from "@tanstack/react-query"
 import { prepareApp } from "./startup"
-import { calendarViewKey, saveCalendarView } from "@/lib/calendar-view"
+import { calendarViewKey, saveCalendarView } from "@/lib/calendar/view"
 import { apiJson, apiVoid } from "@/api/client"
 
 vi.mock("@/api/client", () => ({

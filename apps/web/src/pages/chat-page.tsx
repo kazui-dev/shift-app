@@ -1,4 +1,4 @@
-import { MessageTargetProvider } from "@/components/chat/message-target"
+import { MessageTargetProvider } from "@/components/chat/message/target"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { RoutePage } from "@/components/route-page"
@@ -16,14 +16,14 @@ import { useEffect } from "react"
 import { getChatRoom } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
-import { RoomList } from "@/components/chat/room-list"
+import { RoomList } from "@/components/chat/room/list"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { BottomNavigation } from "@/components/app-navigation"
 import { ChatWorkspace } from "@/components/chat/workspace"
 import { ApiError } from "@/api/client"
 import { removeRoom } from "@/data/chat-cache"
-import { CreateChat } from "@/components/chat/create-chat"
-import { restoreChatView, saveChatView } from "@/lib/chat-view"
+import { CreateChat } from "@/components/chat/room/create"
+import { restoreChatView, saveChatView } from "@/lib/chat/view"
 
 export function ChatPage() {
   return (

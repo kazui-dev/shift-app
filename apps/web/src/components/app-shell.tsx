@@ -12,7 +12,7 @@ import { ChatDelivery } from "./chat/delivery"
 import { AppNavigation } from "./app-navigation"
 
 import { OfflineModeContext } from "./offline-mode-context"
-import { resolveAccountState } from "@/lib/account-state"
+import { resolveAccountState } from "@/lib/account/state"
 
 const unsafeOfflineRoutes = new Set([
   "/calendar/availability",

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { resolveAccountState } from "@/lib/account-state"
+import { resolveAccountState } from "@/lib/account/state"
 import { AuthPage } from "@/pages/auth-page"
 
 export const Route = createFileRoute("/")({

@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/page-layout"
 import { RoutePage } from "@/components/route-page"
 import { MemberAvatar } from "@/components/member-avatar"
 import { getChatRoom, searchChatMessages } from "@/api/chat"
-import { useMessageTarget } from "@/components/chat/use-message-target"
+import { useMessageTarget } from "@/components/chat/message/use-target"
 
 export function ChatSearchPage() {
   const { roomId } = getRouteApi("/_app/chat/$roomId/search").useParams()

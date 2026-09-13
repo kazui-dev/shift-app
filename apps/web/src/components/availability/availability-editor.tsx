@@ -7,7 +7,7 @@ import {
 } from "@workspace/ui/components/responsive-page"
 import { Plus, Trash2 } from "lucide-react"
 import { MinuteInput } from "@/components/minute-input"
-import { answerStatus } from "@/lib/availability-editor"
+import { answerStatus } from "@/components/availability/answer-status"
 import { useAvailabilityEditor } from "./use-availability-editor"
 const time = (minute: number) =>
   `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`

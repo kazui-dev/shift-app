@@ -12,7 +12,7 @@ import {
   monthValue,
   monthValuesForDates,
   moveMonthValue,
-} from "@/lib/calendar-dates"
+} from "@/lib/calendar/dates"
 
 export type CalendarAssignments = {
   byDate: Map<string, CalendarAssignment[]>

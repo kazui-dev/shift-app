@@ -3,9 +3,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
 
-import { calendarMonthSlideValues } from "@/lib/calendar-carousel"
-import { monthDistance, monthValue } from "@/lib/calendar-dates"
-import { loopCarouselSlots } from "@/lib/loop-carousel"
+import { calendarMonthSlideValues } from "@/lib/calendar/carousel"
+import { monthDistance, monthValue } from "@/lib/calendar/dates"
+import { loopCarouselSlots } from "@/lib/calendar/loop-carousel"
 import { useLoopCarousel } from "./use-loop-carousel"
 
 function monthLabel(month: string): string {

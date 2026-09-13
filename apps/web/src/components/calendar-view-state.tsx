@@ -7,8 +7,8 @@ import {
   type ReactNode,
 } from "react"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { moveMonth } from "@/lib/calendar-dates"
-import { resolveCalendarView, saveCalendarView } from "@/lib/calendar-view"
+import { moveMonth } from "@/lib/calendar/dates"
+import { resolveCalendarView, saveCalendarView } from "@/lib/calendar/view"
 import { CalendarViewStateContext } from "./calendar-view-context"
 
 export function CalendarViewStateProvider({

@@ -14,7 +14,7 @@ import {
   reduceLoopCarousel,
   type LoopCarouselEvent,
   type LoopCarouselValues,
-} from "@/lib/loop-carousel"
+} from "@/lib/calendar/loop-carousel"
 
 export function useLoopCarousel<Value extends string>({
   duration = 25,
