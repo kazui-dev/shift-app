@@ -5,6 +5,7 @@ import { chatImageLimits } from "@workspace/shared/communications"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import type { ChatRoom } from "@/api/chat"
+import type { ComposerHandle } from "@/components/chat/composer/form"
 import { ComposerSeat } from "@/components/chat/composer/seat"
 import { DeleteMessageDialog } from "@/components/chat/message/delete-dialog"
 import { MessageActionDrawer } from "@/components/chat/message/action-drawer"
@@ -40,7 +41,7 @@ export function ChatMessages({
   const [deleting, setDeleting] = useState<MessageRow | null>(null)
   const [deletionClosing, setDeletionClosing] = useState(false)
   const [blockedSend, setBlockedSend] = useState(false)
-  const [focusRequest, setFocusRequest] = useState(0)
+  const composer = useRef<ComposerHandle>(null)
   const edit = useMessageEdit(room.id)
   const composerEdit = edit.editing
   const { store, member, ready, queue } = useChatStore(),
@@ -112,11 +113,11 @@ export function ChatMessages({
   // The draft, its images and reply target wait underneath an edit.
   function editMessage(message: MessageRow) {
     edit.start(message)
-    setFocusRequest((request) => request + 1)
+    composer.current?.focus()
   }
   function replyTo(message: MessageRow) {
     edit.cancel()
-    setFocusRequest((request) => request + 1)
+    composer.current?.focus()
     if (message.sequence !== null)
       store.edit(room.id, {
         ...store.draft(room.id),
@@ -272,7 +273,7 @@ export function ChatMessages({
               })
             }}
             onSend={send}
-            focusRequest={focusRequest}
+            handle={composer}
           />
         </div>
       </div>

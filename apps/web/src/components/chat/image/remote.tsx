@@ -27,11 +27,9 @@ export function RemoteImage({
   const [src, setSrc] = useState(() => cachedChatImage(user, roomId, id))
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  // Load two screens ahead, and keep the image shown until six screens away so
-  // scrolling back never finds it blank. Farther images return to the cache.
+  // Start loading two screens ahead. Once shown, an image stays shown and held
+  // until its message leaves the history, so it never blinks back to empty.
   const near = useNearHistory(element, 2)
-  const kept = useNearHistory(element, 6)
-  const wasKept = useRef(false)
   const held = useRef<ReturnType<typeof acquireChatImage> | null>(null)
   useEffect(
     () => () => {
@@ -41,14 +39,6 @@ export function RemoteImage({
     [user, roomId, id, attempt]
   )
   useEffect(() => {
-    if (kept) wasKept.current = true
-    else if (wasKept.current) {
-      wasKept.current = false
-      held.current?.release()
-      held.current = null
-      setSrc(undefined)
-      return
-    }
     // A shown image is held, so the memory cache never revokes its URL.
     if (held.current || (!near && !src)) return
     const image = acquireChatImage(user, roomId, id)
@@ -61,7 +51,7 @@ export function RemoteImage({
       .catch(() => {
         if (held.current === image) setFailed(true)
       })
-  }, [near, kept, src, user, roomId, id, attempt])
+  }, [near, src, user, roomId, id, attempt])
   return (
     <button
       data-page-swipe

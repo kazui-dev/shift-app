@@ -1,3 +1,5 @@
+import type { RefObject } from "react"
+import type { ComposerHandle } from "@/components/chat/composer/form"
 import type { ChatDraft, ChatFile } from "@/lib/chat/store"
 import { ChatComposer } from "@/components/chat/composer/form"
 
@@ -15,7 +17,7 @@ export function ComposerSeat({
   onChange,
   onAddFiles,
   onSend,
-  focusRequest,
+  handle,
 }: {
   roomName: string
   draft: ChatDraft
@@ -26,7 +28,7 @@ export function ComposerSeat({
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
   onSend: () => void
-  focusRequest: number
+  handle: RefObject<ComposerHandle | null>
 }) {
   if (!canPost) return null
   return (
@@ -43,7 +45,7 @@ export function ComposerSeat({
         onChange={onChange}
         onAddFiles={onAddFiles}
         onSend={onSend}
-        focusRequest={focusRequest}
+        handle={handle}
       />
     </div>
   )

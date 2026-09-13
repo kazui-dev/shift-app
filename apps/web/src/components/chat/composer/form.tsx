@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type RefObject,
+} from "react"
 import { SendHorizontal, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
@@ -9,6 +17,8 @@ import { useComposerLayout } from "@/components/chat/composer/use-layout"
 import { canSubmit } from "@/components/chat/composer/send-rule"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
+export type ComposerHandle = { focus: () => void }
+
 export function ChatComposer({
   roomName,
   draft,
@@ -18,7 +28,7 @@ export function ChatComposer({
   onAddFiles,
   onSend,
   editing,
-  focusRequest,
+  handle,
 }: {
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   roomName: string
@@ -28,8 +38,8 @@ export function ChatComposer({
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
   onSend: () => void
-  /** Increments each time the member picks a message to reply to or edit. */
-  focusRequest: number
+  /** Lets the conversation focus the input the moment a reply or edit is chosen. */
+  handle: RefObject<ComposerHandle | null>
 }) {
   const form = useRef<HTMLFormElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -39,11 +49,13 @@ export function ChatComposer({
     draft.content,
     !disabled
   )
-  // Focus follows the member choosing to reply or edit. Ending, cancelling or
-  // restoring a mode leaves focus, and therefore the mobile keyboard, alone.
-  useEffect(() => {
-    if (focusRequest) input.current?.focus({ preventScroll: true })
-  }, [focusRequest, input])
+  // Focus moves only when asked in the same gesture; nothing else here opens or
+  // closes the mobile keyboard.
+  useImperativeHandle(
+    handle,
+    () => ({ focus: () => input.current?.focus({ preventScroll: true }) }),
+    [input]
+  )
   const sendable = canSubmit(draft, editing)
   const mode = editing
     ? {
