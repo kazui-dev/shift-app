@@ -159,6 +159,7 @@ export function ChatMessages({
         <div className="relative min-h-0 flex-1">
           <section
             ref={scroll.viewport}
+            data-chat-history
             onScroll={scroll.onScroll}
             aria-label="メッセージ履歴"
             className="absolute inset-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none]"

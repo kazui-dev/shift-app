@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { getRouteApi } from "@tanstack/react-router"
 import { acquireChatImage } from "@/lib/chat/images"
+import { useNearHistory } from "@/components/chat/message/use-near-history"
 
 export function RemoteImage({
   roomId,
@@ -22,40 +23,38 @@ export function RemoteImage({
   const [src, setSrc] = useState<string>()
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  // Load two screens ahead, and keep the image shown until six screens away so
+  // scrolling back never finds it blank. Farther images return to the cache.
+  const near = useNearHistory(element, 2)
+  const kept = useNearHistory(element, 6)
+  const acquired = useRef<ReturnType<typeof acquireChatImage> | null>(null)
+  useEffect(
+    () => () => {
+      acquired.current?.release()
+      acquired.current = null
+    },
+    [state.member.studentId, roomId, id, attempt]
+  )
   useEffect(() => {
-    const target = element.current
-    if (!target) return undefined
-    let active = true
-    let release: (() => void) | undefined
-    setFailed(false)
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) {
-          release?.()
-          release = undefined
-          setSrc(undefined)
-          return
-        }
-        if (release) return
-        const image = acquireChatImage(state.member.studentId, roomId, id)
-        release = image.release
-        void image.promise
-          .then((url) => {
-            if (active && release === image.release) setSrc(url)
-          })
-          .catch(() => {
-            if (active && release === image.release) setFailed(true)
-          })
-      },
-      { rootMargin: "300px" }
-    )
-    observer.observe(target)
-    return () => {
-      active = false
-      observer.disconnect()
-      release?.()
+    if (!kept) {
+      if (!acquired.current) return
+      acquired.current.release()
+      acquired.current = null
+      setSrc(undefined)
+      return
     }
-  }, [state.member.studentId, roomId, id, attempt])
+    if (!near || acquired.current) return
+    const image = acquireChatImage(state.member.studentId, roomId, id)
+    acquired.current = image
+    setFailed(false)
+    void image.promise
+      .then((url) => {
+        if (acquired.current === image) setSrc(url)
+      })
+      .catch(() => {
+        if (acquired.current === image) setFailed(true)
+      })
+  }, [near, kept, state.member.studentId, roomId, id, attempt])
   return (
     <button
       data-page-swipe

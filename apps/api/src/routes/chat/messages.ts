@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 import * as v from "valibot"
 
 import {
@@ -8,7 +8,9 @@ import {
 
 import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
+import { messageLinks } from "@workspace/shared/messages"
 import { publishChatEvent } from "../../services/chat-directory"
+import { cachedLinkPreview } from "../../services/link-preview"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
 import type { RoomEnv } from "./room"
@@ -37,6 +39,17 @@ const rejectedSend = [
   "MESSAGE_ID_CONFLICT",
   "INVALID_CHAT_REPLY",
 ]
+
+/** Fetch the first link's preview now, so the first reader is served from cache. */
+function warmLinkPreview(c: Context<RoomEnv>, content: string) {
+  const link = messageLinks(content).find((part) => part.href)?.href
+  if (!link) return
+  c.executionCtx.waitUntil(
+    cachedLinkPreview(link, new URL(c.req.url).origin, (work) =>
+      c.executionCtx.waitUntil(work)
+    )
+  )
+}
 
 export const messagesApp = new Hono<RoomEnv>()
 
@@ -124,6 +137,7 @@ messagesApp.post("/messages", async (c) => {
         message: enriched,
       })
     )
+  warmLinkPreview(c, input.output.content)
   return c.json({ message: enriched }, 201)
 })
 
@@ -163,6 +177,7 @@ for (const method of ["patch", "delete"] as const) {
           message,
         })
       )
+    if (content !== undefined && result.changed) warmLinkPreview(c, content)
     return c.json({ message })
   })
 }

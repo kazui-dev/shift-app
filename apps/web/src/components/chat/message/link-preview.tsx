@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
+import { useNearHistory } from "@/components/chat/message/use-near-history"
 import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
 import { messageLinks } from "@workspace/shared/messages"
@@ -38,27 +39,13 @@ function LinkPreview({
   offline: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
-  useEffect(() => {
-    const element = ref.current
-    if (!element) return undefined
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisible(true)
-          observer.disconnect()
-        }
-      },
-      { rootMargin: "200px" }
-    )
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
+  // Fetch two screens ahead. Once fetched, the cached card stays when scrolled away.
+  const near = useNearHistory(ref, 2)
   const query = useQuery({
     queryKey: keys.chatLinkPreview(roomId, messageId, url),
     queryFn: ({ signal }) => getChatLinkPreview(roomId, messageId, signal),
-    enabled: visible && !offline,
+    enabled: near && !offline,
     staleTime: 86400000,
     retry: false,
   })
@@ -90,7 +77,6 @@ function LinkPreview({
               src={chatLinkImageUrl(roomId, messageId)}
               alt=""
               className="h-28 w-28 shrink-0 object-cover"
-              loading="lazy"
               onError={() => setImageFailed(true)}
             />
           )}
