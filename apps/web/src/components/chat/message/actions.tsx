@@ -45,7 +45,7 @@ export function MessageActions({
 }) {
   const mobile = useMediaQuery("(max-width: 767px)")
   const [pressed, setPressed] = useState(false)
-  const root = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLElement>(null)
   const press = useRef<{
     x: number
     y: number
@@ -184,7 +184,7 @@ export function MessageActions({
     }
   }, [available, editing])
   return (
-    <div
+    <article
       ref={root}
       aria-label={`${message.memberDisplayName}のメッセージ`}
       data-message-actions
@@ -255,6 +255,6 @@ export function MessageActions({
           )}
         </div>
       )}
-    </div>
+    </article>
   )
 }

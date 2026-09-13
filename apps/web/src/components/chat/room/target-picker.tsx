@@ -105,7 +105,7 @@ export function TargetPicker({
           ))}
       </ul>
       <div className="space-y-3">
-        <div
+        <fieldset
           aria-label="対象の種類"
           className="flex gap-1 rounded-lg bg-muted/50 p-1"
         >
@@ -123,7 +123,7 @@ export function TargetPicker({
               {group.name}
             </button>
           ))}
-        </div>
+        </fieldset>
         <div className="flex h-9 items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search

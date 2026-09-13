@@ -31,7 +31,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
   const showNow = date === now.date
 
   return (
-    <div
+    <section
       className="grid w-full grid-cols-[max-content_minmax(0,1fr)] gap-x-2"
       aria-label={japanFullDate(date)}
       style={{ height: calendarTimelineHeight }}
@@ -125,6 +125,6 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
           />
         )}
       </div>
-    </div>
+    </section>
   )
 })

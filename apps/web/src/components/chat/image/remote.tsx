@@ -46,7 +46,8 @@ export function RemoteImage({
       type="button"
       aria-label={image.failed && !image.src ? "画像を再読み込み" : alt}
       onClick={() => (image.src ? onOpen() : image.failed && image.retry())}
-      className="size-full overflow-hidden bg-muted/30 text-left"
+      // The frame clips outside the tile, so the focus outline is drawn inside it.
+      className="size-full overflow-hidden bg-muted/30 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
     >
       {image.src ? (
         <img

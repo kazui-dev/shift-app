@@ -45,7 +45,8 @@ export function ThumbnailStrip({
               aria-label={item.name}
               aria-current={thumb === index}
               onClick={() => onSelect(thumb)}
-              className="h-12 shrink-0 overflow-hidden rounded-md bg-white/10 md:h-14"
+              // The strip scrolls and clips, so the focus outline is drawn inside.
+              className="h-12 shrink-0 overflow-hidden rounded-md bg-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white md:h-14"
               style={{
                 width: desktop ? "3.5rem" : `${thumbnailWidth(focus)}rem`,
                 opacity: 0.55 + 0.45 * focus,

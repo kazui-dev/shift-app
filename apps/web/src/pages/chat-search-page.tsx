@@ -82,7 +82,8 @@ function ChatSearch({ roomId }: { roomId: string }) {
       <ResponsivePageBody>
         <div aria-busy={waiting} className="-mt-6">
           {waiting ? (
-            <div aria-label="検索中" className="space-y-6 py-2">
+            <output className="block space-y-6 py-2">
+              <span className="sr-only">検索中</span>
               {[0, 1, 2].map((key) => (
                 <div key={key} className="flex gap-3">
                   <Skeleton className="size-8 shrink-0 rounded-full" />
@@ -93,7 +94,7 @@ function ChatSearch({ roomId }: { roomId: string }) {
                   </div>
                 </div>
               ))}
-            </div>
+            </output>
           ) : (
             !!input.trim() &&
             current &&

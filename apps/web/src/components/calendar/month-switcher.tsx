@@ -54,7 +54,7 @@ export function MonthSwitcher({
       >
         <ChevronLeft />
       </Button>
-      <div
+      <section
         ref={viewportRef}
         className="w-16 touch-pan-y overflow-hidden"
         aria-label="月を切り替え"
@@ -82,7 +82,7 @@ export function MonthSwitcher({
             )
           })}
         </div>
-      </div>
+      </section>
       <input
         ref={pickerRef}
         aria-label="日付を選択"

@@ -202,7 +202,7 @@ export function CalendarWeekHeader({
       className="relative overflow-hidden border-b bg-background"
     >
       <div className="relative mx-4 mb-3 overflow-hidden sm:mx-6">
-        <div
+        <section
           ref={viewportRef}
           className="touch-pan-y overflow-hidden"
           aria-label="週を切り替え"
@@ -226,7 +226,7 @@ export function CalendarWeekHeader({
               )
             })}
           </div>
-        </div>
+        </section>
         <DayProgressOverlay date={date} />
       </div>
     </div>

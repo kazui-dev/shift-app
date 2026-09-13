@@ -86,6 +86,8 @@ export function YearRoleManager({ year }: { year: number }) {
           {query.data?.roles.map((item, index) => (
             <li key={item.id} className="flex items-center">
               <button
+                type="button"
+                aria-current={selected === item.id || undefined}
                 className={`flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-left text-sm ${selected === item.id ? "bg-muted font-medium" : "hover:bg-muted/50"}`}
                 onClick={() => {
                   setSelected(item.id)
