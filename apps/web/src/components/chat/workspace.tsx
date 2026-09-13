@@ -114,6 +114,14 @@ export function ChatWorkspace({
             onMute={mute}
             onSettings={openSettings}
             onAttendance={openAttendance}
+            onSearch={() => {
+              if (room)
+                void navigate({
+                  to: "/chat/$roomId/search",
+                  params: { roomId: room.id },
+                  state: { chatSearch: true },
+                })
+            }}
           />
         }
         members={

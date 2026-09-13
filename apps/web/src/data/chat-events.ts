@@ -14,6 +14,8 @@ export function applyChatEvent(
       "chat-messages",
       "chat-members",
       "chat-settings",
+      "chat-search",
+      "chat-link-preview",
       "chat-image-message",
     ])
       void client.invalidateQueries({ queryKey: [key] })
@@ -31,6 +33,8 @@ export function applyChatEvent(
       "chat-members",
       "chat-settings",
       "chat-messages",
+      "chat-search",
+      "chat-link-preview",
       "chat-image-message",
     ])
       void client.invalidateQueries({ queryKey: [key, id] })
@@ -48,6 +52,7 @@ export function applyChatEvent(
     }))
     return
   }
+  void client.invalidateQueries({ queryKey: ["chat-search", id] })
   const continuous = receiveMessage(
     client,
     id,

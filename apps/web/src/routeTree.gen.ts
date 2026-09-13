@@ -30,6 +30,7 @@ import { Route as AppManageUsersRouteImport } from './routes/_app.manage.users'
 import { Route as AppManageYearsRouteImport } from './routes/_app.manage.years'
 import { Route as AppCalendarCalendarAvailabilityRouteImport } from './routes/_app._calendar.calendar.availability'
 import { Route as AppChatRoomIdInfoRouteImport } from './routes/_app.chat.$roomId.info'
+import { Route as AppChatRoomIdSearchRouteImport } from './routes/_app.chat.$roomId.search'
 import { Route as AppManageShiftsAvailabilityRouteImport } from './routes/_app.manage.shifts.availability'
 import { Route as AppManageShiftsShiftIdRouteImport } from './routes/_app.manage.shifts_.$shiftId'
 import { Route as AppChatRoomIdInfoSettingsRouteImport } from './routes/_app.chat.$roomId.info.settings'
@@ -141,6 +142,11 @@ const AppChatRoomIdInfoRoute = AppChatRoomIdInfoRouteImport.update({
   path: '/info',
   getParentRoute: () => AppChatRoomIdRoute,
 } as any)
+const AppChatRoomIdSearchRoute = AppChatRoomIdSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AppChatRoomIdRoute,
+} as any)
 const AppManageShiftsAvailabilityRoute =
   AppManageShiftsAvailabilityRouteImport.update({
     id: '/availability',
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/manage/': typeof AppManageIndexRoute
   '/calendar/availability': typeof AppCalendarCalendarAvailabilityRoute
   '/chat/$roomId/info': typeof AppChatRoomIdInfoRouteWithChildren
+  '/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
   '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRouteWithChildren
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   '/manage': typeof AppManageIndexRoute
   '/calendar/availability': typeof AppCalendarCalendarAvailabilityRoute
   '/chat/$roomId/info': typeof AppChatRoomIdInfoRouteWithChildren
+  '/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
   '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRouteWithChildren
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
@@ -244,6 +252,7 @@ export interface FileRoutesById {
   '/_app/manage/': typeof AppManageIndexRoute
   '/_app/_calendar/calendar/availability': typeof AppCalendarCalendarAvailabilityRoute
   '/_app/chat/$roomId/info': typeof AppChatRoomIdInfoRouteWithChildren
+  '/_app/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
   '/_app/manage/shifts/availability': typeof AppManageShiftsAvailabilityRouteWithChildren
   '/_app/manage/shifts_/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/_app/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
     | '/manage/'
     | '/calendar/availability'
     | '/chat/$roomId/info'
+    | '/chat/$roomId/search'
     | '/manage/shifts/availability'
     | '/manage/shifts/$shiftId'
     | '/chat/$roomId/info/settings'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/manage'
     | '/calendar/availability'
     | '/chat/$roomId/info'
+    | '/chat/$roomId/search'
     | '/manage/shifts/availability'
     | '/manage/shifts/$shiftId'
     | '/chat/$roomId/info/settings'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/_app/manage/'
     | '/_app/_calendar/calendar/availability'
     | '/_app/chat/$roomId/info'
+    | '/_app/chat/$roomId/search'
     | '/_app/manage/shifts/availability'
     | '/_app/manage/shifts_/$shiftId'
     | '/_app/chat/$roomId/info/settings'
@@ -485,6 +497,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChatRoomIdInfoRouteImport
       parentRoute: typeof AppChatRoomIdRoute
     }
+    '/_app/chat/$roomId/search': {
+      id: '/_app/chat/$roomId/search'
+      path: '/search'
+      fullPath: '/chat/$roomId/search'
+      preLoaderRoute: typeof AppChatRoomIdSearchRouteImport
+      parentRoute: typeof AppChatRoomIdRoute
+    }
     '/_app/manage/shifts/availability': {
       id: '/_app/manage/shifts/availability'
       path: '/availability'
@@ -559,10 +578,12 @@ const AppChatRoomIdInfoRouteWithChildren =
 
 interface AppChatRoomIdRouteChildren {
   AppChatRoomIdInfoRoute: typeof AppChatRoomIdInfoRouteWithChildren
+  AppChatRoomIdSearchRoute: typeof AppChatRoomIdSearchRoute
 }
 
 const AppChatRoomIdRouteChildren: AppChatRoomIdRouteChildren = {
   AppChatRoomIdInfoRoute: AppChatRoomIdInfoRouteWithChildren,
+  AppChatRoomIdSearchRoute: AppChatRoomIdSearchRoute,
 }
 
 const AppChatRoomIdRouteWithChildren = AppChatRoomIdRoute._addFileChildren(

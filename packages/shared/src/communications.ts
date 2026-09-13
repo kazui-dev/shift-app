@@ -246,3 +246,16 @@ export const chatMembersResponseSchema = v.object({
     })
   ),
 })
+
+export { messageLinks } from "./chat-links"
+export const chatLinkPreviewSchema = v.object({
+  preview: v.nullable(
+    v.object({
+      url: v.pipe(v.string(), v.url()),
+      title: v.string(),
+      description: v.string(),
+      site: v.string(),
+      image: v.nullable(v.pipe(v.string(), v.url())),
+    })
+  ),
+})

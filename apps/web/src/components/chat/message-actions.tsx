@@ -150,7 +150,11 @@ export function MessageActions({
       }
     }
     const context = (event: MouseEvent) => {
-      if (!available) return
+      if (
+        !available ||
+        (event.target instanceof Element && event.target.closest("a"))
+      )
+        return
       event.preventDefault()
       cancelPress()
       openActions()
@@ -185,7 +189,7 @@ export function MessageActions({
       data-message-actions
       data-active={opened || menuOpen || pressed || undefined}
       data-editing={editing || undefined}
-      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has([data-message-reply]:focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has([data-message-reply]:hover))]:bg-foreground/5"} ${!editing && (opened || menuOpen || pressed) ? "bg-foreground/5" : ""}`}
+      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has(:is([data-message-reply],a):focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has(:is([data-message-reply],a):hover))]:bg-foreground/5"} ${!editing && (opened || menuOpen || pressed) ? "bg-foreground/5" : ""}`}
     >
       {available && (
         <button

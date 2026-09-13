@@ -75,7 +75,7 @@ export function useReplyTarget(
         void history.query.fetchNextPage().then((result) => {
           if (result.isError) {
             setReplyTarget(null)
-            toast.error("返信先を読み込めませんでした。")
+            toast.error("メッセージを読み込めませんでした。")
           }
         })
       } else {

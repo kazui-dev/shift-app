@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowLeft, Bell, BellOff, Settings } from "lucide-react"
+import { ArrowLeft, Bell, BellOff, Settings, Search } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { ChatRoom } from "@/api/chat"
 
@@ -65,6 +65,7 @@ export function RoomHeader({
   onMute,
   onSettings,
   onAttendance,
+  onSearch,
 }: {
   room: ChatRoom | undefined
   name: string
@@ -74,6 +75,7 @@ export function RoomHeader({
   onMute: () => void
   onSettings: () => void
   onAttendance: () => void
+  onSearch: () => void
 }) {
   return (
     <HeaderRow>
@@ -103,6 +105,15 @@ export function RoomHeader({
           出勤・連絡
         </Button>
       )}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="チャットを検索"
+        disabled={!room || offline}
+        onClick={onSearch}
+      >
+        <Search />
+      </Button>
       {room && (
         <div className="hidden md:block">
           <RoomControls

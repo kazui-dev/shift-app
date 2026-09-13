@@ -1,11 +1,14 @@
+import { MessageText } from "./message-text"
+import { MessageLinkPreview } from "./message-link-preview"
+import { useMessageTarget } from "./use-message-target"
 import { MessageActionDrawer } from "./message-action-drawer"
 import { DeleteMessageDialog } from "./delete-message-dialog"
 import { OfflineSendDialog } from "./offline-send-dialog"
 import { useReplyTarget } from "./use-reply-target"
 import { useMessageEdit } from "./use-message-edit"
 import { MessageActions } from "./message-actions"
-import { useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { ArrowDown } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
@@ -101,6 +104,16 @@ export function ChatMessages({
   )
   const firstUnread = unreadMessage(rows, history.initialRead)
   const setReplyTarget = useReplyTarget(history, scroll, active, offline)
+  const { target, setTarget } = useMessageTarget()
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
+  useEffect(() => {
+    if (target?.roomId === room.id && pathname === `/chat/${room.id}`) {
+      setReplyTarget(target.messageId)
+      setTarget(null)
+    }
+  }, [target, room.id, pathname, setReplyTarget, setTarget])
   function removeMessage(message: MessageRow) {
     setDeletionClosing(false)
     setDeleting(message)
@@ -280,13 +293,21 @@ export function ChatMessages({
                               data-message-body
                               className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
                             >
-                              {message.content}
+                              <MessageText content={message.content} />
                               {message.editedAt && (
                                 <span className="ml-2 text-[10px] text-muted-foreground">
                                   (編集済)
                                 </span>
                               )}
                             </p>
+                          )}
+                          {message.status === "sent" && (
+                            <MessageLinkPreview
+                              roomId={room.id}
+                              messageId={message.id}
+                              content={message.content}
+                              offline={offline}
+                            />
                           )}
                           <MessageImages
                             roomId={room.id}
