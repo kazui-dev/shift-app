@@ -217,6 +217,18 @@ export function ChatComposer({
         data-chat-composer
         aria-label="メッセージを作成"
         data-expanded={expanded}
+        onPointerDown={(event) => {
+          if (
+            disabled ||
+            !event.isPrimary ||
+            event.button !== 0 ||
+            !(event.target instanceof Element) ||
+            event.target.closest("textarea,input,button,a")
+          )
+            return
+          event.preventDefault()
+          input.current?.focus({ preventScroll: true })
+        }}
         onSubmit={(event) => {
           event.preventDefault()
           if (
