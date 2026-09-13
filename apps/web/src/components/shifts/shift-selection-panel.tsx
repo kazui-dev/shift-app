@@ -4,7 +4,11 @@ import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import { Input } from "@workspace/ui/components/input"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
-import { japanDateTime, japanLocalDateTime } from "@workspace/shared/japan-time"
+import {
+  japanDateTime,
+  japanInputValue,
+  japanLocalDateTime,
+} from "@workspace/shared/japan-time"
 import type { EditorData } from "./time-grid"
 
 export type ShiftSelection = {
@@ -12,10 +16,6 @@ export type ShiftSelection = {
   slotId: string | null
   startsAt: string
   endsAt: string
-}
-function local(value: string) {
-  const date = japanDateTime(value)
-  return `${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}`
 }
 export function ShiftSelectionPanel({
   selection,
@@ -103,7 +103,7 @@ export function ShiftSelectionPanel({
             .filter((item) => item.memberId === selection.memberId)
             .map((item) => (
               <p key={item.startsAt}>
-                {local(item.startsAt)}–{local(item.endsAt)}
+                {japanInputValue(item.startsAt)}–{japanInputValue(item.endsAt)}
               </p>
             ))}
           {!data.submittedMemberIds.includes(selection.memberId) && (
@@ -183,14 +183,18 @@ function ShiftTimeRow({
   onApply: (selection: ShiftSelection) => string | null
   onRemove: () => void
 }) {
-  const [from, setFrom] = useState(value.slotId ? local(value.startsAt) : "")
-  const [to, setTo] = useState(value.slotId ? local(value.endsAt) : "")
+  const [from, setFrom] = useState(
+    value.slotId ? japanInputValue(value.startsAt) : ""
+  )
+  const [to, setTo] = useState(
+    value.slotId ? japanInputValue(value.endsAt) : ""
+  )
   function commit() {
     if (!from && !to) return
     if (
       value.slotId &&
-      from === local(value.startsAt) &&
-      to === local(value.endsAt)
+      from === japanInputValue(value.startsAt) &&
+      to === japanInputValue(value.endsAt)
     )
       return
     if (
@@ -229,7 +233,7 @@ function ShiftTimeRow({
         <Input
           aria-label={
             value.slotId
-              ? `${local(value.startsAt)}からのシフトの開始`
+              ? `${japanInputValue(value.startsAt)}からのシフトの開始`
               : "追加するシフトの開始"
           }
           type="text"
@@ -252,7 +256,7 @@ function ShiftTimeRow({
         <Input
           aria-label={
             value.slotId
-              ? `${local(value.startsAt)}からのシフトの終了`
+              ? `${japanInputValue(value.startsAt)}からのシフトの終了`
               : "追加するシフトの終了"
           }
           type="text"
@@ -275,7 +279,7 @@ function ShiftTimeRow({
           size="icon-sm"
           aria-label={
             value.slotId
-              ? `${local(value.startsAt)}–${local(value.endsAt)}のシフトを削除`
+              ? `${japanInputValue(value.startsAt)}–${japanInputValue(value.endsAt)}のシフトを削除`
               : "追加を取り消す"
           }
           disabled={pending}

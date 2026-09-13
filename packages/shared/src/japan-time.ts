@@ -109,3 +109,9 @@ export function japanFullDate(date: string): string {
 export function japanWeekday(date: string): number {
   return new Date(japanDateStart(date) + japanOffsetMilliseconds).getUTCDay()
 }
+
+/** The value a datetime-local input shows for an instant, in Japan time. */
+export function japanInputValue(value: Date | number | string): string {
+  const at = japanDateTime(value)
+  return `${at.date}T${String(at.hour).padStart(2, "0")}:${String(at.minute).padStart(2, "0")}`
+}

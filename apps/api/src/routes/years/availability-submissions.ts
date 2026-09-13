@@ -7,21 +7,13 @@ import {
   groupAvailabilitySubmissions,
   type AvailabilityManagerRow,
 } from "../../domain/year-projections"
-import {
-  type ApiEnv,
-  canManageShifts,
-  parseYear,
-  readJson,
-} from "../../lib/http"
-
-function getYearParam(value: string): number | null {
-  return parseYear(value)
-}
+import { type ApiEnv, parseYear, readJson } from "../../lib/http"
+import { canManageShifts } from "../../services/membership"
 
 export const availabilitySubmissionsApp = new Hono<ApiEnv>()
 
 availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) {
     return apiError(c, errors.yearNotFound)
   }

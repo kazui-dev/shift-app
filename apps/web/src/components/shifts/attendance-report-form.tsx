@@ -1,10 +1,12 @@
 import { useState } from "react"
-import { japanLocalDateTime } from "@workspace/shared/japan-time"
+import {
+  japanInputValue,
+  japanLocalDateTime,
+} from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import type { AttendanceData } from "./attendance-data"
-import { localDateTime } from "./attendance-data"
 
 export function ReportForm({
   report,
@@ -23,7 +25,7 @@ export function ReportForm({
 }) {
   const [kind, setKind] = useState<"late" | "absence">(report?.kind ?? "late")
   const [message, setMessage] = useState(report?.message ?? "")
-  const [eta, setEta] = useState(report?.eta ? localDateTime(report.eta) : "")
+  const [eta, setEta] = useState(report?.eta ? japanInputValue(report.eta) : "")
   return (
     <form
       className="space-y-4"

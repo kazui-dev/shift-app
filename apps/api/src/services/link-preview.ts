@@ -1,6 +1,6 @@
 import * as v from "valibot"
 import { chatLinkPreviewSchema } from "@workspace/shared/communications"
-import { fetchLink, limitedBody, publicLink } from "./link-fetch"
+import { fetchLink, limitedBody, publicLink, urlDigest } from "./link-fetch"
 type Preview = v.InferOutput<typeof chatLinkPreviewSchema>["preview"]
 async function loadLinkPreview(value: string): Promise<Preview> {
   try {
@@ -73,12 +73,8 @@ export async function cachedLinkPreview(
   origin: string,
   waitUntil: (work: Promise<unknown>) => void
 ) {
-  const hash = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(value)
-  )
   const key = new Request(
-    `${origin}/__link-preview/v1/${Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("")}`
+    `${origin}/__link-preview/v1/${await urlDigest(value)}`
   )
   const cache = await caches.open("chat-link-previews")
   const cached = await cache.match(key)

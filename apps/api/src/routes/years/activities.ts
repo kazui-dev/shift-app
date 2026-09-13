@@ -10,22 +10,13 @@ import {
   type ActivityRow,
 } from "../../domain/year-projections"
 import { apiError, errors } from "../../lib/errors"
-import {
-  type ApiEnv,
-  canAccessYear,
-  canManageShifts,
-  parseYear,
-  readJson,
-} from "../../lib/http"
-
-function getYearParam(value: string): number | null {
-  return parseYear(value)
-}
+import { type ApiEnv, parseYear, readJson } from "../../lib/http"
+import { canAccessYear, canManageShifts } from "../../services/membership"
 
 export const yearActivitiesApp = new Hono<ApiEnv>()
 
 yearActivitiesApp.get("/:year/activities", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) {
     return apiError(c, errors.yearNotFound)
   }
@@ -59,7 +50,7 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
 })
 
 yearActivitiesApp.post("/:year/activities", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) {
     return apiError(c, errors.yearNotFound)
   }

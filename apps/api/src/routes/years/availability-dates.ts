@@ -2,12 +2,8 @@ import { Hono } from "hono"
 import * as v from "valibot"
 import { formDateInputSchema } from "@workspace/shared/availability"
 import { apiError, errors } from "../../lib/errors"
-import {
-  type ApiEnv,
-  canManageShifts,
-  parseYear,
-  readJson,
-} from "../../lib/http"
+import { type ApiEnv, parseYear, readJson } from "../../lib/http"
+import { canManageShifts } from "../../services/membership"
 export const availabilityDatesApp = new Hono<ApiEnv>()
 availabilityDatesApp.use("/:year/availability-dates/*", (c, next) =>
   authorize(c, next)

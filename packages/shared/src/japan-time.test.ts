@@ -5,6 +5,7 @@ import {
   japanDateTime,
   japanDateWeekday,
   japanFullDate,
+  japanInputValue,
   japanLocalDateTime,
   japanMonthDay,
   japanMonthDayTime,
@@ -100,6 +101,10 @@ describe("Japan calendar labels", () => {
       expect(japanWeekday("2026-09-19")).toBe(6)
     }
   )
+
+  it("fills a datetime-local input with the Japan wall clock", () => {
+    expect(japanInputValue("2026-09-13T00:05:00.000Z")).toBe("2026-09-13T09:05")
+  })
 
   it("labels dates, numbers and Date values alike", () => {
     const instant = "2026-09-13T00:30:00.000Z"

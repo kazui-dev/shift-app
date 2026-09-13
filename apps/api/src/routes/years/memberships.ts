@@ -7,10 +7,6 @@ import { type ApiEnv, parseYear, toIso } from "../../lib/http"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 
-function getYearParam(value: string): number | null {
-  return parseYear(value)
-}
-
 export const yearMembershipsApp = new Hono<ApiEnv>()
 yearMembershipsApp.use("/:year/memberships/*", async (c, next) => {
   const year = parseYear(c.req.param("year"))
@@ -42,7 +38,7 @@ yearMembershipsApp.use("/:year/memberships", async (c, next) => {
 })
 
 yearMembershipsApp.get("/:year/memberships", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) return apiError(c, errors.yearNotFound)
 
   const operatingYear = await c.env.shift_app
@@ -88,7 +84,7 @@ yearMembershipsApp.get("/:year/memberships", async (c) => {
 })
 
 yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (year === null || !memberId.success)
     return apiError(c, errors.yearMemberNotFound)
@@ -125,7 +121,7 @@ yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
 })
 
 yearMembershipsApp.delete("/:year/memberships/:memberId", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (year === null || !memberId.success)
     return apiError(c, errors.yearMembershipNotFound)
