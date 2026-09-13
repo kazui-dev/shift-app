@@ -235,6 +235,32 @@ it("names sent images, denies reads after deletion and removes their objects and
   expect(bucket.delete).toHaveBeenCalledWith(reserved.objectKey)
   expect(purgeShared).toHaveBeenCalledWith([`chat-image:${reserved.id}`])
 })
+it("keeps images in the order they were sent, not the order they were uploaded", async () => {
+  const { value } = fixture()
+  const upload = async (name: string) => {
+    const reserved = await value.reserveAttachment("room", "author", 1)
+    if (!reserved) throw Error("No reservation")
+    value.finishAttachment(reserved.id, "author", {
+      width: 1,
+      height: 1,
+      bytes: 1,
+      name,
+      type: "image/png",
+    })
+    return reserved.id
+  }
+  // The later image is reserved first, as when its upload starts first.
+  const later = await upload("later.png")
+  const earlier = await upload("earlier.png")
+  const sent = await value.sendMessage({
+    ...input("first"),
+    attachmentIds: [earlier, later],
+  })
+  expect(sent.attachments.map((image) => image.name)).toEqual([
+    "earlier.png",
+    "later.png",
+  ])
+})
 it("limits each member's daily uploads by count and by bytes", async () => {
   const { value } = fixture()
   expect(

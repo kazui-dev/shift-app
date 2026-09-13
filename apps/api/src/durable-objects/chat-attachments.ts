@@ -53,6 +53,12 @@ export class ChatAttachments {
       ALTER TABLE attachments ADD COLUMN type TEXT NOT NULL DEFAULT 'image/webp';
       ALTER TABLE image_upload_limits ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0;`)
   }
+  /** Images keep the order they were sent in, whichever upload finished first. */
+  keepSentOrder() {
+    this.storage.sql.exec(
+      "ALTER TABLE attachments ADD COLUMN position INTEGER NOT NULL DEFAULT 0;"
+    )
+  }
   async reserve(roomId: string, memberId: string, bytes: number) {
     const now = Date.now(),
       since = now - expiry
@@ -110,7 +116,7 @@ export class ChatAttachments {
   claim(ids: string[], memberId: string, messageId: string) {
     if (new Set(ids).size !== ids.length)
       throw new Error("INVALID_CHAT_ATTACHMENTS")
-    for (const id of ids) {
+    ids.forEach((id, position) => {
       const row = this.storage.sql
         .exec<AttachmentRow>(`${selection} WHERE id=?`, id)
         .toArray()[0]
@@ -123,16 +129,17 @@ export class ChatAttachments {
       )
         throw new Error("INVALID_CHAT_ATTACHMENTS")
       this.storage.sql.exec(
-        "UPDATE attachments SET message_id=? WHERE id=?",
+        "UPDATE attachments SET message_id=?,position=? WHERE id=?",
         messageId,
+        position,
         id
       )
-    }
+    })
   }
   forMessage(messageId: string): ChatAttachment[] {
     return this.storage.sql
       .exec<StoredAttachment & { id: string; sentAt: number }>(
-        `${sent} WHERE a.message_id=? AND a.ready=1 ORDER BY a.rowid`,
+        `${sent} WHERE a.message_id=? AND a.ready=1 ORDER BY a.position`,
         messageId
       )
       .toArray()

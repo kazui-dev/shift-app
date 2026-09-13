@@ -112,6 +112,13 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
           "INSERT INTO _sql_schema_migrations(id) VALUES(4)"
         )
       })
+    if (version < 5)
+      this.ctx.storage.transactionSync(() => {
+        this.attachments.keepSentOrder()
+        this.ctx.storage.sql.exec(
+          "INSERT INTO _sql_schema_migrations(id) VALUES(5)"
+        )
+      })
   }
 
   private findMessage(id: string) {
