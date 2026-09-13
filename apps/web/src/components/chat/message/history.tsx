@@ -149,7 +149,7 @@ export function ChatMessages({
   const composerSpacing = !room.canPost
     ? "[--composer-overlap:0px]"
     : composerDraft.files.length
-      ? "[--composer-backdrop:0.5rem] [--composer-overlap:calc(var(--composer-backdrop)+1.5rem)]"
+      ? "[--composer-backdrop:-0.5rem] [--composer-overlap:calc(var(--composer-backdrop)+1.5rem)]"
       : "[--composer-backdrop:0.0625rem] [--composer-overlap:calc(var(--composer-backdrop)+1.5rem)]"
   return (
     <>
