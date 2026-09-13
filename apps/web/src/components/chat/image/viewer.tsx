@@ -437,9 +437,7 @@ export function ImageViewer({
                       aria-label={`画像${thumb + 1}を表示`}
                       aria-current={thumb === index}
                       onClick={() => carousel?.scrollTo(thumb)}
-                      // Isolated and rounded twice: a clip on the button alone can
-                      // drop its corners while the width animates.
-                      className="isolate h-12 shrink-0 overflow-hidden rounded-md bg-white/10 md:h-14"
+                      className="h-12 shrink-0 overflow-hidden rounded-md bg-white/10 md:h-14"
                       style={{
                         width: desktop
                           ? "3.5rem"
@@ -452,7 +450,7 @@ export function ImageViewer({
                           src={item.thumb}
                           alt=""
                           draggable={false}
-                          className="size-full rounded-[inherit] object-cover"
+                          className="size-full object-cover"
                         />
                       )}
                     </button>
