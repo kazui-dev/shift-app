@@ -1,29 +1,22 @@
 import { attendanceQuery } from "@/data/attendance"
+import type { AttendanceData } from "./attendance-data"
+import { AttendanceCorrection } from "./attendance-correction"
+import { AttendanceHistory, ReportHistory } from "./attendance-history"
+import { ReportForm } from "./attendance-report-form"
 import { keys } from "@/data/keys"
-import { japanMonthDayTime, japanTime } from "@workspace/shared/japan-time"
+import { japanTime } from "@workspace/shared/japan-time"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Textarea } from "@workspace/ui/components/textarea"
 import { toast } from "@workspace/ui/lib/toast"
 import {
-  getAttendanceEvents,
   correctAttendance,
-  getReportEvents,
-  getShiftAttendance,
   submitAssignmentReport,
   updateReportState,
 } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { japanDateTime, japanLocalDateTime } from "@workspace/shared/japan-time"
 
-type Data = Awaited<ReturnType<typeof getShiftAttendance>>
-function local(value: string) {
-  const d = japanDateTime(value)
-  return `${d.date}T${String(d.hour).padStart(2, "0")}:${String(d.minute).padStart(2, "0")}`
-}
 export function ShiftAttendance({
   activityId,
   selectedAssignment,
@@ -42,7 +35,7 @@ export function ShiftAttendance({
     selectedAssignment ?? null
   )
   const [correcting, setCorrecting] = useState<
-    Data["assignments"][number] | null
+    AttendanceData["assignments"][number] | null
   >(null)
   const [attendanceHistory, setAttendanceHistory] = useState<string | null>(
     null
@@ -243,226 +236,6 @@ export function ShiftAttendance({
       {history && (
         <ReportHistory id={history} onClose={() => setHistory(null)} />
       )}
-    </ResponsiveDialog>
-  )
-}
-function ReportForm({
-  report,
-  pending,
-  onSubmit,
-  onCancel,
-}: {
-  report?: Data["reports"][number] | undefined
-  pending: boolean
-  onSubmit: (input: {
-    kind: "late" | "absence"
-    message: string
-    eta: string | null
-  }) => void
-  onCancel: () => void
-}) {
-  const [kind, setKind] = useState<"late" | "absence">(report?.kind ?? "late")
-  const [message, setMessage] = useState(report?.message ?? "")
-  const [eta, setEta] = useState(report?.eta ? local(report.eta) : "")
-  return (
-    <form
-      className="space-y-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit({
-          kind,
-          message,
-          eta:
-            kind === "late" && eta
-              ? new Date(japanLocalDateTime(eta)).toISOString()
-              : null,
-        })
-      }}
-    >
-      <div className="flex gap-2">
-        {(["late", "absence"] as const).map((k) => (
-          <Button
-            key={k}
-            type="button"
-            variant={kind === k ? "default" : "outline"}
-            onClick={() => setKind(k)}
-          >
-            {k === "late" ? "遅刻" : "欠勤"}
-          </Button>
-        ))}
-      </div>
-      {kind === "late" && (
-        <label htmlFor="report-eta" className="block space-y-2 text-sm">
-          到着見込み（未定なら空欄）
-          <Input
-            id="report-eta"
-            type="datetime-local"
-            value={eta}
-            onChange={(e) => setEta(e.target.value)}
-          />
-        </label>
-      )}
-      <label htmlFor="report-message" className="block space-y-2 text-sm">
-        理由
-        <Textarea
-          id="report-message"
-          required
-          maxLength={1000}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-      </label>
-      <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel}>
-          戻る
-        </Button>
-        <Button disabled={pending || !message.trim()}>送信</Button>
-      </div>
-    </form>
-  )
-}
-function AttendanceCorrection({
-  assignment,
-  pending,
-  onSubmit,
-  onCancel,
-}: {
-  assignment: Data["assignments"][number]
-  pending: boolean
-  onSubmit: (at: string, reason: string) => void
-  onCancel: () => void
-}) {
-  const [at, setAt] = useState(
-    local(assignment.checkedInAt ?? new Date().toISOString())
-  )
-  const [reason, setReason] = useState("")
-  return (
-    <ResponsiveDialog
-      open
-      title="出勤を確認・修正"
-      onOpenChange={(open) => {
-        if (!open) onCancel()
-      }}
-    >
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSubmit(new Date(japanLocalDateTime(at)).toISOString(), reason)
-        }}
-      >
-        <label htmlFor="attendance-time" className="block space-y-2 text-sm">
-          出勤時刻
-          <Input
-            id="attendance-time"
-            type="datetime-local"
-            required
-            value={at}
-            onChange={(e) => setAt(e.target.value)}
-          />
-        </label>
-        <label htmlFor="attendance-reason" className="block space-y-2 text-sm">
-          確認・修正の理由
-          <Textarea
-            id="attendance-reason"
-            required
-            maxLength={1000}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </label>
-        <Button disabled={pending || !reason.trim()}>記録</Button>
-      </form>
-    </ResponsiveDialog>
-  )
-}
-function ReportHistory({ id, onClose }: { id: string; onClose: () => void }) {
-  const query = useQuery({
-    queryKey: keys.reportEvents(id),
-    queryFn: () => getReportEvents(id),
-  })
-  return (
-    <ResponsiveDialog
-      open
-      title="連絡の履歴"
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <ul className="space-y-4">
-        {query.data?.events.map((e) => (
-          <li key={e.id} className="text-sm">
-            <p>
-              {e.actor} ·{" "}
-              {e.action === "submitted"
-                ? "送信・修正"
-                : e.action === "resolved"
-                  ? "確認"
-                  : "取り消し"}{" "}
-              · {japanTime(e.createdAt)}
-            </p>
-            <HistoryDetails details={e.details} />
-          </li>
-        ))}
-      </ul>
-    </ResponsiveDialog>
-  )
-}
-function HistoryDetails({ details }: { details: string }) {
-  try {
-    const value: unknown = JSON.parse(details)
-    return typeof value === "object" &&
-      value !== null &&
-      "message" in value &&
-      typeof value.message === "string" ? (
-      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-        {value.message}
-      </p>
-    ) : null
-  } catch {
-    return null
-  }
-}
-
-function AttendanceHistory({
-  id,
-  onClose,
-}: {
-  id: string
-  onClose: () => void
-}) {
-  const query = useQuery({
-    queryKey: keys.attendanceEvents(id),
-    queryFn: () => getAttendanceEvents(id),
-  })
-  return (
-    <ResponsiveDialog
-      open
-      title="出勤の修正履歴"
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      {query.isPending && (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      )}
-      {query.data?.events.length === 0 && (
-        <p className="text-sm text-muted-foreground">修正履歴はありません。</p>
-      )}
-      <ul className="divide-y">
-        {query.data?.events.map((event) => (
-          <li key={event.id} className="space-y-1 py-3 text-sm">
-            <p>
-              {event.before ? japanTime(event.before) : "記録なし"} →{" "}
-              {japanTime(event.after)}
-            </p>
-            <p>{event.reason}</p>
-            <p className="text-xs text-muted-foreground">
-              {event.actor} · {japanMonthDayTime(event.createdAt)}
-            </p>
-          </li>
-        ))}
-      </ul>
     </ResponsiveDialog>
   )
 }

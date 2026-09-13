@@ -2,10 +2,9 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
 import { SendHorizontal, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
-import { toast } from "@workspace/ui/lib/toast"
-import { chatImageLimits } from "@workspace/shared/communications"
 import type { ChatDraft, ChatFile } from "@/lib/chat-store"
-import { LocalImage } from "./images"
+import { attachImages } from "./attach-images"
+import { ComposerAttachments } from "./composer-attachments"
 import { useComposerLayout } from "./use-composer-layout"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
@@ -96,46 +95,7 @@ export function ChatComposer({
   }, [finishPicking])
   async function addFiles(incoming: File[]) {
     if (editing) return
-    if (incoming.length + draft.files.length > chatImageLimits.count) {
-      toast.error("添付できる画像は10枚までです。")
-      return
-    }
-    const accepted: ChatFile[] = []
-    for (const file of incoming) {
-      if (
-        !/^image\/(jpeg|png|webp|heic|heif|avif)$/.test(file.type) &&
-        !/\.(heic|heif)$/i.test(file.name)
-      ) {
-        toast.error("写真・画像を選択してください。")
-        continue
-      }
-      if (file.size > chatImageLimits.bytes) {
-        toast.error("画像は1枚10MBまでです。")
-        continue
-      }
-      accepted.push({ id: crypto.randomUUID(), name: file.name, blob: file })
-    }
-    const readable = await Promise.all(
-      accepted.map(async (selected) => {
-        try {
-          selected.blob = new Blob([await selected.blob.arrayBuffer()], {
-            type: selected.blob.type,
-          })
-        } catch {
-          toast.error("画像を読み込めませんでした。もう一度選択してください。")
-          return null
-        }
-        try {
-          const bitmap = await createImageBitmap(selected.blob)
-          selected.dimensions = { width: bitmap.width, height: bitmap.height }
-          bitmap.close()
-        } catch {
-          // HEIC can still be decoded by the upload service.
-        }
-        return selected
-      })
-    )
-    const files = readable.filter((file) => file !== null)
+    const files = await attachImages(incoming, draft.files.length)
     if (files.length) onAddFiles(files)
   }
   const receiveDrop = useEffectEvent((event: DragEvent) => {
@@ -174,44 +134,15 @@ export function ChatComposer({
   }, [])
   return (
     <div className="min-w-0">
-      {draft.files.length > 0 && (
-        <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-30%">
-          <ul
-            data-horizontal-scroll
-            className="flex max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
-            aria-label="添付する画像"
-          >
-            {draft.files.map((file) => (
-              <li
-                key={file.id}
-                className="relative size-20 shrink-0 overflow-hidden rounded-xl"
-              >
-                <LocalImage
-                  blob={file.blob}
-                  alt={file.name}
-                  className="size-full object-cover"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon-xs"
-                  className="absolute top-1 right-1 rounded-full"
-                  aria-label={`${file.name}を外す`}
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() =>
-                    onChange({
-                      ...draft,
-                      files: draft.files.filter((item) => item.id !== file.id),
-                    })
-                  }
-                >
-                  <X />
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ComposerAttachments
+        files={draft.files}
+        onRemove={(id) =>
+          onChange({
+            ...draft,
+            files: draft.files.filter((item) => item.id !== id),
+          })
+        }
+      />
       <form
         ref={form}
         data-chat-composer

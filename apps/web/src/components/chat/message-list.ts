@@ -1,5 +1,6 @@
 import type * as v from "valibot"
 import type { chatMessageResponseSchema } from "@workspace/shared/communications"
+import { japanDateWeekday } from "@workspace/shared/japan-time"
 import type { ChatFile, QueuedMessage } from "@/lib/chat-store"
 
 type Message = v.InferOutput<typeof chatMessageResponseSchema>
@@ -51,4 +52,27 @@ export function unreadMessage(rows: MessageRow[], lastRead: number) {
         (message) => message.sequence !== null && message.sequence > lastRead
       )
     : undefined
+}
+
+/** Consecutive messages from one member within five minutes read as one block. */
+export function groupedWithPrevious(
+  message: MessageRow,
+  previous: MessageRow | undefined,
+  unread: boolean
+) {
+  const newDay =
+    !previous ||
+    japanDateWeekday(previous.createdAt) !== japanDateWeekday(message.createdAt)
+  return {
+    newDay,
+    grouped:
+      !!previous &&
+      previous.memberId === message.memberId &&
+      !newDay &&
+      !unread &&
+      !message.reply &&
+      !message.deleted &&
+      !previous.deleted &&
+      Date.parse(message.createdAt) - Date.parse(previous.createdAt) < 300_000,
+  }
 }

@@ -1,4 +1,3 @@
-import { mergePlan } from "./merge-plan"
 import { keys } from "@/data/keys"
 import { japanDateWeekday } from "@workspace/shared/japan-time"
 import { ShiftConflicts } from "./shift-conflicts"
@@ -6,10 +5,8 @@ import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Settings2, MoreHorizontal } from "lucide-react"
-import type { ActivityEditorInput } from "@workspace/shared/shifts"
+import { MoreHorizontal } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import {
   getActivity,
@@ -20,10 +17,11 @@ import {
 } from "@/api/activities"
 import { ApiError, errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { SelectField } from "@/components/select-field"
-import { japanDateTime, japanLocalDateTime } from "@workspace/shared/japan-time"
-import { change, undo, redo, type EditHistory } from "./editor-history"
+import { assignMember } from "./assign-member"
+import { ShiftActionsDialog } from "./shift-actions-dialog"
+import { ShiftFiltersDialog, type MemberFilters } from "./shift-filters-dialog"
+import { ShiftSettings } from "./shift-settings-dialog"
+import { planOf, useShiftPlan } from "./use-shift-plan"
 import { TimeGrid, type EditorData } from "./time-grid"
 import {
   ShiftSelectionPanel,
@@ -32,18 +30,6 @@ import {
 
 import { ResponsivePageHeader } from "@workspace/ui/components/responsive-page"
 
-function local(value: string) {
-  const date = japanDateTime(value)
-  return `${date.date}T${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}`
-}
-function initial(data: EditorData): ActivityEditorInput {
-  return {
-    ...data.activity,
-    slots: data.slots,
-    candidateRoleIds: data.candidateRoleIds,
-    responsibles: data.responsibles,
-  }
-}
 export function ShiftEditor({
   data: source,
   onStatusChange,
@@ -55,32 +41,28 @@ export function ShiftEditor({
   const navigate = useNavigate()
   const [actions, setActions] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [search, setSearch] = useState("")
-  const [includeUnavailable, setIncludeUnavailable] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [copyDate, setCopyDate] = useState("")
-  const [history, setHistory] = useState<EditHistory<ActivityEditorInput>>(
-    () => ({ past: [], present: initial(source), future: [] })
-  )
-  const [saved, setSaved] = useState(() => JSON.stringify(initial(source)))
-  const [base, setBase] = useState(() => initial(source))
   const [latest, setLatest] = useState<EditorData | null>(null)
   const [conflicted, setConflicted] = useState(false)
-  const [version, setVersion] = useState(source.activity.version)
   const [selection, setSelection] = useState<ShiftSelection | null>(null)
-  const [role, setRole] = useState(
-    source.candidateRoleIds.length === 1
-      ? (source.candidateRoleIds[0] ?? "")
-      : source.candidateRoleIds.length > 1
-        ? "candidates"
-        : ""
-  )
+  const [filters, setFilters] = useState<MemberFilters>({
+    search: "",
+    includeUnavailable: false,
+    role:
+      source.candidateRoleIds.length === 1
+        ? (source.candidateRoleIds[0] ?? "")
+        : source.candidateRoleIds.length > 1
+          ? "candidates"
+          : "",
+  })
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [settings, setSettings] = useState(false)
   const [pending, setPending] = useState(false)
   const [warning, setWarning] = useState(false)
-  const plan = history.present,
-    dirty = JSON.stringify(plan) !== saved
+  const { plan, base, version, dirty, update, confirm, rebase } = useShiftPlan(
+    source,
+    pending
+  )
   useEffect(
     () => onStatusChange({ dirty, pending }),
     [dirty, pending, onStatusChange]
@@ -93,85 +75,11 @@ export function ShiftEditor({
         Date.parse(window.endsAt) > Date.parse(plan.startsAt)
     ),
   }
-  function update(value: ActivityEditorInput) {
-    setHistory((current) => change(current, value))
-  }
-  useEffect(() => {
-    function key(event: KeyboardEvent) {
-      if (
-        pending ||
-        !(event.ctrlKey || event.metaKey) ||
-        event.key.toLowerCase() !== "z"
-      )
-        return
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.closest("input,textarea,select") || target.isContentEditable)
-      )
-        return
-      event.preventDefault()
-      setHistory((current) => (event.shiftKey ? redo(current) : undo(current)))
-    }
-    window.addEventListener("keydown", key)
-    return () => window.removeEventListener("keydown", key)
-  }, [pending])
   function applySelection(value: ShiftSelection): string | null {
-    const start = Date.parse(value.startsAt),
-      end = Date.parse(value.endsAt)
-    if (start < Date.parse(plan.startsAt) || end > Date.parse(plan.endsAt))
-      return "シフトの開始・終了の範囲内で指定してください。"
-    if (
-      data.otherAssignments.some(
-        (item) =>
-          item.memberId === value.memberId &&
-          Date.parse(item.startsAt) < end &&
-          Date.parse(item.endsAt) > start
-      ) ||
-      plan.slots.some(
-        (slot) =>
-          slot.id !== value.slotId &&
-          slot.memberIds.includes(value.memberId) &&
-          Date.parse(slot.startsAt) < end &&
-          Date.parse(slot.endsAt) > start
-      )
-    )
-      return "この時間には別のシフトがあります。"
-    const original = plan.slots.find((slot) => slot.id === value.slotId)
-    const destination = plan.slots.find(
-      (slot) => slot.startsAt === value.startsAt && slot.endsAt === value.endsAt
-    )
-    const id =
-      destination?.id ??
-      (original?.memberIds.length === 1 ? original.id : crypto.randomUUID())
-    const slots = plan.slots
-      .map((slot) => ({
-        ...slot,
-        memberIds:
-          slot.id === value.slotId
-            ? slot.memberIds.filter((member) => member !== value.memberId)
-            : slot.memberIds,
-      }))
-      .filter((slot) => slot.id !== id)
-    slots.push({
-      id,
-      startsAt: value.startsAt,
-      endsAt: value.endsAt,
-      capacity: destination?.capacity ?? original?.capacity ?? null,
-      memberIds: [
-        ...new Set([
-          ...(destination?.memberIds ?? []).filter(
-            (member) => member !== value.memberId
-          ),
-          value.memberId,
-        ]),
-      ],
-    })
-    update({
-      ...plan,
-      slots: slots.sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
-    })
-    setSelection({ ...value, slotId: id })
+    const result = assignMember(plan, value, data.otherAssignments)
+    if ("error" in result) return result.error
+    update({ ...plan, slots: result.slots })
+    setSelection({ ...value, slotId: result.slotId })
     return null
   }
   async function save(confirmed = false) {
@@ -193,10 +101,8 @@ export function ShiftEditor({
     setPending(true)
     try {
       const result = await saveActivity(data.activity.id, { ...plan, version })
-      client.setQueryData(["activity-editor", data.activity.id], result)
-      setVersion(result.activity.version)
-      setSaved(JSON.stringify(plan))
-      setBase({ ...plan, version: result.activity.version })
+      client.setQueryData(keys.activityEditor(data.activity.id), result)
+      confirm(plan, result.activity.version)
       setConflicted(false)
       void Promise.all([
         client.invalidateQueries({
@@ -304,9 +210,9 @@ export function ShiftEditor({
             <TimeGrid
               data={data}
               plan={plan}
-              role={role}
-              search={search}
-              includeUnavailable={includeUnavailable}
+              role={filters.role}
+              search={filters.search}
+              includeUnavailable={filters.includeUnavailable}
               selection={selection}
               onSelect={setSelection}
               onCommit={(value) => {
@@ -355,146 +261,48 @@ export function ShiftEditor({
         </div>
       </div>
       {filtersOpen && (
-        <ResponsiveDialog
-          open
-          title="メンバーを絞り込む"
-          onOpenChange={setFiltersOpen}
-        >
-          <div className="space-y-4">
-            <label htmlFor="member-search" className="block space-y-2 text-sm">
-              名前・学番
-              <Input
-                id="member-search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-            <label htmlFor="shift-role" className="block space-y-2 text-sm">
-              ロール
-              <SelectField
-                id="shift-role"
-                value={role}
-                onValueChange={(value) => setRole(value)}
-                options={[
-                  { value: "", label: "すべて" },
-                  ...(plan.candidateRoleIds.length > 1
-                    ? [{ value: "candidates", label: "シフトに設定したロール" }]
-                    : []),
-                  ...data.roles.map((item) => ({
-                    value: item.id,
-                    label: item.name,
-                  })),
-                ]}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={includeUnavailable}
-                onChange={(event) =>
-                  setIncludeUnavailable(event.target.checked)
-                }
-              />
-              参加不可・未回答のメンバーも表示
-            </label>
-            <div className="flex justify-between">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setRole("")
-                  setSearch("")
-                  setIncludeUnavailable(true)
-                }}
-              >
-                解除
-              </Button>
-              <Button onClick={() => setFiltersOpen(false)}>表示する</Button>
-            </div>
-          </div>
-        </ResponsiveDialog>
+        <ShiftFiltersDialog
+          filters={filters}
+          plan={plan}
+          roles={data.roles}
+          onChange={setFilters}
+          onClose={() => setFiltersOpen(false)}
+        />
       )}
       {actions && (
-        <ResponsiveDialog
-          open
-          title="シフトの操作"
-          onOpenChange={(open) => {
-            if (!open) setActions(false)
+        <ShiftActionsDialog
+          dirty={dirty}
+          pending={pending}
+          active={plan.active}
+          onClose={() => setActions(false)}
+          onSettings={() => {
+            setActions(false)
+            setSettings(true)
           }}
-        >
-          <div className="space-y-5">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setActions(false)
-                  setSettings(true)
-                }}
-              >
-                <Settings2 />
-                シフトの設定
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setActions(false)
-                  setAttendanceOpen(true)
-                }}
-              >
-                出勤・連絡
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              disabled={pending || dirty || !plan.active}
-              onClick={() =>
-                void action(async () => {
-                  await notifyActivity(data.activity.id)
-                  toast.success("更新を通知しました。")
-                })
-              }
-            >
-              更新を通知する
-            </Button>
-            {dirty && (
-              <p className="text-xs text-muted-foreground">
-                通知・複製の前に変更を保存してください。
-              </p>
-            )}
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                void action(async () => {
-                  const copy = await copyActivity(data.activity.id, copyDate)
-                  await navigate({
-                    to: "/manage/shifts/$shiftId",
-                    params: { shiftId: copy.id },
-                  })
-                })
-              }}
-            >
-              <Input
-                type="date"
-                aria-label="複製先の日付"
-                required
-                value={copyDate}
-                onChange={(e) => setCopyDate(e.target.value)}
-              />
-              <Button disabled={pending || dirty || !copyDate}>複製</Button>
-            </form>
-            <Button
-              variant="ghost"
-              className="text-destructive"
-              disabled={pending || dirty}
-              onClick={() => {
-                setActions(false)
-                setDeleting(true)
-              }}
-            >
-              シフトを削除
-            </Button>
-          </div>
-        </ResponsiveDialog>
+          onAttendance={() => {
+            setActions(false)
+            setAttendanceOpen(true)
+          }}
+          onNotify={() =>
+            void action(async () => {
+              await notifyActivity(data.activity.id)
+              toast.success("更新を通知しました。")
+            })
+          }
+          onCopy={(date) =>
+            void action(async () => {
+              const copy = await copyActivity(data.activity.id, date)
+              await navigate({
+                to: "/manage/shifts/$shiftId",
+                params: { shiftId: copy.id },
+              })
+            })
+          }
+          onDelete={() => {
+            setActions(false)
+            setDeleting(true)
+          }}
+        />
       )}
       {deleting && (
         <ConfirmDialog
@@ -515,22 +323,11 @@ export function ShiftEditor({
           base={base}
           data={latest}
           local={plan}
-          latest={initial(latest)}
+          latest={planOf(latest)}
           onClose={() => setLatest(null)}
           onMerge={(merged) => {
-            client.setQueryData(["activity-editor", data.activity.id], latest)
-            setVersion(latest.activity.version)
-            setBase(initial(latest))
-            setSaved(JSON.stringify(initial(latest)))
-            setHistory((current) => ({
-              past: current.past.map(
-                (item) => mergePlan(base, item, initial(latest)).plan
-              ),
-              present: merged,
-              future: current.future.map(
-                (item) => mergePlan(base, item, initial(latest)).plan
-              ),
-            }))
+            client.setQueryData(keys.activityEditor(data.activity.id), latest)
+            rebase(latest, merged)
             setLatest(null)
             setConflicted(false)
           }}
@@ -565,191 +362,5 @@ export function ShiftEditor({
         />
       )}
     </>
-  )
-}
-function ShiftSettings({
-  plan,
-  data,
-  onSave,
-  onClose,
-}: {
-  plan: ActivityEditorInput
-  data: EditorData
-  onSave: (plan: ActivityEditorInput) => void
-  onClose: () => void
-}) {
-  const [value, setValue] = useState(plan)
-  return (
-    <ResponsiveDialog
-      open
-      title="シフトの設定"
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <form
-        className="space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onSave(value)
-        }}
-      >
-        <label htmlFor="shift-name" className="block space-y-2 text-sm">
-          名前
-          <Input
-            id="shift-name"
-            required
-            value={value.name}
-            onChange={(event) =>
-              setValue({ ...value, name: event.target.value })
-            }
-          />
-        </label>
-        <label htmlFor="shift-place" className="block space-y-2 text-sm">
-          場所
-          <Input
-            id="shift-place"
-            required
-            value={value.place}
-            onChange={(event) =>
-              setValue({ ...value, place: event.target.value })
-            }
-          />
-        </label>
-        <label htmlFor="shift-start" className="block space-y-2 text-sm">
-          開始
-          <Input
-            id="shift-start"
-            type="datetime-local"
-            required
-            value={local(value.startsAt)}
-            onChange={(e) => {
-              const at = japanLocalDateTime(e.target.value)
-              if (Number.isFinite(at))
-                setValue({ ...value, startsAt: new Date(at).toISOString() })
-            }}
-          />
-        </label>
-        <label htmlFor="shift-end" className="block space-y-2 text-sm">
-          終了
-          <Input
-            id="shift-end"
-            type="datetime-local"
-            required
-            value={local(value.endsAt)}
-            onChange={(e) => {
-              const at = japanLocalDateTime(e.target.value)
-              if (Number.isFinite(at))
-                setValue({ ...value, endsAt: new Date(at).toISOString() })
-            }}
-          />
-        </label>
-        <label
-          htmlFor="shift-color"
-          className="flex items-center justify-between text-sm"
-        >
-          色
-          <Input
-            id="shift-color"
-            type="color"
-            className="w-12 p-1"
-            value={value.color}
-            onChange={(e) => setValue({ ...value, color: e.target.value })}
-          />
-        </label>
-        <label htmlFor="shift-notes" className="block space-y-2 text-sm">
-          備考
-          <Input
-            id="shift-notes"
-            value={value.notes ?? ""}
-            onChange={(e) =>
-              setValue({ ...value, notes: e.target.value || null })
-            }
-          />
-        </label>
-        <fieldset>
-          <legend className="mb-2 text-sm">対象のロール</legend>
-          {data.roles.map((role) => (
-            <label
-              key={role.id}
-              className="flex min-h-10 items-center gap-3 text-sm"
-            >
-              <input
-                type="checkbox"
-                checked={value.candidateRoleIds.includes(role.id)}
-                onChange={(e) =>
-                  setValue({
-                    ...value,
-                    candidateRoleIds: e.target.checked
-                      ? [...value.candidateRoleIds, role.id]
-                      : value.candidateRoleIds.filter((id) => id !== role.id),
-                  })
-                }
-              />
-              {role.name}
-            </label>
-          ))}
-        </fieldset>
-        <label className="flex items-center justify-between text-sm">
-          有効
-          <input
-            type="checkbox"
-            checked={value.active}
-            onChange={(event) =>
-              setValue({ ...value, active: event.target.checked })
-            }
-          />
-        </label>
-        <fieldset className="max-h-60 overflow-auto">
-          <legend className="mb-2 text-sm">責任者</legend>
-          {[
-            ...data.roles.map((role) => ({
-              targetType: "role" as const,
-              targetId: role.id,
-              name: role.name,
-            })),
-            ...data.members.map((member) => ({
-              targetType: "member" as const,
-              targetId: member.id,
-              name: member.displayName,
-            })),
-          ].map((target) => (
-            <label
-              key={`${target.targetType}-${target.targetId}`}
-              className="flex min-h-10 items-center gap-3 text-sm"
-            >
-              <input
-                type="checkbox"
-                checked={value.responsibles.some(
-                  (item) =>
-                    item.targetType === target.targetType &&
-                    item.targetId === target.targetId
-                )}
-                onChange={(event) =>
-                  setValue({
-                    ...value,
-                    responsibles: event.target.checked
-                      ? [
-                          ...value.responsibles,
-                          {
-                            targetType: target.targetType,
-                            targetId: target.targetId,
-                          },
-                        ]
-                      : value.responsibles.filter(
-                          (item) =>
-                            item.targetType !== target.targetType ||
-                            item.targetId !== target.targetId
-                        ),
-                  })
-                }
-              />
-              {target.name}
-            </label>
-          ))}
-        </fieldset>
-        <Button type="submit">適用</Button>
-      </form>
-    </ResponsiveDialog>
   )
 }
