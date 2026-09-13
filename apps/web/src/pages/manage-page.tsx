@@ -66,14 +66,6 @@ export function ManagePage({ view }: { view: ManageView }) {
   const year = years.year
   const setSelectedYear = years.selectYear
 
-  if (view === "home" && !years.isPending && year === null && !systemAdmin) {
-    return (
-      <section className="w-full min-w-0 space-y-6 py-6">
-        <EmptyState>管理できる年度がありません</EmptyState>
-      </section>
-    )
-  }
-
   if (view === "home") {
     const shiftItems = [
       {
