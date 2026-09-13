@@ -3,7 +3,6 @@ import type {
   ChatTargetOption,
 } from "@workspace/shared/communications"
 import {
-  chatLinkPreviewSchema,
   chatMessageEnvelopeSchema,
   chatAttachmentEnvelopeSchema,
   chatMembersResponseSchema,
@@ -176,14 +175,4 @@ export const getChatLinkImage = (
   apiBlob(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/link-preview/image`,
     signal
-  )
-export const getChatLinkPreview = (
-  roomId: string,
-  messageId: string,
-  signal: AbortSignal
-) =>
-  apiJson(
-    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/link-preview`,
-    chatLinkPreviewSchema,
-    { signal }
   )

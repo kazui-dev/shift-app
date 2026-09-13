@@ -26,12 +26,7 @@ export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
       const root = String(query.queryKey[0])
-      if (
-        root === keyRoot(keys.account) ||
-        root === keyRoot(keys.chatLinkPreview) ||
-        !navigator.onLine
-      )
-        return
+      if (root === keyRoot(keys.account) || !navigator.onLine) return
       // Missing chat resources are handled by chat navigation, including deletion races.
       if (
         error instanceof ApiError &&

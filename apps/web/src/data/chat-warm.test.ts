@@ -2,6 +2,10 @@ import { expect, it } from "vite-plus/test"
 import { warmTargets } from "@/data/chat-warm"
 
 const image = (id: string) => ({ id, width: 400, height: 300 })
+const card = (path: string, withImage = true) => ({
+  url: `https://example.com/${path}`,
+  image: withImage ? `https://example.com/${path}.png` : null,
+})
 const message = (
   index: number,
   change: Partial<Parameters<typeof warmTargets>[0][number]> = {}
@@ -10,6 +14,7 @@ const message = (
   content: "text",
   memberImage: null,
   attachments: [],
+  linkPreview: null,
   ...change,
 })
 
@@ -19,10 +24,12 @@ it("warms what fills two screens, newest first, skipping deleted messages", () =
     message(index, index === 15 ? { deleted: true, content: "" } : {})
   )
   expect(warmTargets(messages, { width: 400, height: 300 }).links).toEqual([])
+  // A card adds its height, so fewer messages fill the same screens.
   const ids = warmTargets(
     messages.map((item) => ({
       ...item,
       content: `${item.id} https://example.com/${item.id}`,
+      linkPreview: card(item.id),
     })),
     { width: 400, height: 300 }
   ).links.map((link) => link.messageId)
@@ -34,7 +41,7 @@ it("warms what fills two screens, newest first, skipping deleted messages", () =
   })
 })
 
-it("warms each image at its tile's size, and every avatar and first link on screen", () => {
+it("warms each image at its tile's size, every avatar, and card images on screen", () => {
   const messages = [
     message(1, {
       attachments: [image("a"), image("b"), image("c")],
@@ -44,8 +51,9 @@ it("warms each image at its tile's size, and every avatar and first link on scre
       content: "https://example.com/a https://example.com/b",
       memberImage: "https://example.com/one.png",
       reply: {},
+      linkPreview: card("a"),
     }),
-    message(3, { attachments: [image("d")] }),
+    message(3, { attachments: [image("d")], linkPreview: card("c", false) }),
   ]
   expect(warmTargets(messages, { width: 400, height: 1000 })).toEqual({
     images: [

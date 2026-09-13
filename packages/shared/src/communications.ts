@@ -131,7 +131,19 @@ export const editChatMessageInputSchema = v.object({
   content: v.pipe(v.string(), v.trim(), v.maxLength(2000)),
 })
 
+/** What a public page says about itself, shown as a link card. */
+export const linkPreviewSchema = v.object({
+  url: v.pipe(v.string(), v.url()),
+  title: v.string(),
+  description: v.string(),
+  site: v.string(),
+  image: v.nullable(v.pipe(v.string(), v.url())),
+})
+export type LinkPreview = v.InferOutput<typeof linkPreviewSchema>
+
 const storedChatMessageSchema = v.object({
+  /** The first link's card, stored when the message is sent or edited. */
+  linkPreview: v.nullable(linkPreviewSchema),
   reply: v.optional(chatReplySchema),
   editedAt: v.optional(instantSchema),
   deleted: v.optional(v.boolean()),
@@ -225,13 +237,5 @@ export const chatMembersResponseSchema = v.object({
 })
 
 export const chatLinkPreviewSchema = v.object({
-  preview: v.nullable(
-    v.object({
-      url: v.pipe(v.string(), v.url()),
-      title: v.string(),
-      description: v.string(),
-      site: v.string(),
-      image: v.nullable(v.pipe(v.string(), v.url())),
-    })
-  ),
+  preview: v.nullable(linkPreviewSchema),
 })

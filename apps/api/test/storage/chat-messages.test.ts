@@ -87,6 +87,47 @@ const input = (id: string) => ({
   content: "original",
   createdAt: 100,
   attachmentIds: [],
+  linkPreview: null,
+})
+const preview = (path: string) => ({
+  url: `https://example.com/${path}`,
+  title: path,
+  description: "",
+  site: "example.com",
+  image: `https://example.com/${path}.png`,
+})
+it("keeps the first link's preview with the message, replaced on edit and dropped on delete", async () => {
+  const { value, db } = fixture()
+  const sent = await value.sendMessage({
+    ...input("first"),
+    linkPreview: preview("a"),
+  })
+  expect(sent.linkPreview).toEqual(preview("a"))
+  expect(value.getMessages(null, 100).messages[0]?.linkPreview).toEqual(
+    preview("a")
+  )
+  expect(
+    await value.changeMessage({
+      roomId: "room",
+      memberId: "author",
+      id: "first",
+      content: "no link now",
+    })
+  ).toMatchObject({ message: { linkPreview: null } })
+  await value.changeMessage({
+    roomId: "room",
+    memberId: "author",
+    id: "first",
+    content: "https://example.com/b",
+    linkPreview: preview("b"),
+  })
+  expect(value.linkPreview("first")).toEqual(preview("b"))
+  // A stored preview that no longer reads as one shows no card.
+  db.exec("UPDATE messages SET link_preview='{}' WHERE id='first'")
+  expect(value.linkPreview("first")).toBeNull()
+  await value.changeMessage({ roomId: "room", memberId: "author", id: "first" })
+  expect(value.linkPreview("first")).toBeNull()
+  expect(value.linkPreview("missing")).toBeNull()
 })
 it("persists replies and edits and removes deleted reply text without changing sequence numbers", async () => {
   const { value } = fixture()
@@ -340,9 +381,6 @@ it("searches Japanese and literal punctuation across history, newest first, excl
     content: "移動",
   })
   expect(value.searchMessages("集合", null, 30).messages).toEqual([])
-  expect(value.messageContent("two")).toBeNull()
-  expect(value.messageContent("missing")).toBeNull()
-  expect(value.messageContent("one")).toBe("移動")
 })
 
 it("pages history newest first and offers older pages only while visible messages remain", async () => {

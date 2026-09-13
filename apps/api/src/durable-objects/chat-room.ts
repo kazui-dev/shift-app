@@ -1,6 +1,11 @@
+import * as v from "valibot"
 import { messagePermissions } from "@workspace/shared/messages"
 import { findAccessibleRoom } from "../services/chat-access"
-import type { ChatAttachment } from "@workspace/shared/communications"
+import {
+  linkPreviewSchema,
+  type ChatAttachment,
+  type LinkPreview,
+} from "@workspace/shared/communications"
 import { purgeShared } from "../lib/shared-cache"
 import { ChatAttachments, type StoredAttachment } from "./chat-attachments"
 import { DurableObject } from "cloudflare:workers"
@@ -23,6 +28,8 @@ type ChatMessage = {
   editedAt?: string
   deleted?: boolean
   attachments: ChatAttachment[]
+  /** The first link's card, or `null` when the message has none. */
+  linkPreview: LinkPreview | null
 }
 
 type StoredMessage = {
@@ -35,6 +42,18 @@ type StoredMessage = {
   replyToId: string | null
   editedAt: number | null
   deleted: number
+  linkPreview: string | null
+}
+
+/** Every column of a stored message, named as `StoredMessage`. */
+const messageColumns = `sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
+  content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted,
+  link_preview AS linkPreview`
+
+function storedPreview(value: string | null) {
+  if (value === null) return null
+  const parsed = v.safeParse(linkPreviewSchema, JSON.parse(value))
+  return parsed.success ? parsed.output : null
 }
 
 export class ChatRoom extends DurableObject<CloudflareBindings> {
@@ -84,6 +103,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;`),
       () => this.attachments.storeOriginals(),
       () => this.attachments.keepSentOrder(),
+      // A message keeps its first link's preview, so its card is known before it renders.
+      () => sql.exec("ALTER TABLE messages ADD COLUMN link_preview TEXT;"),
     ]
     sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,
@@ -106,9 +127,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   private findMessage(id: string) {
     return this.ctx.storage.sql
       .exec<StoredMessage>(
-        `SELECT sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
-      content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted
-      FROM messages WHERE id=?`,
+        `SELECT ${messageColumns} FROM messages WHERE id=?`,
         id
       )
       .toArray()[0]
@@ -119,6 +138,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     memberId: string
     id: string
     content?: string
+    /** The new content's first link preview, resolved before the change. */
+    linkPreview?: LinkPreview | null
   }) {
     const room = await findAccessibleRoom(
       this.env,
@@ -152,15 +173,16 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     this.ctx.storage.transactionSync(() => {
       if (deleting) {
         this.ctx.storage.sql.exec(
-          "UPDATE messages SET content='',deleted=1 WHERE id=?",
+          "UPDATE messages SET content='',deleted=1,link_preview=NULL WHERE id=?",
           row.id
         )
         this.attachments.deleteMessage(row.id)
       } else
         this.ctx.storage.sql.exec(
-          "UPDATE messages SET content=?,edited_at=? WHERE id=?",
+          "UPDATE messages SET content=?,edited_at=?,link_preview=? WHERE id=?",
           input.content ?? "",
           Date.now(),
+          input.linkPreview ? JSON.stringify(input.linkPreview) : null,
           row.id
         )
     })
@@ -198,9 +220,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     const boundedLimit = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
       .exec<StoredMessage>(
-        `SELECT sequence, id, member_id AS memberId,
-                member_display_name AS memberDisplayName, content,
-                created_at AS createdAt, reply_to_id AS replyToId, edited_at AS editedAt, deleted
+        `SELECT ${messageColumns}
          FROM messages
          WHERE (? IS NULL OR sequence < ?)
          ORDER BY sequence DESC
@@ -231,8 +251,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     const size = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
       .exec<StoredMessage>(
-        `SELECT sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
-       content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted
+        `SELECT ${messageColumns}
        FROM messages WHERE deleted=0 AND instr(lower(content),lower(?))>0
        AND (? IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?`,
         query,
@@ -247,9 +266,10 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
-  messageContent(id: string) {
+  /** The stored preview of a message's first link, while the message stands. */
+  linkPreview(id: string) {
     const row = this.findMessage(id)
-    return row && !row.deleted ? row.content : null
+    return row && !row.deleted ? storedPreview(row.linkPreview) : null
   }
 
   async sendMessage(input: {
@@ -261,6 +281,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     createdAt: number
     replyToId?: string
     attachmentIds: string[]
+    /** The content's first link preview, resolved before sending. */
+    linkPreview: LinkPreview | null
   }): Promise<ChatMessage> {
     const permission = await findAccessibleRoom(
       this.env,
@@ -269,15 +291,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     )
     if (this.deleted || permission?.canPost !== 1)
       throw new Error("CHAT_READ_ONLY")
-    const existing = this.ctx.storage.sql
-      .exec<StoredMessage>(
-        `SELECT sequence, id, member_id AS memberId,
-                member_display_name AS memberDisplayName, content,
-                created_at AS createdAt, reply_to_id AS replyToId, edited_at AS editedAt, deleted
-         FROM messages WHERE id = ?`,
-        input.id
-      )
-      .toArray()[0]
+    const existing = this.findMessage(input.id)
     if (existing) {
       if (existing.memberId !== input.memberId)
         throw new Error("MESSAGE_ID_CONFLICT")
@@ -291,17 +305,16 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       const inserted = this.ctx.storage.sql
         .exec<StoredMessage>(
           `INSERT INTO messages
-          (id, member_id, member_display_name, content, created_at, reply_to_id)
-         VALUES (?, ?, ?, ?, ?, ?)
-         RETURNING sequence, id, member_id AS memberId,
-                   member_display_name AS memberDisplayName, content,
-                   created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted`,
+          (id, member_id, member_display_name, content, created_at, reply_to_id, link_preview)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         RETURNING ${messageColumns}`,
           input.id,
           input.memberId,
           input.memberDisplayName,
           input.content,
           input.createdAt,
-          input.replyToId ?? null
+          input.replyToId ?? null,
+          input.linkPreview ? JSON.stringify(input.linkPreview) : null
         )
         .one()
       this.attachments.claim(input.attachmentIds, input.memberId, input.id)
@@ -328,9 +341,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       (replyIds.length
         ? this.ctx.storage.sql
             .exec<StoredMessage>(
-              `SELECT sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
-            content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted
-            FROM messages WHERE id IN (SELECT value FROM json_each(?))`,
+              `SELECT ${messageColumns} FROM messages WHERE id IN (SELECT value FROM json_each(?))`,
               JSON.stringify(replyIds)
             )
             .toArray()
@@ -374,6 +385,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
           }
         : {}),
       attachments: related.attachments.get(row.id) ?? [],
+      linkPreview: storedPreview(row.linkPreview),
     }
   }
 }
