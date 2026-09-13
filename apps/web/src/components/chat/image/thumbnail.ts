@@ -1,6 +1,6 @@
 /** Height of a mobile thumbnail and its narrow resting width, in rem. */
 const height = 3.5
-const narrow = 2.25
+const narrow = 1.75
 const widest = 7
 
 /**
