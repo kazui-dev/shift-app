@@ -1,4 +1,5 @@
 import { RoutePage } from "@/components/route-page"
+import { keys } from "@/data/keys"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { skipToken, useQuery } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -16,7 +17,7 @@ export function AvailabilityPage() {
   const { state } = getRouteApi("/_app").useRouteContext()
   const year = display.year
   const query = useQuery({
-    queryKey: ["availability", year],
+    queryKey: keys.availability(year),
     queryFn: year === null ? skipToken : () => getAvailability(year),
     staleTime: 60_000,
   })

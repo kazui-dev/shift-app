@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { keys } from "@/data/keys"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -35,7 +36,7 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
       })
   }
   const query = useQuery({
-    queryKey: ["chat-room", roomId],
+    queryKey: keys.chatRoom(roomId),
     queryFn: () => getChatRoom(roomId),
   })
   const room = query.data?.room

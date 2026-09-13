@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
+import { keys } from "@/data/keys"
 import { useEffect, useState, type ComponentProps, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle, RotateCcw } from "lucide-react"
@@ -134,7 +135,7 @@ function OnboardingView() {
     setPending(true)
     try {
       await createAccount(parsed.output)
-      await queryClient.invalidateQueries({ queryKey: ["account"] })
+      await queryClient.invalidateQueries({ queryKey: keys.account() })
       await navigate({ to: "/calendar", replace: true })
     } catch (caught) {
       toast.error(

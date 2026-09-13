@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { keys } from "@/data/keys"
 import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
@@ -30,11 +31,11 @@ function ChatSearch({ roomId }: { roomId: string }) {
     return () => clearTimeout(timer)
   }, [input, composing])
   const room = useQuery({
-    queryKey: ["chat-room", roomId],
+    queryKey: keys.chatRoom(roomId),
     queryFn: () => getChatRoom(roomId),
   })
   const results = useInfiniteQuery({
-    queryKey: ["chat-search", roomId, query],
+    queryKey: keys.chatSearch(roomId, query),
     queryFn: ({ pageParam, signal }) =>
       searchChatMessages(roomId, query, pageParam, signal),
     initialPageParam: null as number | null,

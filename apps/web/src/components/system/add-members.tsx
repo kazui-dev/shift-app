@@ -1,4 +1,5 @@
 import { MemberAvatar } from "@/components/member-avatar"
+import { keys } from "@/data/keys"
 import { membershipsQuery, yearsQuery } from "@/data/years"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -27,7 +28,7 @@ export function AddMembers({
   const years = useQuery({ ...yearsQuery })
   const [source, setSource] = useState(year)
   const query = useQuery({
-    queryKey: ["year-memberships", source],
+    queryKey: keys.yearMemberships(source),
     queryFn: () => getYearMemberships(source),
   })
   const current = useQuery({
@@ -35,12 +36,12 @@ export function AddMembers({
   })
   const [copyRoleIds, setCopyRoleIds] = useState<string[]>([])
   const sourceRoles = useQuery({
-    queryKey: ["year-roles", source],
+    queryKey: keys.yearRoles(source),
     queryFn: () => getYearRoles(source),
     enabled: source !== year,
   })
   const sourceRoster = useQuery({
-    queryKey: ["roster", source],
+    queryKey: keys.roster(source),
     queryFn: () => getRoster(source),
     enabled: source !== year,
   })
@@ -119,9 +120,9 @@ export function AddMembers({
       (_, index) => results[index]?.status === "rejected"
     )
     await Promise.all([
-      client.invalidateQueries({ queryKey: ["year-memberships", year] }),
-      client.invalidateQueries({ queryKey: ["roster", year] }),
-      client.invalidateQueries({ queryKey: ["year-roles", year] }),
+      client.invalidateQueries({ queryKey: keys.yearMemberships(year) }),
+      client.invalidateQueries({ queryKey: keys.roster(year) }),
+      client.invalidateQueries({ queryKey: keys.yearRoles(year) }),
     ])
     setSelected(failed)
     setPending(false)

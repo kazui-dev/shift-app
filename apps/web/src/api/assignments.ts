@@ -1,4 +1,5 @@
 import { attendanceEventsResponseSchema } from "@workspace/shared/shifts"
+import { keys } from "@/data/keys"
 import {
   attendanceEnvelopeSchema,
   assignmentReportEnvelopeSchema,
@@ -49,7 +50,7 @@ export function assignmentMonthQuery(
 ) {
   const range = assignmentMonthRange(month)
   return queryOptions({
-    queryKey: ["assignments", "month", month, year] as const,
+    queryKey: keys.assignmentMonth(month, year),
     queryFn:
       year === null
         ? skipToken

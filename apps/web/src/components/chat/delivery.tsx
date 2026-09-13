@@ -1,4 +1,5 @@
 import { chatRoomId } from "@/lib/chat-location"
+import { keys } from "@/data/keys"
 import { useRouter } from "@tanstack/react-router"
 import { useChatEvents } from "./use-chat-events"
 import { useEffect } from "react"
@@ -25,7 +26,7 @@ export function ChatDelivery() {
               document.visibilityState === "visible"
           )
         )
-          void client.invalidateQueries({ queryKey: ["chat-messages", roomId] })
+          void client.invalidateQueries({ queryKey: keys.chatMessages(roomId) })
       })
   }, [store, client, offline, ready, queue, router])
   return null

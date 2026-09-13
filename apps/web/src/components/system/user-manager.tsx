@@ -1,4 +1,5 @@
 import { MemberAvatar } from "@/components/member-avatar"
+import { keys } from "@/data/keys"
 import { usersQuery } from "@/data/admin"
 import { yearsQuery } from "@/data/years"
 import { useState } from "react"
@@ -94,10 +95,10 @@ function UserDetail({
     try {
       await action()
       await Promise.all([
-        client.invalidateQueries({ queryKey: ["admin", "users"] }),
-        client.invalidateQueries({ queryKey: ["year-memberships"] }),
-        client.invalidateQueries({ queryKey: ["roster"] }),
-        client.invalidateQueries({ queryKey: ["display-year"] }),
+        client.invalidateQueries({ queryKey: keys.adminUsers() }),
+        client.invalidateQueries({ queryKey: keys.yearMemberships() }),
+        client.invalidateQueries({ queryKey: keys.roster() }),
+        client.invalidateQueries({ queryKey: keys.displayYear() }),
       ])
       toast.success("保存しました。")
     } catch (error) {

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
+import { keys } from "@/data/keys"
 import { toast } from "@workspace/ui/lib/toast"
 import { ApiError } from "@/api/client"
 import { queryClient } from "./query-client"
@@ -35,7 +36,7 @@ it("reports a shared failed request once and dismisses its toast on recovery", a
     id: 'query:["chat-rooms"]',
   })
   await queryClient.fetchQuery({
-    queryKey: ["chat-rooms"],
+    queryKey: keys.chatRooms(),
     queryFn: () => Promise.resolve([]),
   })
   expect(toast.dismiss).toHaveBeenCalledWith('query:["chat-rooms"]')
@@ -51,7 +52,7 @@ it("does not add connection error toasts while offline", async () => {
   // Always mode exercises the callback even though normal queries pause offline.
   await expect(
     queryClient.fetchQuery({
-      queryKey: ["chat-rooms"],
+      queryKey: keys.chatRooms(),
       queryFn: () => Promise.reject(failure),
       retry: false,
       networkMode: "always",

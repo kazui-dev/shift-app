@@ -1,4 +1,5 @@
 import { useRef, useState } from "react"
+import { keys } from "@/data/keys"
 import { useQueryClient } from "@tanstack/react-query"
 import { editChatMessage } from "@/api/chat"
 import { errorMessage } from "@/api/client"
@@ -32,9 +33,9 @@ export function useMessageEdit(roomId: string) {
       const result = await editChatMessage(roomId, editing.id, content)
       receiveMessage(client, roomId, result.message)
       setEditing(null)
-      void client.invalidateQueries({ queryKey: ["chat-messages", roomId] })
+      void client.invalidateQueries({ queryKey: keys.chatMessages(roomId) })
       void client.invalidateQueries({
-        queryKey: ["chat-image-message", roomId],
+        queryKey: keys.chatImageMessage(roomId),
       })
     } catch (error) {
       toast.error(errorMessage(error))

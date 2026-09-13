@@ -1,4 +1,5 @@
 import { ResponsivePageForm } from "@workspace/ui/components/responsive-page-form"
+import { keys } from "@/data/keys"
 import { useState } from "react"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -74,10 +75,10 @@ function DateEditor({
       accepting,
     })
     await Promise.all([
-      client.invalidateQueries({ queryKey: ["availability-dates", year] }),
-      client.invalidateQueries({ queryKey: ["availability", year] }),
+      client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
+      client.invalidateQueries({ queryKey: keys.availability(year) }),
       client.invalidateQueries({
-        queryKey: ["availability-submissions", year],
+        queryKey: keys.availabilitySubmissions(year),
       }),
     ])
   }

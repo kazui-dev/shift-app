@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
 import { messageLinks } from "@workspace/shared/communications"
 import { chatLinkImageUrl, getChatLinkPreview } from "@/api/chat"
@@ -55,7 +56,7 @@ function LinkPreview({
     return () => observer.disconnect()
   }, [])
   const query = useQuery({
-    queryKey: ["chat-link-preview", roomId, messageId, url],
+    queryKey: keys.chatLinkPreview(roomId, messageId, url),
     queryFn: ({ signal }) => getChatLinkPreview(roomId, messageId, signal),
     enabled: visible && !offline,
     staleTime: 86400000,

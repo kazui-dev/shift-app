@@ -1,4 +1,5 @@
 import { MessageTargetProvider } from "@/components/chat/message-target"
+import { keys } from "@/data/keys"
 import { RoutePage } from "@/components/route-page"
 import { prepareConversation, roomsQuery } from "@/data/chat"
 import {
@@ -56,7 +57,7 @@ function ChatScreen() {
   }, [client, roomId, offline])
 
   const room = useQuery({
-    queryKey: ["chat-room", retainedId],
+    queryKey: keys.chatRoom(retainedId),
     queryFn: retainedId ? () => getChatRoom(retainedId) : skipToken,
     enabled: !offline && !!roomId,
   })

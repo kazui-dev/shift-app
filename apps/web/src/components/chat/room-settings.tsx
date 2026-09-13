@@ -1,4 +1,5 @@
 import { ResponsivePageForm } from "@workspace/ui/components/responsive-page-form"
+import { keys } from "@/data/keys"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LogOut, Trash2 } from "lucide-react"
@@ -115,10 +116,10 @@ function SettingsEditor({
   async function save() {
     await saveRoomSettings(room.id, value)
     await Promise.all([
-      client.invalidateQueries({ queryKey: ["chat-rooms"] }),
-      client.invalidateQueries({ queryKey: ["chat-room", room.id] }),
-      client.invalidateQueries({ queryKey: ["chat-settings", room.id] }),
-      client.invalidateQueries({ queryKey: ["chat-members", room.id] }),
+      client.invalidateQueries({ queryKey: keys.chatRooms() }),
+      client.invalidateQueries({ queryKey: keys.chatRoom(room.id) }),
+      client.invalidateQueries({ queryKey: keys.chatSettings(room.id) }),
+      client.invalidateQueries({ queryKey: keys.chatMembers(room.id) }),
     ])
   }
   return (

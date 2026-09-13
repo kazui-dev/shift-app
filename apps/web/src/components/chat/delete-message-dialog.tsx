@@ -1,4 +1,5 @@
 import { useRef } from "react"
+import { keys } from "@/data/keys"
 import { useQueryClient } from "@tanstack/react-query"
 import { deleteChatMessage } from "@/api/chat"
 import { errorMessage } from "@/api/client"
@@ -22,14 +23,14 @@ export function DeleteMessageDialog({
   async function remove() {
     if (pending.current) return
     pending.current = true
-    await client.cancelQueries({ queryKey: ["chat-messages", roomId] })
+    await client.cancelQueries({ queryKey: keys.chatMessages(roomId) })
     const rollback = optimisticallyDeleteMessage(client, roomId, messageId)
     try {
       const { message } = await deleteChatMessage(roomId, messageId)
       receiveMessage(client, roomId, message)
       await Promise.all([
-        client.invalidateQueries({ queryKey: ["chat-messages", roomId] }),
-        client.invalidateQueries({ queryKey: ["chat-image-message", roomId] }),
+        client.invalidateQueries({ queryKey: keys.chatMessages(roomId) }),
+        client.invalidateQueries({ queryKey: keys.chatImageMessage(roomId) }),
       ])
     } catch (error) {
       rollback()

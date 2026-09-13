@@ -1,4 +1,5 @@
 import { MemberAvatar } from "@/components/member-avatar"
+import { keys } from "@/data/keys"
 import { refreshMemberships } from "@/data/sync"
 import { rosterQuery, rolesQuery } from "@/data/years"
 import { AddMembers } from "./add-members"
@@ -53,9 +54,9 @@ export function MemberManager({ year }: { year: number }) {
         removeRoleIds: remove,
       })
       await Promise.all([
-        client.invalidateQueries({ queryKey: ["roster", year] }),
-        client.invalidateQueries({ queryKey: ["year-roles", year] }),
-        client.invalidateQueries({ queryKey: ["years"] }),
+        client.invalidateQueries({ queryKey: keys.roster(year) }),
+        client.invalidateQueries({ queryKey: keys.yearRoles(year) }),
+        client.invalidateQueries({ queryKey: keys.years() }),
       ])
       setEditing(null)
       setSelected([])

@@ -1,4 +1,5 @@
 import { refreshMemberships } from "@/data/sync"
+import { keys } from "@/data/keys"
 import { rolesQuery } from "@/data/years"
 import { ArrowUp, ArrowDown } from "lucide-react"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -50,7 +51,7 @@ export function YearRoleManager({ year }: { year: number }) {
     setOrdering(true)
     try {
       await reorderRoles(year, ids)
-      await client.invalidateQueries({ queryKey: ["year-roles", year] })
+      await client.invalidateQueries({ queryKey: keys.yearRoles(year) })
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {
@@ -195,9 +196,9 @@ function RoleEditor({
       if (role) await updateRole(role.id, input)
       else await createYearRole(year, input)
       await Promise.all([
-        client.invalidateQueries({ queryKey: ["year-roles", year] }),
-        client.invalidateQueries({ queryKey: ["years"] }),
-        client.invalidateQueries({ queryKey: ["roster", year] }),
+        client.invalidateQueries({ queryKey: keys.yearRoles(year) }),
+        client.invalidateQueries({ queryKey: keys.years() }),
+        client.invalidateQueries({ queryKey: keys.roster(year) }),
       ])
       toast.success("ロールを保存しました。")
       if (!role) onClose()

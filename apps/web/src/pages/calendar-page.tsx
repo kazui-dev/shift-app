@@ -1,4 +1,5 @@
 import { DisplayYearNotice } from "@/components/display-year-notice"
+import { keys } from "@/data/keys"
 import {
   useCallback,
   useEffect,
@@ -130,7 +131,7 @@ export function CalendarPage() {
       const locationConfirmed = await confirmCampusLocation()
       const result = await checkIn(assignmentId, locationConfirmed)
       await queryClient.invalidateQueries({
-        queryKey: ["assignments", "month"],
+        queryKey: keys.assignmentMonth(),
       })
       toast.success(
         result.attendance.status === "confirmed"

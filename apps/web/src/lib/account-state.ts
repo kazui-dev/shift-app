@@ -1,4 +1,5 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
+import { keys } from "@/data/keys"
 
 import type { AuthState } from "@workspace/shared/auth"
 
@@ -13,7 +14,7 @@ import {
 import { clearPersistedUserData } from "@/lib/query-client"
 
 export const accountStateQueryOptions = queryOptions({
-  queryKey: ["account"],
+  queryKey: keys.account(),
   queryFn: getAccountState,
   networkMode: "always",
   retry: false,

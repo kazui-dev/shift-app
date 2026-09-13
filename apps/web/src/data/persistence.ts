@@ -1,4 +1,5 @@
 import type { PersistedClient } from "@tanstack/react-query-persist-client"
+import { keyRoot, keys, persistedKeys } from "./keys"
 import * as v from "valibot"
 import { chatMessagesResponseSchema } from "@workspace/shared/communications"
 
@@ -6,13 +7,9 @@ const historySchema = v.object({
   pages: v.array(chatMessagesResponseSchema),
   pageParams: v.array(v.nullable(v.number())),
 })
-const limits = new Map<string, number>([
-  ["assignments", 6],
-  ["chat-rooms", 6],
-  ["chat-room", 20],
-  ["chat-messages", 20],
-  ["display-year", 1],
-])
+const limits = new Map(
+  [...persistedKeys].map(([key, limit]) => [keyRoot(key), limit])
+)
 
 /** Persist recent reading context, never an unbounded copy of chat history. */
 export function boundPersistedClient(client: PersistedClient): PersistedClient {
@@ -25,7 +22,7 @@ export function boundPersistedClient(client: PersistedClient): PersistedClient {
       const count = counts.get(root) ?? 0
       if (count >= limit) return []
       counts.set(root, count + 1)
-      if (root !== "chat-messages") return [query]
+      if (root !== keyRoot(keys.chatMessages)) return [query]
       const parsed = v.safeParse(historySchema, query.state.data)
       if (
         !parsed.success ||

@@ -4,6 +4,7 @@ import {
   queryOptions,
   type QueryClient,
 } from "@tanstack/react-query"
+import { keys } from "@/data/keys"
 import {
   getChatMessages,
   getChatRoom,
@@ -15,12 +16,12 @@ import {
 
 export const roomQuery = (id: string) =>
   queryOptions({
-    queryKey: ["chat-room", id],
+    queryKey: keys.chatRoom(id),
     queryFn: () => getChatRoom(id),
   })
 export const messagesQuery = (id: string) =>
   infiniteQueryOptions({
-    queryKey: ["chat-messages", id],
+    queryKey: keys.chatMessages(id),
     queryFn: ({ pageParam }) => getChatMessages(id, pageParam),
     initialPageParam: null as number | null,
     getNextPageParam: (last) =>
@@ -35,25 +36,25 @@ export function prepareConversation(client: QueryClient, id: string) {
 
 export const roomsQuery = (year: number | null) =>
   queryOptions({
-    queryKey: ["chat-rooms", year],
+    queryKey: keys.chatRooms(year),
     queryFn: year === null ? skipToken : () => getChatRooms(year),
     staleTime: 60_000,
   })
 export const targetsQuery = (year: number) =>
   queryOptions({
-    queryKey: ["chat-targets", year],
+    queryKey: keys.chatTargets(year),
     queryFn: () => getChatTargets(year),
     staleTime: 300_000,
   })
 export const settingsQuery = (id: string) =>
   queryOptions({
-    queryKey: ["chat-settings", id],
+    queryKey: keys.chatSettings(id),
     queryFn: () => getRoomSettings(id),
     staleTime: 60_000,
   })
 export const membersQuery = (id: string) =>
   queryOptions({
-    queryKey: ["chat-members", id],
+    queryKey: keys.chatMembers(id),
     queryFn: () => getChatMembers(id),
     staleTime: 60_000,
   })
