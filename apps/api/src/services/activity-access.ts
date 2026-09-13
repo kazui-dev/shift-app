@@ -1,5 +1,6 @@
 import { canManageYear } from "./role-authority"
-import { canManageShifts, type MemberContext } from "../lib/http"
+import { type MemberContext } from "../lib/http"
+import { canManageShifts } from "../services/membership"
 export async function canManageActivity(
   env: CloudflareBindings,
   member: MemberContext,

@@ -8,16 +8,13 @@ import {
 } from "@workspace/shared/shifts"
 
 import { apiError, errors } from "../../lib/errors"
-import { type ApiEnv, canAccessYear, parseYear, readJson } from "../../lib/http"
-
-function getYearParam(value: string): number | null {
-  return parseYear(value)
-}
+import { type ApiEnv, parseYear, readJson } from "../../lib/http"
+import { canAccessYear } from "../../services/membership"
 
 export const yearRolesApp = new Hono<ApiEnv>()
 
 yearRolesApp.get("/:year/roles", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) {
     return apiError(c, errors.yearNotFound)
   }
@@ -71,7 +68,7 @@ yearRolesApp.get("/:year/roles", async (c) => {
 })
 
 yearRolesApp.post("/:year/roles", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) {
     return apiError(c, errors.yearNotFound)
   }

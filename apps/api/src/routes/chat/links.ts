@@ -4,7 +4,7 @@ import * as v from "valibot"
 import { messageLinks } from "@workspace/shared/messages"
 
 import { apiError, errors } from "../../lib/errors"
-import { fetchLink, limitedBody } from "../../services/link-fetch"
+import { fetchLink, limitedBody, urlDigest } from "../../services/link-fetch"
 import { cachedLinkPreview } from "../../services/link-preview"
 import type { RoomEnv } from "./room"
 
@@ -16,14 +16,6 @@ const imageTypes = [
   "image/avif",
   "image/gif",
 ]
-
-const digest = async (value: string) =>
-  Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))
-    ),
-    (byte) => byte.toString(16).padStart(2, "0")
-  ).join("")
 
 export const linksApp = new Hono<RoomEnv>()
 
@@ -65,7 +57,7 @@ linksApp.get("/messages/:messageId/link-preview/image", async (c) => {
   try {
     const cache = await caches.open("chat-link-images")
     const key = new Request(
-      `${origin}/__link-image/v1/${await digest(preview.image)}`
+      `${origin}/__link-image/v1/${await urlDigest(preview.image)}`
     )
     const cached = await cache.match(key)
     if (cached) return servedImage(cached.body, cached.headers)

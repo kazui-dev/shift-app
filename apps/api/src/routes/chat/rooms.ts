@@ -4,12 +4,8 @@ import * as v from "valibot"
 import { createChatRoomInputSchema } from "@workspace/shared/communications"
 
 import { apiError, errors } from "../../lib/errors"
-import {
-  type ApiEnv,
-  hasActiveYearMembership,
-  parseYear,
-  readJson,
-} from "../../lib/http"
+import { type ApiEnv, parseYear, readJson } from "../../lib/http"
+import { hasActiveYearMembership } from "../../services/membership"
 import {
   findAccessibleRoom,
   roomJson,

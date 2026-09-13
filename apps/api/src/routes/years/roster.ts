@@ -2,16 +2,13 @@ import { canManageYear } from "../../services/role-authority"
 import { Hono } from "hono"
 
 import { apiError, errors } from "../../lib/errors"
-import { type ApiEnv, canManageShifts, parseYear } from "../../lib/http"
-
-function getYearParam(value: string): number | null {
-  return parseYear(value)
-}
+import { type ApiEnv, parseYear } from "../../lib/http"
+import { canManageShifts } from "../../services/membership"
 
 export const rosterApp = new Hono<ApiEnv>()
 
 rosterApp.get("/:year/roster", async (c) => {
-  const year = getYearParam(c.req.param("year"))
+  const year = parseYear(c.req.param("year"))
   if (year === null) {
     return apiError(c, errors.yearNotFound)
   }

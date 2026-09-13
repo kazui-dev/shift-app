@@ -3,12 +3,8 @@ import { japanDateStart } from "@workspace/shared/japan-time"
 import * as v from "valibot"
 import { formAnswersInputSchema } from "@workspace/shared/availability"
 import { apiError, errors } from "../../lib/errors"
-import {
-  type ApiEnv,
-  hasActiveYearMembership,
-  parseYear,
-  readJson,
-} from "../../lib/http"
+import { type ApiEnv, parseYear, readJson } from "../../lib/http"
+import { hasActiveYearMembership } from "../../services/membership"
 import { readAvailabilityForm } from "../../services/availability-form"
 import { validateFormAnswers } from "../../domain/availability-form"
 export const meAvailabilityApp = new Hono<ApiEnv>()

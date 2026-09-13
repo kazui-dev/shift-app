@@ -1,16 +1,13 @@
 import { useState } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
-import { japanDateTime, japanLocalDateTime } from "@workspace/shared/japan-time"
+import {
+  japanInputValue,
+  japanLocalDateTime,
+} from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import type { EditorData } from "./time-grid"
-
-/** The value a datetime-local input shows for an instant, in Japan time. */
-function local(value: string) {
-  const date = japanDateTime(value)
-  return `${date.date}T${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}`
-}
 
 export function ShiftSettings({
   plan,
@@ -67,7 +64,7 @@ export function ShiftSettings({
             id="shift-start"
             type="datetime-local"
             required
-            value={local(value.startsAt)}
+            value={japanInputValue(value.startsAt)}
             onChange={(e) => {
               const at = japanLocalDateTime(e.target.value)
               if (Number.isFinite(at))
@@ -81,7 +78,7 @@ export function ShiftSettings({
             id="shift-end"
             type="datetime-local"
             required
-            value={local(value.endsAt)}
+            value={japanInputValue(value.endsAt)}
             onChange={(e) => {
               const at = japanLocalDateTime(e.target.value)
               if (Number.isFinite(at))

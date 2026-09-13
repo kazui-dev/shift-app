@@ -1,11 +1,13 @@
 import { useState } from "react"
-import { japanLocalDateTime } from "@workspace/shared/japan-time"
+import {
+  japanInputValue,
+  japanLocalDateTime,
+} from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import type { AttendanceData } from "./attendance-data"
-import { localDateTime } from "./attendance-data"
 
 export function AttendanceCorrection({
   assignment,
@@ -19,7 +21,7 @@ export function AttendanceCorrection({
   onCancel: () => void
 }) {
   const [at, setAt] = useState(
-    localDateTime(assignment.checkedInAt ?? new Date().toISOString())
+    japanInputValue(assignment.checkedInAt ?? new Date().toISOString())
   )
   const [reason, setReason] = useState("")
   return (
