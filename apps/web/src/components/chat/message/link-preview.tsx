@@ -70,7 +70,7 @@ function LinkPreview({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-0.5 flex h-28 max-w-lg overflow-hidden rounded-lg border bg-muted/40 text-left select-text"
+          className="mt-1 flex h-28 max-w-lg overflow-hidden rounded-lg border bg-muted/40 text-left select-text"
         >
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2">
             <span className="truncate text-[11px] text-muted-foreground">

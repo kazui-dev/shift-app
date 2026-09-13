@@ -17,6 +17,7 @@ export function ComposerSeat({
   onChange,
   onAddFiles,
   onSend,
+  focusRequest,
 }: {
   root: RefObject<HTMLDivElement | null>
   roomName: string
@@ -28,6 +29,7 @@ export function ComposerSeat({
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
   onSend: () => void
+  focusRequest: number
 }) {
   const seat = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -63,6 +65,7 @@ export function ComposerSeat({
         onChange={onChange}
         onAddFiles={onAddFiles}
         onSend={onSend}
+        focusRequest={focusRequest}
       />
     </div>
   )

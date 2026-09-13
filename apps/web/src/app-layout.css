@@ -22,3 +22,24 @@
 html:has([data-chat-shell]) {
   overscroll-behavior-y: auto;
 }
+
+/*
+ * Fade the history into the image rail. The fade starts above the rail and
+ * eases in and out, so it has no visible start or end line.
+ */
+[data-composer-rail]::before {
+  position: absolute;
+  inset: -1rem calc(-1 * var(--chat-gutter)) 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    color-mix(in oklab, var(--background) 10.4%, transparent) 0.3rem,
+    color-mix(in oklab, var(--background) 35.2%, transparent) 0.6rem,
+    color-mix(in oklab, var(--background) 64.8%, transparent) 0.9rem,
+    color-mix(in oklab, var(--background) 89.6%, transparent) 1.2rem,
+    var(--background) 1.5rem
+  );
+}

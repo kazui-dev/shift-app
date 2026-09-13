@@ -6,6 +6,7 @@ import type { ChatDraft, ChatFile } from "@/lib/chat/store"
 import { attachImages } from "@/components/chat/composer/attach-images"
 import { ComposerAttachments } from "@/components/chat/composer/attachments"
 import { useComposerLayout } from "@/components/chat/composer/use-layout"
+import { canSubmit } from "@/components/chat/composer/send-rule"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 export function ChatComposer({
@@ -17,6 +18,7 @@ export function ChatComposer({
   onAddFiles,
   onSend,
   editing,
+  focusRequest,
 }: {
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   roomName: string
@@ -26,6 +28,8 @@ export function ChatComposer({
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
   onSend: () => void
+  /** Increments each time the member picks a message to reply to or edit. */
+  focusRequest: number
 }) {
   const form = useRef<HTMLFormElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -35,10 +39,12 @@ export function ChatComposer({
     draft.content,
     !disabled
   )
-  const modeId = editing?.id ?? draft.reply?.id
+  // Focus follows the member choosing to reply or edit. Ending, cancelling or
+  // restoring a mode leaves focus, and therefore the mobile keyboard, alone.
   useEffect(() => {
-    if (modeId) input.current?.focus({ preventScroll: true })
-  }, [modeId, input])
+    if (focusRequest) input.current?.focus({ preventScroll: true })
+  }, [focusRequest, input])
+  const sendable = canSubmit(draft, editing)
   const mode = editing
     ? {
         label: "メッセージ編集中",
@@ -49,7 +55,8 @@ export function ChatComposer({
       ? {
           label: `${draft.reply.memberDisplayName}への返信`,
           cancelLabel: "返信を取り消す",
-          cancel: () => onChange({ content: "", files: [] }),
+          cancel: () =>
+            onChange({ content: draft.content, files: draft.files }),
         }
       : null
   const cancelMode = useEffectEvent((event: KeyboardEvent) => {
@@ -69,7 +76,6 @@ export function ChatComposer({
     )
       return
     event.preventDefault()
-    input.current?.blur()
     mode?.cancel()
   })
   const modeActive = mode !== null
@@ -92,7 +98,6 @@ export function ChatComposer({
     return () => field?.removeEventListener("cancel", finishPicking)
   }, [finishPicking])
   async function addFiles(incoming: File[]) {
-    if (editing) return
     const files = await attachImages(incoming, draft.files.length)
     if (files.length) onAddFiles(files)
   }
@@ -160,11 +165,7 @@ export function ChatComposer({
         }}
         onSubmit={(event) => {
           event.preventDefault()
-          if (
-            !disabled &&
-            !saving &&
-            (draft.content.trim() || draft.files.length || editing?.hasImages)
-          ) {
+          if (!disabled && !saving && sendable) {
             onSend()
           }
         }}
@@ -184,10 +185,7 @@ export function ChatComposer({
               aria-label={mode.cancelLabel}
               disabled={disabled || saving}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={() => {
-                input.current?.blur()
-                mode.cancel()
-              }}
+              onClick={mode.cancel}
             >
               <X />
             </Button>
@@ -214,7 +212,7 @@ export function ChatComposer({
             variant="ghost"
             size="icon-sm"
             disabled={disabled}
-            className={`${editing ? "invisible" : ""} absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted`}
+            className={`absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted`}
             data-pressed={pressed || pickerOpen}
             onPointerDown={(event) => {
               event.preventDefault()
@@ -284,13 +282,7 @@ export function ChatComposer({
             size="icon-sm"
             className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!editing && !draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
             aria-label={editing ? "保存" : "送信"}
-            disabled={
-              disabled ||
-              saving ||
-              (!draft.content.trim() &&
-                !draft.files.length &&
-                !editing?.hasImages)
-            }
+            disabled={disabled || saving || !sendable}
           >
             <SendHorizontal />
           </Button>
