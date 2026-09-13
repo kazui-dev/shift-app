@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { LoadingState } from "@/components/page-layout"
 import { japanMonthDayTime, japanTime } from "@workspace/shared/japan-time"
 import { getAttendanceEvents, getReportEvents } from "@/api/assignments"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -77,9 +78,7 @@ export function AttendanceHistory({
         if (!open) onClose()
       }}
     >
-      {query.isPending && (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      )}
+      {query.isPending && <LoadingState />}
       {query.data?.events.length === 0 && (
         <p className="text-sm text-muted-foreground">修正履歴はありません。</p>
       )}

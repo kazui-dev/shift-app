@@ -1,4 +1,5 @@
 import { attendanceQuery } from "@/data/attendance"
+import { LoadingState } from "@/components/page-layout"
 import type { AttendanceData } from "./attendance-data"
 import { AttendanceCorrection } from "./attendance-correction"
 import { AttendanceHistory, ReportHistory } from "./attendance-history"
@@ -75,9 +76,7 @@ export function ShiftAttendance({
         if (!open) onClose()
       }}
     >
-      {query.isPending && (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      )}
+      {query.isPending && <LoadingState />}
       {target ? (
         <ReportForm
           key={target.id}
