@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
+import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { japanMonthDayTime } from "@workspace/shared/japan-time"
-import { getRouteApi, useRouter } from "@tanstack/react-router"
+import { getRouteApi } from "@tanstack/react-router"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { Search, LoaderCircle } from "lucide-react"
 import { Input } from "@workspace/ui/components/input"
@@ -20,7 +21,6 @@ export function ChatSearchPage() {
   return <ChatSearch key={roomId} roomId={roomId} />
 }
 function ChatSearch({ roomId }: { roomId: string }) {
-  const router = useRouter()
   const { setTarget } = useMessageTarget()
   const [input, setInput] = useState("")
   const [query, setQuery] = useState("")
@@ -52,15 +52,10 @@ function ChatSearch({ roomId }: { roomId: string }) {
       (results.isFetching && !results.isFetchingNextPage))
   const loading = current && results.isFetching
   const Icon = loading ? LoaderCircle : Search
-  const close = () => {
-    if (router.history.location.state.chatSearch) router.history.back()
-    else
-      void router.navigate({
-        to: "/chat/$roomId",
-        params: { roomId },
-        replace: true,
-      })
-  }
+  const close = useCloseOverlay("search", {
+    to: "/chat/$roomId",
+    params: { roomId },
+  })
   const messages = results.data?.pages.flatMap((page) => page.messages) ?? []
   return (
     <RoutePage onClose={close}>

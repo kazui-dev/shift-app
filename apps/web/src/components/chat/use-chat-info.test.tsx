@@ -5,7 +5,7 @@ import { useChatInfo } from "./use-chat-info"
 const boundary = vi.hoisted(() => ({
   location: {
     pathname: "/chat/one",
-    state: { chatInfo: false, chatFromList: true },
+    state: { chatOverlay: undefined as string | undefined, chatFromList: true },
   },
   back: vi.fn<() => void>(),
   navigate: vi.fn<(options: unknown) => void>(),
@@ -32,17 +32,17 @@ function view(action?: "show" | "close", roomId: string | undefined = "one") {
 beforeEach(() => {
   vi.clearAllMocks()
   boundary.location.pathname = "/chat/one"
-  boundary.location.state = { chatInfo: false, chatFromList: true }
+  boundary.location.state = { chatOverlay: undefined, chatFromList: true }
 })
 it("pushes information once and returns using the existing conversation history", () => {
   view("show")
   expect(boundary.navigate).toHaveBeenCalledWith({
     to: "/chat/$roomId/info",
     params: { roomId: "one" },
-    state: { chatInfo: true, chatFromList: true },
+    state: { chatOverlay: "info", chatFromList: true },
   })
   boundary.location.pathname = "/chat/one/info"
-  boundary.location.state.chatInfo = true
+  boundary.location.state.chatOverlay = "info"
   expect(view("show")).toContain("info")
   expect(boundary.navigate).toHaveBeenCalledTimes(1)
   view("close")

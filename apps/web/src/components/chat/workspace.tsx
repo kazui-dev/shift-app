@@ -82,7 +82,7 @@ export function ChatWorkspace({
       void navigate({
         to: "/chat/$roomId/info/settings",
         params: { roomId: room.id },
-        state: { chatSettings: true },
+        state: { chatOverlay: "settings" },
       })
   }
   const openAttendance = () => {
@@ -119,7 +119,7 @@ export function ChatWorkspace({
                 void navigate({
                   to: "/chat/$roomId/search",
                   params: { roomId: room.id },
-                  state: { chatSearch: true },
+                  state: { chatOverlay: "search" },
                 })
             }}
           />

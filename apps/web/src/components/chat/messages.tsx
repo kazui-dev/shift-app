@@ -305,7 +305,7 @@ export function ChatMessages({
                                   to: "/chat/$roomId",
                                   params: { roomId: room.id },
                                   search: { image, message: message.sequence },
-                                  state: { chatImage: true },
+                                  state: { chatOverlay: "image" },
                                   resetScroll: false,
                                 })
                             }}

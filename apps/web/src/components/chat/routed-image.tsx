@@ -1,7 +1,8 @@
 import { useEffect, useEffectEvent, useState } from "react"
+import { useCloseOverlay } from "./overlay"
 import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
-import { getRouteApi, useRouter, useRouterState } from "@tanstack/react-router"
+import { getRouteApi, useRouterState } from "@tanstack/react-router"
 import { getChatMessageAt } from "@/api/chat"
 import { acquireChatImage, cachedChatImage } from "@/lib/chat-images"
 import { ImageViewer } from "./image-viewer"
@@ -10,12 +11,6 @@ type ChatMessage = Awaited<
   ReturnType<typeof getChatMessageAt>
 >["messages"][number]
 
-declare module "@tanstack/react-router" {
-  interface HistoryState {
-    chatImage?: boolean
-  }
-}
-
 export function RoutedImage({
   roomId,
   messages,
@@ -23,7 +18,6 @@ export function RoutedImage({
   roomId: string
   messages: ChatMessage[]
 }) {
-  const router = useRouter()
   const { state } = getRouteApi("/_app").useRouteContext()
   const search = useRouterState({ select: (value) => value.location.search })
   const { image, message: sequence } = chatImageLocation(search)
@@ -37,16 +31,11 @@ export function RoutedImage({
   const message =
     cached ?? query.data?.messages.find((item) => item.sequence === sequence)
   const attachment = message?.attachments.find((item) => item.id === image)
-  const close = () => {
-    if (router.state.location.state.chatImage) router.history.back()
-    else
-      void router.navigate({
-        to: "/chat/$roomId",
-        params: { roomId },
-        search: { report: search.report },
-        replace: true,
-      })
-  }
+  const close = useCloseOverlay("image", {
+    to: "/chat/$roomId",
+    params: { roomId },
+    search: { report: search.report },
+  })
   if (!image || !attachment || !message) return null
   return (
     <LoadedImage
