@@ -126,13 +126,3 @@ export async function limitedBody(response: Response, limit: number) {
   }
   return result
 }
-
-/** A stable cache-key fragment for a URL. */
-export async function urlDigest(value: string) {
-  return Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value))
-    ),
-    (byte) => byte.toString(16).padStart(2, "0")
-  ).join("")
-}

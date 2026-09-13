@@ -10,7 +10,7 @@ import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
 import { messageLinks } from "@workspace/shared/messages"
 import { publishChatEvent } from "../../services/chat-directory"
-import { cachedLinkPreview } from "../../services/link-preview"
+import { sharedResource } from "../../lib/shared-cache"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
 import type { RoomEnv } from "./room"
@@ -40,13 +40,16 @@ const rejectedSend = [
   "INVALID_CHAT_REPLY",
 ]
 
-/** Fetch the first link's preview now, so the first reader is served from cache. */
+/**
+ * Build the first link's card now, so its first reader is served from cache.
+ * The card image is made from the preview, which is cached on the way.
+ */
 function warmLinkPreview(c: Context<RoomEnv>, content: string) {
   const link = messageLinks(content).find((part) => part.href)?.href
   if (!link) return
   c.executionCtx.waitUntil(
-    cachedLinkPreview(link, new URL(c.req.url).origin, (work) =>
-      c.executionCtx.waitUntil(work)
+    sharedResource("/v1/link-images", { url: link }).then((response) =>
+      response.body?.cancel()
     )
   )
 }

@@ -1,13 +1,5 @@
 import { expect, it, vi } from "vite-plus/test"
 import { ChatDirectory } from "../../src/durable-objects/chat-directory"
-vi.mock("cloudflare:workers", () => ({
-  DurableObject: class {
-    constructor(
-      public ctx: unknown,
-      public env: unknown
-    ) {}
-  },
-}))
 it("notifies every connected device of participants and no other member", () => {
   const socket = (id: string) => ({
     deserializeAttachment: () => id,
