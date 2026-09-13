@@ -7,6 +7,7 @@ const entry = (key: string, used: number, bytes = 1): CachedImage => ({
   user: "user",
   room: "room",
   id: key,
+  size: 640,
   bytes,
   used,
 })
@@ -17,25 +18,22 @@ it("drops images unused for longer than the age limit", () => {
     staleImages(
       [entry("old", now - 15 * day), entry("recent", now - day)],
       now,
-      { bytes: 100, count: 10, age: 14 * day }
+      { bytes: 100, age: 14 * day }
     )
   ).toEqual(["old"])
 })
 
-it("drops the least recently used images once the rest exceed the limits", () => {
+it("drops the least recently used images once the rest exceed the space", () => {
   const now = day
   const images = [
     entry("oldest", 1, 40),
     entry("newest", 3, 40),
     entry("middle", 2, 40),
   ]
-  expect(staleImages(images, now, { bytes: 80, count: 10, age: day })).toEqual([
+  expect(staleImages(images, now, { bytes: 80, age: day })).toEqual(["oldest"])
+  expect(staleImages(images, now, { bytes: 40, age: day })).toEqual([
+    "middle",
     "oldest",
   ])
-  expect(staleImages(images, now, { bytes: 1000, count: 1, age: day })).toEqual(
-    ["middle", "oldest"]
-  )
-  expect(
-    staleImages(images, now, { bytes: 1000, count: 10, age: day })
-  ).toEqual([])
+  expect(staleImages(images, now, { bytes: 120, age: day })).toEqual([])
 })

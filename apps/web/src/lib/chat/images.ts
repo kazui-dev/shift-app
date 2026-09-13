@@ -1,114 +1,198 @@
-import { getChatImage } from "@/api/chat"
+import type { ChatImageSize } from "@workspace/shared/communications"
+import { getChatImage, getChatOriginal } from "@/api/chat"
 import { readCachedImage, storeCachedImage } from "@/lib/chat/image-cache"
+import { imagePreview } from "@/lib/chat/preview"
 
-type Entry = {
-  promise: Promise<string>
+type Loaded<T> = { value: T; bytes: number }
+type Entry<T> = {
+  promise: Promise<T>
   controller: AbortController
   users: number
-  bytes: number
-  url?: string
+  loaded?: Loaded<T>
 }
-const images = new Map<string, Entry>()
-export function cachedChatImage(user: string, room: string, id: string) {
-  return images.get(JSON.stringify([user, room, id]))?.url
-}
-function trim() {
-  let bytes = [...images.values()].reduce((sum, item) => sum + item.bytes, 0)
-  for (const [key, entry] of images) {
-    if (bytes <= 64 * 1024 * 1024 && images.size <= 80) break
-    if (entry.users) continue
+type Held<T> = { promise: Promise<T>; release: () => void }
+
+/**
+ * Images kept in memory while in use, least recently used first out once the
+ * pool is full. Each kind has its own pool, so large images and originals
+ * never push list tiles out.
+ */
+class ImagePool<T> {
+  private entries = new Map<string, Entry<T>>()
+  private full: (count: number, bytes: number) => boolean
+  private dispose: (value: T) => void
+  constructor(
+    full: (count: number, bytes: number) => boolean,
+    dispose: (value: T) => void = () => undefined
+  ) {
+    this.full = full
+    this.dispose = dispose
+  }
+  cached(key: string) {
+    return this.entries.get(key)?.loaded?.value
+  }
+  acquire(
+    key: string,
+    load: (signal: AbortSignal) => Promise<Loaded<T>>
+  ): Held<T> {
+    let entry = this.entries.get(key)
+    if (!entry) {
+      const controller = new AbortController()
+      const created: Entry<T> = {
+        controller,
+        users: 0,
+        promise: load(controller.signal).then(
+          (loaded) => {
+            if (controller.signal.aborted) {
+              this.dispose(loaded.value)
+              throw new Error("Image request was cancelled")
+            }
+            created.loaded = loaded
+            this.trim()
+            return loaded.value
+          },
+          (error: unknown) => {
+            if (this.entries.get(key) === created) this.entries.delete(key)
+            throw error
+          }
+        ),
+      }
+      // Holders handle failures; an evicted load has no holder left to.
+      created.promise.catch(() => undefined)
+      entry = created
+    }
+    this.entries.delete(key)
+    this.entries.set(key, entry)
+    entry.users += 1
+    const held = entry
+    let released = false
+    return {
+      promise: held.promise,
+      release: () => {
+        if (released) return
+        released = true
+        held.users -= 1
+        this.trim()
+      },
+    }
+  }
+  keep(key: string, loaded: Loaded<T>) {
+    if (this.entries.has(key)) {
+      this.dispose(loaded.value)
+      return
+    }
+    this.entries.set(key, {
+      promise: Promise.resolve(loaded.value),
+      controller: new AbortController(),
+      users: 0,
+      loaded,
+    })
+    this.trim()
+  }
+  clear() {
+    for (const entry of this.entries.values()) this.evict(entry)
+    this.entries.clear()
+  }
+  private trim() {
+    let bytes = 0
+    for (const entry of this.entries.values()) bytes += entry.loaded?.bytes ?? 0
+    for (const [key, entry] of this.entries) {
+      if (!this.full(this.entries.size, bytes)) break
+      if (entry.users) continue
+      this.evict(entry)
+      this.entries.delete(key)
+      bytes -= entry.loaded?.bytes ?? 0
+    }
+  }
+  private evict(entry: Entry<T>) {
     entry.controller.abort()
-    if (entry.url) URL.revokeObjectURL(entry.url)
-    images.delete(key)
-    bytes -= entry.bytes
+    if (entry.loaded) this.dispose(entry.loaded.value)
   }
 }
-/** This device's copy when it has one; otherwise the network, kept for next time. */
-async function loadImage(
+
+const megabyte = 1024 * 1024
+const revoke = (url: string) => URL.revokeObjectURL(url)
+/** List tiles and viewer thumbnails, also kept on this device. */
+const tiles = new ImagePool<string>((_, bytes) => bytes > 64 * megabyte, revoke)
+/** The viewer's 2400px images. */
+const large = new ImagePool<string>((count) => count > 10, revoke)
+/** Originals, only while the viewer shows them or their neighbours. */
+const originals = new ImagePool<Blob>((count) => count > 0)
+/** This device's previews of images it sent, shown until their tiles arrive. */
+const sent = new ImagePool<string>((count) => count > 20, revoke)
+
+const keyOf = (...parts: (string | number)[]) => JSON.stringify(parts)
+
+/** An object URL of the image, decoded so showing it never flashes empty. */
+async function decoded(blob: Blob): Promise<Loaded<string>> {
+  const url = URL.createObjectURL(blob)
+  try {
+    const image = new Image()
+    image.src = url
+    await image.decode()
+    return { value: url, bytes: blob.size }
+  } catch (error) {
+    URL.revokeObjectURL(url)
+    throw error
+  }
+}
+
+export function cachedChatImage(
   user: string,
   room: string,
   id: string,
-  signal: AbortSignal
+  size: ChatImageSize
 ) {
-  const kept = await readCachedImage(user, room, id)
-  if (kept) return kept
-  const blob = await getChatImage(room, id, signal)
-  void storeCachedImage(user, room, id, blob)
-  return blob
+  return (size === 2400 ? large : tiles).cached(keyOf(user, room, id, size))
 }
-export function acquireChatImage(user: string, room: string, id: string) {
-  const key = JSON.stringify([user, room, id])
-  let entry = images.get(key)
-  if (!entry) {
-    const controller = new AbortController()
-    const created: Entry = {
-      controller,
-      users: 0,
-      bytes: 0,
-      promise: Promise.resolve(""),
-    }
-    created.promise = loadImage(user, room, id, controller.signal)
-      .then(async (blob) => {
-        if (controller.signal.aborted)
-          throw new Error("Image request was cancelled")
-        const url = URL.createObjectURL(blob)
-        created.url = url
-        created.bytes = blob.size
-        const image = new Image()
-        image.src = url
-        await image.decode()
-        if (controller.signal.aborted)
-          throw new Error("Image request was cancelled")
-        trim()
-        return url
-      })
-      .catch((error: unknown) => {
-        if (created.url) URL.revokeObjectURL(created.url)
-        if (images.get(key) === created) images.delete(key)
-        throw error
-      })
-    entry = created
-    images.set(key, entry)
-  }
-  images.delete(key)
-  images.set(key, entry)
-  entry.users++
-  const retained = entry
-  return {
-    promise: entry.promise,
-    release: () => {
-      retained.users--
-      trim()
-    },
-  }
+
+/** Loads a delivered size; list tiles come from this device when it has them. */
+export function acquireChatImage(
+  user: string,
+  room: string,
+  id: string,
+  size: ChatImageSize
+) {
+  const key = keyOf(user, room, id, size)
+  if (size === 2400)
+    return large.acquire(key, async (signal) =>
+      decoded(await getChatImage(room, id, size, signal))
+    )
+  return tiles.acquire(key, async (signal) => {
+    const kept = await readCachedImage(user, room, id, size)
+    const blob = kept ?? (await getChatImage(room, id, size, signal))
+    if (!kept) void storeCachedImage(user, room, id, size, blob)
+    return decoded(blob)
+  })
 }
-/**
- * Keeps a just-uploaded image, so its message shows it the moment the send is
- * confirmed instead of downloading what this device already has.
- */
-export function seedChatImage(
+
+export function acquireChatOriginal(user: string, room: string, id: string) {
+  return originals.acquire(keyOf(user, room, id), async (signal) => {
+    const blob = await getChatOriginal(room, id, signal)
+    return { value: blob, bytes: blob.size }
+  })
+}
+
+/** This device's preview of an image it sent, until the image's tile loads. */
+export function sentChatImage(user: string, room: string, id: string) {
+  return sent.cached(keyOf(user, room, id))
+}
+
+/** Keeps the preview of a just-uploaded image to show once its send is confirmed. */
+export async function keepSentImage(
   user: string,
   room: string,
   id: string,
   blob: Blob
 ) {
-  const key = JSON.stringify([user, room, id])
-  if (images.has(key)) return
-  const url = URL.createObjectURL(blob)
-  images.set(key, {
-    promise: Promise.resolve(url),
-    controller: new AbortController(),
-    users: 0,
-    bytes: blob.size,
-    url,
-  })
-  trim()
-  void storeCachedImage(user, room, id, blob)
-}
-export function clearChatImages() {
-  for (const entry of images.values()) {
-    entry.controller.abort()
-    if (entry.url) URL.revokeObjectURL(entry.url)
+  try {
+    const preview = await imagePreview(blob)
+    if (preview) sent.keep(keyOf(user, room, id), await decoded(preview.blob))
+  } catch {
+    // Without a preview the sent image loads like any other.
   }
-  images.clear()
+}
+
+export function clearChatImages() {
+  for (const pool of [tiles, large, originals, sent]) pool.clear()
 }

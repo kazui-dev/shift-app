@@ -40,18 +40,22 @@ type ViewerImage = {
   height: number
   /** The object URL once loaded, `null` when it could not be loaded. */
   src: string | null | undefined
+  /** The thumbnail's object URL once loaded. */
+  thumb: string | undefined
 }
 
 export function ImageViewer({
   images,
   initialIndex,
   onIndexChange,
+  onSave,
   onClose,
   caption,
 }: {
   images: ViewerImage[]
   initialIndex: number
   onIndexChange: (index: number) => void
+  onSave: () => void
   onClose: () => void
   caption: {
     author: string
@@ -229,16 +233,15 @@ export function ImageViewer({
             >
               <Plus />
             </Button>
-            {image?.src && (
-              <a
-                href={image.src}
-                download="chat-image.webp"
-                aria-label="画像を保存"
-                className="flex size-9 items-center justify-center rounded-full text-white hover:bg-white/20"
-              >
-                <Download className="size-5" />
-              </a>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="画像を保存"
+              className="text-white hover:bg-white/20"
+              onClick={onSave}
+            >
+              <Download />
+            </Button>
           </div>
         </div>
         {count > 1 && (
@@ -442,9 +445,9 @@ export function ImageViewer({
                         opacity: 0.55 + 0.45 * focus,
                       }}
                     >
-                      {item.src && (
+                      {item.thumb && (
                         <img
-                          src={item.src}
+                          src={item.thumb}
                           alt=""
                           draggable={false}
                           className="size-full object-cover"

@@ -1,7 +1,8 @@
 import { messagePermissions } from "@workspace/shared/messages"
 import { findAccessibleRoom } from "../services/chat-access"
 import type { ChatAttachment } from "@workspace/shared/communications"
-import { ChatAttachments } from "./chat-attachments"
+import { purgeShared } from "../lib/shared-cache"
+import { ChatAttachments, type StoredAttachment } from "./chat-attachments"
 import { DurableObject } from "cloudflare:workers"
 
 type ChatMessage = {
@@ -54,7 +55,11 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   }
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {
     super(ctx, env)
-    this.attachments = new ChatAttachments(ctx.storage, env.CHAT_IMAGES)
+    this.attachments = new ChatAttachments(
+      ctx.storage,
+      env.CHAT_IMAGES,
+      purgeShared
+    )
     void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
   }
 
@@ -99,6 +104,13 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ALTER TABLE messages ADD COLUMN edited_at INTEGER;
         ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
         INSERT INTO _sql_schema_migrations(id) VALUES(3);`)
+      })
+    if (version < 4)
+      this.ctx.storage.transactionSync(() => {
+        this.attachments.storeOriginals()
+        this.ctx.storage.sql.exec(
+          "INSERT INTO _sql_schema_migrations(id) VALUES(4)"
+        )
       })
   }
 
@@ -168,15 +180,11 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     return { message: this.toMessage(updated), changed: true }
   }
 
-  async reserveAttachment(roomId: string, memberId: string) {
+  async reserveAttachment(roomId: string, memberId: string, bytes: number) {
     if (this.deleted) return null
-    return this.attachments.reserve(roomId, memberId)
+    return this.attachments.reserve(roomId, memberId, bytes)
   }
-  finishAttachment(
-    id: string,
-    memberId: string,
-    image: Omit<ChatAttachment, "id">
-  ) {
+  finishAttachment(id: string, memberId: string, image: StoredAttachment) {
     return !this.deleted && this.attachments.finish(id, memberId, image)
   }
   getAttachment(id: string) {

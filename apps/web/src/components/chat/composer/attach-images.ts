@@ -1,9 +1,11 @@
 import { chatImageLimits } from "@workspace/shared/communications"
 import { toast } from "@workspace/ui/lib/toast"
 import type { ChatFile } from "@/lib/chat/store"
+import { imagePreview } from "@/lib/chat/preview"
 
-const imageTypes = /^image\/(jpeg|png|webp|heic|heif|avif)$/
+const imageTypes = /^image\/(jpeg|png|webp|gif|heic|heif|avif)$/
 const imageNames = /\.(heic|heif)$/i
+const megabytes = chatImageLimits.bytes / 1024 / 1024
 
 /**
  * Turns picked or dropped files into attachments, reading each one now so a
@@ -24,7 +26,7 @@ export async function attachImages(
       continue
     }
     if (file.size > chatImageLimits.bytes) {
-      toast.error("画像は1枚10MBまでです。")
+      toast.error(`画像は1枚${megabytes}MBまでです。`)
       continue
     }
     accepted.push({ id: crypto.randomUUID(), name: file.name, blob: file })
@@ -39,13 +41,11 @@ export async function attachImages(
         toast.error("画像を読み込めませんでした。もう一度選択してください。")
         return null
       }
-      try {
-        const bitmap = await createImageBitmap(selected.blob)
-        selected.dimensions = { width: bitmap.width, height: bitmap.height }
-        bitmap.close()
-      } catch {
-        // HEIC can still be decoded by the upload service.
-      }
+      // The preview made now also serves the rail; HEIC this device cannot
+      // decode has no size until the server reads it.
+      const preview = await imagePreview(selected.blob)
+      if (preview)
+        selected.dimensions = { width: preview.width, height: preview.height }
       return selected
     })
   )

@@ -57,15 +57,20 @@ export const createChatRoomInputSchema = v.object({
 })
 
 export const chatImageLimits = {
-  bytes: 10 * 1024 * 1024,
+  bytes: 20 * 1024 * 1024,
   count: 10,
-  pixels: 40_000_000,
+  pixels: 50_000_000,
 } as const
+/** Long edges a chat image is delivered at: list tiles and the viewer. */
+export const chatImageSizes = [640, 1280, 2400] as const
+export type ChatImageSize = (typeof chatImageSizes)[number]
 export const chatAttachmentSchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
   width: v.pipe(v.number(), v.integer(), v.gtValue(0)),
   height: v.pipe(v.number(), v.integer(), v.gtValue(0)),
   bytes: v.pipe(v.number(), v.integer(), v.gtValue(0)),
+  /** The name the original saves as. */
+  name: v.string(),
 })
 export type ChatAttachment = v.InferOutput<typeof chatAttachmentSchema>
 export const chatAttachmentEnvelopeSchema = v.object({

@@ -1,4 +1,7 @@
-import type { ChatTargetOption } from "@workspace/shared/communications"
+import type {
+  ChatImageSize,
+  ChatTargetOption,
+} from "@workspace/shared/communications"
 import {
   chatLinkPreviewSchema,
   chatMessageEnvelopeSchema,
@@ -101,16 +104,21 @@ export const getChatRoom = (roomId: string) =>
     chatRoomEnvelopeSchema
   )
 export type ChatRoom = Awaited<ReturnType<typeof getChatRoom>>["room"]
-const chatImageUrl = (roomId: string, id: string) =>
-  `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}`
-export const uploadChatImage = (roomId: string, blob: Blob) =>
+const chatImageUrl = (roomId: string, id: string, size?: ChatImageSize) =>
+  `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}${size ? `?size=${size}` : ""}`
+export const uploadChatImage = (
+  roomId: string,
+  file: { name: string; blob: Blob }
+) =>
   apiJson(
-    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments`,
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments?name=${encodeURIComponent(file.name)}`,
     chatAttachmentEnvelopeSchema,
     {
       method: "POST",
-      headers: { "Content-Type": blob.type || "application/octet-stream" },
-      body: blob,
+      headers: {
+        "Content-Type": file.blob.type || "application/octet-stream",
+      },
+      body: file.blob,
     }
   )
 
@@ -120,8 +128,17 @@ export const getChatMembers = (roomId: string) =>
     chatMembersResponseSchema
   )
 
-export const getChatImage = (roomId: string, id: string, signal: AbortSignal) =>
-  apiBlob(chatImageUrl(roomId, id), signal)
+export const getChatImage = (
+  roomId: string,
+  id: string,
+  size: ChatImageSize,
+  signal: AbortSignal
+) => apiBlob(chatImageUrl(roomId, id, size), signal)
+export const getChatOriginal = (
+  roomId: string,
+  id: string,
+  signal: AbortSignal
+) => apiBlob(chatImageUrl(roomId, id), signal)
 
 export const editChatMessage = (roomId: string, id: string, content: string) =>
   apiJson(

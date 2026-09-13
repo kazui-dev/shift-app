@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from "react"
 import { getRouteApi } from "@tanstack/react-router"
-import { acquireChatImage, cachedChatImage } from "@/lib/chat/images"
+import type { ChatImageSize } from "@workspace/shared/communications"
+import {
+  acquireChatImage,
+  cachedChatImage,
+  sentChatImage,
+} from "@/lib/chat/images"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
 
 export function RemoteImage({
   roomId,
   id,
+  size,
   width,
   height,
   alt,
@@ -14,17 +20,22 @@ export function RemoteImage({
 }: {
   roomId: string
   id: string
+  size: ChatImageSize
   width: number
   height: number
   alt: string
   fit?: "contain" | "cover"
-  onOpen: (src: string) => void
+  onOpen: () => void
 }) {
   const { state } = getRouteApi("/_app").useRouteContext()
   const user = state.member.studentId
   const element = useRef<HTMLButtonElement>(null)
-  // An image already in memory shows on the first render, not after loading.
-  const [src, setSrc] = useState(() => cachedChatImage(user, roomId, id))
+  // A tile in memory, or this device's preview of an image it just sent, shows
+  // on the first render; the tile replaces a preview once it has decoded.
+  const [src, setSrc] = useState(
+    () =>
+      cachedChatImage(user, roomId, id, size) ?? sentChatImage(user, roomId, id)
+  )
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   // Start loading two screens ahead. Once shown, an image stays shown and held
@@ -36,12 +47,12 @@ export function RemoteImage({
       held.current?.release()
       held.current = null
     },
-    [user, roomId, id, attempt]
+    [user, roomId, id, size, attempt]
   )
   useEffect(() => {
     // A shown image is held, so the memory cache never revokes its URL.
     if (held.current || (!near && !src)) return
-    const image = acquireChatImage(user, roomId, id)
+    const image = acquireChatImage(user, roomId, id, size)
     held.current = image
     setFailed(false)
     void image.promise
@@ -51,15 +62,15 @@ export function RemoteImage({
       .catch(() => {
         if (held.current === image) setFailed(true)
       })
-  }, [near, src, user, roomId, id, attempt])
+  }, [near, src, user, roomId, id, size, attempt])
   return (
     <button
       data-page-swipe
       ref={element}
       type="button"
-      aria-label={failed ? "画像を再読み込み" : alt}
+      aria-label={failed && !src ? "画像を再読み込み" : alt}
       onClick={() =>
-        src ? onOpen(src) : failed && setAttempt((value) => value + 1)
+        src ? onOpen() : failed && setAttempt((value) => value + 1)
       }
       className="size-full overflow-hidden bg-muted/30 text-left"
     >

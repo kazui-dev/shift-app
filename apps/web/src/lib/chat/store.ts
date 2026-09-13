@@ -10,7 +10,7 @@ import {
   type QueuedMessage,
 } from "@/lib/chat/state"
 import { loadChat, saveChat, clearChat } from "@/lib/chat/storage"
-import { seedChatImage } from "@/lib/chat/images"
+import { keepSentImage } from "@/lib/chat/images"
 export type { ChatFile, ChatDraft, QueuedMessage } from "@/lib/chat/state"
 type State = SavedChat & { ready: boolean }
 const empty: ChatDraft = { content: "", files: [] }
@@ -194,20 +194,27 @@ export class ChatStore {
               ? file
               : {
                   ...file,
-                  uploaded: (await uploadChatImage(message.roomId, file.blob))
+                  uploaded: (await uploadChatImage(message.roomId, file))
                     .attachment,
                 }
           )
         )
         if (!this.active) return
-        for (const file of files)
-          if (file.uploaded)
-            seedChatImage(
-              this.userId,
-              message.roomId,
-              file.uploaded.id,
-              file.blob
-            )
+        // Ready before the send is confirmed, so the sent images never show empty.
+        await Promise.all(
+          files.flatMap((file) =>
+            file.uploaded
+              ? [
+                  keepSentImage(
+                    this.userId,
+                    message.roomId,
+                    file.uploaded.id,
+                    file.blob
+                  ),
+                ]
+              : []
+          )
+        )
         this.update(message.id, { files })
         await this.persist()
         const result = await sendChatMessage(message.roomId, {

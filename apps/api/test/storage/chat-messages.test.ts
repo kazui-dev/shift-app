@@ -6,6 +6,10 @@ import {
   type RoomRow,
 } from "../../src/services/chat-access"
 import { roomRecipients } from "../../src/services/chat-permissions"
+import { purgeShared } from "../../src/lib/shared-cache"
+vi.mock("../../src/lib/shared-cache", () => ({
+  purgeShared: vi.fn<typeof purgeShared>().mockResolvedValue(undefined),
+}))
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
@@ -80,7 +84,15 @@ function fixture() {
       blockConcurrencyWhile: (callback: () => Promise<void>) => callback(),
       getWebSockets: () => [],
     },
-    { CHAT_IMAGES: bucket },
+    {
+      CHAT_IMAGES: bucket,
+      // Every room here is already deleted from D1.
+      shift_app: {
+        prepare: () => ({
+          bind: () => ({ first: () => Promise.resolve(null) }),
+        }),
+      },
+    },
   ])
   if (!(value instanceof ChatRoom)) throw Error("Invalid room")
   return { value, db, bucket, storage }
@@ -188,17 +200,27 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
     })
   ).toMatchObject({ message: { deleted: true } })
 })
-it("denies image reads immediately after deletion and removes their objects on the alarm", async () => {
+it("names sent images, denies reads after deletion and removes their objects and cached sizes", async () => {
   const { value, bucket } = fixture()
-  const reserved = await value.reserveAttachment("room", "author")
+  const reserved = await value.reserveAttachment("room", "author", 50)
   if (!reserved) throw Error("No reservation")
+  expect(reserved.objectKey).toBe(`room/${reserved.id}`)
   value.finishAttachment(reserved.id, "author", {
     width: 10,
     height: 10,
     bytes: 50,
+    name: "",
+    type: "image/png",
   })
-  await value.sendMessage({ ...input("first"), attachmentIds: [reserved.id] })
-  expect(value.getAttachment(reserved.id)).not.toBeNull()
+  const sent = await value.sendMessage({
+    ...input("first"),
+    attachmentIds: [reserved.id],
+  })
+  const name = "19700101-090000.png"
+  expect(sent.attachments).toEqual([
+    { id: reserved.id, width: 10, height: 10, bytes: 50, name },
+  ])
+  expect(value.getAttachment(reserved.id)).toEqual({ name, type: "image/png" })
   expect(
     await value.changeMessage({
       roomId: "room",
@@ -211,6 +233,36 @@ it("denies image reads immediately after deletion and removes their objects on t
   expect(value.getAttachment(reserved.id)).toBeNull()
   await value.alarm()
   expect(bucket.delete).toHaveBeenCalledWith(reserved.objectKey)
+  expect(purgeShared).toHaveBeenCalledWith([`chat-image:${reserved.id}`])
+})
+it("limits each member's daily uploads by count and by bytes", async () => {
+  const { value } = fixture()
+  expect(
+    await value.reserveAttachment("room", "author", 400 * 1024 * 1024)
+  ).not.toBeNull()
+  expect(
+    await value.reserveAttachment("room", "author", 101 * 1024 * 1024)
+  ).toBeNull()
+  expect(
+    await value.reserveAttachment("room", "other", 101 * 1024 * 1024)
+  ).not.toBeNull()
+  const uploads = await Promise.all(
+    Array.from({ length: 99 }, () =>
+      value.reserveAttachment("room", "other", 1)
+    )
+  )
+  expect(uploads).not.toContain(null)
+  expect(await value.reserveAttachment("room", "other", 1)).toBeNull()
+})
+it("drops every cached size of a deleted room", async () => {
+  const { value } = fixture()
+  await Promise.all(
+    ["author", "other"].map((member) =>
+      value.reserveAttachment("room", member, 1)
+    )
+  )
+  await value.deleteMessages("room")
+  expect(purgeShared).toHaveBeenCalledWith(["chat-room:room"])
 })
 it("rejects empty text-only edits and preserves idempotent sending", async () => {
   const { value } = fixture()

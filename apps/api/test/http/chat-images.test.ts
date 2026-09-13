@@ -1,13 +1,22 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
+import { sharedResource } from "../../src/lib/shared-cache"
 import { chatApp } from "../../src/routes/chat/index"
 import {
   findAccessibleRoom,
   type RoomRow,
 } from "../../src/services/chat-access"
+import { storableImage } from "../../src/services/chat-image"
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
+}))
+vi.mock("../../src/services/chat-image", () => ({
+  storableImage: vi.fn<typeof storableImage>(),
+}))
+vi.mock("../../src/lib/shared-cache", async (original) => ({
+  ...(await original<typeof import("../../src/lib/shared-cache")>()),
+  sharedResource: vi.fn<typeof sharedResource>(),
 }))
 const roomId = crypto.randomUUID(),
   imageId = crypto.randomUUID()
@@ -29,28 +38,35 @@ const room: RoomRow = {
   lastSequence: 0,
 }
 const getAttachment =
-  vi.fn<
-    (id: string, before: number | null) => Promise<{ objectKey: string } | null>
-  >()
+  vi.fn<(id: string) => Promise<{ name: string; type: string } | null>>()
 const reserveAttachment =
-  vi.fn<() => Promise<{ id: string; objectKey: string } | null>>()
-const remove = vi.fn<() => Promise<boolean>>()
-const info =
-  vi.fn<() => Promise<{ format: string; width: number; height: number }>>()
-const bucketGet =
   vi.fn<
-    () => Promise<{ body: ReadableStream<Uint8Array>; size: number } | null>
+    (
+      roomId: string,
+      memberId: string,
+      bytes: number
+    ) => Promise<{ id: string; objectKey: string } | null>
   >()
+const finishAttachment = vi.fn<() => Promise<boolean>>()
+const remove = vi.fn<() => Promise<boolean>>()
+const put = vi.fn<() => Promise<void>>()
+const tasks: Promise<unknown>[] = []
 const env = {
   CHAT_ROOMS: {
     getByName: () => ({
       getAttachment,
       reserveAttachment,
+      finishAttachment,
       deleteAttachment: remove,
     }),
   },
-  IMAGES: { info },
-  CHAT_IMAGES: { get: bucketGet },
+  IMAGES: {},
+  CHAT_IMAGES: { put, delete: vi.fn<() => Promise<void>>() },
+}
+const context = {
+  waitUntil: (task: Promise<unknown>) => tasks.push(task),
+  passThroughOnException: () => undefined,
+  props: {},
 }
 const app = new Hono<ApiEnv>()
 app.use("*", async (c, next) => {
@@ -63,82 +79,141 @@ app.use("*", async (c, next) => {
   await next()
 })
 app.route("/chat", chatApp)
+const upload = (name = "", body: BodyInit = "image") =>
+  app.request(
+    `/chat/rooms/${roomId}/attachments${name ? `?name=${encodeURIComponent(name)}` : ""}`,
+    { method: "POST", body },
+    env,
+    context
+  )
+const image = (query = "") =>
+  app.request(
+    `/chat/rooms/${roomId}/attachments/${imageId}${query}`,
+    {},
+    env,
+    context
+  )
 beforeEach(() => {
   vi.resetAllMocks()
+  tasks.length = 0
   vi.mocked(findAccessibleRoom).mockResolvedValue(room)
+  reserveAttachment.mockResolvedValue({
+    id: imageId,
+    objectKey: `${roomId}/${imageId}`,
+  })
+  finishAttachment.mockResolvedValue(true)
+  getAttachment.mockResolvedValue({ name: "旅行 (1).png", type: "image/png" })
+  vi.mocked(sharedResource).mockImplementation(
+    async () => new Response("image")
+  )
 })
+
 it("does not touch storage when room access is denied", async () => {
   vi.mocked(findAccessibleRoom).mockResolvedValue(null)
-  expect(
-    (await app.request(`/chat/rooms/${roomId}/attachments/${imageId}`, {}, env))
-      .status
-  ).toBe(404)
-  expect(
-    (
-      await app.request(
-        `/chat/rooms/${roomId}/attachments`,
-        { method: "POST", body: "image" },
-        env
-      )
-    ).status
-  ).toBe(404)
+  expect((await image()).status).toBe(404)
+  expect((await upload()).status).toBe(404)
   expect(getAttachment).not.toHaveBeenCalled()
   expect(reserveAttachment).not.toHaveBeenCalled()
 })
 
 it("refuses to upload into a readable room the member cannot post to", async () => {
   vi.mocked(findAccessibleRoom).mockResolvedValue({ ...room, canPost: 0 })
-  expect(
-    (
-      await app.request(
-        `/chat/rooms/${roomId}/attachments`,
-        { method: "POST", body: "image" },
-        env
-      )
-    ).status
-  ).toBe(403)
+  expect((await upload()).status).toBe(403)
   expect(reserveAttachment).not.toHaveBeenCalled()
 })
-it("never caches protected images publicly", async () => {
-  getAttachment.mockResolvedValue({ objectKey: "private" })
-  bucketGet.mockResolvedValue({ body: new Blob(["image"]).stream(), size: 5 })
-  const response = await app.request(
-    `/chat/rooms/${roomId}/attachments/${imageId}`,
-    {},
-    env
+
+it("rejects empty and oversized uploads before allocating storage", async () => {
+  expect((await upload("", "")).status).toBe(413)
+  expect((await upload("", new Uint8Array(20 * 1024 * 1024 + 1))).status).toBe(
+    413
   )
-  expect(response.status).toBe(200)
-  expect(getAttachment).toHaveBeenCalledWith(imageId)
-  expect(response.headers.get("Cache-Control")).toBe("private, no-store")
-  expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff")
-  expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe(
-    "same-origin"
-  )
+  expect(reserveAttachment).not.toHaveBeenCalled()
 })
-it("rejects spoofed image types using decoded format and removes their reservation", async () => {
-  reserveAttachment.mockResolvedValue({ id: imageId, objectKey: "pending" })
-  info.mockResolvedValue({ format: "image/svg+xml", width: 1, height: 1 })
-  const response = await app.request(
-    `/chat/rooms/${roomId}/attachments`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "image/png" },
-      body: "<svg/>",
-    },
-    env
-  )
-  expect(response.status).toBe(422)
+
+it("counts an upload's bytes against the daily limit", async () => {
+  reserveAttachment.mockResolvedValue(null)
+  expect((await upload()).status).toBe(429)
+  expect(reserveAttachment).toHaveBeenCalledWith(roomId, "m", 5)
+  expect(storableImage).not.toHaveBeenCalled()
+})
+
+it("rejects what cannot be stored and removes its reservation", async () => {
+  vi.mocked(storableImage).mockResolvedValue(null)
+  expect((await upload()).status).toBe(422)
   expect(remove).toHaveBeenCalledWith(imageId, "m")
+  expect(put).not.toHaveBeenCalled()
 })
-it("rejects empty uploads before allocating storage", async () => {
-  expect(
-    (
-      await app.request(
-        `/chat/rooms/${roomId}/attachments`,
-        { method: "POST", body: "" },
-        env
-      )
-    ).status
-  ).toBe(413)
-  expect(reserveAttachment).not.toHaveBeenCalled()
+
+it("stores the original under its name and makes the list tiles at once", async () => {
+  vi.mocked(storableImage).mockResolvedValue({
+    bytes: new Uint8Array([1, 2, 3]),
+    width: 30,
+    height: 40,
+    type: "image/jpeg",
+  })
+  const response = await upload("IMG_0001.HEIC")
+  const attachment = {
+    id: imageId,
+    width: 30,
+    height: 40,
+    bytes: 3,
+    name: "IMG_0001.jpg",
+  }
+  expect(response.status).toBe(201)
+  expect(await response.json()).toEqual({ attachment })
+  expect(put).toHaveBeenCalledWith(
+    `${roomId}/${imageId}`,
+    new Uint8Array([1, 2, 3]),
+    { httpMetadata: { contentType: "image/jpeg" } }
+  )
+  expect(finishAttachment).toHaveBeenCalledWith(imageId, "m", {
+    ...attachment,
+    type: "image/jpeg",
+  })
+  await Promise.all(tasks)
+  expect(vi.mocked(sharedResource).mock.calls).toEqual([
+    [`/v1/chat-images/${roomId}/${imageId}/640`],
+    [`/v1/chat-images/${roomId}/${imageId}/1280`],
+  ])
+})
+
+it("delivers a size as a private WebP from the shared cache", async () => {
+  const response = await image("?size=640")
+  expect(await response.text()).toBe("image")
+  expect(Object.fromEntries(response.headers)).toMatchObject({
+    "cache-control": "private, no-store",
+    "content-type": "image/webp",
+    "content-disposition": "inline",
+    "x-content-type-options": "nosniff",
+    "cross-origin-resource-policy": "same-origin",
+  })
+  expect(getAttachment).toHaveBeenCalledWith(imageId)
+  expect(sharedResource).toHaveBeenCalledWith(
+    `/v1/chat-images/${roomId}/${imageId}/640`
+  )
+})
+
+it("delivers the original to save under its name", async () => {
+  const response = await image()
+  expect(response.headers.get("Content-Type")).toBe("image/png")
+  expect(response.headers.get("Cache-Control")).toBe("private, no-store")
+  expect(response.headers.get("Content-Disposition")).toBe(
+    "attachment; filename*=UTF-8''%E6%97%85%E8%A1%8C%20%281%29.png"
+  )
+  expect(sharedResource).toHaveBeenCalledWith(
+    `/v1/chat-images/${roomId}/${imageId}/original`
+  )
+})
+
+it("finds no image for unknown sizes, unsent images or missing objects", async () => {
+  expect((await image("?size=100")).status).toBe(404)
+  expect(getAttachment).not.toHaveBeenCalled()
+  getAttachment.mockResolvedValue(null)
+  expect((await image("?size=640")).status).toBe(404)
+  expect(sharedResource).not.toHaveBeenCalled()
+  getAttachment.mockResolvedValue({ name: "a.png", type: "image/png" })
+  vi.mocked(sharedResource).mockResolvedValue(
+    new Response(null, { status: 404 })
+  )
+  expect((await image("?size=640")).status).toBe(404)
 })
