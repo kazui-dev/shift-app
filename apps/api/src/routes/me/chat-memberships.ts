@@ -5,7 +5,7 @@ import { findAccessibleRoom } from "../../services/chat-access"
 import { publishRoomChange } from "../../services/chat-directory"
 import {
   roomRecipients,
-  chatPermissions,
+  roomPermissions,
 } from "../../services/chat-permissions"
 export const chatMembershipsApp = new Hono<ApiEnv>()
 chatMembershipsApp.delete("/:roomId", async (c) => {
@@ -15,23 +15,19 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
   if (!room.allowExit) return apiError(c, errors.chatExitDisabled)
   const previous = await roomRecipients(c.env, room.id)
   const result = await c.env.shift_app
-    .prepare(`${chatPermissions}
+    .prepare(`${roomPermissions}
     INSERT OR IGNORE INTO chat_room_exits(room_id,member_id,created_at)
-    SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM chat_rooms r JOIN chat_permissions p ON p.room_id=r.id WHERE r.id=? AND r.allow_exit=1 AND p.member_id=?)
-    AND (NOT EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id=? AND can_manage=1)
-    OR EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id<>? AND can_manage=1)
-    OR NOT EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=? AND member_id<>?)) RETURNING room_id`)
+    SELECT id,?,? FROM chat_scope WHERE EXISTS(SELECT 1 FROM chat_rooms r JOIN chat_permissions p ON p.room_id=r.id WHERE r.allow_exit=1 AND p.member_id=?)
+    AND (NOT EXISTS(SELECT 1 FROM chat_permissions WHERE member_id=? AND can_manage=1)
+    OR EXISTS(SELECT 1 FROM chat_permissions WHERE member_id<>? AND can_manage=1)
+    OR NOT EXISTS(SELECT 1 FROM chat_permissions WHERE member_id<>?)) RETURNING room_id`)
     .bind(
       room.id,
       member.id,
       Date.now(),
-      room.id,
       member.id,
-      room.id,
       member.id,
-      room.id,
       member.id,
-      room.id,
       member.id
     )
     .all()

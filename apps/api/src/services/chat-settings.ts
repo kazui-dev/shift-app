@@ -1,6 +1,6 @@
 import type { InferOutput } from "valibot"
 import type { roomSettingsInputSchema } from "@workspace/shared/communications"
-import { chatPermissions } from "./chat-permissions"
+import { roomPermissions } from "./chat-permissions"
 export async function saveRoomSettings(
   db: D1Database,
   roomId: string,
@@ -10,19 +10,19 @@ export async function saveRoomSettings(
   const now = Date.now()
   await db.batch([
     db
-      .prepare(`${chatPermissions} UPDATE chat_rooms SET name=CASE WHEN
-      EXISTS(SELECT 1 FROM chat_permissions WHERE room_id=chat_rooms.id AND member_id=? AND can_manage=1)
+      .prepare(`${roomPermissions} UPDATE chat_rooms SET name=CASE WHEN
+      EXISTS(SELECT 1 FROM chat_permissions WHERE member_id=? AND can_manage=1)
       AND EXISTS(SELECT 1 FROM json_each(?) j JOIN chat_subjects s ON s.target_type=json_extract(j.value,'$.targetType') AND s.target_id=json_extract(j.value,'$.targetId')
         JOIN year_memberships ym ON ym.year=s.year AND ym.member_id=s.member_id AND ym.status='active'
         WHERE s.year=chat_rooms.year AND json_extract(j.value,'$.canManage')=1
         AND NOT EXISTS(SELECT 1 FROM chat_room_exits x WHERE x.room_id=chat_rooms.id AND x.member_id=s.member_id))
-      THEN ? ELSE NULL END,allow_exit=? WHERE id=?`)
+      THEN ? ELSE NULL END,allow_exit=? WHERE id=(SELECT id FROM chat_scope)`)
       .bind(
+        roomId,
         actorId,
         JSON.stringify(input.targets),
         input.name,
-        input.allowExit ? 1 : 0,
-        roomId
+        input.allowExit ? 1 : 0
       ),
     db
       .prepare(`DELETE FROM chat_room_exits WHERE room_id=? AND member_id IN (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { ArrowDown, LoaderCircle } from "lucide-react"
 import { chatImageLimits } from "@workspace/shared/communications"
@@ -16,13 +16,19 @@ import {
 } from "@/components/chat/message/list"
 import { ChatMessageRow } from "@/components/chat/message/row"
 import { OfflineSendDialog } from "@/components/chat/message/offline-send-dialog"
-import { RoutedImage } from "@/components/chat/image/routed"
 import { useChatStore } from "@/components/chat/use-chat-store"
 import { useMessageEdit } from "@/components/chat/message/use-edit"
 import { useMessageScroll } from "@/components/chat/message/use-scroll"
 import { useMessageTarget } from "@/components/chat/message/use-target"
 import { useMessages } from "@/components/chat/message/use-history"
 import { useReplyTarget } from "@/components/chat/message/use-reply-target"
+
+// The viewer and its carousel load when an image first opens.
+const RoutedImage = lazy(() =>
+  import("@/components/chat/image/routed").then((module) => ({
+    default: module.RoutedImage,
+  }))
+)
 
 export function ChatMessages({
   room,
@@ -318,7 +324,11 @@ export function ChatMessages({
         />
       )}
       <OfflineSendDialog open={blockedSend} onOpenChange={setBlockedSend} />
-      {active && <RoutedImage roomId={room.id} messages={history.messages} />}
+      {active && (
+        <Suspense>
+          <RoutedImage roomId={room.id} messages={history.messages} />
+        </Suspense>
+      )}
     </>
   )
 }

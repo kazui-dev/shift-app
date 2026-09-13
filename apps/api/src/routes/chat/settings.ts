@@ -11,7 +11,7 @@ import { readJson } from "../../lib/http"
 import { findAccessibleRoom } from "../../services/chat-access"
 import { publishRoomChange } from "../../services/chat-directory"
 import {
-  chatPermissions,
+  roomPermissions,
   roomRecipients,
 } from "../../services/chat-permissions"
 import { saveRoomSettings } from "../../services/chat-settings"
@@ -97,9 +97,9 @@ settingsApp.put("/settings", async (c) => {
     return apiError(c, errors.invalidActivityTarget)
   const subjects = await c.env.shift_app
     .prepare(
-      `${chatPermissions} SELECT s.target_type AS targetType,s.target_id AS targetId FROM chat_subjects s JOIN year_memberships ym ON ym.year=s.year AND ym.member_id=s.member_id AND ym.status='active' WHERE s.year=? AND NOT EXISTS(SELECT 1 FROM chat_room_exits x WHERE x.room_id=? AND x.member_id=s.member_id)`
+      `${roomPermissions} SELECT s.target_type AS targetType,s.target_id AS targetId FROM chat_subjects s JOIN year_memberships ym ON ym.year=s.year AND ym.member_id=s.member_id AND ym.status='active' WHERE NOT EXISTS(SELECT 1 FROM chat_room_exits x WHERE x.room_id=(SELECT id FROM chat_scope) AND x.member_id=s.member_id)`
     )
-    .bind(room.year, room.id)
+    .bind(room.id)
     .all<{ targetType: string; targetId: string }>()
   const reachable = input.output.targets.some(
     (target) =>
