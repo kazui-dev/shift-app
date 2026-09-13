@@ -196,6 +196,7 @@ function MessageGallery({
         const sharp = large[attachment.id]
         return {
           id: attachment.id,
+          name: attachment.name,
           width: attachment.width,
           height: attachment.height,
           src: sharp ?? tile(attachment.id) ?? sharp,

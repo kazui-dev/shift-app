@@ -9,7 +9,7 @@ export function ThumbnailStrip({
   position,
   onSelect,
 }: {
-  images: { id: string; thumb: string | undefined }[]
+  images: { id: string; name: string; thumb: string | undefined }[]
   index: number
   /** The carousel position as a fractional index. */
   position: number
@@ -42,7 +42,7 @@ export function ThumbnailStrip({
             <button
               key={item.id}
               type="button"
-              aria-label={`画像${thumb + 1}を表示`}
+              aria-label={item.name}
               aria-current={thumb === index}
               onClick={() => onSelect(thumb)}
               className="h-12 shrink-0 overflow-hidden rounded-md bg-white/10 md:h-14"

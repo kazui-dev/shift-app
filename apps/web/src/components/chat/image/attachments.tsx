@@ -199,7 +199,7 @@ export function MessageImages({
         roomId,
         id: image.id,
         tile: sizes[index] ?? 640,
-        label: `画像${index + 1}を拡大`,
+        label: image.name,
         onOpen: () => onOpen(image.id),
       }))}
     />

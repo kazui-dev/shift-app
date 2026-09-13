@@ -24,6 +24,7 @@ type CarouselOptions = NonNullable<Parameters<typeof useEmblaCarousel>[0]>
 
 type ViewerImage = {
   id: string
+  name: string
   width: number
   height: number
   /** The object URL once loaded, `null` when it could not be loaded. */
@@ -201,7 +202,7 @@ export function ImageViewer({
                 {item.src ? (
                   <img
                     src={item.src}
-                    alt={`添付画像${slide + 1}`}
+                    alt={item.name}
                     draggable={false}
                     className="pointer-events-none size-full object-contain"
                     style={
