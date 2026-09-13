@@ -1,4 +1,5 @@
 import { MessageTargetProvider } from "@/components/chat/message-target"
+import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { RoutePage } from "@/components/route-page"
 import { prepareConversation, roomsQuery } from "@/data/chat"
@@ -48,10 +49,7 @@ function ChatScreen() {
   const { roomId, retainedId, open, back, resume, remove } = useChatNavigation()
   const display = useDisplayYear(),
     offline = useOfflineMode()
-  const closeCreate = () => {
-    if (router.history.location.state.chatCreate) router.history.back()
-    else void router.navigate({ to: "/chat", replace: true })
-  }
+  const closeCreate = useCloseOverlay("create", { to: "/chat" })
   useEffect(() => {
     if (roomId && !offline) void prepareConversation(client, roomId)
   }, [client, roomId, offline])
@@ -116,7 +114,7 @@ function ChatScreen() {
               onCreate={() => {
                 void router.navigate({
                   to: "/chat/new",
-                  state: { chatCreate: true },
+                  state: { chatOverlay: "create" },
                 })
               }}
             />

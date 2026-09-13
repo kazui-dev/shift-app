@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -26,15 +27,10 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
   const { store } = useChatStore()
   const [action, setAction] = useState<"leave" | "delete">()
   const [pending, setPending] = useState(false)
-  const close = () => {
-    if (router.history.location.state.chatSettings) router.history.back()
-    else
-      void router.navigate({
-        to: "/chat/$roomId/info",
-        params: { roomId },
-        replace: true,
-      })
-  }
+  const close = useCloseOverlay("settings", {
+    to: "/chat/$roomId/info",
+    params: { roomId },
+  })
   const query = useQuery({
     queryKey: keys.chatRoom(roomId),
     queryFn: () => getChatRoom(roomId),

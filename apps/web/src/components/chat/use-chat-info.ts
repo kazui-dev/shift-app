@@ -1,4 +1,5 @@
 import { useRouter, useRouterState } from "@tanstack/react-router"
+import { useCloseOverlay } from "./overlay"
 
 export function useChatInfo(roomId: string | undefined) {
   const router = useRouter()
@@ -14,21 +15,18 @@ export function useChatInfo(roomId: string | undefined) {
       to: "/chat/$roomId/info",
       params: { roomId },
       state: {
-        chatInfo: true,
+        chatOverlay: "info",
         chatFromList: !!router.history.location.state.chatFromList,
       },
     })
   }
+  const unwind = useCloseOverlay("info", {
+    to: "/chat/$roomId",
+    params: { roomId: roomId ?? "" },
+  })
   const close = () => {
-    if (!roomId || router.history.location.pathname !== `/chat/${roomId}/info`)
-      return
-    if (router.history.location.state.chatInfo) router.history.back()
-    else
-      void router.navigate({
-        to: "/chat/$roomId",
-        params: { roomId },
-        replace: true,
-      })
+    if (roomId && router.history.location.pathname === `/chat/${roomId}/info`)
+      unwind()
   }
   return { open, show, close }
 }

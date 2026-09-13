@@ -3,18 +3,6 @@ import { useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { useRouter } from "@tanstack/react-router"
 import { ChatNavigation } from "./navigation"
 
-declare module "@tanstack/react-router" {
-  interface HistoryState {
-    chatList?: boolean
-    chatRemoved?: string
-    chatFromList?: boolean
-    chatCreate?: boolean
-    chatSearch?: boolean
-    chatInfo?: boolean
-    chatSettings?: boolean
-  }
-}
-
 export function useChatNavigation() {
   const router = useRouter()
   const [navigation] = useState(
