@@ -80,17 +80,20 @@ export function MessageImages({
   const tile = (image: ChatAttachment, index: number, className = "") => (
     <div
       key={image.id}
-      className={`min-h-0 overflow-hidden bg-muted ${className}`}
+      className={`relative min-h-0 min-w-0 overflow-hidden bg-muted ${className}`}
     >
-      <RemoteImage
-        roomId={roomId}
-        id={image.id}
-        width={image.width}
-        height={image.height}
-        alt={`画像${index + 1}を拡大`}
-        fit="cover"
-        onOpen={() => onOpen(image.id)}
-      />
+      {/* Positioned so a loaded image can never resize its tile. */}
+      <div className="absolute inset-0">
+        <RemoteImage
+          roomId={roomId}
+          id={image.id}
+          width={image.width}
+          height={image.height}
+          alt={`画像${index + 1}を拡大`}
+          fit="cover"
+          onOpen={() => onOpen(image.id)}
+        />
+      </div>
     </div>
   )
   // Several images share one rounded frame, arranged as in the mosaic rule.
@@ -112,7 +115,7 @@ export function MessageImages({
         return (
           <div
             key={start}
-            className={`grid gap-1 ${size === 1 ? "aspect-video grid-cols-1" : size === 2 ? "aspect-[2/1] grid-cols-2" : "aspect-[3/1] grid-cols-3"}`}
+            className={`grid grid-rows-[minmax(0,1fr)] gap-1 ${size === 1 ? "aspect-video grid-cols-1" : size === 2 ? "aspect-[2/1] grid-cols-2" : "aspect-[3/1] grid-cols-3"}`}
           >
             {images
               .slice(start, start + size)

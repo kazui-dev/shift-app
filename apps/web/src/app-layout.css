@@ -24,8 +24,8 @@ html:has([data-chat-shell]) {
 }
 
 /*
- * The composer backdrop starts partway into the rail or the composer, eases in
- * over 1.5rem, and stays solid to the bottom edge.
+ * The composer backdrop starts above the rail or partway into the composer,
+ * eases in over 3rem, and stays solid to the bottom edge.
  */
 [data-composer-seat]::before {
   position: absolute;
@@ -36,10 +36,10 @@ html:has([data-chat-shell]) {
   background: linear-gradient(
     to bottom,
     transparent 0,
-    color-mix(in oklab, var(--background) 10.4%, transparent) 0.3rem,
-    color-mix(in oklab, var(--background) 35.2%, transparent) 0.6rem,
-    color-mix(in oklab, var(--background) 64.8%, transparent) 0.9rem,
-    color-mix(in oklab, var(--background) 89.6%, transparent) 1.2rem,
-    var(--background) 1.5rem
+    color-mix(in oklab, var(--background) 10.4%, transparent) 0.6rem,
+    color-mix(in oklab, var(--background) 35.2%, transparent) 1.2rem,
+    color-mix(in oklab, var(--background) 64.8%, transparent) 1.8rem,
+    color-mix(in oklab, var(--background) 89.6%, transparent) 2.4rem,
+    var(--background) 3rem
   );
 }
