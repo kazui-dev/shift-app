@@ -168,8 +168,15 @@ export const searchChatMessages = (
   )
 }
 
-export const chatLinkImageUrl = (roomId: string, messageId: string) =>
-  `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/link-preview/image`
+export const getChatLinkImage = (
+  roomId: string,
+  messageId: string,
+  signal: AbortSignal
+) =>
+  apiBlob(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/link-preview/image`,
+    signal
+  )
 export const getChatLinkPreview = (
   roomId: string,
   messageId: string,

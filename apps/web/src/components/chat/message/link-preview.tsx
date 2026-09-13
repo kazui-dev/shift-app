@@ -1,10 +1,11 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { getRouteApi } from "@tanstack/react-router"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
 import { useQuery } from "@tanstack/react-query"
 import { messageLinks } from "@workspace/shared/messages"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import { chatLinkImageUrl } from "@/api/chat"
 import { linkPreviewQuery } from "@/data/chat"
+import { acquireLinkImage, cachedLinkImage } from "@/lib/chat/images"
 export function MessageLinkPreview({
   roomId,
   messageId,
@@ -39,8 +40,9 @@ function LinkPreview({
   url: string
   offline: boolean
 }) {
+  const { state } = getRouteApi("/_app").useRouteContext()
+  const user = state.member.studentId
   const ref = useRef<HTMLDivElement>(null)
-  const [imageFailed, setImageFailed] = useState(false)
   // Fetch two screens ahead. Once fetched, the cached card stays when scrolled away.
   const near = useNearHistory(ref, 2)
   const query = useQuery({
@@ -48,6 +50,28 @@ function LinkPreview({
     enabled: near && !offline,
   })
   const preview = query.data?.preview
+  const hasImage = !!preview?.image
+  // An image in memory shows on the first render; otherwise it is held, from
+  // this device when kept there, for as long as the card is shown.
+  const [image, setImage] = useState<string | null | undefined>(() =>
+    cachedLinkImage(user, roomId, messageId, url)
+  )
+  useEffect(() => {
+    if (!hasImage) return undefined
+    const held = acquireLinkImage(user, roomId, messageId, url)
+    let active = true
+    void held.promise
+      .then((value) => {
+        if (active) setImage(value)
+      })
+      .catch(() => {
+        if (active) setImage(null)
+      })
+    return () => {
+      active = false
+      held.release()
+    }
+  }, [hasImage, user, roomId, messageId, url])
   // Hold the card's space until the preview settles, so reading never jumps.
   const settling = !offline && query.data === undefined && !query.isError
   return (
@@ -75,14 +99,18 @@ function LinkPreview({
               </span>
             )}
           </div>
-          {preview.image && !imageFailed && (
-            <img
-              src={chatLinkImageUrl(roomId, messageId)}
-              alt=""
-              className="h-28 w-28 shrink-0 object-cover"
-              onError={() => setImageFailed(true)}
-            />
-          )}
+          {hasImage &&
+            image !== null &&
+            (image ? (
+              <img
+                src={image}
+                alt=""
+                className="h-28 w-28 shrink-0 object-cover"
+                onError={() => setImage(null)}
+              />
+            ) : (
+              <span aria-hidden className="h-28 w-28 shrink-0 bg-muted" />
+            ))}
         </a>
       )}
     </div>

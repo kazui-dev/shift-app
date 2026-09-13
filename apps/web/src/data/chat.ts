@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query"
 import { keys } from "@/data/keys"
 import { messageLinks } from "@workspace/shared/messages"
-import { acquireChatImage } from "@/lib/chat/images"
+import { acquireChatImage, acquireLinkImage } from "@/lib/chat/images"
 import { mosaic, tileSizes } from "@/components/chat/image/mosaic"
 import {
   getChatLinkPreview,
@@ -167,7 +167,14 @@ export async function warmConversation(
     void held.promise.catch(() => undefined).finally(held.release)
   }
   for (const link of links)
-    void client.prefetchQuery(linkPreviewQuery(id, link.messageId, link.url))
+    void client
+      .fetchQuery(linkPreviewQuery(id, link.messageId, link.url))
+      .then(({ preview }) => {
+        if (!preview?.image) return
+        const held = acquireLinkImage(user, id, link.messageId, link.url)
+        void held.promise.catch(() => undefined).finally(held.release)
+      })
+      .catch(() => undefined)
 }
 
 export function prepareConversation(client: QueryClient, id: string) {

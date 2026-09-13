@@ -4,7 +4,7 @@ const cacheName = "chat-images-v1"
 const indexKey = "chat-image-index-v1"
 const day = 86_400_000
 
-/** List tiles stay on this device while recently shown, within this space. */
+/** List tiles and link card images stay while recently shown, within this space. */
 const imageCacheLimits = {
   bytes: 100 * 1024 * 1024,
   age: 14 * day,
@@ -14,15 +14,17 @@ export type CachedImage = {
   key: string
   user: string
   room: string
+  /** The attachment, or the message whose link card shows the image. */
   id: string
-  size: number
+  /** Which image of it: a tile size or a link card's URL. */
+  variant: string
   bytes: number
   used: number
 }
 type Index = Record<string, CachedImage>
 
-const keyOf = (user: string, room: string, id: string, size: number) =>
-  `/__chat-image/${encodeURIComponent(user)}/${room}/${id}/${size}`
+const keyOf = (user: string, room: string, id: string, variant: string) =>
+  `/__chat-image/${encodeURIComponent(user)}/${room}/${id}/${encodeURIComponent(variant)}`
 
 /**
  * Entries to drop: anything unused for longer than the age limit, then the
@@ -46,14 +48,14 @@ export function staleImages(
   return stale
 }
 
-/** A list tile shown before, if this device still keeps it. */
+/** An image shown before, if this device still keeps it. */
 export async function readCachedImage(
   user: string,
   room: string,
   id: string,
-  size: number
+  variant: string
 ) {
-  const key = keyOf(user, room, id, size)
+  const key = keyOf(user, room, id, variant)
   try {
     const response = await (await caches.open(cacheName)).match(key)
     if (!response) return undefined
@@ -71,17 +73,25 @@ export async function storeCachedImage(
   user: string,
   room: string,
   id: string,
-  size: number,
+  variant: string,
   blob: Blob
 ) {
-  const key = keyOf(user, room, id, size)
+  const key = keyOf(user, room, id, variant)
   try {
     await (
       await caches.open(cacheName)
     ).put(key, new Response(blob, { headers: { "Content-Type": blob.type } }))
     await update<Index>(indexKey, (index = {}) => ({
       ...index,
-      [key]: { key, user, room, id, size, bytes: blob.size, used: Date.now() },
+      [key]: {
+        key,
+        user,
+        room,
+        id,
+        variant,
+        bytes: blob.size,
+        used: Date.now(),
+      },
     }))
     await pruneCachedImages()
   } catch {

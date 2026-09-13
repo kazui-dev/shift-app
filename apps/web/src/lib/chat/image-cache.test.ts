@@ -7,7 +7,7 @@ const entry = (key: string, used: number, bytes = 1): CachedImage => ({
   user: "user",
   room: "room",
   id: key,
-  size: 640,
+  variant: "640",
   bytes,
   used,
 })

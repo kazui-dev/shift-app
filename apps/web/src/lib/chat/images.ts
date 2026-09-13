@@ -1,5 +1,5 @@
 import type { ChatImageSize } from "@workspace/shared/communications"
-import { getChatImage, getChatOriginal } from "@/api/chat"
+import { getChatImage, getChatLinkImage, getChatOriginal } from "@/api/chat"
 import { readCachedImage, storeCachedImage } from "@/lib/chat/image-cache"
 import { imagePreview } from "@/lib/chat/preview"
 
@@ -112,7 +112,7 @@ class ImagePool<T> {
 
 const megabyte = 1024 * 1024
 const revoke = (url: string) => URL.revokeObjectURL(url)
-/** List tiles and viewer thumbnails, also kept on this device. */
+/** List tiles, viewer thumbnails and link card images, also kept on this device. */
 const tiles = new ImagePool<string>((_, bytes) => bytes > 64 * megabyte, revoke)
 /** The viewer's 2400px images. */
 const large = new ImagePool<string>((count) => count > 10, revoke)
@@ -146,6 +146,22 @@ export function cachedChatImage(
   return (size === 2400 ? large : tiles).cached(keyOf(user, room, id, size))
 }
 
+/** A small image from this device when it keeps one, else fetched and kept. */
+function acquireKept(
+  user: string,
+  room: string,
+  id: string,
+  variant: string,
+  fetchImage: (signal: AbortSignal) => Promise<Blob>
+) {
+  return tiles.acquire(keyOf(user, room, id, variant), async (signal) => {
+    const kept = await readCachedImage(user, room, id, variant)
+    const blob = kept ?? (await fetchImage(signal))
+    if (!kept) void storeCachedImage(user, room, id, variant, blob)
+    return decoded(blob)
+  })
+}
+
 /** Loads a delivered size; list tiles come from this device when it has them. */
 export function acquireChatImage(
   user: string,
@@ -153,17 +169,36 @@ export function acquireChatImage(
   id: string,
   size: ChatImageSize
 ) {
-  const key = keyOf(user, room, id, size)
   if (size === 2400)
-    return large.acquire(key, async (signal) =>
+    return large.acquire(keyOf(user, room, id, size), async (signal) =>
       decoded(await getChatImage(room, id, size, signal))
     )
-  return tiles.acquire(key, async (signal) => {
-    const kept = await readCachedImage(user, room, id, size)
-    const blob = kept ?? (await getChatImage(room, id, size, signal))
-    if (!kept) void storeCachedImage(user, room, id, size, blob)
-    return decoded(blob)
-  })
+  return acquireKept(user, room, id, String(size), (signal) =>
+    getChatImage(room, id, size, signal)
+  )
+}
+
+const linkVariant = (url: string) => `link:${url}`
+
+export function cachedLinkImage(
+  user: string,
+  room: string,
+  messageId: string,
+  url: string
+) {
+  return tiles.cached(keyOf(user, room, messageId, linkVariant(url)))
+}
+
+/** A message's link card image, kept on this device like list tiles. */
+export function acquireLinkImage(
+  user: string,
+  room: string,
+  messageId: string,
+  url: string
+) {
+  return acquireKept(user, room, messageId, linkVariant(url), (signal) =>
+    getChatLinkImage(room, messageId, signal)
+  )
 }
 
 export function acquireChatOriginal(user: string, room: string, id: string) {

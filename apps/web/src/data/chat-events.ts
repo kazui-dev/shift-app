@@ -44,7 +44,10 @@ export function applyChatEvent(
   }
   void client.invalidateQueries({ queryKey: keys.chatSearch(id) })
   if (event.type === "message_changed" && event.message.deleted)
-    void forgetImages(id, cachedAttachmentIds(client, id, event.message.id))
+    void forgetImages(id, [
+      event.message.id,
+      ...cachedAttachmentIds(client, id, event.message.id),
+    ])
   const continuous = receiveMessage(
     client,
     id,
