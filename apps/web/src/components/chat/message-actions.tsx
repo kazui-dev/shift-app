@@ -43,8 +43,9 @@ export function MessageActions({
   const press = useRef<{
     x: number
     y: number
-    timer: ReturnType<typeof setTimeout>
+    timer: ReturnType<typeof setTimeout> | null
   } | null>(null)
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const consumed = useRef(false)
   const [opened, setOpened] = useState(false)
   const openActions = useEffectEvent(() => {
@@ -63,7 +64,9 @@ export function MessageActions({
     message.status === "sent" &&
     (permission.reply || permission.edit || permission.delete)
   function cancelPress() {
-    if (press.current) clearTimeout(press.current.timer)
+    if (press.current?.timer) clearTimeout(press.current.timer)
+    if (releaseTimer.current) clearTimeout(releaseTimer.current)
+    releaseTimer.current = null
     press.current = null
     setPressed(false)
   }
@@ -104,16 +107,17 @@ export function MessageActions({
       )
         return
       setPressed(true)
-      if (!available) return
       const { clientX: x, clientY: y } = event
       press.current = {
         x,
         y,
-        timer: setTimeout(() => {
-          consumed.current = true
-          openActions()
-          press.current = null
-        }, 450),
+        timer: available
+          ? setTimeout(() => {
+              consumed.current = true
+              openActions()
+              press.current = null
+            }, 400)
+          : null,
       }
     }
     const move = (event: PointerEvent) => {
@@ -125,6 +129,18 @@ export function MessageActions({
         ) > 10
       )
         cancelPress()
+    }
+    const up = () => {
+      if (!press.current) {
+        cancelPress()
+        return
+      }
+      if (press.current.timer) clearTimeout(press.current.timer)
+      press.current = null
+      releaseTimer.current = setTimeout(() => {
+        setPressed(false)
+        releaseTimer.current = null
+      }, 120)
     }
     const click = (event: MouseEvent) => {
       if (consumed.current) {
@@ -146,7 +162,7 @@ export function MessageActions({
     }
     element.addEventListener("pointerdown", down)
     element.addEventListener("pointermove", move)
-    element.addEventListener("pointerup", cancelPress)
+    element.addEventListener("pointerup", up)
     element.addEventListener("pointercancel", cancelPress)
     element.addEventListener("contextmenu", context)
     element.addEventListener("click", click, true)
@@ -155,7 +171,7 @@ export function MessageActions({
       cancelPress()
       element.removeEventListener("pointerdown", down)
       element.removeEventListener("pointermove", move)
-      element.removeEventListener("pointerup", cancelPress)
+      element.removeEventListener("pointerup", up)
       element.removeEventListener("pointercancel", cancelPress)
       element.removeEventListener("contextmenu", context)
       element.removeEventListener("click", click, true)
