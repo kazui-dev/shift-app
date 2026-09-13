@@ -4,7 +4,7 @@ import {
   isStoredImageType,
   storedImage,
   type StoredImageType,
-} from "../domain/chat-image"
+} from "../domain/stored-image"
 
 /** Formats many apps cannot open, stored as JPEG instead. */
 const convertedTypes = new Set(["image/heic", "image/heif", "image/avif"])

@@ -13,6 +13,7 @@
     "./japan-time": "./src/japan-time.ts",
     "./messages": "./src/messages.ts",
     "./communications": "./src/communications.ts",
+    "./push": "./src/push.ts",
     "./shifts": "./src/shifts.ts",
     "./availability": "./src/availability.ts"
   },

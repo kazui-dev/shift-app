@@ -3,7 +3,7 @@ import * as v from "valibot"
 import {
   notificationPreferenceSchema,
   pushSubscriptionInputSchema,
-} from "@workspace/shared/communications"
+} from "@workspace/shared/push"
 import { apiError, errors } from "../lib/errors"
 import { type ApiEnv, readJson } from "../lib/http"
 import {

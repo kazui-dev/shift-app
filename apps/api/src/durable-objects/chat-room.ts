@@ -63,21 +63,12 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
   }
 
+  /** Applies each schema version once, in order, each in its own transaction. */
   private migrate() {
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
-        id INTEGER PRIMARY KEY,
-        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-      )
-    `)
-    const version = this.ctx.storage.sql
-      .exec<{ version: number }>(
-        "SELECT COALESCE(MAX(id), 0) AS version FROM _sql_schema_migrations"
-      )
-      .one().version
-    if (version < 1) {
-      this.ctx.storage.sql.exec(`
-        CREATE TABLE messages (
+    const { sql } = this.ctx.storage
+    const versions = [
+      () =>
+        sql.exec(`CREATE TABLE messages (
           sequence INTEGER PRIMARY KEY AUTOINCREMENT,
           id TEXT NOT NULL UNIQUE,
           member_id TEXT NOT NULL,
@@ -85,40 +76,31 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
           content TEXT NOT NULL,
           created_at INTEGER NOT NULL
         );
-        CREATE INDEX messages_created_at_idx ON messages(created_at);
-        INSERT INTO _sql_schema_migrations (id) VALUES (1);
-      `)
-    }
-    if (version < 2) {
-      this.ctx.storage.transactionSync(() => {
-        this.attachments.migrate()
-        this.ctx.storage.sql.exec(
-          "INSERT INTO _sql_schema_migrations (id) VALUES (2)"
-        )
-      })
-    }
-    if (version < 3)
-      this.ctx.storage.transactionSync(() => {
-        this.ctx.storage.sql
-          .exec(`ALTER TABLE messages ADD COLUMN reply_to_id TEXT REFERENCES messages(id);
+        CREATE INDEX messages_created_at_idx ON messages(created_at);`),
+      () => this.attachments.createTables(),
+      () =>
+        sql.exec(`ALTER TABLE messages ADD COLUMN reply_to_id TEXT REFERENCES messages(id);
         ALTER TABLE messages ADD COLUMN edited_at INTEGER;
-        ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;
-        INSERT INTO _sql_schema_migrations(id) VALUES(3);`)
-      })
-    if (version < 4)
+        ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;`),
+      () => this.attachments.storeOriginals(),
+      () => this.attachments.keepSentOrder(),
+    ]
+    sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
+        id INTEGER PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`)
+    const applied = sql
+      .exec<{ version: number }>(
+        "SELECT COALESCE(MAX(id), 0) AS version FROM _sql_schema_migrations"
+      )
+      .one().version
+    versions.forEach((apply, index) => {
+      if (index < applied) return
       this.ctx.storage.transactionSync(() => {
-        this.attachments.storeOriginals()
-        this.ctx.storage.sql.exec(
-          "INSERT INTO _sql_schema_migrations(id) VALUES(4)"
-        )
+        apply()
+        sql.exec("INSERT INTO _sql_schema_migrations(id) VALUES(?)", index + 1)
       })
-    if (version < 5)
-      this.ctx.storage.transactionSync(() => {
-        this.attachments.keepSentOrder()
-        this.ctx.storage.sql.exec(
-          "INSERT INTO _sql_schema_migrations(id) VALUES(5)"
-        )
-      })
+    })
   }
 
   private findMessage(id: string) {

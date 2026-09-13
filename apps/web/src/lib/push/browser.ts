@@ -1,5 +1,5 @@
 import * as v from "valibot"
-import { pushSubscriptionInputSchema } from "@workspace/shared/communications"
+import { pushSubscriptionInputSchema } from "@workspace/shared/push"
 import { base64UrlBytes, getPushConfig } from "@/api/push"
 
 export function pushSupported(): boolean {

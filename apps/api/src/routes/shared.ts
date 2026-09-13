@@ -2,7 +2,11 @@ import { Hono } from "hono"
 
 import { chatImageSizes } from "@workspace/shared/communications"
 
-import { chatImageKey, chatImageTag, chatRoomTag } from "../domain/chat-image"
+import {
+  chatImageKey,
+  chatImageTag,
+  chatRoomTag,
+} from "../domain/chat-attachment"
 import { linkPreview, sharedRoutes } from "../lib/shared-cache"
 import { loadLinkImage, loadLinkPreview } from "../services/link-preview"
 
