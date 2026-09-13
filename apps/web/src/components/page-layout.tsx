@@ -29,3 +29,7 @@ export function EmptyState({ children }: { children: React.ReactNode }) {
     </p>
   )
 }
+
+export function LoadingState() {
+  return <p className="text-sm text-muted-foreground">読み込み中…</p>
+}

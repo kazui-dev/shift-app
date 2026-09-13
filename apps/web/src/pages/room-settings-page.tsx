@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { LoadingState } from "@/components/page-layout"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
@@ -73,7 +74,7 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
             {query.isError ? (
               <Button onClick={() => void query.refetch()}>再読み込み</Button>
             ) : (
-              <p>読み込み中…</p>
+              <LoadingState />
             )}
           </ResponsivePageBody>
         </>

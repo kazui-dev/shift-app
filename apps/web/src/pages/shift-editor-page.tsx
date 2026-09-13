@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { LoadingState } from "@/components/page-layout"
 import { activityQuery } from "@/data/activities"
 import { getRouteApi, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
@@ -38,7 +39,7 @@ function ShiftEditorScreen({ id }: { id: string }) {
               {query.isError ? (
                 <Button onClick={() => void query.refetch()}>再読み込み</Button>
               ) : (
-                <p className="text-sm text-muted-foreground">読み込み中…</p>
+                <LoadingState />
               )}
             </ResponsivePageBody>
           </>

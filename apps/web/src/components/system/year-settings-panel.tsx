@@ -1,4 +1,5 @@
 import { yearsQuery } from "@/data/years"
+import { LoadingState } from "@/components/page-layout"
 import { keys } from "@/data/keys"
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -63,9 +64,7 @@ export function YearSettingsPanel() {
         </Button>
       </form>
 
-      {years.isPending && (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      )}
+      {years.isPending && <LoadingState />}
       <div className="divide-y divide-border/70">
         {years.data?.years.map((item) => (
           <div

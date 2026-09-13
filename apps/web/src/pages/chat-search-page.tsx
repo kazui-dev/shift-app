@@ -11,6 +11,8 @@ import {
   ResponsivePageHeader,
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { EmptyState } from "@/components/page-layout"
 import { RoutePage } from "@/components/route-page"
 import { MemberAvatar } from "@/components/member-avatar"
 import { getChatRoom, searchChatMessages } from "@/api/chat"
@@ -87,11 +89,11 @@ function ChatSearch({ roomId }: { roomId: string }) {
             <div aria-label="検索中" className="space-y-6 py-2">
               {[0, 1, 2].map((key) => (
                 <div key={key} className="flex gap-3">
-                  <div className="size-8 shrink-0 animate-pulse rounded-full bg-muted" />
+                  <Skeleton className="size-8 shrink-0 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 w-24 animate-pulse bg-muted" />
-                    <div className="h-4 w-full animate-pulse bg-muted" />
-                    <div className="h-4 w-2/3 animate-pulse bg-muted" />
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
                   </div>
                 </div>
               ))}
@@ -154,9 +156,7 @@ function ChatSearch({ roomId }: { roomId: string }) {
                 )}
               </div>
             ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                メッセージが見つかりませんでした
-              </p>
+              <EmptyState>メッセージが見つかりませんでした</EmptyState>
             ))
           )}
         </div>
