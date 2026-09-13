@@ -52,3 +52,60 @@ export function minutesFromJapanDateStart(
     value instanceof Date ? value.getTime() : new Date(value).getTime()
   return (instant - japanDateStart(date)) / 60_000
 }
+
+const weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+
+function formatter(options: Intl.DateTimeFormatOptions) {
+  let cached: Intl.DateTimeFormat | undefined
+  return (value: Date | number | string) =>
+    (cached ??= new Intl.DateTimeFormat("ja-JP", {
+      timeZone: japanTimeZone,
+      ...options,
+    })).format(typeof value === "object" ? value : new Date(value))
+}
+
+/** 9:30 */
+export const japanTime = formatter({ hour: "2-digit", minute: "2-digit" })
+/** 9/13 */
+export const japanMonthDay = formatter({ month: "numeric", day: "numeric" })
+/** 9/13(日) */
+export const japanMonthDayWeekday = formatter({
+  month: "numeric",
+  day: "numeric",
+  weekday: "short",
+})
+/** 9月13日(日) */
+export const japanDateWeekday = formatter({
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+})
+/** 9/13 9:30 */
+export const japanMonthDayTime = formatter({
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+})
+/** 2026/9/13 9:30:45 */
+export const japanTimestamp = formatter({
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+})
+
+const fullDate = formatter({ year: "numeric", month: "long", day: "numeric" })
+
+/** 2026年9月13日（日） from a YYYY-MM-DD date. */
+export function japanFullDate(date: string): string {
+  const start = japanDateStart(date)
+  return `${fullDate(start)}（${weekdays[japanWeekday(date)]}）`
+}
+
+/** 0 for Sunday, from a YYYY-MM-DD date. */
+export function japanWeekday(date: string): number {
+  return new Date(japanDateStart(date) + japanOffsetMilliseconds).getUTCDay()
+}

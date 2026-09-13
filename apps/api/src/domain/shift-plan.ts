@@ -1,12 +1,21 @@
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 
 type Window = { memberId: string; startsAt: string; endsAt: string }
+
+export type ShiftPlanError =
+  | "INVALID_TIME_RANGE"
+  | "DUPLICATE_SLOT"
+  | "SLOT_OUTSIDE_SHIFT"
+  | "DUPLICATE_MEMBER"
+  | "YEAR_MEMBERSHIP_REQUIRED"
+  | "SHIFT_OVERLAP"
+
 export function validateShiftPlan(
   input: ActivityEditorInput,
   members: string[],
   other: Window[],
   availability: Window[]
-) {
+): { error: ShiftPlanError | null; outside: string[] } {
   const start = Date.parse(input.startsAt),
     end = Date.parse(input.endsAt)
   if (start >= end) return { error: "INVALID_TIME_RANGE", outside: [] }

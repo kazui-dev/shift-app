@@ -1,4 +1,5 @@
 import * as v from "valibot"
+import { japanDateStart, japanDateTime } from "./japan-time"
 
 export const operatingYearSchema = v.pipe(
   v.unknown(),
@@ -43,15 +44,7 @@ function isOrdered(start: string, end: string): boolean {
 }
 
 function dateInJapan(value: string): string {
-  const parts = new Intl.DateTimeFormat("en", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date(value))
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((item) => item.type === type)?.value ?? ""
-  return `${part("year")}-${part("month")}-${part("day")}`
+  return japanDateTime(value).date
 }
 
 const timeWindowEntries = {
@@ -99,8 +92,7 @@ export const availabilityWindowSchema = v.pipe(
       (value: AvailabilityWindowValue) =>
         dateInJapan(value.startsAt) === value.date &&
         (dateInJapan(value.endsAt) === value.date ||
-          Date.parse(value.endsAt) ===
-            Date.parse(`${value.date}T00:00:00+09:00`) + 86_400_000),
+          Date.parse(value.endsAt) === japanDateStart(value.date) + 86_400_000),
       "希望時間帯は同じ日付の中で入力してください"
     ),
     ["date"]

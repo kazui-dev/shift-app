@@ -1,7 +1,8 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { reportStateInputSchema } from "@workspace/shared/shifts"
-import { apiError, type ApiEnv, readJson, toIso } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, readJson, toIso } from "../lib/http"
 import { canManageActivity } from "../services/activity-access"
 import {
   reportSelection,
@@ -16,14 +17,13 @@ reportsApp.get("/:reportId/events", async (c) => {
     .prepare(`${reportSelection} WHERE r.id = ?`)
     .bind(c.req.param("reportId"))
     .first<ReportRow>()
-  if (!report)
-    return apiError(c, 404, "REPORT_NOT_FOUND", "連絡が見つかりません")
+  if (!report) return apiError(c, errors.reportNotFound)
   const actor = c.get("member")
   if (
     report.memberId !== actor.id &&
     !(await canManageActivity(c.env, actor, report.activityId, report.year))
   )
-    return apiError(c, 403, "FORBIDDEN", "閲覧権限がありません")
+    return apiError(c, errors.viewForbidden)
   const events = await c.env.shift_app
     .prepare(
       `SELECT e.id, m.display_name AS actor, e.action, e.details, e.created_at AS createdAt FROM report_events e JOIN app_users m ON m.id=e.actor_id WHERE e.report_id=? ORDER BY e.created_at,e.id`
@@ -45,22 +45,19 @@ reportsApp.get("/:reportId/events", async (c) => {
 })
 reportsApp.patch("/:reportId", async (c) => {
   const input = v.safeParse(reportStateInputSchema, await readJson(c.req.raw))
-  if (!input.success)
-    return apiError(c, 422, "INVALID_REPORT", "連絡内容を確認してください")
+  if (!input.success) return apiError(c, errors.invalidReport)
   const report = await c.env.shift_app
     .prepare(`${reportSelection} WHERE r.id = ?`)
     .bind(c.req.param("reportId"))
     .first<ReportRow>()
-  if (!report)
-    return apiError(c, 404, "REPORT_NOT_FOUND", "連絡が見つかりません")
+  if (!report) return apiError(c, errors.reportNotFound)
   const actor = c.get("member")
   const allowed =
     input.output.status === "withdrawn"
       ? actor.id === report.memberId
       : await canManageActivity(c.env, actor, report.activityId, report.year)
-  if (!allowed) return apiError(c, 403, "FORBIDDEN", "変更権限がありません")
-  if (report.status === "withdrawn")
-    return apiError(c, 409, "REPORT_CHANGED", "この連絡は取り消されています")
+  if (!allowed) return apiError(c, errors.changeForbidden)
+  if (report.status === "withdrawn") return apiError(c, errors.reportCancelled)
   const now = Math.max(Date.now(), report.updatedAt + 1)
   const [result] = await c.env.shift_app.batch([
     c.env.shift_app
@@ -89,18 +86,12 @@ reportsApp.patch("/:reportId", async (c) => {
       ),
   ])
   if (!result || result.meta.changes === 0)
-    return apiError(
-      c,
-      409,
-      "REPORT_CHANGED",
-      "連絡が更新されています。内容を読み直してください"
-    )
+    return apiError(c, errors.reportStale)
   const updated = await c.env.shift_app
     .prepare(`${reportSelection} WHERE r.id=?`)
     .bind(report.id)
     .first<ReportRow>()
-  if (!updated)
-    return apiError(c, 409, "REPORT_CHANGED", "連絡が変更されました")
+  if (!updated) return apiError(c, errors.reportChanged)
   if (input.output.status === "withdrawn")
     c.executionCtx.waitUntil(notifyReport(c.env, updated))
   return c.json({ report: reportJson(updated) })

@@ -1,7 +1,8 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { displayYearInputSchema } from "@workspace/shared/shifts"
-import { apiError, type ApiEnv, readJson } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, readJson } from "../../lib/http"
 import { readDisplayYear } from "../../services/display-year"
 
 export const displayYearApp = new Hono<ApiEnv>()
@@ -10,7 +11,7 @@ displayYearApp.get("/", async (c) =>
 )
 displayYearApp.put("/", async (c) => {
   const input = v.safeParse(displayYearInputSchema, await readJson(c.req.raw))
-  if (!input.success) return apiError(c, 422, "INVALID_YEAR", "Invalid year")
+  if (!input.success) return apiError(c, errors.invalidYear)
   const member = c.get("member")
   const result = await c.env.shift_app
     .prepare(`INSERT INTO user_preferences (member_id, selected_year)
@@ -26,6 +27,6 @@ displayYearApp.put("/", async (c) => {
     )
     .run()
   if (result.meta.changes === 0)
-    return apiError(c, 403, "YEAR_ACCESS_DENIED", "Year membership is required")
+    return apiError(c, errors.yearMembershipRequired)
   return c.json(await readDisplayYear(c.env.shift_app, member))
 })

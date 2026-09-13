@@ -1,4 +1,5 @@
 import type { getAvailability } from "@/api/availability"
+import { japanDateStart, japanDateWeekday } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import {
   ResponsivePageHeader,
@@ -94,13 +95,7 @@ export function AvailabilityEditor({
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <h2 className="font-semibold">
-                      {new Date(
-                        `${date.date}T12:00:00+09:00`
-                      ).toLocaleDateString("ja-JP", {
-                        month: "long",
-                        day: "numeric",
-                        weekday: "short",
-                      })}
+                      {japanDateWeekday(japanDateStart(date.date))}
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {time(date.startsMinute)}–{time(date.endsMinute)}

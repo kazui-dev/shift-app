@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router"
+import { japanTime } from "@workspace/shared/japan-time"
 import { LoaderCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { CalendarAssignment } from "@/api/assignments"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { formatCalendarTime } from "./calendar-format"
 
 export function AssignmentDetailsDialog({
   assignment,
@@ -22,7 +22,7 @@ export function AssignmentDetailsDialog({
     <ResponsiveDialog
       open
       title={assignment.activityName}
-      description={`${formatCalendarTime(assignment.startsAt)}–${formatCalendarTime(assignment.endsAt)} · ${assignment.place}`}
+      description={`${japanTime(assignment.startsAt)}–${japanTime(assignment.endsAt)} · ${assignment.place}`}
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
@@ -32,7 +32,7 @@ export function AssignmentDetailsDialog({
         <div className="flex flex-wrap items-center gap-2">
           {assignment.checkedInAt ? (
             <p className="text-sm text-muted-foreground">
-              {formatCalendarTime(assignment.checkedInAt)}に出勤
+              {japanTime(assignment.checkedInAt)}に出勤
               {assignment.attendanceStatus === "pending"
                 ? "（確認待ち）"
                 : "記録済み"}

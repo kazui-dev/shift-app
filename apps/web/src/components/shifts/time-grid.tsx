@@ -1,7 +1,7 @@
 import { MemberAvatar } from "@/components/member-avatar"
+import { japanTime } from "@workspace/shared/japan-time"
 import { ListFilter } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { timeLabel } from "./time-label"
 import { useRef, useState, type CSSProperties, type MouseEvent } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
@@ -203,7 +203,7 @@ export function TimeGrid({
                 className="absolute top-3 -translate-x-1/2 tabular-nums"
                 style={{ left: `${((hour - start) / duration) * 100}%` }}
               >
-                {timeLabel(hour)}
+                {japanTime(hour)}
               </span>
             ))}
           </div>
@@ -322,9 +322,9 @@ export function TimeGrid({
                       key={window.startsAt}
                       className="absolute top-2.5 z-[2] h-[30px] truncate rounded-[5px] bg-[#e7edf3] px-[9px] py-1.5 text-[13px] leading-[18px] font-medium text-[#3c4b59] tabular-nums dark:bg-slate-800 dark:text-slate-200"
                       style={position(window.startsAt, window.endsAt)}
-                      title={`参加可能 ${timeLabel(window.startsAt)}–${timeLabel(window.endsAt)}`}
+                      title={`参加可能 ${japanTime(window.startsAt)}–${japanTime(window.endsAt)}`}
                     >
-                      {timeLabel(window.startsAt)}–{timeLabel(window.endsAt)}
+                      {japanTime(window.startsAt)}–{japanTime(window.endsAt)}
                     </span>
                   ))}
                 {data.otherAssignments
@@ -378,7 +378,7 @@ export function TimeGrid({
                         >
                           <span className="pointer-events-none h-3 w-0.5 rounded-full bg-foreground/25" />
                         </span>
-                        {timeLabel(shown.startsAt)}–{timeLabel(shown.endsAt)}
+                        {japanTime(shown.startsAt)}–{japanTime(shown.endsAt)}
                       </span>
                     )
                   })}

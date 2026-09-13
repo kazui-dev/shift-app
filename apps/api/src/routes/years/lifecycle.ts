@@ -4,12 +4,8 @@ import * as v from "valibot"
 
 import { createOperatingYearInputSchema } from "@workspace/shared/shifts"
 
-import {
-  apiError,
-  type ApiEnv,
-  readJson,
-  requireSystemAdmin,
-} from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, readJson, requireSystemAdmin } from "../../lib/http"
 
 type YearRow = {
   year: number
@@ -73,12 +69,7 @@ yearLifecycleApp.post("/", async (c) => {
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_YEAR",
-      parsed.issues[0]?.message ?? "Invalid year"
-    )
+    return apiError(c, errors.invalidYear, parsed.issues[0]?.message)
   }
 
   const now = Date.now()
@@ -103,7 +94,7 @@ yearLifecycleApp.post("/", async (c) => {
       error instanceof Error &&
       error.message.includes("UNIQUE constraint failed: operating_years.year")
     )
-      return apiError(c, 409, "YEAR_EXISTS", "Operating year already exists")
+      return apiError(c, errors.yearExists)
     throw error
   }
   if (!result.success) throw new Error("Year creation failed")

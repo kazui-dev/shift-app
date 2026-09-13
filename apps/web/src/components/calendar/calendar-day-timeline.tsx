@@ -2,8 +2,12 @@ import { memo } from "react"
 import { Clock } from "lucide-react"
 
 import type { CalendarAssignment } from "@/api/assignments"
-import { minutesFromJapanDateStart, type JapanDateTime } from "@/lib/japan-time"
-import { formatCalendarTime, formatLongDate } from "./calendar-format"
+import {
+  japanFullDate,
+  japanTime,
+  minutesFromJapanDateStart,
+  type JapanDateTime,
+} from "@workspace/shared/japan-time"
 import {
   calendarHourHeight,
   calendarInset,
@@ -29,7 +33,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
   return (
     <div
       className="grid w-full grid-cols-[max-content_minmax(0,1fr)] gap-x-2"
-      aria-label={formatLongDate(date)}
+      aria-label={japanFullDate(date)}
       style={{ height: calendarTimelineHeight }}
     >
       <div className="relative text-[0.6875rem] whitespace-nowrap tabular-nums">
@@ -103,8 +107,8 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 <span className="flex items-center gap-1 text-xs tabular-nums opacity-75">
                   <Clock aria-hidden="true" className="size-3 shrink-0" />
                   <span>
-                    {formatCalendarTime(assignment.startsAt)}–
-                    {formatCalendarTime(assignment.endsAt)}
+                    {japanTime(assignment.startsAt)}–
+                    {japanTime(assignment.endsAt)}
                   </span>
                 </span>
               )}

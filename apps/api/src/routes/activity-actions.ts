@@ -1,7 +1,9 @@
 import { activityRoom, roomStatements } from "../services/chat-creation"
+import { japanDateStart } from "@workspace/shared/japan-time"
 import { Hono } from "hono"
 import * as v from "valibot"
-import { apiError, type ApiEnv, readJson } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, readJson } from "../lib/http"
 import { canEditActivity } from "../services/activity-access"
 import { canManageYear } from "../services/role-authority"
 import { readActivityEditor } from "../services/activity-editor"
@@ -12,8 +14,7 @@ activityActionsApp.use("/:activityId/*", async (c, next) => {
     .prepare("SELECT year FROM activities WHERE id=?")
     .bind(c.req.param("activityId"))
     .first<{ year: number }>()
-  if (!activity)
-    return apiError(c, 404, "ACTIVITY_NOT_FOUND", "シフトが見つかりません")
+  if (!activity) return apiError(c, errors.activityNotFound)
   if (
     !(await canEditActivity(
       c.env,
@@ -22,7 +23,7 @@ activityActionsApp.use("/:activityId/*", async (c, next) => {
       activity.year
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "責任者の権限が必要です")
+    return apiError(c, errors.shiftResponsibilityRequired)
   return next()
 })
 activityActionsApp.post("/:activityId/copies", async (c) => {
@@ -30,14 +31,12 @@ activityActionsApp.post("/:activityId/copies", async (c) => {
     v.object({ date: v.pipe(v.string(), v.isoDate()) }),
     await readJson(c.req.raw)
   )
-  if (!input.success)
-    return apiError(c, 422, "INVALID_DATE", "日付を指定してください")
+  if (!input.success) return apiError(c, errors.dateRequired)
   const old = await readActivityEditor(
     c.env.shift_app,
     c.req.param("activityId")
   )
-  if (!old)
-    return apiError(c, 404, "ACTIVITY_NOT_FOUND", "シフトが見つかりません")
+  if (!old) return apiError(c, errors.activityNotFound)
   const actor = c.get("member")
   if (
     !(await canManageYear(
@@ -53,15 +52,13 @@ activityActionsApp.post("/:activityId/copies", async (c) => {
       "shift.manage"
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "シフト作成権限が必要です")
+    return apiError(c, errors.shiftCreationRequired)
   const id = crypto.randomUUID(),
     now = Date.now()
   const date = new Date(Date.parse(old.activity.startsAt) + 9 * 3600000)
     .toISOString()
     .slice(0, 10)
-  const delta =
-    Date.parse(`${input.output.date}T00:00:00+09:00`) -
-    Date.parse(`${date}T00:00:00+09:00`)
+  const delta = japanDateStart(input.output.date) - japanDateStart(date)
   await c.env.shift_app.batch([
     c.env.shift_app
       .prepare(`INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,notes,created_by,updated_by,created_at,updated_at)
@@ -123,8 +120,7 @@ activityActionsApp.post("/:activityId/notifications", async (c) => {
     .prepare("SELECT name,version,active FROM activities WHERE id=?")
     .bind(id)
     .first<{ name: string; version: number; active: number }>()
-  if (!activity || !activity.active)
-    return apiError(c, 409, "SHIFT_INACTIVE", "有効なシフトで通知できます")
+  if (!activity || !activity.active) return apiError(c, errors.shiftInactive)
   const now = Date.now()
   const recipients = await c.env.shift_app
     .prepare(`SELECT DISTINCT a.member_id AS memberId FROM shift_assignments a JOIN shift_slots s ON s.id=a.slot_id
@@ -167,11 +163,6 @@ activityActionsApp.post("/:activityId/notifications", async (c) => {
     })
   )
   if (deliveries.some((sent) => !sent))
-    return apiError(
-      c,
-      500,
-      "NOTIFICATION_RETRY",
-      "一部の通知を送れませんでした。もう一度お試しください"
-    )
+    return apiError(c, errors.notificationRetry)
   return c.body(null, 204)
 })

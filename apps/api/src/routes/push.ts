@@ -4,7 +4,8 @@ import {
   notificationPreferenceSchema,
   pushSubscriptionInputSchema,
 } from "@workspace/shared/communications"
-import { apiError, type ApiEnv, readJson } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, readJson } from "../lib/http"
 import {
   listNotificationDevices,
   saveNotificationPreference,
@@ -19,7 +20,7 @@ notificationDevicesApp.get("/", async (c) =>
 )
 notificationDevicesApp.use("/:deviceId/*", async (c, next) => {
   if (!v.is(v.pipe(v.string(), v.uuid()), c.req.param("deviceId")))
-    return apiError(c, 422, "INVALID_DEVICE", "Invalid device")
+    return apiError(c, errors.invalidDevice)
   return next()
 })
 notificationDevicesApp.put("/:deviceId", async (c) => {
@@ -29,36 +30,26 @@ notificationDevicesApp.put("/:deviceId", async (c) => {
     await readJson(c.req.raw)
   )
   if (!v.is(v.pipe(v.string(), v.uuid()), id) || !input.success)
-    return apiError(
-      c,
-      422,
-      "INVALID_NOTIFICATION_SETTINGS",
-      "Invalid notification settings"
-    )
+    return apiError(c, errors.invalidNotificationSettings)
   const saved = await saveNotificationPreference(
     c.env.shift_app,
     c.get("member").id,
     id,
     input.output.enabled
   )
-  return saved
-    ? c.body(null, 204)
-    : apiError(c, 404, "NOT_FOUND", "Device not found")
+  return saved ? c.body(null, 204) : apiError(c, errors.deviceNotFound)
 })
 notificationDevicesApp.put("/:deviceId/subscription", async (c) => {
   const input = v.safeParse(
     pushSubscriptionInputSchema,
     await readJson(c.req.raw)
   )
-  if (!input.success)
-    return apiError(c, 422, "INVALID_PUSH_SUBSCRIPTION", "Invalid subscription")
+  if (!input.success) return apiError(c, errors.invalidPushSubscription)
   const saved = await saveDeviceSubscription(
     c.env.shift_app,
     c.get("member").id,
     c.req.param("deviceId"),
     input.output
   )
-  return saved
-    ? c.body(null, 204)
-    : apiError(c, 409, "SUBSCRIPTION_CONFLICT", "Subscription is unavailable")
+  return saved ? c.body(null, 204) : apiError(c, errors.subscriptionConflict)
 })

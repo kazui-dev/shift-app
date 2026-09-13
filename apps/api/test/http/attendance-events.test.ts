@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { errorBody, errors } from "../../src/lib/errors"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
 import { attendanceEventsApp } from "../../src/routes/attendance-events"
@@ -66,12 +67,7 @@ describe("attendance history visibility", () => {
     const payload = await response.json()
     expect(payload).toEqual(
       status === 403
-        ? {
-            error: {
-              code: "FORBIDDEN",
-              message: "本人または責任者のみ確認できます",
-            },
-          }
+        ? errorBody(errors.attendanceViewForbidden)
         : {
             events: [
               {

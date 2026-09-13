@@ -1,5 +1,6 @@
 import { Hono } from "hono"
-import { apiError, type ApiEnv } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv } from "../../lib/http"
 import { findAccessibleRoom } from "../../services/chat-access"
 import { publishRoomChange } from "../../services/chat-directory"
 import {
@@ -10,10 +11,8 @@ export const chatMembershipsApp = new Hono<ApiEnv>()
 chatMembershipsApp.delete("/:roomId", async (c) => {
   const member = c.get("member")
   const room = await findAccessibleRoom(c.env, c.req.param("roomId"), member.id)
-  if (!room)
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません")
-  if (!room.allowExit)
-    return apiError(c, 409, "EXIT_DISABLED", "このチャットは退出できません")
+  if (!room) return apiError(c, errors.chatRoomNotFound)
+  if (!room.allowExit) return apiError(c, errors.chatExitDisabled)
   const previous = await roomRecipients(c.env, room.id)
   const result = await c.env.shift_app
     .prepare(`${chatPermissions}
@@ -36,13 +35,7 @@ chatMembershipsApp.delete("/:roomId", async (c) => {
       member.id
     )
     .all()
-  if (!result.results.length)
-    return apiError(
-      c,
-      409,
-      "LAST_CHAT_MANAGER",
-      "ほかの人に管理権限を付けてから退出してください"
-    )
+  if (!result.results.length) return apiError(c, errors.lastChatManager)
   c.executionCtx.waitUntil(
     publishRoomChange(
       c.env,

@@ -15,7 +15,8 @@ import {
 } from "@workspace/shared/shifts"
 
 import { canManageActivity } from "../services/activity-access"
-import { apiError, type ApiEnv, readJson, toIso } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, readJson, toIso } from "../lib/http"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 
@@ -27,10 +28,8 @@ assignmentsApp.put("/:assignmentId/report", async (c) => {
     createAssignmentReportInputSchema,
     await readJson(c.req.raw)
   )
-  if (!id.success)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
-  if (!input.success)
-    return apiError(c, 422, "INVALID_REPORT", "連絡内容を確認してください")
+  if (!id.success) return apiError(c, errors.assignmentNotFound)
+  if (!input.success) return apiError(c, errors.invalidReport)
   const member = c.get("member")
   const now = Date.now()
   const [result] = await c.env.shift_app.batch([
@@ -68,12 +67,12 @@ assignmentsApp.put("/:assignmentId/report", async (c) => {
       ),
   ])
   if (!result || result.meta.changes === 0)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
+    return apiError(c, errors.assignmentNotFound)
   const report = await c.env.shift_app
     .prepare(`${reportSelection} WHERE r.assignment_id = ?`)
     .bind(id.output)
     .first<ReportRow>()
-  if (!report) return apiError(c, 409, "REPORT_CHANGED", "連絡が変更されました")
+  if (!report) return apiError(c, errors.reportChanged)
   c.executionCtx.waitUntil(notifyReport(c.env, report))
   return c.json({ report: reportJson(report) })
 })
@@ -81,10 +80,8 @@ assignmentsApp.put("/:assignmentId/report", async (c) => {
 assignmentsApp.put("/:assignmentId/attendance", async (c) => {
   const id = v.safeParse(idSchema, c.req.param("assignmentId"))
   const input = v.safeParse(checkInInputSchema, await readJson(c.req.raw))
-  if (!id.success)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
-  if (!input.success)
-    return apiError(c, 422, "INVALID_ATTENDANCE", "出勤情報を確認してください")
+  if (!id.success) return apiError(c, errors.assignmentNotFound)
+  if (!input.success) return apiError(c, errors.invalidAttendance)
   const member = c.get("member")
   const now = Date.now()
   await c.env.shift_app
@@ -114,8 +111,7 @@ assignmentsApp.put("/:assignmentId/attendance", async (c) => {
       checkedInAt: number
       status: "pending" | "confirmed"
     }>()
-  if (!attendance)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
+  if (!attendance) return apiError(c, errors.assignmentNotFound)
   return c.json({
     attendance: { ...attendance, checkedInAt: toIso(attendance.checkedInAt) },
   })
@@ -127,23 +123,15 @@ assignmentsApp.patch("/:assignmentId/attendance", async (c) => {
     correctAttendanceInputSchema,
     await readJson(c.req.raw)
   )
-  if (!id.success)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
-  if (!input.success)
-    return apiError(
-      c,
-      422,
-      "INVALID_ATTENDANCE",
-      "出勤時刻と理由を入力してください"
-    )
+  if (!id.success) return apiError(c, errors.assignmentNotFound)
+  if (!input.success) return apiError(c, errors.attendanceReasonRequired)
   const assignment = await c.env.shift_app
     .prepare(`SELECT a.member_id AS memberId, activity.id AS activityId, activity.year
     FROM shift_assignments a JOIN shift_slots s ON s.id = a.slot_id JOIN activities activity ON activity.id = s.activity_id
     WHERE a.id = ?`)
     .bind(id.output)
     .first<{ memberId: string; activityId: string; year: number }>()
-  if (!assignment)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
+  if (!assignment) return apiError(c, errors.assignmentNotFound)
   const actor = c.get("member")
   if (
     !(await canManageActivity(
@@ -153,7 +141,7 @@ assignmentsApp.patch("/:assignmentId/attendance", async (c) => {
       assignment.year
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "責任者の権限が必要です")
+    return apiError(c, errors.shiftResponsibilityRequired)
   const now = Date.now()
   const at = Date.parse(input.output.checkedInAt)
   await c.env.shift_app.batch([
@@ -178,8 +166,7 @@ assignmentsApp.patch("/:assignmentId/attendance", async (c) => {
     .prepare("SELECT id FROM attendance_records WHERE assignment_id = ?")
     .bind(id.output)
     .first<{ id: string }>()
-  if (!attendance)
-    return apiError(c, 409, "ATTENDANCE_CONFLICT", "出勤記録が変更されました")
+  if (!attendance) return apiError(c, errors.attendanceChanged)
   return c.json({
     attendance: {
       id: attendance.id,

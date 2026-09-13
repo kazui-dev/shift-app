@@ -1,4 +1,5 @@
 import { MessageText } from "./message-text"
+import { japanDateWeekday, japanTime } from "@workspace/shared/japan-time"
 import { MessageLinkPreview } from "./message-link-preview"
 import { useMessageTarget } from "./use-message-target"
 import { MessageActionDrawer } from "./message-action-drawer"
@@ -23,21 +24,6 @@ import { messageRows, unreadMessage, type MessageRow } from "./message-list"
 import { chatImageLimits } from "@workspace/shared/communications"
 import { imageSize } from "./image-size"
 import { RoutedImage } from "./routed-image"
-function date(value: string) {
-  return new Date(value).toLocaleDateString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  })
-}
-function time(value: string) {
-  return new Date(value).toLocaleTimeString("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
 export function ChatMessages({
   room,
   offline,
@@ -169,7 +155,8 @@ export function ChatMessages({
                 const previous = rows[index - 1],
                   dayChanged =
                     !previous ||
-                    date(previous.createdAt) !== date(message.createdAt),
+                    japanDateWeekday(previous.createdAt) !==
+                      japanDateWeekday(message.createdAt),
                   unread =
                     history.initialRead > 0 &&
                     message.memberId !== member.id &&
@@ -195,7 +182,7 @@ export function ChatMessages({
                     {dayChanged && (
                       <div className="mb-5 flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="h-px flex-1 bg-border" />
-                        <span>{date(message.createdAt)}</span>
+                        <span>{japanDateWeekday(message.createdAt)}</span>
                         <span className="h-px flex-1 bg-border" />
                       </div>
                     )}
@@ -271,7 +258,7 @@ export function ChatMessages({
                             dateTime={message.createdAt}
                             className="flex h-7 items-center justify-center self-start text-[10px] whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-data-active:opacity-100"
                           >
-                            {time(message.createdAt)}
+                            {japanTime(message.createdAt)}
                           </time>
                         )}
                         <div className="min-w-0">
@@ -284,7 +271,7 @@ export function ChatMessages({
                                 dateTime={message.createdAt}
                                 className="text-[11px] text-muted-foreground"
                               >
-                                {time(message.createdAt)}
+                                {japanTime(message.createdAt)}
                               </time>
                             </p>
                           )}

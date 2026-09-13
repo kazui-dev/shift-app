@@ -1,4 +1,5 @@
 import { attendanceQuery } from "@/data/attendance"
+import { japanMonthDayTime, japanTime } from "@workspace/shared/japan-time"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -15,8 +16,7 @@ import {
 } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { japanDateTime, japanLocalDateTime } from "@/lib/japan-time"
-import { timeLabel } from "./time-label"
+import { japanDateTime, japanLocalDateTime } from "@workspace/shared/japan-time"
 
 type Data = Awaited<ReturnType<typeof getShiftAttendance>>
 function local(value: string) {
@@ -113,9 +113,9 @@ export function ShiftAttendance({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {timeLabel(r.startsAt)}–{timeLabel(r.endsAt)}
+                  {japanTime(r.startsAt)}–{japanTime(r.endsAt)}
                   {r.kind === "late" &&
-                    ` · 到着${r.eta ? timeLabel(r.eta) : "未定"}`}
+                    ` · 到着${r.eta ? japanTime(r.eta) : "未定"}`}
                 </p>
                 <p className="text-sm whitespace-pre-wrap">{r.message}</p>
                 <div className="flex flex-wrap gap-1">
@@ -181,9 +181,9 @@ export function ShiftAttendance({
                   <div>
                     <p className="text-sm">{a.memberDisplayName}</p>
                     <p className="text-xs text-muted-foreground">
-                      {timeLabel(a.startsAt)}–{timeLabel(a.endsAt)} ·{" "}
+                      {japanTime(a.startsAt)}–{japanTime(a.endsAt)} ·{" "}
                       {a.checkedInAt
-                        ? `${timeLabel(a.checkedInAt)} 出勤${a.attendanceStatus === "pending" ? "（確認待ち）" : ""}`
+                        ? `${japanTime(a.checkedInAt)} 出勤${a.attendanceStatus === "pending" ? "（確認待ち）" : ""}`
                         : "出勤記録なし"}
                     </p>
                   </div>
@@ -398,7 +398,7 @@ function ReportHistory({ id, onClose }: { id: string; onClose: () => void }) {
                 : e.action === "resolved"
                   ? "確認"
                   : "取り消し"}{" "}
-              · {timeLabel(e.createdAt)}
+              · {japanTime(e.createdAt)}
             </p>
             <HistoryDetails details={e.details} />
           </li>
@@ -452,19 +452,12 @@ function AttendanceHistory({
         {query.data?.events.map((event) => (
           <li key={event.id} className="space-y-1 py-3 text-sm">
             <p>
-              {event.before ? timeLabel(event.before) : "記録なし"} →{" "}
-              {timeLabel(event.after)}
+              {event.before ? japanTime(event.before) : "記録なし"} →{" "}
+              {japanTime(event.after)}
             </p>
             <p>{event.reason}</p>
             <p className="text-xs text-muted-foreground">
-              {event.actor} ·{" "}
-              {new Intl.DateTimeFormat("ja-JP", {
-                timeZone: "Asia/Tokyo",
-                month: "numeric",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              }).format(new Date(event.createdAt))}
+              {event.actor} · {japanMonthDayTime(event.createdAt)}
             </p>
           </li>
         ))}

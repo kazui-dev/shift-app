@@ -8,7 +8,8 @@ import { identityLinkRequests, appUsers } from "@workspace/db/schema"
 import { onboardingInputSchema } from "@workspace/shared/auth"
 
 import { createAuth, getConfiguredProviders } from "../auth"
-import { apiErrorBody, requireSameOriginForMutation } from "../lib/http"
+import { apiError, errorBody, errors } from "../lib/errors"
+import { requireSameOriginForMutation } from "../lib/http"
 
 export const accountApp = new Hono<{ Bindings: CloudflareBindings }>()
 
@@ -64,8 +65,7 @@ accountApp.put(
   "/account",
   bodyLimit({
     maxSize: 4 * 1024,
-    onError: (c) =>
-      c.json(apiErrorBody("BODY_TOO_LARGE", "Request body is too large"), 413),
+    onError: (c) => apiError(c, errors.bodyTooLarge),
   }),
   async (c) => {
     const auth = createAuth(c.env)
@@ -73,27 +73,21 @@ accountApp.put(
       headers: c.req.raw.headers,
     })
     if (!authSession) {
-      return c.json(
-        apiErrorBody("UNAUTHORIZED", "Authentication is required"),
-        401
-      )
+      return apiError(c, errors.unauthorized)
     }
 
     let payload: unknown
     try {
       payload = await c.req.json()
     } catch {
-      return c.json(
-        apiErrorBody("INVALID_JSON", "Request body must be valid JSON"),
-        400
-      )
+      return apiError(c, errors.invalidJson)
     }
 
     const parsed = v.safeParse(onboardingInputSchema, payload)
     if (!parsed.success) {
       return c.json(
         {
-          ...apiErrorBody("INVALID_ONBOARDING_DATA", "Invalid onboarding data"),
+          ...errorBody(errors.invalidOnboardingData),
           issues: v.flatten(parsed.issues).nested ?? {},
         },
         400
@@ -142,7 +136,7 @@ accountApp.put(
 
       return c.json(
         {
-          ...apiErrorBody("ACCOUNT_EXISTS", "Account already exists"),
+          ...errorBody(errors.accountExists),
           linkRequestCreated: true as const,
         },
         409
@@ -170,7 +164,7 @@ accountApp.put(
       )
       return c.json(
         {
-          ...apiErrorBody("ACCOUNT_CONFLICT", "Account could not be created"),
+          ...errorBody(errors.accountConflict),
         },
         409
       )

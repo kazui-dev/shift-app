@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { formDateInputSchema } from "@workspace/shared/availability"
+import { apiError, errors } from "../../lib/errors"
 import {
-  apiError,
   type ApiEnv,
   canManageShifts,
   parseYear,
@@ -20,9 +20,9 @@ async function authorize(
   next: import("hono").Next
 ) {
   const year = parseYear(c.req.param("year") ?? "")
-  if (year === null) return apiError(c, 422, "INVALID_YEAR", "Invalid year")
+  if (year === null) return apiError(c, errors.invalidYear)
   if (!(await canManageShifts(c.env, c.get("member"), year)))
-    return apiError(c, 403, "FORBIDDEN", "Shift management is required")
+    return apiError(c, errors.shiftManagementRequired)
   return next()
 }
 availabilityDatesApp.get("/:year/availability-dates", async (c) => {
@@ -48,7 +48,7 @@ availabilityDatesApp.get("/:year/availability-dates", async (c) => {
 availabilityDatesApp.put("/:year/availability-dates/:date", async (c) => {
   const input = v.safeParse(formDateInputSchema, await readJson(c.req.raw))
   if (!input.success || input.output.date !== c.req.param("date"))
-    return apiError(c, 422, "INVALID_DATE", "Invalid date settings")
+    return apiError(c, errors.invalidAvailabilityDate)
   const date = input.output,
     now = Date.now()
   await c.env.shift_app

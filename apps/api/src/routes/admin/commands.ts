@@ -7,7 +7,8 @@ import {
   updateAccessLevelInputSchema,
 } from "@workspace/shared/auth"
 
-import { apiErrorBody, readJson } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { readJson } from "../../lib/http"
 import type { AdminEnv } from "./context"
 
 type IdentityLinkDecisionRow = {
@@ -25,10 +26,7 @@ adminCommandsApp.patch("/users/:memberId", async (c) => {
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
-    return c.json(
-      apiErrorBody("INVALID_ROLE_CHANGE", "Invalid role change"),
-      400
-    )
+    return apiError(c, errors.invalidRoleChange)
   }
 
   const targetMemberId = c.req.param("memberId")
@@ -47,16 +45,13 @@ adminCommandsApp.patch("/users/:memberId", async (c) => {
     }>()
 
   if (!target) {
-    return c.json(apiErrorBody("MEMBER_NOT_FOUND", "Member not found"), 404)
+    return apiError(c, errors.memberNotFound)
   }
   if (target.id === adminUser.id) {
-    return c.json(
-      apiErrorBody("SELF_ROLE_CHANGE", "You cannot change your own role"),
-      409
-    )
+    return apiError(c, errors.selfRoleChange)
   }
   if (target.accessLevel === parsed.output.accessLevel) {
-    return c.json(apiErrorBody("ROLE_UNCHANGED", "Role is unchanged"), 409)
+    return apiError(c, errors.roleUnchanged)
   }
 
   const auditId = crypto.randomUUID()
@@ -111,13 +106,7 @@ adminCommandsApp.patch("/users/:memberId", async (c) => {
     auditResult.meta.changes !== 1 ||
     !updateResult.results.length
   ) {
-    return c.json(
-      apiErrorBody(
-        "LAST_SYSTEM_ADMIN",
-        "Role change was rejected; keep at least one system admin"
-      ),
-      409
-    )
+    return apiError(c, errors.lastSystemAdmin)
   }
 
   return c.json({ ok: true as const })
@@ -129,10 +118,7 @@ adminCommandsApp.post("/users/:memberId/revoke-sessions", async (c) => {
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
-    return c.json(
-      apiErrorBody("INVALID_SESSION_REVOCATION", "Invalid session revocation"),
-      400
-    )
+    return apiError(c, errors.invalidSessionRevocation)
   }
 
   const targetMemberId = c.req.param("memberId")
@@ -160,7 +146,7 @@ adminCommandsApp.post("/users/:memberId/revoke-sessions", async (c) => {
   ])
 
   if (!auditResult || !deleteResult || auditResult.meta.changes !== 1) {
-    return c.json(apiErrorBody("MEMBER_NOT_FOUND", "Member not found"), 404)
+    return apiError(c, errors.memberNotFound)
   }
 
   return c.json({
@@ -175,13 +161,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
-    return c.json(
-      apiErrorBody(
-        "INVALID_IDENTITY_LINK_DECISION",
-        "Invalid identity link decision"
-      ),
-      400
-    )
+    return apiError(c, errors.invalidIdentityLinkDecision)
   }
 
   const requestId = c.req.param("requestId")
@@ -201,22 +181,13 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
     .first<IdentityLinkDecisionRow>()
 
   if (!request) {
-    return c.json(
-      apiErrorBody("LINK_REQUEST_NOT_FOUND", "Pending request not found"),
-      404
-    )
+    return apiError(c, errors.linkRequestNotFound)
   }
   if (
     parsed.output.decision === "approved" &&
     request.targetMemberId === adminUser.id
   ) {
-    return c.json(
-      apiErrorBody(
-        "SELF_IDENTITY_RECOVERY",
-        "You cannot approve identity recovery for your own account"
-      ),
-      409
-    )
+    return apiError(c, errors.selfIdentityRecovery)
   }
 
   const auditId = crypto.randomUUID()
@@ -251,13 +222,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
       auditResult.meta.changes !== 1 ||
       updateResult.meta.changes !== 1
     ) {
-      return c.json(
-        apiErrorBody(
-          "LINK_REQUEST_NOT_PENDING",
-          "Request is no longer pending"
-        ),
-        409
-      )
+      return apiError(c, errors.linkRequestNotPending)
     }
 
     return c.json({ ok: true as const })
@@ -352,13 +317,7 @@ adminCommandsApp.patch("/identity-link-requests/:requestId", async (c) => {
     results[4]?.meta.changes !== 1 ||
     results[6]?.meta.changes !== 1
   ) {
-    return c.json(
-      apiErrorBody(
-        "IDENTITY_RECOVERY_CONFLICT",
-        "Identity recovery conditions are no longer satisfied"
-      ),
-      409
-    )
+    return apiError(c, errors.identityRecoveryConflict)
   }
 
   return c.json({ ok: true as const })

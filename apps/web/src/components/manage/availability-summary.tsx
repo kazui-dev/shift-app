@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { japanFullDate } from "@workspace/shared/japan-time"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Bell, ChevronRight, Plus, Trash2 } from "lucide-react"
@@ -18,7 +19,6 @@ import {
 import { errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { MemberAvatar } from "@/components/member-avatar"
-import { formatLongDate } from "@/components/calendar/calendar-format"
 
 function clock(minute: number) {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`
@@ -109,7 +109,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <span className="block text-sm font-medium">
-                      {formatLongDate(date.date)}
+                      {japanFullDate(date.date)}
                     </span>
                     <span className="block text-xs text-muted-foreground tabular-nums">
                       {clock(date.startsMinute)}–{clock(date.endsMinute)}{" "}

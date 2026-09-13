@@ -1,7 +1,8 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { messageLinks } from "@workspace/shared/communications"
-import { apiError, type ApiEnv } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv } from "../lib/http"
 import { findAccessibleRoom } from "../services/chat-access"
 import { cachedLinkPreview } from "../services/link-preview"
 import { fetchLink, limitedBody } from "../services/link-fetch"
@@ -18,19 +19,13 @@ chatLinksApp.get(
       !params.success ||
       (c.req.param("asset") && c.req.param("asset") !== "image")
     )
-      return apiError(c, 422, "INVALID_CHAT_LINK", "Invalid link request")
+      return apiError(c, errors.invalidChatLink)
     const room = await findAccessibleRoom(
       c.env,
       params.output.roomId,
       c.get("member").id
     )
-    if (!room)
-      return apiError(
-        c,
-        404,
-        "CHAT_ROOM_NOT_FOUND",
-        "チャットが見つかりません。"
-      )
+    if (!room) return apiError(c, errors.chatRoomNotFound)
     const content = await c.env.CHAT_ROOMS.getByName(room.id).messageContent(
       params.output.messageId
     )

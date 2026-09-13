@@ -3,12 +3,8 @@ import * as v from "valibot"
 
 import { replaceYearSettingsInputSchema } from "@workspace/shared/shifts"
 
-import {
-  apiError,
-  type ApiEnv,
-  readJson,
-  requireSystemAdmin,
-} from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, readJson, requireSystemAdmin } from "../lib/http"
 
 export const yearSettingsApp = new Hono<ApiEnv>()
 
@@ -21,7 +17,7 @@ yearSettingsApp.put("/", async (c) => {
     await readJson(c.req.raw)
   )
   if (!input.success) {
-    return apiError(c, 422, "INVALID_YEAR", "A default year is required")
+    return apiError(c, errors.defaultYearRequired)
   }
 
   const result = await c.env.shift_app
@@ -30,7 +26,7 @@ yearSettingsApp.put("/", async (c) => {
     .bind(input.output.defaultYear, input.output.defaultYear)
     .run()
   if (result.meta.changes !== 1) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   return c.json({ defaultYear: input.output.defaultYear })
 })

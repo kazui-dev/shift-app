@@ -1,20 +1,20 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { updateRoleInputSchema } from "@workspace/shared/shifts"
-import { apiError, type ApiEnv, readJson } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, readJson } from "../lib/http"
 import { roleAuthority } from "../services/role-authority"
 
 export const roleSettingsApp = new Hono<ApiEnv>()
 roleSettingsApp.put("/:roleId", async (c) => {
   const input = v.safeParse(updateRoleInputSchema, await readJson(c.req.raw))
-  if (!input.success)
-    return apiError(c, 422, "INVALID_ROLE", "Invalid role settings")
+  if (!input.success) return apiError(c, errors.invalidRole)
   const id = c.req.param("roleId")
   const role = await c.env.shift_app
     .prepare("SELECT year, position FROM year_roles WHERE id = ?")
     .bind(id)
     .first<{ year: number; position: number }>()
-  if (!role) return apiError(c, 404, "ROLE_NOT_FOUND", "Role not found")
+  if (!role) return apiError(c, errors.roleNotFound)
   const authority = await roleAuthority(
     c.env.shift_app,
     c.get("member"),
@@ -28,18 +28,12 @@ roleSettingsApp.put("/:roleId", async (c) => {
         (permission) => !authority.permissions.has(permission)
       ))
   )
-    return apiError(
-      c,
-      403,
-      "ROLE_HIERARCHY",
-      "Cannot edit this role or grant these permissions"
-    )
+    return apiError(c, errors.roleEditForbidden)
   const duplicate = await c.env.shift_app
     .prepare("SELECT id FROM year_roles WHERE year=? AND name=? AND id<>?")
     .bind(role.year, input.output.name, id)
     .first()
-  if (duplicate)
-    return apiError(c, 409, "ROLE_NAME_EXISTS", "同じ名前のロールがあります")
+  if (duplicate) return apiError(c, errors.roleNameExists)
   const now = Date.now()
   await c.env.shift_app.batch([
     c.env.shift_app
@@ -67,7 +61,7 @@ roleSettingsApp.delete("/:roleId", async (c) => {
     .prepare("SELECT year,position FROM year_roles WHERE id=?")
     .bind(id)
     .first<{ year: number; position: number }>()
-  if (!role) return apiError(c, 404, "ROLE_NOT_FOUND", "ロールが見つかりません")
+  if (!role) return apiError(c, errors.roleNotFound)
   const authority = await roleAuthority(
     c.env.shift_app,
     c.get("member"),
@@ -78,7 +72,7 @@ roleSettingsApp.delete("/:roleId", async (c) => {
     (!authority.permissions.has("role.manage") ||
       authority.position <= role.position)
   )
-    return apiError(c, 403, "ROLE_HIERARCHY", "このロールは変更できません")
+    return apiError(c, errors.roleEditForbidden)
   await c.env.shift_app.batch([
     c.env.shift_app
       .prepare(

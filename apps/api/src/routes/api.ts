@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import { bodyLimit } from "hono/body-limit"
 
+import { apiError, errors } from "../lib/errors"
 import {
-  apiError,
   type ApiEnv,
   requireMember,
   requireSameOriginForMutation,
@@ -56,7 +56,7 @@ apiApp.route("/chat", chatApp)
 apiApp.route("/chat", chatImagesApp)
 apiApp.route("/reports", reportsApp)
 
-apiApp.notFound((c) => apiError(c, 404, "NOT_FOUND", "API route not found"))
+apiApp.notFound((c) => apiError(c, errors.routeNotFound))
 
 apiApp.onError((error, c) => {
   console.error(
@@ -66,5 +66,5 @@ apiApp.onError((error, c) => {
       path: new URL(c.req.url).pathname,
     })
   )
-  return apiError(c, 500, "INTERNAL_ERROR", "Internal server error")
+  return apiError(c, errors.internalError)
 })
