@@ -423,28 +423,26 @@ export function ChatMessages({
           </div>
         )}
       </div>
-      {menu && (
-        <MessageActionDrawer
-          message={selectedMessage ?? menu.message}
-          room={room}
-          memberId={member.id}
-          open={menu.open && !!selectedMessage && !offline}
-          disabled={!selectedMessage || offline}
-          onOpenChange={(open) =>
-            setMenu((current) => (current ? { ...current, open } : null))
-          }
-          onClosed={() => setMenu(null)}
-          onReply={() => {
-            if (selectedMessage) replyTo(selectedMessage)
-          }}
-          onEdit={() => {
-            if (selectedMessage) editMessage(selectedMessage)
-          }}
-          onDelete={() => {
-            if (selectedMessage) removeMessage(selectedMessage)
-          }}
-        />
-      )}
+      <MessageActionDrawer
+        message={selectedMessage ?? menu?.message ?? null}
+        room={room}
+        memberId={member.id}
+        open={menu?.open === true && !!selectedMessage && !offline}
+        disabled={!selectedMessage || offline}
+        onOpenChange={(open) =>
+          setMenu((current) => (current ? { ...current, open } : null))
+        }
+        onClosed={() => setMenu(null)}
+        onReply={() => {
+          if (selectedMessage) replyTo(selectedMessage)
+        }}
+        onEdit={() => {
+          if (selectedMessage) editMessage(selectedMessage)
+        }}
+        onDelete={() => {
+          if (selectedMessage) removeMessage(selectedMessage)
+        }}
+      />
       {deleting && (
         <DeleteMessageDialog
           roomId={room.id}

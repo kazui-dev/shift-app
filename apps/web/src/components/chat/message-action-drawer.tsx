@@ -23,7 +23,7 @@ export function MessageActionDrawer({
   onEdit,
   onDelete,
 }: {
-  message: MessageRow
+  message: MessageRow | null
   room: ChatRoom
   memberId: string
   open: boolean
@@ -36,19 +36,23 @@ export function MessageActionDrawer({
 }) {
   const openingGesture = useRef(true)
   useEffect(() => {
+    if (!open) return undefined
+    openingGesture.current = true
     const started = () => {
       openingGesture.current = false
     }
     document.addEventListener("pointerdown", started, true)
     return () => document.removeEventListener("pointerdown", started, true)
-  }, [])
-  const permission = messagePermissions({
-    memberId,
-    authorId: message.memberId,
-    canPost: room.canPost,
-    canManage: room.canManage,
-    deleted: !!message.deleted,
-  })
+  }, [open])
+  const permission =
+    message &&
+    messagePermissions({
+      memberId,
+      authorId: message.memberId,
+      canPost: room.canPost,
+      canManage: room.canManage,
+      deleted: !!message.deleted,
+    })
   return (
     <Drawer
       open={open}
@@ -73,7 +77,7 @@ export function MessageActionDrawer({
       >
         <DrawerTitle className="sr-only">メッセージの操作</DrawerTitle>
         <div className="flex flex-col gap-1 p-3">
-          {permission.reply && (
+          {permission?.reply && (
             <DrawerClose
               disabled={disabled}
               render={<Button variant="ghost" className="h-12 justify-start" />}
@@ -83,7 +87,7 @@ export function MessageActionDrawer({
               返信
             </DrawerClose>
           )}
-          {permission.edit && (
+          {permission?.edit && (
             <DrawerClose
               disabled={disabled}
               render={<Button variant="ghost" className="h-12 justify-start" />}
@@ -93,7 +97,7 @@ export function MessageActionDrawer({
               編集
             </DrawerClose>
           )}
-          {permission.delete && (
+          {permission?.delete && (
             <DrawerClose
               disabled={disabled}
               replace
