@@ -106,6 +106,12 @@ export function ChatMessages({
     isFetchingNextPage,
     fetchNextPage,
   ])
+  function copyMessage(message: MessageRow) {
+    void navigator.clipboard.writeText(message.content).then(
+      () => toast.success("コピーしました。"),
+      () => toast.error("コピーできませんでした。")
+    )
+  }
   function removeMessage(message: MessageRow) {
     setDeletionClosing(false)
     setDeleting(message)
@@ -292,6 +298,9 @@ export function ChatMessages({
         }}
         onEdit={() => {
           if (selectedMessage) editMessage(selectedMessage)
+        }}
+        onCopy={() => {
+          if (selectedMessage) copyMessage(selectedMessage)
         }}
         onDelete={() => {
           if (selectedMessage) removeMessage(selectedMessage)

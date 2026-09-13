@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { CornerUpLeft, Pencil, Trash2 } from "lucide-react"
+import { Copy, CornerUpLeft, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Drawer,
@@ -21,6 +21,7 @@ export function MessageActionDrawer({
   onClosed,
   onReply,
   onEdit,
+  onCopy,
   onDelete,
 }: {
   message: MessageRow | null
@@ -32,6 +33,7 @@ export function MessageActionDrawer({
   onClosed: () => void
   onReply: () => void
   onEdit: () => void
+  onCopy: () => void
   onDelete: () => void
 }) {
   const openingGesture = useRef(true)
@@ -95,6 +97,15 @@ export function MessageActionDrawer({
             >
               <Pencil />
               編集
+            </DrawerClose>
+          )}
+          {message?.content && !message.deleted && (
+            <DrawerClose
+              render={<Button variant="ghost" className="h-12 justify-start" />}
+              onClick={onCopy}
+            >
+              <Copy />
+              コピー
             </DrawerClose>
           )}
           {permission?.delete && (
