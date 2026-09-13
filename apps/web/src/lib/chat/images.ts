@@ -10,7 +10,8 @@ type Entry<T> = {
   users: number
   loaded?: Loaded<T>
 }
-type Held<T> = { promise: Promise<T>; release: () => void }
+/** An image in use; release it once it is no longer needed. */
+export type HeldImage<T> = { promise: Promise<T>; release: () => void }
 
 /**
  * Images kept in memory while in use, least recently used first out once the
@@ -34,7 +35,7 @@ class ImagePool<T> {
   acquire(
     key: string,
     load: (signal: AbortSignal) => Promise<Loaded<T>>
-  ): Held<T> {
+  ): HeldImage<T> {
     let entry = this.entries.get(key)
     if (!entry) {
       const controller = new AbortController()
@@ -231,6 +232,11 @@ export async function keepSentImage(
   } catch {
     // Without a preview the sent image loads like any other.
   }
+}
+
+/** Loads an image ahead of use, into memory and this device, without keeping it. */
+export function warmImage(image: HeldImage<unknown>) {
+  void image.promise.catch(() => undefined).finally(image.release)
 }
 
 export function clearChatImages() {

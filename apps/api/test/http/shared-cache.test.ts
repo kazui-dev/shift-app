@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { sharedApp } from "../../src/routes/shared"
 import { linkPreview } from "../../src/lib/shared-cache"
 import { loadLinkImage, loadLinkPreview } from "../../src/services/link-preview"
-vi.mock("../../src/lib/shared-cache", () => ({
+vi.mock("../../src/lib/shared-cache", async (original) => ({
+  ...(await original<typeof import("../../src/lib/shared-cache")>()),
   linkPreview: vi.fn<typeof linkPreview>(),
 }))
 vi.mock("../../src/services/link-preview", () => ({

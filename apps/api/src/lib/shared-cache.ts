@@ -6,12 +6,19 @@ import {
   type ChatImageSize,
 } from "@workspace/shared/communications"
 
+/** The routes of `SharedCache`, shared by its router and by those who call it. */
+export const sharedRoutes = {
+  linkPreviews: "/v1/link-previews",
+  linkImages: "/v1/link-images",
+  chatImage: "/v1/chat-images/:roomId/:attachmentId/:size",
+} as const
+
 /**
  * Asks the cached `SharedCache` entrypoint for a response every member shares.
  * The cache key is the path and query alone, so authorize the member first.
  */
 export function sharedResource(
-  path: `/v1/${string}`,
+  path: string,
   query: Record<string, string> = {}
 ) {
   const url = new URL(path, "https://shared.cache")
@@ -30,11 +37,15 @@ export const chatImagePath = (
   roomId: string,
   attachmentId: string,
   size: ChatImageSize | "original"
-) => `/v1/chat-images/${roomId}/${attachmentId}/${size}` as const
+) =>
+  sharedRoutes.chatImage
+    .replace(":roomId", roomId)
+    .replace(":attachmentId", attachmentId)
+    .replace(":size", String(size))
 
 /** A public page's preview, fetched once for every room that links to it. */
 export async function linkPreview(url: string) {
-  const response = await sharedResource("/v1/link-previews", { url })
+  const response = await sharedResource(sharedRoutes.linkPreviews, { url })
   if (!response.ok) {
     await response.body?.cancel()
     return null

@@ -3,7 +3,7 @@ import { Hono } from "hono"
 import { chatImageSizes } from "@workspace/shared/communications"
 
 import { chatImageKey, chatImageTag, chatRoomTag } from "../domain/chat-image"
-import { linkPreview } from "../lib/shared-cache"
+import { linkPreview, sharedRoutes } from "../lib/shared-cache"
 import { loadLinkImage, loadLinkPreview } from "../services/link-preview"
 
 const day = 86_400
@@ -14,13 +14,13 @@ const imageSizes = new Map(chatImageSizes.map((size) => [String(size), size]))
 /** The routes behind the cached `SharedCache` entrypoint. */
 export const sharedApp = new Hono<{ Bindings: CloudflareBindings }>()
 
-sharedApp.get("/v1/link-previews", async (c) => {
+sharedApp.get(sharedRoutes.linkPreviews, async (c) => {
   const preview = await loadLinkPreview(c.req.query("url") ?? "")
   c.header("Cache-Control", preview ? `public, max-age=${day}` : retry)
   return c.json({ preview })
 })
 
-sharedApp.get("/v1/link-images", async (c) => {
+sharedApp.get(sharedRoutes.linkImages, async (c) => {
   const preview = await linkPreview(c.req.query("url") ?? "")
   const image = preview?.image
     ? await loadLinkImage(c.env.IMAGES, preview.image)
@@ -35,7 +35,7 @@ sharedApp.get("/v1/link-images", async (c) => {
 })
 
 /** A chat image's original, or a still WebP scaled down to a delivered size. */
-sharedApp.get("/v1/chat-images/:roomId/:attachmentId/:size", async (c) => {
+sharedApp.get(sharedRoutes.chatImage, async (c) => {
   const { roomId, attachmentId, size } = c.req.param()
   const edge = imageSizes.get(size)
   const object =

@@ -5,12 +5,8 @@ import { usersQuery, auditQuery, linksQuery } from "./admin"
 import { assignmentMonthQuery } from "@/api/assignments"
 import { calendarViewKey, resolveCalendarView } from "@/lib/calendar/view"
 import { displayYearQuery, yearsQuery, rolesQuery, rosterQuery } from "./years"
-import {
-  roomsQuery,
-  targetsQuery,
-  prepareConversation,
-  warmConversation,
-} from "./chat"
+import { roomsQuery, targetsQuery, prepareConversation } from "./chat"
+import { warmConversation } from "./chat-warm"
 import { activitiesQuery, activityQuery } from "./activities"
 import {
   availabilityQuery,
