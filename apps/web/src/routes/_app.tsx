@@ -1,4 +1,5 @@
 import { preparePushControl } from "@/lib/push/control-store"
+import { keys } from "@/data/keys"
 import { prepareApp } from "@/data/startup"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
@@ -10,7 +11,7 @@ export const Route = createFileRoute("/_app")({
     const restoreReading =
       (location.pathname === "/calendar" ||
         location.pathname.startsWith("/chat")) &&
-      context.queryClient.getQueryData(["display-year"]) !== undefined
+      context.queryClient.getQueryData(keys.displayYear()) !== undefined
     const { state, offline, checking } = await resolveAccountState(
       context.queryClient,
       restoreReading

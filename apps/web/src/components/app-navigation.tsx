@@ -1,4 +1,7 @@
-import { Link } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { getRouteApi, Link } from "@tanstack/react-router"
+import { yearsQuery } from "@/data/years"
+import { canOpenManagement } from "@/lib/account/management"
 import { CalendarDays, MessageCircle, Settings, Users } from "lucide-react"
 import {
   Tooltip,
@@ -55,10 +58,16 @@ export function BottomNavigation({ offline }: { offline: boolean }) {
     </TooltipProvider>
   )
 }
+const appRoute = getRouteApi("/_app")
+
 function NavigationItems({ offline }: { offline: boolean }) {
-  const items = offline
-    ? navigation.filter((item) => item.to !== "/manage")
-    : navigation
+  const { state } = appRoute.useRouteContext()
+  const years = useQuery(yearsQuery).data?.years ?? []
+  const managing =
+    !offline && canOpenManagement(state.member.accessLevel, years)
+  const items = managing
+    ? navigation
+    : navigation.filter((item) => item.to !== "/manage")
   return (
     <>
       {items.map(({ to, label, icon: Icon }) => (
