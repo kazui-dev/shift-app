@@ -122,6 +122,9 @@ const originals = new ImagePool<Blob>((count) => count > 0)
 const sent = new ImagePool<string>((count) => count > 20, revoke)
 
 const keyOf = (...parts: (string | number)[]) => JSON.stringify(parts)
+/** One key for storing and finding a small image, so a kept one is always found. */
+const tileKey = (user: string, room: string, id: string, variant: string) =>
+  keyOf(user, room, id, variant)
 
 /** An object URL of the image, decoded so showing it never flashes empty. */
 async function decoded(blob: Blob): Promise<Loaded<string>> {
@@ -143,7 +146,9 @@ export function cachedChatImage(
   id: string,
   size: ChatImageSize
 ) {
-  return (size === 2400 ? large : tiles).cached(keyOf(user, room, id, size))
+  return size === 2400
+    ? large.cached(keyOf(user, room, id, size))
+    : tiles.cached(tileKey(user, room, id, String(size)))
 }
 
 /** A small image from this device when it keeps one, else fetched and kept. */
@@ -154,7 +159,7 @@ function acquireKept(
   variant: string,
   fetchImage: (signal: AbortSignal) => Promise<Blob>
 ) {
-  return tiles.acquire(keyOf(user, room, id, variant), async (signal) => {
+  return tiles.acquire(tileKey(user, room, id, variant), async (signal) => {
     const kept = await readCachedImage(user, room, id, variant)
     const blob = kept ?? (await fetchImage(signal))
     if (!kept) void storeCachedImage(user, room, id, variant, blob)
@@ -186,7 +191,7 @@ export function cachedLinkImage(
   messageId: string,
   url: string
 ) {
-  return tiles.cached(keyOf(user, room, messageId, linkVariant(url)))
+  return tiles.cached(tileKey(user, room, messageId, linkVariant(url)))
 }
 
 /** A message's link card image, kept on this device like list tiles. */
