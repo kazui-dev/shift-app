@@ -26,12 +26,10 @@ function ChatSearch({ roomId }: { roomId: string }) {
   const { setTarget } = useMessageTarget()
   const [input, setInput] = useState("")
   const [query, setQuery] = useState("")
-  const [composing, setComposing] = useState(false)
   useEffect(() => {
-    if (composing) return undefined
     const timer = setTimeout(() => setQuery(input.trim()), 200)
     return () => clearTimeout(timer)
-  }, [input, composing])
+  }, [input])
   const room = useQuery({
     queryKey: keys.chatRoom(roomId),
     queryFn: () => getChatRoom(roomId),
@@ -43,10 +41,10 @@ function ChatSearch({ roomId }: { roomId: string }) {
     initialPageParam: null as number | null,
     getNextPageParam: (last) =>
       last.hasMore ? last.messages.at(-1)?.sequence : undefined,
-    enabled: !!query && !composing && input.trim() === query,
+    enabled: !!query && input.trim() === query,
     retry: false,
   })
-  const current = !composing && input.trim() === query
+  const current = input.trim() === query
   const waiting =
     !!input.trim() &&
     (!current ||
@@ -78,8 +76,6 @@ function ChatSearch({ roomId }: { roomId: string }) {
             maxLength={200}
             className="pl-9"
             onChange={(event) => setInput(event.target.value)}
-            onCompositionStart={() => setComposing(true)}
-            onCompositionEnd={() => setComposing(false)}
           />
         </div>
       </div>
