@@ -24,12 +24,12 @@ html:has([data-chat-shell]) {
 }
 
 /*
- * Fade the history into the image rail. The fade starts above the rail and
- * eases in and out, so it has no visible start or end line.
+ * The composer backdrop starts partway into the rail or the composer, eases in
+ * over 1.5rem, and stays solid to the bottom edge.
  */
-[data-composer-rail]::before {
+[data-composer-seat]::before {
   position: absolute;
-  inset: -1rem calc(-1 * var(--chat-gutter)) 0;
+  inset: var(--composer-backdrop) 0 0;
   z-index: -1;
   pointer-events: none;
   content: "";

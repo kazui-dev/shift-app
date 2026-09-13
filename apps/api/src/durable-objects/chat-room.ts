@@ -210,15 +210,23 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
          LIMIT ?`,
         beforeSequence,
         beforeSequence,
-        boundedLimit + 1
+        boundedLimit
       )
       .toArray()
+    const oldest = rows.at(-1)?.sequence
+    // Deleted messages are not shown, so only visible ones make older history worth loading.
+    const older =
+      oldest === undefined
+        ? []
+        : this.ctx.storage.sql
+            .exec<{ sequence: number }>(
+              "SELECT sequence FROM messages WHERE sequence < ? AND deleted = 0 LIMIT 1",
+              oldest
+            )
+            .toArray()
     return {
-      messages: rows
-        .slice(0, boundedLimit)
-        .reverse()
-        .map((row) => this.toMessage(row)),
-      hasMore: rows.length > boundedLimit,
+      messages: rows.reverse().map((row) => this.toMessage(row)),
+      hasMore: older.length > 0,
     }
   }
 
