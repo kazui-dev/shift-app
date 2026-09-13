@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from "react"
-import { getRouteApi } from "@tanstack/react-router"
+import { useChatMember } from "@/components/chat/use-chat-member"
 import { chatStore } from "@/lib/chat/store"
 export function useChatStore() {
-  const { state } = getRouteApi("/_app").useRouteContext()
-  const store = chatStore(state.member.studentId)
+  const member = useChatMember()
+  const store = chatStore(member.studentId)
   const snapshot = useSyncExternalStore(store.subscribe, store.snapshot)
-  return { store, member: state.member, ...snapshot }
+  return { store, member, ...snapshot }
 }

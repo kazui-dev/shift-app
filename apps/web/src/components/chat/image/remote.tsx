@@ -1,5 +1,5 @@
 import { useRef } from "react"
-import { getRouteApi } from "@tanstack/react-router"
+import { useChatMember } from "@/components/chat/use-chat-member"
 import type { ChatImageSize } from "@workspace/shared/communications"
 import {
   acquireChatImage,
@@ -28,8 +28,7 @@ export function RemoteImage({
   fit?: "contain" | "cover"
   onOpen: () => void
 }) {
-  const { state } = getRouteApi("/_app").useRouteContext()
-  const user = state.member.studentId
+  const user = useChatMember().studentId
   const element = useRef<HTMLButtonElement>(null)
   // Loading starts two screens ahead. A tile in memory, or this device's preview
   // of an image it just sent, shows on the first render until the tile decodes.

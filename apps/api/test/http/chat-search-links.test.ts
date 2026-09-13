@@ -4,6 +4,7 @@ import { chatApp } from "../../src/routes/chat/index"
 import { findAccessibleRoom } from "../../src/services/chat-access"
 import { linkPreview, sharedResource } from "../../src/lib/shared-cache"
 import type { ApiEnv } from "../../src/lib/http"
+import { chatRoom } from "../support/chat"
 vi.mock("../../src/services/chat-access", async (original) => ({
   ...(await original<typeof import("../../src/services/chat-access")>()),
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
@@ -53,23 +54,9 @@ const preview = {
 }
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(findAccessibleRoom).mockResolvedValue({
-    id: roomId,
-    year: 2026,
-    name: "Chat",
-    createdBy: "trusted",
-    createdAt: 0,
-    updatedAt: 0,
-    allowExit: 1,
-    activityId: null,
-    activityStartsAt: null,
-    activityEndsAt: null,
-    canPost: 1,
-    canManage: 0,
-    muted: 0,
-    lastRead: 0,
-    lastSequence: 0,
-  })
+  vi.mocked(findAccessibleRoom).mockResolvedValue(
+    chatRoom({ id: roomId, name: "Chat", createdBy: "trusted" })
+  )
   search.mockResolvedValue({ messages: [], hasMore: false })
   content.mockResolvedValue("see https://example.com/path")
   vi.mocked(linkPreview).mockResolvedValue(preview)

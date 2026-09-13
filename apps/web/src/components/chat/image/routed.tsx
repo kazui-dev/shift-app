@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react"
+import { useChatMember } from "@/components/chat/use-chat-member"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
-import {
-  getRouteApi,
-  useNavigate,
-  useRouterState,
-} from "@tanstack/react-router"
+import { useNavigate, useRouterState } from "@tanstack/react-router"
 import type { ChatImageSize } from "@workspace/shared/communications"
 import { toast } from "@workspace/ui/lib/toast"
 import { getChatMessageAt } from "@/api/chat"
@@ -33,7 +30,7 @@ export function RoutedImage({
   roomId: string
   messages: ChatMessage[]
 }) {
-  const { state } = getRouteApi("/_app").useRouteContext()
+  const member = useChatMember()
   const search = useRouterState({ select: (value) => value.location.search })
   const { image, message: sequence } = chatImageLocation(search)
   const cached = messages.find((message) => message.sequence === sequence)
@@ -56,7 +53,7 @@ export function RoutedImage({
   return (
     <MessageGallery
       key={message.id}
-      user={state.member.studentId}
+      user={member.studentId}
       roomId={roomId}
       message={message}
       initial={image}

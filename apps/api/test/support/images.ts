@@ -1,3 +1,4 @@
+import { vi } from "vite-plus/test"
 import { crc32 } from "node:zlib"
 
 type Part = Uint8Array | readonly number[] | string
@@ -162,3 +163,25 @@ export const gifScreen = (width: number, height: number, flags = 0) =>
   ])
 export const gifApplication = (name: string, data: readonly number[]) =>
   bytes([0x21, 0xff, 11], name, [data.length], data, [0])
+
+/** An Images transformer that records its options and outputs `body`. */
+export function fakeTransformer(body: () => BodyInit) {
+  const transform = vi.fn<(options: ImageTransform) => void>()
+  const output = vi.fn<(options: ImageOutputOptions) => void>()
+  const transformer: ImageTransformer = {
+    transform: (options) => {
+      transform(options)
+      return transformer
+    },
+    draw: () => transformer,
+    output: async (options) => {
+      output(options)
+      return {
+        response: () => new Response(body()),
+        contentType: () => "image/webp",
+        image: () => new Response(body()).body ?? new ReadableStream(),
+      }
+    },
+  }
+  return { transformer, transform, output }
+}

@@ -2,10 +2,8 @@ import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import { chatApp } from "../../src/routes/chat/index"
 import type { ApiEnv } from "../../src/lib/http"
-import {
-  findAccessibleRoom,
-  type RoomRow,
-} from "../../src/services/chat-access"
+import { findAccessibleRoom } from "../../src/services/chat-access"
+import { chatRoom } from "../support/chat"
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
@@ -29,23 +27,7 @@ const env = {
   CHAT_ROOMS: { getByName: () => ({ changeMessage: change }) },
   CHAT_DIRECTORY: { getByName: () => ({ fetch: connect }) },
 }
-const room: RoomRow = {
-  id: roomId,
-  year: 2026,
-  name: "連絡",
-  createdBy: "trusted",
-  createdAt: 0,
-  updatedAt: 0,
-  allowExit: 1,
-  activityId: null,
-  activityStartsAt: null,
-  activityEndsAt: null,
-  canPost: 1,
-  canManage: 0,
-  muted: 0,
-  lastRead: 0,
-  lastSequence: 0,
-}
+const room = chatRoom({ id: roomId, createdBy: "trusted" })
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(findAccessibleRoom).mockResolvedValue(room)

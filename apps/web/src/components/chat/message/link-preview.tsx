@@ -1,5 +1,5 @@
 import { useRef } from "react"
-import { getRouteApi } from "@tanstack/react-router"
+import { useChatMember } from "@/components/chat/use-chat-member"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
 import { useQuery } from "@tanstack/react-query"
 import { messageLinks } from "@workspace/shared/messages"
@@ -41,8 +41,7 @@ function LinkPreview({
   url: string
   offline: boolean
 }) {
-  const { state } = getRouteApi("/_app").useRouteContext()
-  const user = state.member.studentId
+  const user = useChatMember().studentId
   const ref = useRef<HTMLDivElement>(null)
   // Fetch two screens ahead. Once fetched, the cached card stays when scrolled away.
   const near = useNearHistory(ref, 2)

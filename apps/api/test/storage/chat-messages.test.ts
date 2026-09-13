@@ -1,12 +1,10 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 import { ChatRoom } from "../../src/durable-objects/chat-room"
-import {
-  findAccessibleRoom,
-  type RoomRow,
-} from "../../src/services/chat-access"
+import { findAccessibleRoom } from "../../src/services/chat-access"
 import { roomRecipients } from "../../src/services/chat-permissions"
 import { purgeShared } from "../../src/lib/shared-cache"
+import { chatRoom } from "../support/chat"
 vi.mock("../../src/lib/shared-cache", () => ({
   purgeShared: vi.fn<typeof purgeShared>().mockResolvedValue(undefined),
 }))
@@ -16,23 +14,7 @@ vi.mock("../../src/services/chat-access", () => ({
 vi.mock("../../src/services/chat-permissions", () => ({
   roomRecipients: vi.fn<typeof roomRecipients>(),
 }))
-const room: RoomRow = {
-  id: "room",
-  year: 2026,
-  name: "room",
-  createdBy: "author",
-  createdAt: 0,
-  updatedAt: 0,
-  allowExit: 1,
-  activityId: null,
-  activityStartsAt: null,
-  activityEndsAt: null,
-  canPost: 1,
-  canManage: 0,
-  muted: 0,
-  lastRead: 0,
-  lastSequence: 0,
-}
+const room = chatRoom({ id: "room", name: "room", createdBy: "author" })
 const databases: DatabaseSync[] = []
 beforeEach(() => {
   vi.mocked(findAccessibleRoom).mockResolvedValue(room)
