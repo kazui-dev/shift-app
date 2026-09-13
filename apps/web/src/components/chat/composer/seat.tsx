@@ -1,13 +1,11 @@
-import { useLayoutEffect, useRef, type RefObject } from "react"
 import type { ChatDraft, ChatFile } from "@/lib/chat/store"
 import { ChatComposer } from "@/components/chat/composer/form"
 
 /**
- * Holds the composer above the history and publishes its measured height, so
- * the history can keep the newest message visible while the composer grows.
+ * The composer area below the history. Its backdrop starts partway into the
+ * rail or the composer and fades to the background down to the bottom edge.
  */
 export function ComposerSeat({
-  root,
   roomName,
   draft,
   editing,
@@ -19,7 +17,6 @@ export function ComposerSeat({
   onSend,
   focusRequest,
 }: {
-  root: RefObject<HTMLDivElement | null>
   roomName: string
   draft: ChatDraft
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
@@ -31,30 +28,11 @@ export function ComposerSeat({
   onSend: () => void
   focusRequest: number
 }) {
-  const seat = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const element = seat.current,
-      layout = root.current
-    if (!element || !layout) return undefined
-    const input = element.querySelector<HTMLFormElement>("[data-chat-composer]")
-    const resize = () => {
-      layout.style.setProperty("--composer-height", `${element.offsetHeight}px`)
-      layout.style.setProperty(
-        "--composer-input-height",
-        `${input?.offsetHeight ?? 50}px`
-      )
-    }
-    resize()
-    const observer = new ResizeObserver(resize)
-    observer.observe(element)
-    if (input) observer.observe(input)
-    return () => observer.disconnect()
-  }, [root, canPost])
   if (!canPost) return null
   return (
     <div
-      ref={seat}
-      className="absolute inset-x-[var(--chat-gutter)] bottom-[var(--composer-bottom)]"
+      data-composer-seat
+      className="relative isolate px-[var(--chat-gutter)] pb-[var(--composer-bottom)]"
     >
       <ChatComposer
         roomName={roomName}

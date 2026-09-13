@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { ArrowDown } from "lucide-react"
+import { ArrowDown, LoaderCircle } from "lucide-react"
 import { chatImageLimits } from "@workspace/shared/communications"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
@@ -46,7 +46,7 @@ export function ChatMessages({
   const { store, member, ready, queue } = useChatStore(),
     draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
-    layout = useRef<HTMLDivElement>(null)
+    older = useRef<HTMLDivElement>(null)
   // Keep the row until confirmation finishes closing, even if its acknowledgement arrives first.
   const rows = useMemo(
     () =>
@@ -81,6 +81,30 @@ export function ChatMessages({
       setTarget(null)
     }
   }, [target, room.id, pathname, setReplyTarget, setTarget])
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = history.query
+  useEffect(() => {
+    const list = scroll.viewport.current,
+      sentinel = older.current
+    if (!list || !sentinel || !active || offline || !hasNextPage)
+      return undefined
+    if (isFetchingNextPage) return undefined
+    // Start loading about a screen before the top, so reading back never stalls.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage()
+      },
+      { root: list, rootMargin: "100% 0px 0px 0px" }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [
+    scroll.viewport,
+    active,
+    offline,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ])
   function removeMessage(message: MessageRow) {
     setDeletionClosing(false)
     setDeleting(message)
@@ -117,130 +141,139 @@ export function ChatMessages({
     scroll.follow()
     void store.enqueue(room.id)
   }
+  const composerDraft = composerEdit
+    ? { ...draft, content: composerEdit.content }
+    : draft
+  // The history runs under the composer by exactly its fade, so the backdrop
+  // can dissolve messages without any measured heights.
+  const composerSpacing = !room.canPost
+    ? "[--composer-overlap:0px]"
+    : composerDraft.files.length
+      ? "[--composer-backdrop:0.5rem] [--composer-overlap:calc(var(--composer-backdrop)+1.5rem)]"
+      : "[--composer-backdrop:1.5625rem] [--composer-overlap:calc(var(--composer-backdrop)+1.5rem)]"
   return (
     <>
       <div
-        ref={layout}
-        className="relative min-h-0 flex-1 [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] [--composer-height:50px] [--composer-input-height:50px]"
+        className={`flex min-h-0 flex-1 flex-col [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] ${composerSpacing}`}
       >
-        <section
-          ref={scroll.viewport}
-          onScroll={scroll.onScroll}
-          aria-label="メッセージ履歴"
-          className={`absolute inset-x-0 top-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none] ${room.canPost ? "bottom-[calc(var(--composer-input-height)+var(--composer-bottom))]" : "bottom-0"}`}
-        >
-          <div
-            ref={scroll.content}
-            className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-height)-var(--composer-input-height)+1rem)]"
+        <div className="relative min-h-0 flex-1">
+          <section
+            ref={scroll.viewport}
+            onScroll={scroll.onScroll}
+            aria-label="メッセージ履歴"
+            className="absolute inset-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] max-md:[scrollbar-width:none]"
           >
-            {history.query.hasNextPage && (
-              <div className="mb-4 text-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={history.query.isFetchingNextPage}
-                  onClick={() => void history.query.fetchNextPage()}
-                >
-                  以前のメッセージ
-                </Button>
-              </div>
-            )}
-            <ol aria-label="メッセージ" className="min-w-0">
-              {rows.map((message, index) => (
-                <ChatMessageRow
-                  key={message.id}
-                  message={message}
-                  previous={rows[index - 1]}
-                  room={room}
-                  memberId={member.id}
-                  offline={offline}
-                  unread={
-                    history.initialRead > 0 &&
-                    message.memberId !== member.id &&
-                    message.id === firstUnread?.id
+            <div
+              ref={scroll.content}
+              className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-overlap)+1rem)]"
+            >
+              <div ref={older} aria-hidden />
+              <ol aria-label="メッセージ" className="min-w-0">
+                {rows.map((message, index) => (
+                  <ChatMessageRow
+                    key={message.id}
+                    message={message}
+                    previous={rows[index - 1]}
+                    room={room}
+                    memberId={member.id}
+                    offline={offline}
+                    unread={
+                      history.initialRead > 0 &&
+                      message.memberId !== member.id &&
+                      message.id === firstUnread?.id
+                    }
+                    editing={edit.editing?.id === message.id}
+                    menuOpen={
+                      menu?.open === true && menu.message.id === message.id
+                    }
+                    actions={{
+                      onMenu: () => setMenu({ message, open: true }),
+                      onReply: () => replyTo(message),
+                      onEdit: () => editMessage(message),
+                      onDelete: () => removeMessage(message),
+                      onOpenReply: (id) => setReplyTarget(id),
+                      onOpenImage: (image, sequence) =>
+                        void navigate({
+                          to: "/chat/$roomId",
+                          params: { roomId: room.id },
+                          search: { image, message: sequence },
+                          state: { chatOverlay: "image" },
+                          resetScroll: false,
+                        }),
+                      onRetry: () => {
+                        if (offline || !navigator.onLine) setBlockedSend(true)
+                        else store.retry(message.id)
+                      },
+                      onCancel: () => store.cancel(message.id),
+                    }}
+                  />
+                ))}
+              </ol>
+            </div>
+          </section>
+          {history.query.isFetchingNextPage && (
+            <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
+              <output
+                aria-label="以前のメッセージを読み込み中"
+                className="flex size-8 items-center justify-center rounded-full border bg-background shadow-sm"
+              >
+                <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
+              </output>
+            </div>
+          )}
+        </div>
+        <div className="relative z-10 -mt-[var(--composer-overlap)] shrink-0">
+          {scroll.showLatest && (
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="最新のメッセージへ"
+              className="absolute right-[var(--chat-gutter)] bottom-[calc(100%+var(--chat-gutter))] size-9 rounded-full bg-background shadow-sm dark:bg-background dark:hover:bg-muted"
+              onClick={scroll.latest}
+            >
+              <ArrowDown className="size-4" />
+            </Button>
+          )}
+          <ComposerSeat
+            canPost={room.canPost}
+            roomName={room.name}
+            draft={composerDraft}
+            editing={
+              composerEdit
+                ? {
+                    id: composerEdit.id,
+                    hasImages: composerEdit.hasImages,
+                    onCancel: edit.cancel,
                   }
-                  editing={edit.editing?.id === message.id}
-                  menuOpen={
-                    menu?.open === true && menu.message.id === message.id
-                  }
-                  actions={{
-                    onMenu: () => setMenu({ message, open: true }),
-                    onReply: () => replyTo(message),
-                    onEdit: () => editMessage(message),
-                    onDelete: () => removeMessage(message),
-                    onOpenReply: (id) => setReplyTarget(id),
-                    onOpenImage: (image, sequence) =>
-                      void navigate({
-                        to: "/chat/$roomId",
-                        params: { roomId: room.id },
-                        search: { image, message: sequence },
-                        state: { chatOverlay: "image" },
-                        resetScroll: false,
-                      }),
-                    onRetry: () => {
-                      if (offline || !navigator.onLine) setBlockedSend(true)
-                      else store.retry(message.id)
-                    },
-                    onCancel: () => store.cancel(message.id),
-                  }}
-                />
-              ))}
-            </ol>
-          </div>
-        </section>
-        {scroll.showLatest && (
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="最新のメッセージへ"
-            className={`absolute right-[var(--chat-gutter)] size-9 rounded-full bg-background shadow-sm ${room.canPost ? "bottom-[calc(var(--composer-height)+var(--composer-bottom)+var(--chat-gutter))]" : "bottom-[var(--chat-gutter)]"}`}
-            onClick={scroll.latest}
-          >
-            <ArrowDown className="size-4" />
-          </Button>
-        )}
-        <ComposerSeat
-          root={layout}
-          canPost={room.canPost}
-          roomName={room.name}
-          draft={
-            composerEdit ? { ...draft, content: composerEdit.content } : draft
-          }
-          editing={
-            composerEdit
-              ? {
-                  id: composerEdit.id,
-                  hasImages: composerEdit.hasImages,
-                  onCancel: edit.cancel,
-                }
-              : undefined
-          }
-          disabled={!ready}
-          saving={composerEdit !== null && edit.pending}
-          onChange={(value) => {
-            if (!composerEdit) {
-              store.edit(room.id, value)
-              return
+                : undefined
             }
-            edit.change(value.content)
-            const current = store.draft(room.id)
-            if (value.files !== current.files)
-              store.edit(room.id, { ...current, files: value.files })
-          }}
-          onAddFiles={(files) => {
-            const current = store.draft(room.id)
-            if (current.files.length + files.length > chatImageLimits.count) {
-              toast.error("添付できる画像は10枚までです。")
-              return
-            }
-            store.edit(room.id, {
-              ...current,
-              files: [...current.files, ...files],
-            })
-          }}
-          onSend={send}
-          focusRequest={focusRequest}
-        />
+            disabled={!ready}
+            saving={composerEdit !== null && edit.pending}
+            onChange={(value) => {
+              if (!composerEdit) {
+                store.edit(room.id, value)
+                return
+              }
+              edit.change(value.content)
+              const current = store.draft(room.id)
+              if (value.files !== current.files)
+                store.edit(room.id, { ...current, files: value.files })
+            }}
+            onAddFiles={(files) => {
+              const current = store.draft(room.id)
+              if (current.files.length + files.length > chatImageLimits.count) {
+                toast.error("添付できる画像は10枚までです。")
+                return
+              }
+              store.edit(room.id, {
+                ...current,
+                files: [...current.files, ...files],
+              })
+            }}
+            onSend={send}
+            focusRequest={focusRequest}
+          />
+        </div>
       </div>
       <MessageActionDrawer
         message={selectedMessage ?? menu?.message ?? null}
