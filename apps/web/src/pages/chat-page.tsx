@@ -2,7 +2,7 @@ import { MessageTargetProvider } from "@/components/chat/message/target"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { RoutePage } from "@/components/route-page"
-import { prepareConversation, roomsQuery } from "@/data/chat"
+import { prepareConversation, roomsQuery, warmConversation } from "@/data/chat"
 import {
   Outlet,
   getRouteApi,
@@ -50,9 +50,12 @@ function ChatScreen() {
   const display = useDisplayYear(),
     offline = useOfflineMode()
   const closeCreate = useCloseOverlay("create", { to: "/chat" })
+  const student = account.member.studentId
   useEffect(() => {
-    if (roomId && !offline) void prepareConversation(client, roomId)
-  }, [client, roomId, offline])
+    if (!roomId || offline) return
+    void prepareConversation(client, roomId)
+    void warmConversation(client, roomId, student)
+  }, [client, roomId, offline, student])
 
   const room = useQuery({
     queryKey: keys.chatRoom(retainedId),

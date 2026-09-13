@@ -16,3 +16,13 @@ export function chatImageLocation(search: Record<string, unknown>): {
     ? { image: image.output, message }
     : {}
 }
+
+/** The images before and after `id` within one message, in attachment order. */
+export function adjacentImages(ids: readonly string[], id: string) {
+  const index = ids.indexOf(id)
+  return {
+    index,
+    previous: index > 0 ? ids[index - 1] : undefined,
+    next: index >= 0 ? ids[index + 1] : undefined,
+  }
+}

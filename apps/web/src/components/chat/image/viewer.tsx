@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react"
-import { japanTimestamp } from "@workspace/shared/japan-time"
+import { japanDateMinute } from "@workspace/shared/japan-time"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogClose,
 } from "@workspace/ui/components/dialog"
-import { Minus, Plus, Download, X } from "lucide-react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Plus,
+  Download,
+  X,
+} from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { MemberAvatar } from "@/components/member-avatar"
 import {
@@ -22,6 +30,7 @@ export function ImageViewer({
   height,
   onClose,
   caption,
+  navigation,
 }: {
   src: string
   width: number
@@ -33,11 +42,39 @@ export function ImageViewer({
     content: string
     createdAt: string
   }
+  /** Moves between the images of one message; absent ends are undefined. */
+  navigation?: {
+    count: number
+    onPrevious: (() => void) | undefined
+    onNext: (() => void) | undefined
+  }
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
   const current = useRef(initialImageView)
   const [view, setView] = useState(initialImageView)
+  const swipe = useRef<{ id: number; x: number; y: number } | null>(null)
+  const lastTap = useRef<{ time: number; x: number; y: number } | null>(null)
+  // Taps and buttons ease between sizes; dragging and pinching follow the finger.
+  const [easing, setEasing] = useState(false)
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
+  const showPrevious = navigation?.onPrevious,
+    showNext = navigation?.onNext
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      const move =
+        event.key === "ArrowLeft"
+          ? showPrevious
+          : event.key === "ArrowRight"
+            ? showNext
+            : undefined
+      if (!move) return
+      event.preventDefault()
+      move()
+    }
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [showPrevious, showNext])
   useEffect(() => {
     const element = frame.current
     if (!element) return undefined
@@ -49,7 +86,8 @@ export function ImageViewer({
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  function update(next: typeof view) {
+  function update(next: typeof view, eased = false) {
+    setEasing(eased && !reducedMotion)
     const bounds = frame.current?.getBoundingClientRect()
     if (!bounds) return
     const fit = Math.min(bounds.width / width, bounds.height / height)
@@ -65,7 +103,20 @@ export function ImageViewer({
   }
   function magnify(factor: number) {
     update(
-      zoomImage(current.current, current.current.scale * factor, { x: 0, y: 0 })
+      zoomImage(current.current, current.current.scale * factor, {
+        x: 0,
+        y: 0,
+      }),
+      true
+    )
+  }
+  /** Double tap or double click: zoom in on that point, or back to fit. */
+  function toggleZoom(point: Point) {
+    update(
+      current.current.scale === 1
+        ? zoomImage(current.current, 2.5, point)
+        : initialImageView,
+      true
     )
   }
   return (
@@ -126,11 +177,41 @@ export function ImageViewer({
             </a>
           </div>
         </div>
+        {navigation && navigation.count > 1 && (
+          <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+0.75rem)] left-3 z-10 hidden gap-2 md:flex">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="前の画像"
+              disabled={!showPrevious}
+              onClick={showPrevious}
+              className="pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20"
+            >
+              <ChevronLeft />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="次の画像"
+              disabled={!showNext}
+              onClick={showNext}
+              className="pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20"
+            >
+              <ChevronRight />
+            </Button>
+          </div>
+        )}
         <div
           ref={frame}
           className="relative min-h-0 flex-1 touch-none overflow-hidden select-none"
           onPointerDown={(event) => {
             if (event.button !== 0 || pointers.current.size >= 2) return
+            setEasing(false)
+            // A single touch at normal size may swipe to a neighbouring image.
+            swipe.current =
+              pointers.current.size === 0 && event.pointerType !== "mouse"
+                ? { id: event.pointerId, x: event.clientX, y: event.clientY }
+                : null
             event.currentTarget.setPointerCapture(event.pointerId)
             pointers.current.set(event.pointerId, {
               x: event.clientX,
@@ -177,8 +258,47 @@ export function ImageViewer({
           onLostPointerCapture={(event) =>
             pointers.current.delete(event.pointerId)
           }
-          onPointerUp={(event) => pointers.current.delete(event.pointerId)}
-          onPointerCancel={(event) => pointers.current.delete(event.pointerId)}
+          onPointerUp={(event) => {
+            const start = swipe.current
+            swipe.current = null
+            const single = pointers.current.size === 1
+            pointers.current.delete(event.pointerId)
+            if (!single) {
+              lastTap.current = null
+              return
+            }
+            const bounds = event.currentTarget.getBoundingClientRect()
+            const tap = {
+              time: event.timeStamp,
+              x: event.clientX,
+              y: event.clientY,
+            }
+            const previousTap = lastTap.current
+            if (
+              previousTap &&
+              tap.time - previousTap.time < 300 &&
+              Math.hypot(tap.x - previousTap.x, tap.y - previousTap.y) < 30
+            ) {
+              lastTap.current = null
+              toggleZoom({
+                x: tap.x - bounds.left - bounds.width / 2,
+                y: tap.y - bounds.top - bounds.height / 2,
+              })
+              return
+            }
+            lastTap.current = tap
+            if (start?.id !== event.pointerId || current.current.scale !== 1)
+              return
+            const dx = event.clientX - start.x,
+              dy = event.clientY - start.y
+            if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+            lastTap.current = null
+            ;(dx > 0 ? showPrevious : showNext)?.()
+          }}
+          onPointerCancel={(event) => {
+            swipe.current = null
+            pointers.current.delete(event.pointerId)
+          }}
         >
           <img
             src={src}
@@ -187,6 +307,9 @@ export function ImageViewer({
             className="pointer-events-none size-full object-contain"
             style={{
               transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+              transition: easing
+                ? "transform 200ms cubic-bezier(.2,.8,.2,1)"
+                : "none",
             }}
           />
         </div>
@@ -203,7 +326,7 @@ export function ImageViewer({
                 className="text-xs text-white/60"
                 dateTime={caption.createdAt}
               >
-                {japanTimestamp(caption.createdAt)}
+                {japanDateMinute(caption.createdAt)}
               </time>
             </div>
             {caption.content && (

@@ -78,7 +78,10 @@ export function ChatMessageRow({
         onEdit={actions.onEdit}
         onReply={actions.onReply}
       >
-        <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
+        <div
+          data-message-content
+          className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3"
+        >
           {message.reply && (
             <>
               <div aria-hidden className="relative col-start-1 row-start-1">
@@ -86,7 +89,6 @@ export function ChatMessageRow({
               </div>
               <button
                 type="button"
-                data-message-reply
                 disabled={!!message.reply.deleted}
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={(event) => {
