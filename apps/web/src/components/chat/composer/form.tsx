@@ -29,12 +29,10 @@ export function ChatComposer({
 }) {
   const form = useRef<HTMLFormElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
-  const [focused, setFocused] = useState(false)
   const [pressed, setPressed] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const { input, measure, body, expanded } = useComposerLayout(
     draft.content,
-    focused,
     !disabled
   )
   const modeId = editing?.id ?? draft.reply?.id
@@ -239,8 +237,6 @@ export function ChatComposer({
             rows={1}
             maxLength={2000}
             aria-label={editing ? "メッセージを編集" : "メッセージ"}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
             placeholder={`${roomName}へメッセージを送信`}
             disabled={disabled}
             value={draft.content}

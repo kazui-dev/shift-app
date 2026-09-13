@@ -2,11 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 // Measure the destination layout without resizing the editable text for measurement.
-export function useComposerLayout(
-  content: string,
-  focused: boolean,
-  ready: boolean
-) {
+export function useComposerLayout(content: string, ready: boolean) {
   const input = useRef<HTMLTextAreaElement>(null)
   const measure = useRef<HTMLTextAreaElement>(null)
   const body = useRef<HTMLDivElement>(null)
@@ -14,7 +10,6 @@ export function useComposerLayout(
   const initialized = useRef(false)
   const animation = useRef<Animation | null>(null)
   const [expanded, setExpanded] = useState(false)
-  const mobile = useMediaQuery("(max-width: 767px)")
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
   useLayoutEffect(() => {
     const field = input.current,
@@ -25,8 +20,6 @@ export function useComposerLayout(
       if (!initialized.current) container.style.transition = "none"
       sizer.style.paddingInline = "40px"
       const next = composerExpanded({
-        mobile,
-        focused,
         content,
         overflowing: sizer.scrollHeight > 32,
       })
@@ -66,21 +59,18 @@ export function useComposerLayout(
     })
     observer.observe(container)
     return () => observer.disconnect()
-  }, [content, focused, mobile, reducedMotion, ready])
+  }, [content, reducedMotion, ready])
   useLayoutEffect(() => () => animation.current?.cancel(), [])
   return { input, measure, body, expanded }
 }
 
+/** Two rows only once the text no longer fits beside the controls. */
 export function composerExpanded({
-  mobile,
-  focused,
   content,
   overflowing,
 }: {
-  mobile: boolean
-  focused: boolean
   content: string
   overflowing: boolean
 }) {
-  return (mobile && focused) || (!!content && overflowing)
+  return !!content && overflowing
 }

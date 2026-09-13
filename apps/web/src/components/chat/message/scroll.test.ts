@@ -82,7 +82,7 @@ it("separates following from the jump affordance and avoids threshold flicker", 
   scroll.scroll()
   view.extent += 50
   scroll.layout()
-  expect(view.top).toBe(1390)
+  expect(view.top).toBe(1440)
   view.top = 1450
   scroll.scroll()
   view.extent += 50
@@ -225,4 +225,27 @@ it("uses native smooth scrolling for the whole journey without teleporting near 
   scroll.target("reading", true)
   expect(moves.at(-1)).toEqual({ top: 39800, smooth: true })
   expect(view.top).toBe(800)
+})
+
+it("keeps the bottom in view near the latest when the keyboard or composer shrinks the list", () => {
+  const { view, scroll } = fixture()
+  scroll.layout()
+  scroll.read()
+  view.top -= 30
+  scroll.scroll()
+  view.height = 300
+  scroll.layout()
+  expect(view.top).toBe(view.extent - view.height - 30)
+  view.extent += 70
+  scroll.layout()
+  expect(view.top).toBe(view.extent - view.height - 30)
+})
+
+it("keeps the reading anchor when the list shrinks away from the latest", () => {
+  const { view, scroll } = fixture()
+  scroll.layout(900)
+  const reading = view.top
+  view.height = 300
+  scroll.layout()
+  expect(view.top).toBe(reading)
 })

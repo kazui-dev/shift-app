@@ -7,7 +7,7 @@ export function MessageText({ content }: { content: string }) {
         href={part.href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-600 underline decoration-blue-600/40 underline-offset-2 select-text dark:text-blue-400"
+        className="text-blue-600 decoration-blue-600/40 underline-offset-2 select-text hover:underline focus-visible:underline dark:text-blue-500 dark:decoration-blue-500/40"
       >
         {part.text}
       </a>
