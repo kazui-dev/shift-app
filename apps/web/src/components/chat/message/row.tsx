@@ -50,7 +50,7 @@ export function ChatMessageRow({
       data-message-id={message.id}
       data-sequence={message.sequence ?? undefined}
       data-delivery={message.status}
-      className={grouped ? "pt-0.5" : "pt-4 first:pt-0"}
+      className={grouped ? "py-0.5" : "mt-4 py-0.5 first:mt-0"}
     >
       {newDay && (
         <div className="mb-5 flex items-center gap-3 text-xs text-muted-foreground">
@@ -118,9 +118,11 @@ export function ChatMessageRow({
           {grouped ? (
             <time
               dateTime={message.createdAt}
-              className="flex h-7 items-center justify-center self-start text-[10px] whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-data-active:opacity-100"
+              className="flex h-lh items-center justify-center self-start text-sm leading-snug whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-data-active:opacity-100"
             >
-              {japanTime(message.createdAt)}
+              <span className="text-[10px]">
+                {japanTime(message.createdAt)}
+              </span>
             </time>
           ) : (
             <MemberAvatar
@@ -146,7 +148,7 @@ export function ChatMessageRow({
             {(message.content || message.editedAt) && (
               <p
                 data-message-body
-                className="max-w-[85ch] text-sm leading-7 break-words whitespace-pre-wrap"
+                className="max-w-[85ch] text-sm leading-snug break-words whitespace-pre-wrap"
               >
                 <MessageText content={message.content} />
                 {message.editedAt && (

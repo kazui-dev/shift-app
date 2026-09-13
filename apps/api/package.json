@@ -16,6 +16,7 @@
     "@workspace/shared": "workspace:*",
     "better-auth": "1.6.29",
     "drizzle-orm": "^0.45.2",
+    "entities": "^8.1.0",
     "hono": "^4.13.2",
     "valibot": "1.4.2",
     "web-push": "3.6.7"
