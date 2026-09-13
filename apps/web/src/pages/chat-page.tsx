@@ -12,7 +12,7 @@ import {
 } from "@tanstack/react-router"
 import { useChatNavigation } from "@/components/chat/use-chat-navigation"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { getChatRoom } from "@/api/chat"
 import { useDisplayYear } from "@/components/use-display-year"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -73,6 +73,18 @@ function ChatScreen() {
     ...roomsQuery(year),
     enabled: !offline,
   })
+  // Rooms at the top of the list are the likeliest to open next: prepare their
+  // newest screen once per session so they show at once.
+  const warmed = useRef(new Set<string>())
+  useEffect(() => {
+    if (offline) return
+    for (const item of rooms.data?.rooms.slice(0, 5) ?? []) {
+      if (warmed.current.has(item.id)) continue
+      warmed.current.add(item.id)
+      void prepareConversation(client, item.id)
+      void warmConversation(client, item.id, student)
+    }
+  }, [client, rooms.data, offline, student])
   const autoRoom =
     desktop && !explicitList && pathname === "/chat" && !roomId && year !== null
       ? restoreChatView(memberId, year, rooms.data?.rooms ?? [])

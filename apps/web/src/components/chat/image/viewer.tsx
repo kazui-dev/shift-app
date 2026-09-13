@@ -24,17 +24,26 @@ import {
   type Point,
 } from "@/components/chat/image/zoom"
 
-export function ImageViewer({
-  src,
-  width,
-  height,
-  onClose,
-  caption,
-  navigation,
-}: {
-  src: string
+type ViewerImage = {
+  id: string
   width: number
   height: number
+  /** The object URL once loaded, `null` when it could not be loaded. */
+  src: string | null | undefined
+}
+
+const ease = "cubic-bezier(.2,.8,.2,1)"
+
+export function ImageViewer({
+  images,
+  initialIndex,
+  onIndexChange,
+  onClose,
+  caption,
+}: {
+  images: ViewerImage[]
+  initialIndex: number
+  onIndexChange: (index: number) => void
   onClose: () => void
   caption: {
     author: string
@@ -42,31 +51,76 @@ export function ImageViewer({
     content: string
     createdAt: string
   }
-  /** Moves between the images of one message; absent ends are undefined. */
-  navigation?: {
-    count: number
-    onPrevious: (() => void) | undefined
-    onNext: (() => void) | undefined
-  }
 }) {
   const frame = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, Point>())
   const current = useRef(initialImageView)
   const [view, setView] = useState(initialImageView)
-  const swipe = useRef<{ id: number; x: number; y: number } | null>(null)
-  const lastTap = useRef<{ time: number; x: number; y: number } | null>(null)
   // Taps and buttons ease between sizes; dragging and pinching follow the finger.
   const [easing, setEasing] = useState(false)
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
-  const showPrevious = navigation?.onPrevious,
-    showNext = navigation?.onNext
+  const [index, setIndex] = useState(initialIndex)
+  // The strip follows a swipe by `offset` pixels, then slides to `settling`.
+  const [offset, setOffset] = useState(0)
+  const [sliding, setSliding] = useState(false)
+  const settling = useRef<number | null>(null)
+  const swipe = useRef<{
+    id: number
+    x: number
+    y: number
+    horizontal: boolean | null
+  } | null>(null)
+  const lastTap = useRef<{ time: number; x: number; y: number } | null>(null)
+  const image = images[index]
+  const count = images.length
+
+  function resetZoom() {
+    pointers.current.clear()
+    current.current = initialImageView
+    setView(initialImageView)
+  }
+  useEffect(() => {
+    const element = frame.current
+    if (!element) return undefined
+    const observer = new ResizeObserver(resetZoom)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  /** Slides to `target`, from wherever a swipe left the strip. */
+  function go(target: number) {
+    const width = frame.current?.clientWidth ?? 0
+    if (target < 0 || target >= count || target === index) {
+      setSliding(!reducedMotion)
+      setOffset(0)
+      return
+    }
+    if (reducedMotion || !width) {
+      finish(target)
+      return
+    }
+    settling.current = target
+    setSliding(true)
+    setOffset((index - target) * width)
+  }
+  function finish(target: number) {
+    settling.current = null
+    setSliding(false)
+    setOffset(0)
+    setIndex(target)
+    resetZoom()
+    onIndexChange(target)
+  }
+  const previous = index > 0 ? () => go(index - 1) : undefined
+  const next = index < count - 1 ? () => go(index + 1) : undefined
+
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       const move =
         event.key === "ArrowLeft"
-          ? showPrevious
+          ? previous
           : event.key === "ArrowRight"
-            ? showNext
+            ? next
             : undefined
       if (!move) return
       event.preventDefault()
@@ -74,32 +128,25 @@ export function ImageViewer({
     }
     window.addEventListener("keydown", key)
     return () => window.removeEventListener("keydown", key)
-  }, [showPrevious, showNext])
-  useEffect(() => {
-    const element = frame.current
-    if (!element) return undefined
-    const observer = new ResizeObserver(() => {
-      pointers.current.clear()
-      current.current = initialImageView
-      setView(initialImageView)
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-  function update(next: typeof view, eased = false) {
+  })
+
+  function update(value: typeof view, eased = false) {
     setEasing(eased && !reducedMotion)
     const bounds = frame.current?.getBoundingClientRect()
-    if (!bounds) return
-    const fit = Math.min(bounds.width / width, bounds.height / height)
-    const value = limitImageView(
-      next,
+    if (!bounds || !image) return
+    const fit = Math.min(
+      bounds.width / image.width,
+      bounds.height / image.height
+    )
+    const limited = limitImageView(
+      value,
       bounds.width,
       bounds.height,
-      width * fit,
-      height * fit
+      image.width * fit,
+      image.height * fit
     )
-    current.current = value
-    setView(value)
+    current.current = limited
+    setView(limited)
   }
   function magnify(factor: number) {
     update(
@@ -119,6 +166,9 @@ export function ImageViewer({
       true
     )
   }
+
+  const button =
+    "pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20"
   return (
     <Dialog
       open
@@ -140,7 +190,7 @@ export function ImageViewer({
                 variant="ghost"
                 size="icon"
                 aria-label="画像を閉じる"
-                className="pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20 md:order-last"
+                className={`${button} md:order-last`}
               />
             }
           >
@@ -167,25 +217,27 @@ export function ImageViewer({
             >
               <Plus />
             </Button>
-            <a
-              href={src}
-              download="chat-image.webp"
-              aria-label="画像を保存"
-              className="flex size-9 items-center justify-center rounded-full text-white hover:bg-white/20"
-            >
-              <Download className="size-5" />
-            </a>
+            {image?.src && (
+              <a
+                href={image.src}
+                download="chat-image.webp"
+                aria-label="画像を保存"
+                className="flex size-9 items-center justify-center rounded-full text-white hover:bg-white/20"
+              >
+                <Download className="size-5" />
+              </a>
+            )}
           </div>
         </div>
-        {navigation && navigation.count > 1 && (
+        {count > 1 && (
           <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+0.75rem)] left-3 z-10 hidden gap-2 md:flex">
             <Button
               variant="ghost"
               size="icon"
               aria-label="前の画像"
-              disabled={!showPrevious}
-              onClick={showPrevious}
-              className="pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20"
+              disabled={!previous}
+              onClick={previous}
+              className={button}
             >
               <ChevronLeft />
             </Button>
@@ -193,9 +245,9 @@ export function ImageViewer({
               variant="ghost"
               size="icon"
               aria-label="次の画像"
-              disabled={!showNext}
-              onClick={showNext}
-              className="pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20"
+              disabled={!next}
+              onClick={next}
+              className={button}
             >
               <ChevronRight />
             </Button>
@@ -206,11 +258,20 @@ export function ImageViewer({
           className="relative min-h-0 flex-1 touch-none overflow-hidden select-none"
           onPointerDown={(event) => {
             if (event.button !== 0 || pointers.current.size >= 2) return
+            if (settling.current !== null) finish(settling.current)
             setEasing(false)
-            // A single touch at normal size may swipe to a neighbouring image.
+            setSliding(false)
+            // A single touch at normal size may swipe between images.
             swipe.current =
-              pointers.current.size === 0 && event.pointerType !== "mouse"
-                ? { id: event.pointerId, x: event.clientX, y: event.clientY }
+              pointers.current.size === 0 &&
+              event.pointerType !== "mouse" &&
+              count > 1
+                ? {
+                    id: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    horizontal: null,
+                  }
                 : null
             event.currentTarget.setPointerCapture(event.pointerId)
             pointers.current.set(event.pointerId, {
@@ -219,39 +280,54 @@ export function ImageViewer({
             })
           }}
           onPointerMove={(event) => {
-            const previous = pointers.current.get(event.pointerId)
-            if (!previous) return
-            const next = { x: event.clientX, y: event.clientY }
+            const last = pointers.current.get(event.pointerId)
+            if (!last) return
+            const point = { x: event.clientX, y: event.clientY }
             const other = [...pointers.current].find(
               ([id]) => id !== event.pointerId
             )?.[1]
-            pointers.current.set(event.pointerId, next)
+            pointers.current.set(event.pointerId, point)
+            const gesture = swipe.current
+            if (
+              gesture?.id === event.pointerId &&
+              !other &&
+              current.current.scale === 1
+            ) {
+              const dx = point.x - gesture.x,
+                dy = point.y - gesture.y
+              if (gesture.horizontal === null && Math.hypot(dx, dy) > 8)
+                gesture.horizontal = Math.abs(dx) > Math.abs(dy)
+              if (gesture.horizontal) {
+                // Resist past the first and last image.
+                const edge =
+                  (dx > 0 && index === 0) || (dx < 0 && index === count - 1)
+                setOffset(edge ? dx / 3 : dx)
+                return
+              }
+            }
             if (other) {
-              const distance = Math.hypot(
-                previous.x - other.x,
-                previous.y - other.y
-              )
+              const distance = Math.hypot(last.x - other.x, last.y - other.y)
               if (distance < 1) return
               const bounds = event.currentTarget.getBoundingClientRect()
-              const midpoint = (point: Point) => ({
-                x: (point.x + other.x) / 2 - bounds.left - bounds.width / 2,
-                y: (point.y + other.y) / 2 - bounds.top - bounds.height / 2,
+              const midpoint = (value: Point) => ({
+                x: (value.x + other.x) / 2 - bounds.left - bounds.width / 2,
+                y: (value.y + other.y) / 2 - bounds.top - bounds.height / 2,
               })
               update(
                 zoomImage(
                   current.current,
                   (current.current.scale *
-                    Math.hypot(next.x - other.x, next.y - other.y)) /
+                    Math.hypot(point.x - other.x, point.y - other.y)) /
                     distance,
-                  midpoint(previous),
-                  midpoint(next)
+                  midpoint(last),
+                  midpoint(point)
                 )
               )
             } else {
               update({
                 ...current.current,
-                x: current.current.x + next.x - previous.x,
-                y: current.current.y + next.y - previous.y,
+                x: current.current.x + point.x - last.x,
+                y: current.current.y + point.y - last.y,
               })
             }
           }}
@@ -259,12 +335,19 @@ export function ImageViewer({
             pointers.current.delete(event.pointerId)
           }
           onPointerUp={(event) => {
-            const start = swipe.current
+            const gesture = swipe.current
             swipe.current = null
             const single = pointers.current.size === 1
             pointers.current.delete(event.pointerId)
             if (!single) {
               lastTap.current = null
+              return
+            }
+            if (gesture?.horizontal) {
+              lastTap.current = null
+              const width = event.currentTarget.clientWidth
+              const dx = event.clientX - gesture.x
+              go(Math.abs(dx) > width / 5 ? index + (dx < 0 ? 1 : -1) : index)
               return
             }
             const bounds = event.currentTarget.getBoundingClientRect()
@@ -287,53 +370,111 @@ export function ImageViewer({
               return
             }
             lastTap.current = tap
-            if (start?.id !== event.pointerId || current.current.scale !== 1)
-              return
-            const dx = event.clientX - start.x,
-              dy = event.clientY - start.y
-            if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
-            lastTap.current = null
-            ;(dx > 0 ? showPrevious : showNext)?.()
           }}
           onPointerCancel={(event) => {
             swipe.current = null
             pointers.current.delete(event.pointerId)
+            go(index)
           }}
         >
-          <img
-            src={src}
-            alt="添付画像"
-            draggable={false}
-            className="pointer-events-none size-full object-contain"
+          <div
+            className="absolute inset-0"
             style={{
-              transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
-              transition: easing
-                ? "transform 200ms cubic-bezier(.2,.8,.2,1)"
-                : "none",
+              transform: `translateX(${offset}px)`,
+              transition: sliding ? `transform 260ms ${ease}` : "none",
             }}
-          />
-        </div>
-        <div className="flex max-h-[25dvh] shrink-0 items-start gap-3 overflow-y-auto px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm">
-          <MemberAvatar
-            name={caption.author}
-            image={caption.image}
-            className="size-9 bg-white/15 text-white"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="font-semibold">{caption.author}</span>
-              <time
-                className="text-xs text-white/60"
-                dateTime={caption.createdAt}
+            onTransitionEnd={(event) => {
+              if (event.target !== event.currentTarget) return
+              if (settling.current !== null) finish(settling.current)
+              else setSliding(false)
+            }}
+          >
+            {images.map((item, position) => (
+              <div
+                key={item.id}
+                aria-hidden={position !== index}
+                className="absolute inset-0 overflow-hidden"
+                style={{
+                  transform: `translateX(${(position - index) * 100}%)`,
+                }}
               >
-                {japanDateMinute(caption.createdAt)}
-              </time>
+                {item.src ? (
+                  <img
+                    src={item.src}
+                    alt={`添付画像${position + 1}`}
+                    draggable={false}
+                    className="pointer-events-none size-full object-contain"
+                    style={
+                      position === index
+                        ? {
+                            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+                            transition: easing
+                              ? `transform 200ms ${ease}`
+                              : "none",
+                          }
+                        : undefined
+                    }
+                  />
+                ) : (
+                  item.src === null && (
+                    <p className="flex size-full items-center justify-center text-sm text-white/60">
+                      画像を読み込めませんでした
+                    </p>
+                  )
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex max-h-[30dvh] shrink-0 flex-col gap-4 overflow-y-auto px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm">
+          {count > 1 && (
+            <fieldset
+              aria-label="画像を選ぶ"
+              className="-mx-5 flex min-w-0 gap-2 overflow-x-auto px-5 [scrollbar-width:none]"
+            >
+              {images.map((item, position) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-label={`画像${position + 1}を表示`}
+                  aria-current={position === index}
+                  onClick={() => go(position)}
+                  className={`size-14 shrink-0 overflow-hidden rounded-md bg-white/10 ring-2 transition-opacity ${position === index ? "opacity-100 ring-white" : "opacity-60 ring-transparent hover:opacity-90"}`}
+                >
+                  {item.src && (
+                    <img
+                      src={item.src}
+                      alt=""
+                      draggable={false}
+                      className="size-full object-cover"
+                    />
+                  )}
+                </button>
+              ))}
+            </fieldset>
+          )}
+          <div className="flex items-start gap-3">
+            <MemberAvatar
+              name={caption.author}
+              image={caption.image}
+              className="size-9 bg-white/15 text-white"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="font-semibold">{caption.author}</span>
+                <time
+                  className="text-xs text-white/60"
+                  dateTime={caption.createdAt}
+                >
+                  {japanDateMinute(caption.createdAt)}
+                </time>
+              </div>
+              {caption.content && (
+                <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
+                  {caption.content}
+                </p>
+              )}
             </div>
-            {caption.content && (
-              <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
-                {caption.content}
-              </p>
-            )}
           </div>
         </div>
       </DialogContent>

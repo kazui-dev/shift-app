@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
@@ -10,7 +10,7 @@ import {
 import { getChatMessageAt } from "@/api/chat"
 import { acquireChatImage, cachedChatImage } from "@/lib/chat/images"
 import { ImageViewer } from "@/components/chat/image/viewer"
-import { adjacentImages, chatImageLocation } from "@/lib/chat/image-location"
+import { chatImageLocation } from "@/lib/chat/image-location"
 type ChatMessage = Awaited<
   ReturnType<typeof getChatMessageAt>
 >["messages"][number]
@@ -34,106 +34,99 @@ export function RoutedImage({
   })
   const message =
     cached ?? query.data?.messages.find((item) => item.sequence === sequence)
-  const attachment = message?.attachments.find((item) => item.id === image)
   const close = useCloseOverlay("image", {
     to: "/chat/$roomId",
     params: { roomId },
     search: { report: search.report },
   })
   const navigate = useNavigate()
-  const { previous, next } = adjacentImages(
-    message?.attachments.map((item) => item.id) ?? [],
-    image ?? ""
-  )
-  const neighbors = useMemo(
-    () => [previous, next].filter((id) => id !== undefined),
-    [previous, next]
-  )
-  // Replace the entry, so back closes the viewer instead of stepping through images.
-  const show = (target: string) =>
-    void navigate({
-      to: "/chat/$roomId",
-      params: { roomId },
-      search: { report: search.report, image: target, message: sequence },
-      state: { chatOverlay: "image" },
-      replace: true,
-      resetScroll: false,
-    })
-  if (!image || !attachment || !message) return null
+  if (!image || !message?.attachments.some((item) => item.id === image))
+    return null
   return (
-    <LoadedImage
-      key={image}
+    <MessageGallery
+      key={message.id}
       user={state.member.studentId}
       roomId={roomId}
-      attachment={attachment}
       message={message}
-      neighbors={neighbors}
-      navigation={{
-        count: message.attachments.length,
-        onPrevious: previous ? () => show(previous) : undefined,
-        onNext: next ? () => show(next) : undefined,
-      }}
+      initial={image}
       onClose={close}
+      // Replace the entry, so back closes the viewer instead of stepping through images.
+      onShow={(target) =>
+        void navigate({
+          to: "/chat/$roomId",
+          params: { roomId },
+          search: { report: search.report, image: target, message: sequence },
+          state: { chatOverlay: "image" },
+          replace: true,
+          resetScroll: false,
+        })
+      }
     />
   )
 }
 
-function LoadedImage({
+/** Every image of one message, loaded together so moving between them never waits. */
+function MessageGallery({
   user,
   roomId,
-  attachment,
   message,
-  neighbors,
-  navigation,
+  initial,
   onClose,
+  onShow,
 }: {
   user: string
   roomId: string
-  attachment: ChatMessage["attachments"][number]
   message: ChatMessage
-  neighbors: string[]
-  navigation: {
-    count: number
-    onPrevious: (() => void) | undefined
-    onNext: (() => void) | undefined
-  }
+  initial: string
   onClose: () => void
+  onShow: (id: string) => void
 }) {
-  const [src, setSrc] = useState(() =>
-    cachedChatImage(user, roomId, attachment.id)
+  const attachments = message.attachments
+  const [sources, setSources] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(
+      attachments.flatMap((attachment) => {
+        const url = cachedChatImage(user, roomId, attachment.id)
+        return url ? [[attachment.id, url]] : []
+      })
+    )
   )
-  const close = useEffectEvent(onClose)
+  const [initialIndex] = useState(() =>
+    attachments.findIndex((attachment) => attachment.id === initial)
+  )
   useEffect(() => {
     let active = true
-    const image = acquireChatImage(user, roomId, attachment.id)
-    void image.promise
-      .then((url) => {
-        if (active) setSrc(url)
-      })
-      .catch(() => {
-        if (active) close()
-      })
+    const held = attachments.map((attachment) => {
+      const image = acquireChatImage(user, roomId, attachment.id)
+      void image.promise
+        .then((url) => {
+          if (active)
+            setSources((current) => ({ ...current, [attachment.id]: url }))
+        })
+        .catch(() => {
+          if (active)
+            setSources((current) => ({ ...current, [attachment.id]: null }))
+        })
+      return image
+    })
     return () => {
       active = false
-      image.release()
-    }
-  }, [user, roomId, attachment.id])
-  // Keep the neighbouring images ready, so moving between them shows at once.
-  useEffect(() => {
-    const held = neighbors.map((id) => acquireChatImage(user, roomId, id))
-    for (const image of held) void image.promise.catch(() => undefined)
-    return () => {
       for (const image of held) image.release()
     }
-  }, [user, roomId, neighbors])
-  if (!src) return null
+  }, [user, roomId, attachments])
   return (
     <ImageViewer
-      src={src}
-      width={attachment.width}
-      height={attachment.height}
+      images={attachments.map((attachment) => ({
+        id: attachment.id,
+        width: attachment.width,
+        height: attachment.height,
+        src: sources[attachment.id],
+      }))}
+      initialIndex={Math.max(0, initialIndex)}
+      onIndexChange={(index) => {
+        const attachment = attachments[index]
+        if (attachment) onShow(attachment.id)
+      }}
       onClose={onClose}
-      navigation={navigation}
       caption={{
         author: message.memberDisplayName,
         image: message.memberImage,
