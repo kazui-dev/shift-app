@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { Button } from "@workspace/ui/components/button"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
@@ -23,14 +24,7 @@ function describe(value: unknown, data: EditorData): string {
   if (value === null) return "なし"
   if (typeof value === "boolean") return value ? "有効" : "無効"
   if (typeof value === "string") {
-    if (/^\d{4}-\d{2}-\d{2}T/.test(value))
-      return new Intl.DateTimeFormat("ja-JP", {
-        timeZone: "Asia/Tokyo",
-        month: "numeric",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(new Date(value))
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value)) return japanMonthDayTime(value)
     return data.roles.find((role) => role.id === value)?.name ?? value
   }
   return JSON.stringify(value)

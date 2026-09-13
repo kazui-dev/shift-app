@@ -8,7 +8,7 @@ import {
 } from "@workspace/shared/shifts"
 import { queryOptions, skipToken } from "@tanstack/react-query"
 
-import { japanDateStart, japanMonthRange } from "@/lib/japan-time"
+import { japanDateStart, japanMonthRange } from "@workspace/shared/japan-time"
 import { apiJson } from "./client"
 
 const assignmentMonthStaleTime = 5 * 60 * 1000

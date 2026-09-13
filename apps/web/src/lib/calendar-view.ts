@@ -1,5 +1,5 @@
 import * as v from "valibot"
-import { japanDateTime } from "./japan-time"
+import { japanDateTime } from "@workspace/shared/japan-time"
 
 export function calendarDate(value: unknown): string | undefined {
   if (

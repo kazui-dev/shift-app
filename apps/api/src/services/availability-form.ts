@@ -1,4 +1,5 @@
 import * as v from "valibot"
+import { japanDateStart } from "@workspace/shared/japan-time"
 import { dayAnswerSchema, type DayAnswer } from "@workspace/shared/availability"
 import { toIso } from "../lib/http"
 export async function readAvailabilityForm(
@@ -61,7 +62,7 @@ export async function readAvailabilityForm(
     for (const answer of answers.results) {
       const date = dates.results.find((item) => item.id === answer.dateId)
       if (!date) continue
-      const base = Date.parse(`${date.date}T00:00:00+09:00`)
+      const base = japanDateStart(date.date)
       submitted.push({
         date: date.date,
         version: answer.version,

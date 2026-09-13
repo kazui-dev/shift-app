@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { japanDateStart } from "@workspace/shared/japan-time"
 import * as v from "valibot"
 import { formAnswersInputSchema } from "@workspace/shared/availability"
 import { apiError, errors } from "../../lib/errors"
@@ -101,7 +102,7 @@ meAvailabilityApp.put("/:year", async (c) => {
           : answer.choice === "times"
             ? answer.times
             : []
-      const base = Date.parse(`${date.date}T00:00:00+09:00`)
+      const base = japanDateStart(date.date)
       for (const time of times)
         statements.push(
           db

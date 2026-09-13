@@ -21,7 +21,6 @@ import { useCalendarViewState } from "@/components/calendar-view-context"
 import { useOfflineMode } from "@/components/offline-mode-context"
 import { AssignmentDetailsDialog } from "@/components/calendar/assignment-details-dialog"
 import { CalendarCarousel } from "@/components/calendar/calendar-carousel"
-import { formatLongDate } from "@/components/calendar/calendar-format"
 import {
   calendarHourHeight,
   calendarInset,
@@ -31,7 +30,7 @@ import { paintCalendarWeekHeader } from "@/components/calendar/calendar-week-pre
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
 import { useCalendarAssignments } from "@/components/calendar/use-calendar-assignments"
 import { calendarSlideDates } from "@/lib/calendar-carousel"
-import { japanDateTime } from "@/lib/japan-time"
+import { japanDateTime, japanFullDate } from "@workspace/shared/japan-time"
 import { loopCarouselInitialSlide } from "@/lib/loop-carousel"
 
 function initialCalendarScrollTop(now: Date): number {
@@ -175,7 +174,7 @@ export function CalendarPage() {
       />
 
       <p className="shrink-0 py-0.5 text-center text-sm font-semibold">
-        {formatLongDate(date)}
+        {japanFullDate(date)}
       </p>
 
       <div className="relative min-h-0 flex-1">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { japanTimestamp } from "@workspace/shared/japan-time"
 import {
   Dialog,
   DialogContent,
@@ -202,15 +203,7 @@ export function ImageViewer({
                 className="text-xs text-white/60"
                 dateTime={caption.createdAt}
               >
-                {new Date(caption.createdAt).toLocaleString("ja-JP", {
-                  timeZone: "Asia/Tokyo",
-                  year: "numeric",
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
+                {japanTimestamp(caption.createdAt)}
               </time>
             </div>
             {caption.content && (

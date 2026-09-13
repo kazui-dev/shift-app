@@ -1,4 +1,5 @@
 import { roomRecipients } from "./chat-permissions"
+import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import webpush from "web-push"
 import { clearPushTransport } from "./notification-devices"
 
@@ -18,16 +19,6 @@ type AssignmentNotification = {
   activityName: string
   place: string
   startsAt: number
-}
-
-function startTime(value: number): string {
-  return new Intl.DateTimeFormat("ja-JP", {
-    timeZone: "Asia/Tokyo",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value))
 }
 
 async function deliver(
@@ -91,7 +82,7 @@ async function claimAndSend(
     subscription,
     JSON.stringify({
       title,
-      body: `${startTime(assignment.startsAt)} ${assignment.activityName}・${assignment.place}`,
+      body: `${japanMonthDayTime(assignment.startsAt)} ${assignment.activityName}・${assignment.place}`,
       tag: `${kind}-${assignment.assignmentId}`,
       data: { url: "/calendar" },
     })

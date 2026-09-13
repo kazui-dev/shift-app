@@ -1,4 +1,5 @@
 import type { AdminAuditLog } from "@workspace/shared/auth"
+import { japanTimestamp } from "@workspace/shared/japan-time"
 
 function auditSummary(log: AdminAuditLog): string {
   const actor =
@@ -22,7 +23,7 @@ export function AuditLogList({ logs }: { logs: AdminAuditLog[] }) {
               <div className="flex flex-wrap justify-between gap-2">
                 <span className="font-mono">{log.action}</span>
                 <time className="text-muted-foreground">
-                  {new Date(log.createdAt).toLocaleString("ja-JP")}
+                  {japanTimestamp(log.createdAt)}
                 </time>
               </div>
               <p>{auditSummary(log)}</p>

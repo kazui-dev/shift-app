@@ -1,6 +1,6 @@
 import type { CalendarAssignment } from "@/api/assignments"
 import { calendarSlideDates } from "@/lib/calendar-carousel"
-import type { JapanDateTime } from "@/lib/japan-time"
+import type { JapanDateTime } from "@workspace/shared/japan-time"
 import { loopCarouselSlots } from "@/lib/loop-carousel"
 import { CalendarDayTimeline } from "./calendar-day-timeline"
 import { calendarTimelineHeight } from "./calendar-layout"

@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useState, type RefObject } from "react"
+import { japanFullDate } from "@workspace/shared/japan-time"
 
 import { calendarWeekSlideDates } from "@/lib/calendar-carousel"
 import { localDate, moveDate, weekDates } from "@/lib/calendar-dates"
 import { loopCarouselSlots } from "@/lib/loop-carousel"
-import { formatLongDate } from "./calendar-format"
 import { resetCalendarWeekHeader } from "./calendar-week-presentation"
 import { useLoopCarousel } from "./use-loop-carousel"
 
@@ -56,7 +56,7 @@ function WeekPage({
             key={value}
             type="button"
             className={weekCellClassName}
-            aria-label={formatLongDate(value)}
+            aria-label={japanFullDate(value)}
             aria-current={value === selectedDate ? "date" : undefined}
             onClick={() => onDateChange(value)}
           >

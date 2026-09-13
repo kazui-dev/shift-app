@@ -1,4 +1,5 @@
 import { activityRoom, roomStatements } from "../services/chat-creation"
+import { japanDateStart } from "@workspace/shared/japan-time"
 import { Hono } from "hono"
 import * as v from "valibot"
 import { apiError, errors } from "../lib/errors"
@@ -57,9 +58,7 @@ activityActionsApp.post("/:activityId/copies", async (c) => {
   const date = new Date(Date.parse(old.activity.startsAt) + 9 * 3600000)
     .toISOString()
     .slice(0, 10)
-  const delta =
-    Date.parse(`${input.output.date}T00:00:00+09:00`) -
-    Date.parse(`${date}T00:00:00+09:00`)
+  const delta = japanDateStart(input.output.date) - japanDateStart(date)
   await c.env.shift_app.batch([
     c.env.shift_app
       .prepare(`INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,notes,created_by,updated_by,created_at,updated_at)

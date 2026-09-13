@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import { getRouteApi, useRouter } from "@tanstack/react-router"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { Search, LoaderCircle } from "lucide-react"
@@ -132,13 +133,7 @@ function ChatSearch({ roomId }: { roomId: string }) {
                           className="text-[11px] text-muted-foreground"
                           dateTime={message.createdAt}
                         >
-                          {new Date(message.createdAt).toLocaleString("ja-JP", {
-                            month: "numeric",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            timeZone: "Asia/Tokyo",
-                          })}
+                          {japanMonthDayTime(message.createdAt)}
                         </time>
                       </div>
                       <p className="mt-1 text-sm leading-6 break-words whitespace-pre-wrap">

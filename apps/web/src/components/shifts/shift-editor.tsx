@@ -1,4 +1,5 @@
 import { mergePlan } from "./merge-plan"
+import { japanDateWeekday } from "@workspace/shared/japan-time"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
@@ -20,7 +21,7 @@ import { ApiError, errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { SelectField } from "@/components/select-field"
-import { japanDateTime, japanLocalDateTime } from "@/lib/japan-time"
+import { japanDateTime, japanLocalDateTime } from "@workspace/shared/japan-time"
 import { change, undo, redo, type EditHistory } from "./editor-history"
 import { TimeGrid, type EditorData } from "./time-grid"
 import {
@@ -265,12 +266,7 @@ export function ShiftEditor({
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            {new Intl.DateTimeFormat("ja-JP", {
-              month: "long",
-              day: "numeric",
-              weekday: "short",
-              timeZone: "Asia/Tokyo",
-            }).format(new Date(plan.startsAt))}
+            {japanDateWeekday(plan.startsAt)}
           </p>
           <Button
             variant="ghost"

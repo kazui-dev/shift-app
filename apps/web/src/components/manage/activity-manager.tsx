@@ -1,4 +1,5 @@
 import { activitiesQuery } from "@/data/activities"
+import { japanMonthDay, japanTime } from "@workspace/shared/japan-time"
 import { rosterQuery, rolesQuery } from "@/data/years"
 import { TargetPicker } from "@/components/shifts/target-picker"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
@@ -16,8 +17,7 @@ import {
   ResponsivePageBody,
 } from "@workspace/ui/components/responsive-page"
 import { SelectField } from "@/components/select-field"
-import { japanLocalDateTime } from "@/lib/japan-time"
-import { timeLabel } from "@/components/shifts/time-label"
+import { japanLocalDateTime } from "@workspace/shared/japan-time"
 
 export function ActivityManager({ year }: { year: number }) {
   const client = useQueryClient()
@@ -126,13 +126,8 @@ export function ActivityManager({ year }: { year: number }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {new Intl.DateTimeFormat("ja-JP", {
-                      timeZone: "Asia/Tokyo",
-                      month: "numeric",
-                      day: "numeric",
-                    }).format(new Date(item.startsAt))}{" "}
-                    · {timeLabel(item.startsAt)}–{timeLabel(item.endsAt)} ·{" "}
-                    {item.place}
+                    {japanMonthDay(item.startsAt)} · {japanTime(item.startsAt)}–
+                    {japanTime(item.endsAt)} · {item.place}
                   </p>
                 </div>
                 {!item.active && (
