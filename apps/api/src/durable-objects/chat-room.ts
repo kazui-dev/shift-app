@@ -143,7 +143,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     if (
       !deleting &&
       !input.content?.trim() &&
-      !this.attachments.forMessage(row.id).length
+      !this.attachments.forMessages([row.id]).has(row.id)
     )
       return { error: "empty" } as const
     if (!deleting && input.content === row.content)
@@ -222,7 +222,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
             )
             .toArray()
     return {
-      messages: rows.reverse().map((row) => this.toMessage(row)),
+      messages: this.toMessages(rows.reverse()),
       hasMore: older.length > 0,
     }
   }
@@ -242,7 +242,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       )
       .toArray()
     return {
-      messages: rows.slice(0, size).map((row) => this.toMessage(row)),
+      messages: this.toMessages(rows.slice(0, size)),
       hasMore: rows.length > size,
     }
   }
@@ -310,8 +310,46 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     return this.toMessage(row)
   }
 
-  private toMessage(row: StoredMessage): ChatMessage {
-    const target = row.replyToId ? this.findMessage(row.replyToId) : undefined
+  private toMessage(row: StoredMessage) {
+    return this.messageJson(row, this.related([row]))
+  }
+
+  private toMessages(rows: StoredMessage[]) {
+    const related = this.related(rows)
+    return rows.map((row) => this.messageJson(row, related))
+  }
+
+  /** The replied-to messages and attachments of a page, each in one query. */
+  private related(rows: StoredMessage[]) {
+    const replyIds = [
+      ...new Set(rows.flatMap((row) => (row.replyToId ? [row.replyToId] : []))),
+    ]
+    const replies = new Map(
+      (replyIds.length
+        ? this.ctx.storage.sql
+            .exec<StoredMessage>(
+              `SELECT sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
+            content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted
+            FROM messages WHERE id IN (SELECT value FROM json_each(?))`,
+              JSON.stringify(replyIds)
+            )
+            .toArray()
+        : []
+      ).map((reply) => [reply.id, reply])
+    )
+    return {
+      replies,
+      attachments: this.attachments.forMessages(rows.map((row) => row.id)),
+    }
+  }
+
+  private messageJson(
+    row: StoredMessage,
+    related: ReturnType<ChatRoom["related"]>
+  ): ChatMessage {
+    const target = row.replyToId
+      ? related.replies.get(row.replyToId)
+      : undefined
     return {
       sequence: row.sequence,
       id: row.id,
@@ -335,7 +373,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
             },
           }
         : {}),
-      attachments: this.attachments.forMessage(row.id),
+      attachments: related.attachments.get(row.id) ?? [],
     }
   }
 }

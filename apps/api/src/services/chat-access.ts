@@ -1,4 +1,4 @@
-import { chatPermissions } from "./chat-permissions"
+import { memberPermissions } from "./chat-permissions"
 export type RoomRow = {
   id: string
   year: number
@@ -16,9 +16,10 @@ export type RoomRow = {
   lastRead: number
   lastSequence: number
 }
-export const roomSelection = `${chatPermissions} SELECT r.id,r.year,r.name,r.created_by AS createdBy,r.created_at AS createdAt,r.updated_at AS updatedAt,r.allow_exit AS allowExit,link.activity_id AS activityId,act.starts_at AS activityStartsAt,act.ends_at AS activityEndsAt,
+/** The rooms a member may read; binds the member's id first. */
+export const roomSelection = `${memberPermissions} SELECT r.id,r.year,r.name,r.created_by AS createdBy,r.created_at AS createdAt,r.updated_at AS updatedAt,r.allow_exit AS allowExit,link.activity_id AS activityId,act.starts_at AS activityStartsAt,act.ends_at AS activityEndsAt,
  COALESCE(e.can_post,0) AS canPost,COALESCE(e.can_manage,0) AS canManage,COALESCE(p.muted,0) AS muted,COALESCE(p.last_read,0) AS lastRead,r.last_sequence AS lastSequence
- FROM chat_rooms r JOIN year_memberships ym ON ym.year=r.year AND ym.member_id=? AND ym.status='active'
+ FROM chat_rooms r JOIN year_memberships ym ON ym.year=r.year AND ym.member_id=(SELECT id FROM chat_scope) AND ym.status='active'
  LEFT JOIN activity_chat_rooms link ON link.room_id=r.id
  LEFT JOIN activities act ON act.id=link.activity_id
  LEFT JOIN chat_permissions e ON e.room_id=r.id AND e.member_id=ym.member_id

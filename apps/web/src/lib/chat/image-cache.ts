@@ -48,6 +48,31 @@ export function staleImages(
   return stale
 }
 
+/** Images read since the index last recorded use, written together. */
+const used = new Map<string, number>()
+let usedWrite: ReturnType<typeof setTimeout> | undefined
+
+function markUsed(key: string) {
+  used.set(key, Date.now())
+  usedWrite ??= setTimeout(() => {
+    usedWrite = undefined
+    const batch = new Map(used)
+    used.clear()
+    void update<Index>(indexKey, (index = {}) => {
+      const next = { ...index }
+      for (const [read, time] of batch) {
+        const entry = next[read]
+        if (entry) next[read] = { ...entry, used: time }
+      }
+      return next
+    }).catch(() => undefined)
+  }, 1000)
+}
+
+/** Pruning after a store waits this long since the last, as the index is read whole. */
+const pruneInterval = 60_000
+let lastPrune = 0
+
 /** An image shown before, if this device still keeps it. */
 export async function readCachedImage(
   user: string,
@@ -59,10 +84,7 @@ export async function readCachedImage(
   try {
     const response = await (await caches.open(cacheName)).match(key)
     if (!response) return undefined
-    void update<Index>(indexKey, (index = {}) => {
-      const entry = index[key]
-      return entry ? { ...index, [key]: { ...entry, used: Date.now() } } : index
-    }).catch(() => undefined)
+    markUsed(key)
     return await response.blob()
   } catch {
     return undefined
@@ -93,7 +115,7 @@ export async function storeCachedImage(
         used: Date.now(),
       },
     }))
-    await pruneCachedImages()
+    if (Date.now() - lastPrune >= pruneInterval) await pruneCachedImages()
   } catch {
     // Full or unavailable storage: fall back to the network for every image.
     await clearCachedImages()
@@ -119,6 +141,7 @@ async function forget(select: (entry: CachedImage) => boolean) {
 }
 
 export async function pruneCachedImages(now = Date.now()) {
+  lastPrune = now
   try {
     const index = (await get<Index>(indexKey)) ?? {}
     const stale = new Set(staleImages(Object.values(index), now))

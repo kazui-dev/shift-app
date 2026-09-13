@@ -23,7 +23,7 @@ export type StoredAttachment = Omit<ChatAttachment, "id"> & {
 const selection =
   "SELECT id,object_key AS objectKey,member_id AS memberId,message_id AS messageId,ready,created_at AS createdAt FROM attachments"
 const sent =
-  "SELECT a.id,a.width,a.height,a.bytes,a.name,a.type,m.created_at AS sentAt FROM attachments a JOIN messages m ON m.id=a.message_id"
+  "SELECT a.id,a.message_id AS messageId,a.width,a.height,a.bytes,a.name,a.type,m.created_at AS sentAt FROM attachments a JOIN messages m ON m.id=a.message_id"
 const expiry = 24 * 60 * 60 * 1000
 /** What one member may upload to a room per day, counted as uploads start. */
 const dailyUploads = { count: 100, bytes: 500 * 1024 * 1024 }
@@ -137,17 +137,28 @@ export class ChatAttachments {
       )
     })
   }
-  forMessage(messageId: string): ChatAttachment[] {
-    return this.storage.sql
-      .exec<StoredAttachment & { id: string; sentAt: number }>(
-        `${sent} WHERE a.message_id=? AND a.ready=1 ORDER BY a.position`,
-        messageId
+  /** The sent images of each message, in the order they were sent; messages without any are absent. */
+  forMessages(messageIds: readonly string[]) {
+    const grouped = new Map<string, ChatAttachment[]>()
+    if (!messageIds.length) return grouped
+    const rows = this.storage.sql
+      .exec<
+        StoredAttachment & { id: string; messageId: string; sentAt: number }
+      >(
+        `${sent} WHERE a.message_id IN (SELECT value FROM json_each(?)) AND a.ready=1 ORDER BY a.position`,
+        JSON.stringify(messageIds)
       )
       .toArray()
-      .map(({ type, sentAt, ...image }) => ({
+    for (const { messageId, type, sentAt, ...image } of rows) {
+      const attachment = {
         ...image,
         name: attachmentFileName(image.name, type, sentAt),
-      }))
+      }
+      const list = grouped.get(messageId)
+      if (list) list.push(attachment)
+      else grouped.set(messageId, [attachment])
+    }
+    return grouped
   }
   deleteMessage(messageId: string) {
     this.storage.sql.exec(

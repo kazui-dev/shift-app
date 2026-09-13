@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useChatMember } from "@/components/chat/use-chat-member"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
@@ -108,7 +108,13 @@ function useImages(
       for (const image of held) image.release()
     }
   }, [user, roomId, attachments, size])
-  return sources
+  // A released image's URL may be revoked, so only the held ones are shown.
+  return Object.fromEntries(
+    attachments.flatMap((attachment): [string, string | null][] => {
+      const source = sources[attachment.id]
+      return source === undefined ? [] : [[attachment.id, source]]
+    })
+  )
 }
 
 /**
@@ -140,7 +146,12 @@ function MessageGallery({
     )
   )
   const [index, setIndex] = useState(initialIndex)
-  const large = useImages(user, roomId, attachments, 2400)
+  // Only the image in view and its neighbours load at full size.
+  const nearby = useMemo(
+    () => attachments.slice(Math.max(0, index - 1), index + 2),
+    [attachments, index]
+  )
+  const large = useImages(user, roomId, nearby, 2400)
   const thumbs = useImages(
     user,
     roomId,
@@ -152,11 +163,7 @@ function MessageGallery({
   )
   useEffect(() => {
     const held = originals.current
-    const wanted = new Set(
-      attachments
-        .slice(Math.max(0, index - 1), index + 2)
-        .map((attachment) => attachment.id)
-    )
+    const wanted = new Set(nearby.map((attachment) => attachment.id))
     for (const [id, original] of held)
       if (!wanted.has(id)) {
         original.release()
@@ -164,7 +171,7 @@ function MessageGallery({
       }
     for (const id of wanted)
       if (!held.has(id)) held.set(id, acquireChatOriginal(user, roomId, id))
-  }, [user, roomId, attachments, index])
+  }, [user, roomId, nearby])
   useEffect(() => {
     const held = originals.current
     return () => {

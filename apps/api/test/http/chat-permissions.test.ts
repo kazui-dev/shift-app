@@ -13,7 +13,7 @@ import {
   yearRoom,
   roomCommands,
 } from "../../src/services/chat-creation"
-import { chatPermissions } from "../../src/services/chat-permissions"
+import { roomPermissions } from "../../src/services/chat-permissions"
 import { d1Binding, migrated } from "../support/sqlite"
 
 vi.mock("../../src/services/push", () => ({
@@ -212,9 +212,7 @@ it("applies role, responsibility and assignment changes to the same recipient se
   )
   expect(
     f.db
-      .prepare(
-        `${chatPermissions} SELECT member_id FROM chat_permissions WHERE room_id=?`
-      )
+      .prepare(`${roomPermissions} SELECT member_id FROM chat_permissions`)
       .all(id)
       .map((r) => r.member_id)
   ).toEqual(expect.arrayContaining([admin, member]))
@@ -304,7 +302,7 @@ it("revokes exited members from lists, direct links, history and current recipie
   expect(
     f.db
       .prepare(
-        `${chatPermissions} SELECT member_id FROM chat_permissions WHERE room_id=? AND member_id=?`
+        `${roomPermissions} SELECT member_id FROM chat_permissions WHERE member_id=?`
       )
       .get(id, member)
   ).toBeUndefined()
