@@ -23,7 +23,6 @@ export function MemberAvatar({
         <img
           src={image}
           alt=""
-          loading="lazy"
           referrerPolicy="no-referrer"
           className="size-full object-cover"
           onError={() => setFailed(image)}

@@ -29,7 +29,7 @@ const historyQuerySchema = v.object({
       v.minValue(1),
       v.maxValue(100)
     ),
-    100
+    50
   ),
 })
 

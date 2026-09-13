@@ -45,6 +45,7 @@ export const linkPreviewQuery = (
 type RecentMessage = {
   id: string
   content: string
+  memberImage?: string | null | undefined
   attachments: { id: string }[]
 }
 
@@ -55,6 +56,9 @@ export function warmTargets(messages: readonly RecentMessage[]) {
     images: recent
       .flatMap((message) => message.attachments.map((image) => image.id))
       .slice(-6),
+    avatars: [
+      ...new Set(recent.flatMap((message) => message.memberImage ?? [])),
+    ],
     links: recent.flatMap((message) => {
       const url = messageLinks(message.content).find((part) => part.href)?.href
       return url ? [{ messageId: message.id, url }] : []
@@ -71,7 +75,10 @@ export async function warmConversation(
   const history = await client
     .fetchInfiniteQuery(messagesQuery(id))
     .catch(() => undefined)
-  const { images, links } = warmTargets(history?.pages[0]?.messages ?? [])
+  const { images, avatars, links } = warmTargets(
+    history?.pages[0]?.messages ?? []
+  )
+  for (const avatar of avatars) new Image().src = avatar
   for (const image of images) {
     const held = acquireChatImage(user, id, image)
     void held.promise.catch(() => undefined).finally(held.release)

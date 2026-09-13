@@ -391,6 +391,29 @@ export function ImageViewer({
           </div>
         </div>
         <div className="flex max-h-[30dvh] shrink-0 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm">
+          <div className="flex items-start gap-3">
+            <MemberAvatar
+              name={caption.author}
+              image={caption.image}
+              className="size-9 bg-white/15 text-white"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="font-semibold">{caption.author}</span>
+                <time
+                  className="text-xs text-white/60"
+                  dateTime={caption.createdAt}
+                >
+                  {japanDateMinute(caption.createdAt)}
+                </time>
+              </div>
+              {caption.content && (
+                <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
+                  {caption.content}
+                </p>
+              )}
+            </div>
+          </div>
           {count > 1 && (
             <div
               data-horizontal-scroll
@@ -433,29 +456,6 @@ export function ImageViewer({
               </fieldset>
             </div>
           )}
-          <div className="flex items-start gap-3">
-            <MemberAvatar
-              name={caption.author}
-              image={caption.image}
-              className="size-9 bg-white/15 text-white"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="font-semibold">{caption.author}</span>
-                <time
-                  className="text-xs text-white/60"
-                  dateTime={caption.createdAt}
-                >
-                  {japanDateMinute(caption.createdAt)}
-                </time>
-              </div>
-              {caption.content && (
-                <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
-                  {caption.content}
-                </p>
-              )}
-            </div>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

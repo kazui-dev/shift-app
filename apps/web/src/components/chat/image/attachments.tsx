@@ -64,7 +64,7 @@ export function MessageImages({
   if (images.length === 1)
     return (
       <div
-        className="mt-2 max-w-full overflow-hidden rounded-xl border"
+        className="mt-2 max-w-full overflow-hidden rounded-lg"
         style={imageSize(first)}
       >
         <RemoteImage

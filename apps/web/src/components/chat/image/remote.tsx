@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { getRouteApi } from "@tanstack/react-router"
-import { acquireChatImage } from "@/lib/chat/images"
+import { acquireChatImage, cachedChatImage } from "@/lib/chat/images"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
 
 export function RemoteImage({
@@ -22,7 +22,10 @@ export function RemoteImage({
 }) {
   const { state } = getRouteApi("/_app").useRouteContext()
   const element = useRef<HTMLButtonElement>(null)
-  const [src, setSrc] = useState<string>()
+  // An image already in memory shows on the first render, not after loading.
+  const [src, setSrc] = useState(() =>
+    cachedChatImage(state.member.studentId, roomId, id)
+  )
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
   // Load two screens ahead, and keep the image shown until six screens away so
