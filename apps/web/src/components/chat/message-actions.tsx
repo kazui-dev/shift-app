@@ -113,7 +113,7 @@ export function MessageActions({
           consumed.current = true
           openActions()
           press.current = null
-        }, 450),
+        }, 400),
       }
     }
     const move = (event: PointerEvent) => {
