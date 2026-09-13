@@ -99,20 +99,10 @@ export function useMessageScroll(
       )
         scroll.read()
     }
-    const pointer = (event: PointerEvent) => {
-      // Native desktop scrollbar interaction also leaves following mode.
-      if (
-        event.clientX >=
-        list.getBoundingClientRect().right -
-          (list.offsetWidth - list.clientWidth)
-      )
-        scroll.read()
-    }
     list.addEventListener("touchstart", start, { passive: true })
     list.addEventListener("touchmove", move, { passive: true })
     list.addEventListener("wheel", wheel, { passive: true })
     list.addEventListener("keydown", key)
-    list.addEventListener("pointerdown", pointer)
     const resize = new ResizeObserver(() => {
       if (body.querySelector("[data-message-id]")) scroll.layout()
     })
@@ -130,7 +120,6 @@ export function useMessageScroll(
       list.removeEventListener("touchmove", move)
       list.removeEventListener("wheel", wheel)
       list.removeEventListener("keydown", key)
-      list.removeEventListener("pointerdown", pointer)
       controller.current = null
     }
   }, [roomId, active])
