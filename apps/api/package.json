@@ -26,7 +26,7 @@
     "drizzle-kit": "^0.31.10",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "wrangler": "4.131.1",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "wrangler": "4.131.1"
   }
 }

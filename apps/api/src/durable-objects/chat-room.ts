@@ -222,6 +222,31 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
+  searchMessages(query: string, before: number | null, limit: number) {
+    const size = Math.max(1, Math.min(limit, 100))
+    const rows = this.ctx.storage.sql
+      .exec<StoredMessage>(
+        `SELECT sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
+       content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted
+       FROM messages WHERE deleted=0 AND instr(lower(content),lower(?))>0
+       AND (? IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?`,
+        query,
+        before,
+        before,
+        size + 1
+      )
+      .toArray()
+    return {
+      messages: rows.slice(0, size).map((row) => this.toMessage(row)),
+      hasMore: rows.length > size,
+    }
+  }
+
+  messageContent(id: string) {
+    const row = this.findMessage(id)
+    return row && !row.deleted ? row.content : null
+  }
+
   async sendMessage(input: {
     roomId: string
     id: string

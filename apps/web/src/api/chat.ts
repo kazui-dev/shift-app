@@ -1,5 +1,6 @@
 import type { ChatTargetOption } from "@workspace/shared/communications"
 import {
+  chatLinkPreviewSchema,
   chatMessageEnvelopeSchema,
   chatAttachmentEnvelopeSchema,
   chatMembersResponseSchema,
@@ -133,4 +134,32 @@ export const deleteChatMessage = (roomId: string, id: string) =>
     `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(id)}`,
     chatMessageEnvelopeSchema,
     { method: "DELETE" }
+  )
+
+export const searchChatMessages = (
+  roomId: string,
+  query: string,
+  before: number | null,
+  signal: AbortSignal
+) => {
+  const params = new URLSearchParams({ q: query, limit: "30" })
+  if (before !== null) params.set("before", String(before))
+  return apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages?${params}`,
+    chatMessagesResponseSchema,
+    { signal }
+  )
+}
+
+export const chatLinkImageUrl = (roomId: string, messageId: string) =>
+  `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/link-preview/image`
+export const getChatLinkPreview = (
+  roomId: string,
+  messageId: string,
+  signal: AbortSignal
+) =>
+  apiJson(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/messages/${encodeURIComponent(messageId)}/link-preview`,
+    chatLinkPreviewSchema,
+    { signal }
   )

@@ -29,7 +29,12 @@ export function shouldPersistQueryKey(queryKey: readonly unknown[]): boolean {
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
-      if (query.queryKey[0] === "account" || !navigator.onLine) return
+      if (
+        query.queryKey[0] === "account" ||
+        query.queryKey[0] === "chat-link-preview" ||
+        !navigator.onLine
+      )
+        return
       // Missing chat resources are handled by chat navigation, including deletion races.
       if (
         error instanceof ApiError &&

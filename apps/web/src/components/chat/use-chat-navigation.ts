@@ -9,6 +9,7 @@ declare module "@tanstack/react-router" {
     chatRemoved?: string
     chatFromList?: boolean
     chatCreate?: boolean
+    chatSearch?: boolean
     chatInfo?: boolean
     chatSettings?: boolean
   }

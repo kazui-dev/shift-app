@@ -18,6 +18,8 @@ export function removeRoom(client: QueryClient, id: string) {
     "chat-messages",
     "chat-members",
     "chat-settings",
+    "chat-search",
+    "chat-link-preview",
     "chat-image-message",
   ])
     client.removeQueries({ queryKey: [root, id] })

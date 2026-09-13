@@ -1,3 +1,4 @@
+import { MessageTargetProvider } from "@/components/chat/message-target"
 import { RoutePage } from "@/components/route-page"
 import { prepareConversation, roomsQuery } from "@/data/chat"
 import {
@@ -23,6 +24,13 @@ import { CreateChat } from "@/components/chat/create-chat"
 import { restoreChatView, saveChatView } from "@/lib/chat-view"
 
 export function ChatPage() {
+  return (
+    <MessageTargetProvider>
+      <ChatScreen />
+    </MessageTargetProvider>
+  )
+}
+function ChatScreen() {
   const client = useQueryClient()
   const { state: account } = getRouteApi("/_app").useRouteContext()
   const memberId = account.member.id

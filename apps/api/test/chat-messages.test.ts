@@ -261,3 +261,31 @@ it("does not create or advance an edit timestamp when content is unchanged", asy
     })
   ).toEqual({ error: "forbidden" })
 })
+
+it("searches Japanese and literal punctuation across history, newest first, excluding deletions and reflecting edits", async () => {
+  const { value } = fixture()
+  await value.sendMessage({ ...input("one"), content: "集合場所 100%" })
+  await value.sendMessage({ ...input("two"), content: "集合場所 100%" })
+  await value.sendMessage({ ...input("three"), content: "OTHER" })
+  const first = value.searchMessages("集合", null, 1)
+  expect(first.messages.map((message) => message.id)).toEqual(["two"])
+  expect(first.hasMore).toBe(true)
+  expect(
+    value
+      .searchMessages("集合", first.messages[0]?.sequence ?? 0, 1)
+      .messages.map((message) => message.id)
+  ).toEqual(["one"])
+  expect(value.searchMessages("%", null, 30).messages).toHaveLength(2)
+  expect(value.searchMessages("other", null, 30).messages[0]?.id).toBe("three")
+  await value.changeMessage({ roomId: "room", memberId: "author", id: "two" })
+  await value.changeMessage({
+    roomId: "room",
+    memberId: "author",
+    id: "one",
+    content: "移動",
+  })
+  expect(value.searchMessages("集合", null, 30).messages).toEqual([])
+  expect(value.messageContent("two")).toBeNull()
+  expect(value.messageContent("missing")).toBeNull()
+  expect(value.messageContent("one")).toBe("移動")
+})

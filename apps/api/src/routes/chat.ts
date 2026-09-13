@@ -1,3 +1,4 @@
+import { chatLinksApp } from "./chat-links"
 import {
   publishChatEvent,
   publishRoomChange,
@@ -36,6 +37,7 @@ import {
 
 const idSchema = v.pipe(v.string(), v.uuid())
 const messagesQuerySchema = v.object({
+  q: v.optional(v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(200))),
   before: v.optional(
     v.pipe(v.unknown(), v.toNumber(), v.integer(), v.gtValue(0))
   ),
@@ -52,6 +54,7 @@ const messagesQuerySchema = v.object({
 })
 
 export const chatApp = new Hono<ApiEnv>()
+chatApp.route("/", chatLinksApp)
 
 chatApp.get("/rooms", async (c) => {
   const year = parseYear(c.req.query("year") ?? "")
@@ -214,10 +217,13 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
     return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
   }
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
-  const history = await stub.getMessages(
-    query.output.before ?? null,
-    query.output.limit
-  )
+  const history = query.output.q
+    ? await stub.searchMessages(
+        query.output.q,
+        query.output.before ?? null,
+        query.output.limit
+      )
+    : await stub.getMessages(query.output.before ?? null, query.output.limit)
   return c.json({
     ...history,
     messages: await withMemberImages(c.env, history.messages),
