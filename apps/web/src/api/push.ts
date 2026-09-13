@@ -2,7 +2,7 @@ import {
   notificationDevicesSchema,
   pushConfigResponseSchema,
   type PushSubscriptionInput,
-} from "@workspace/shared/communications"
+} from "@workspace/shared/push"
 import { apiJson, apiVoid } from "./client"
 const url = "/api/me/notification-devices"
 export const getPushConfig = () =>

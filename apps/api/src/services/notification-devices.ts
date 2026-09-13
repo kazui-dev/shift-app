@@ -1,4 +1,4 @@
-import type { PushSubscriptionInput } from "@workspace/shared/communications"
+import type { PushSubscriptionInput } from "@workspace/shared/push"
 
 export async function listNotificationDevices(
   db: D1Database,

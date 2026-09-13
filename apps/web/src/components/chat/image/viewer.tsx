@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-  type PointerEvent,
-} from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import useEmblaCarousel from "embla-carousel-react"
-import { japanDateMinute } from "@workspace/shared/japan-time"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import {
   Dialog,
@@ -23,14 +16,9 @@ import {
   X,
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { MemberAvatar } from "@/components/member-avatar"
-import {
-  initialImageView,
-  limitImageView,
-  zoomImage,
-  type Point,
-} from "@/components/chat/image/zoom"
-import { thumbnailWidth } from "@/components/chat/image/thumbnail"
+import { ThumbnailStrip } from "@/components/chat/image/thumbnail-strip"
+import { useImageGestures } from "@/components/chat/image/use-image-gestures"
+import { ViewerCaption } from "@/components/chat/image/viewer-caption"
 
 type CarouselOptions = NonNullable<Parameters<typeof useEmblaCarousel>[0]>
 
@@ -66,40 +54,25 @@ export function ImageViewer({
 }) {
   const count = images.length
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
-  const desktop = useMediaQuery("(min-width: 768px)")
-  const frame = useRef<HTMLDivElement>(null)
-  const pointers = useRef(new Map<number, Point>())
-  const current = useRef(initialImageView)
-  const [view, setView] = useState(initialImageView)
-  // Taps and buttons ease between sizes; dragging and pinching follow the finger.
-  const [easing, setEasing] = useState(false)
-  const press = useRef<Point | null>(null)
-  const lastTap = useRef<{ time: number; x: number; y: number } | null>(null)
+  const [index, setIndex] = useState(initialIndex)
+  // The carousel position as a fractional index, so thumbnails follow a swipe.
+  const [position, setPosition] = useState(initialIndex)
+  const gestures = useImageGestures(images[index], reducedMotion)
 
   // Embla owns swiping between images; a zoomed image keeps drags for panning.
+  // `fitted` reads the gestures' current zoom, so the first render's copy stays true.
   const [options] = useState<CarouselOptions>(() => ({
     startIndex: initialIndex,
     watchDrag: (_api, event) =>
-      current.current.scale === 1 &&
-      !("touches" in event && event.touches.length > 1),
+      gestures.fitted() && !("touches" in event && event.touches.length > 1),
   }))
   const [viewport, carousel] = useEmblaCarousel({
     ...options,
     duration: reducedMotion ? 10 : 25,
   })
-  const [index, setIndex] = useState(initialIndex)
-  // The carousel position as a fractional index, so thumbnails follow a swipe.
-  const [position, setPosition] = useState(initialIndex)
-  const image = images[index]
-
-  function resetZoom() {
-    pointers.current.clear()
-    current.current = initialImageView
-    setView(initialImageView)
-  }
   const selected = useEffectEvent((target: number) => {
     setIndex(target)
-    resetZoom()
+    gestures.reset()
     onIndexChange(target)
   })
   useEffect(() => {
@@ -114,13 +87,6 @@ export function ImageViewer({
     }
   }, [carousel, count])
   useEffect(() => {
-    const element = frame.current
-    if (!element) return undefined
-    const observer = new ResizeObserver(resetZoom)
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-  useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") carousel?.scrollPrev()
       else if (event.key === "ArrowRight") carousel?.scrollNext()
@@ -130,59 +96,8 @@ export function ImageViewer({
     window.addEventListener("keydown", key)
     return () => window.removeEventListener("keydown", key)
   }, [carousel])
-  const strip = useRef<HTMLFieldSetElement>(null)
-  useEffect(() => {
-    strip.current?.children[index]?.scrollIntoView({
-      block: "nearest",
-      inline: "center",
-      behavior: reducedMotion ? "instant" : "smooth",
-    })
-  }, [index, reducedMotion])
 
-  function update(value: typeof view, eased = false) {
-    setEasing(eased && !reducedMotion)
-    const bounds = frame.current?.getBoundingClientRect()
-    if (!bounds || !image) return
-    const fit = Math.min(
-      bounds.width / image.width,
-      bounds.height / image.height
-    )
-    const limited = limitImageView(
-      value,
-      bounds.width,
-      bounds.height,
-      image.width * fit,
-      image.height * fit
-    )
-    current.current = limited
-    setView(limited)
-  }
-  function magnify(factor: number) {
-    update(
-      zoomImage(current.current, current.current.scale * factor, {
-        x: 0,
-        y: 0,
-      }),
-      true
-    )
-  }
-  /** Double tap or double click: zoom in on that point, or back to fit. */
-  function toggleZoom(point: Point) {
-    update(
-      current.current.scale === 1
-        ? zoomImage(current.current, 2.5, point)
-        : initialImageView,
-      true
-    )
-  }
-  function center(event: PointerEvent<HTMLElement>, point: Point) {
-    const bounds = event.currentTarget.getBoundingClientRect()
-    return {
-      x: point.x - bounds.left - bounds.width / 2,
-      y: point.y - bounds.top - bounds.height / 2,
-    }
-  }
-
+  const { view, easing } = gestures
   const button =
     "pointer-events-auto size-11 rounded-full bg-black/65 text-white hover:bg-white/20"
   return (
@@ -219,7 +134,7 @@ export function ImageViewer({
               aria-label="縮小"
               className="hidden text-white hover:bg-white/20 md:inline-flex"
               disabled={view.scale === 1}
-              onClick={() => magnify(1 / 1.5)}
+              onClick={() => gestures.magnify(1 / 1.5)}
             >
               <Minus />
             </Button>
@@ -229,7 +144,7 @@ export function ImageViewer({
               aria-label="拡大"
               className="hidden text-white hover:bg-white/20 md:inline-flex"
               disabled={view.scale === 5}
-              onClick={() => magnify(1.5)}
+              onClick={() => gestures.magnify(1.5)}
             >
               <Plus />
             </Button>
@@ -270,93 +185,11 @@ export function ImageViewer({
         )}
         <div
           ref={(element) => {
-            frame.current = element
+            gestures.attach(element)
             viewport(element)
           }}
           className="relative min-h-0 flex-1 touch-none overflow-hidden select-none"
-          onPointerDown={(event) => {
-            if (event.button !== 0 || pointers.current.size >= 2) return
-            setEasing(false)
-            press.current = { x: event.clientX, y: event.clientY }
-            // Panning a zoomed image keeps the pointer even outside the frame.
-            if (current.current.scale > 1)
-              event.currentTarget.setPointerCapture(event.pointerId)
-            pointers.current.set(event.pointerId, {
-              x: event.clientX,
-              y: event.clientY,
-            })
-          }}
-          onPointerMove={(event) => {
-            const last = pointers.current.get(event.pointerId)
-            if (!last) return
-            const point = { x: event.clientX, y: event.clientY }
-            const other = [...pointers.current].find(
-              ([id]) => id !== event.pointerId
-            )?.[1]
-            pointers.current.set(event.pointerId, point)
-            if (other) {
-              const distance = Math.hypot(last.x - other.x, last.y - other.y)
-              if (distance < 1) return
-              const midpoint = (value: Point) =>
-                center(event, {
-                  x: (value.x + other.x) / 2,
-                  y: (value.y + other.y) / 2,
-                })
-              update(
-                zoomImage(
-                  current.current,
-                  (current.current.scale *
-                    Math.hypot(point.x - other.x, point.y - other.y)) /
-                    distance,
-                  midpoint(last),
-                  midpoint(point)
-                )
-              )
-            } else if (current.current.scale > 1) {
-              update({
-                ...current.current,
-                x: current.current.x + point.x - last.x,
-                y: current.current.y + point.y - last.y,
-              })
-            }
-          }}
-          onLostPointerCapture={(event) =>
-            pointers.current.delete(event.pointerId)
-          }
-          onPointerUp={(event) => {
-            const single = pointers.current.size === 1
-            pointers.current.delete(event.pointerId)
-            const start = press.current
-            press.current = null
-            const tap = {
-              time: event.timeStamp,
-              x: event.clientX,
-              y: event.clientY,
-            }
-            if (
-              !single ||
-              !start ||
-              Math.hypot(tap.x - start.x, tap.y - start.y) > 10
-            ) {
-              lastTap.current = null
-              return
-            }
-            const previousTap = lastTap.current
-            if (
-              previousTap &&
-              tap.time - previousTap.time < 300 &&
-              Math.hypot(tap.x - previousTap.x, tap.y - previousTap.y) < 30
-            ) {
-              lastTap.current = null
-              toggleZoom(center(event, tap))
-              return
-            }
-            lastTap.current = tap
-          }}
-          onPointerCancel={(event) => {
-            press.current = null
-            pointers.current.delete(event.pointerId)
-          }}
+          {...gestures.handlers}
         >
           <div className="flex h-full">
             {images.map((item, slide) => (
@@ -393,73 +226,16 @@ export function ImageViewer({
             ))}
           </div>
         </div>
-        <div className="flex max-h-[30dvh] shrink-0 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm [scrollbar-width:none]">
-          <div className="flex items-start gap-3">
-            <MemberAvatar
-              name={caption.author}
-              image={caption.image}
-              className="size-9 bg-white/15 text-white"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="font-semibold">{caption.author}</span>
-                <time
-                  className="text-xs text-white/60"
-                  dateTime={caption.createdAt}
-                >
-                  {japanDateMinute(caption.createdAt)}
-                </time>
-              </div>
-              {caption.content && (
-                <p className="mt-1 leading-relaxed break-words whitespace-pre-wrap">
-                  {caption.content}
-                </p>
-              )}
-            </div>
-          </div>
+        <ViewerCaption {...caption}>
           {count > 1 && (
-            <div
-              data-horizontal-scroll
-              className="-mx-5 flex shrink-0 justify-center-safe overflow-x-auto px-5 [scrollbar-width:none]"
-            >
-              <fieldset
-                ref={strip}
-                aria-label="画像を選ぶ"
-                className="m-0 flex w-max min-w-0 items-center gap-1.5 border-0 p-0"
-              >
-                {images.map((item, thumb) => {
-                  // 1 at the image in view, easing to 0 one image away.
-                  const focus = Math.max(0, 1 - Math.abs(position - thumb))
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      aria-label={`画像${thumb + 1}を表示`}
-                      aria-current={thumb === index}
-                      onClick={() => carousel?.scrollTo(thumb)}
-                      className="h-12 shrink-0 overflow-hidden rounded-md bg-white/10 md:h-14"
-                      style={{
-                        width: desktop
-                          ? "3.5rem"
-                          : `${thumbnailWidth(focus)}rem`,
-                        opacity: 0.55 + 0.45 * focus,
-                      }}
-                    >
-                      {item.thumb && (
-                        <img
-                          src={item.thumb}
-                          alt=""
-                          draggable={false}
-                          className="size-full object-cover"
-                        />
-                      )}
-                    </button>
-                  )
-                })}
-              </fieldset>
-            </div>
+            <ThumbnailStrip
+              images={images}
+              index={index}
+              position={position}
+              onSelect={(target) => carousel?.scrollTo(target)}
+            />
           )}
-        </div>
+        </ViewerCaption>
       </DialogContent>
     </Dialog>
   )

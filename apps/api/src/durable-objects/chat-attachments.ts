@@ -5,8 +5,8 @@ import {
   chatImageKey,
   chatImageTag,
   chatRoomTag,
-  type StoredImageType,
-} from "../domain/chat-image"
+} from "../domain/chat-attachment"
+import type { StoredImageType } from "../domain/stored-image"
 
 type AttachmentRow = {
   id: string
@@ -36,7 +36,8 @@ export class ChatAttachments {
     private bucket: R2Bucket,
     private purge: (tags: string[]) => Promise<unknown>
   ) {}
-  migrate() {
+  /** Attachments and the daily upload limits they count against. */
+  createTables() {
     this.storage.sql.exec(`CREATE TABLE IF NOT EXISTS attachments (
       id TEXT PRIMARY KEY,object_key TEXT NOT NULL,member_id TEXT NOT NULL,
       message_id TEXT REFERENCES messages(id),ready INTEGER NOT NULL DEFAULT 0,

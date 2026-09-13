@@ -4,7 +4,6 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   chatTargetsResponseSchema,
   createChatRoomInputSchema,
-  pushSubscriptionInputSchema,
   sendChatMessageInputSchema,
 } from "./communications"
 
@@ -68,16 +67,6 @@ describe("communication schemas", () => {
         attachmentIds: [],
       }).success
     ).toBe(false)
-  })
-
-  it("validates a web push subscription", () => {
-    expect(
-      v.safeParse(pushSubscriptionInputSchema, {
-        endpoint: "https://push.example.test/subscription/1",
-        expirationTime: null,
-        keys: { p256dh: "public-key", auth: "auth-secret" },
-      }).success
-    ).toBe(true)
   })
 })
 

@@ -7,7 +7,7 @@ import {
   type ChatImageSize,
 } from "@workspace/shared/communications"
 
-import { attachmentName } from "../../domain/chat-image"
+import { attachmentName } from "../../domain/chat-attachment"
 import { apiError, errors } from "../../lib/errors"
 import { chatImagePath, sharedResource } from "../../lib/shared-cache"
 import { storableImage } from "../../services/chat-image"
