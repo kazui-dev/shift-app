@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { chatAccessEvents } from "../../src/routes/chat-access-events"
+import { chatAccessEvents } from "../../src/lib/chat-access-events"
 it("publishes access invalidation only after successful related mutations, not reads, denied requests or chat writes", async () => {
   const publish = vi.fn<() => Promise<void>>().mockResolvedValue()
   const env = {

@@ -1,4 +1,4 @@
-import { chatAccessEvents } from "./routes/chat-access-events"
+import { chatAccessEvents } from "./lib/chat-access-events"
 import { Hono } from "hono"
 
 import { createAuth } from "./auth"

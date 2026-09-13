@@ -1,12 +1,11 @@
 import { activityRoom, roomCommands } from "../../src/services/chat-creation"
-import { chatApp } from "../../src/routes/chat"
+import { chatApp } from "../../src/routes/chat/index"
 import { URL } from "node:url"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { Hono } from "hono"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { chatTargetsApp } from "../../src/routes/chat-targets"
 import { meAssignmentsApp } from "../../src/routes/me/assignments"
 
 describe("migrated chat and calendar queries", () => {
@@ -40,7 +39,7 @@ describe("migrated chat and calendar queries", () => {
         })
         await next()
       })
-      app.route("/chat", chatTargetsApp)
+      app.route("/chat", chatApp)
       app.route("/chat", chatApp)
       app.route("/me", meAssignmentsApp)
       const env = {

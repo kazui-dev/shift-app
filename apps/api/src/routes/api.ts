@@ -9,9 +9,7 @@ import {
 } from "../lib/http"
 import { activitiesApp } from "./activities"
 import { assignmentsApp } from "./assignments"
-import { chatImagesApp } from "./chat-images"
-import { chatApp } from "./chat"
-import { chatTargetsApp } from "./chat-targets"
+import { chatApp } from "./chat/index"
 import { meApp } from "./me/index"
 import { pushApp, notificationDevicesApp } from "./push"
 import { reportsApp } from "./reports"
@@ -28,16 +26,7 @@ apiApp.use("*", (c, next) =>
       /^\/api\/chat\/rooms\/[^/]+\/attachments$/.test(c.req.path)
         ? 10 * 1024 * 1024
         : 32 * 1024,
-    onError: (context) =>
-      context.json(
-        {
-          error: {
-            code: "BODY_TOO_LARGE",
-            message: "Request body is too large",
-          },
-        },
-        413
-      ),
+    onError: (context) => apiError(context, errors.bodyTooLarge),
   })(c, next)
 )
 apiApp.use("*", requireMember)
@@ -51,9 +40,7 @@ apiApp.route("/year-settings", yearSettingsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
 apiApp.route("/assignments", assignmentsApp)
-apiApp.route("/chat", chatTargetsApp)
 apiApp.route("/chat", chatApp)
-apiApp.route("/chat", chatImagesApp)
 apiApp.route("/reports", reportsApp)
 
 apiApp.notFound((c) => apiError(c, errors.routeNotFound))

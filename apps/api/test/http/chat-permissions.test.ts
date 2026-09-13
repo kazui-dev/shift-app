@@ -1,11 +1,10 @@
-import { chatImagesApp } from "../../src/routes/chat-images"
+import { chatApp } from "../../src/routes/chat/index"
 import { activityActionsApp } from "../../src/routes/activity-actions"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { Hono } from "hono"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { chatApp } from "../../src/routes/chat"
 import { chatMembershipsApp } from "../../src/routes/me/chat-memberships"
 import { yearLifecycleApp } from "../../src/routes/years/lifecycle"
 import { yearActivitiesApp } from "../../src/routes/years/activities"
@@ -129,7 +128,7 @@ function fixture() {
   })
   app.route("/activities", activityActionsApp)
   app.route("/chat", chatApp)
-  app.route("/chat", chatImagesApp)
+  app.route("/chat", chatApp)
   app.route("/me/chat-memberships", chatMembershipsApp)
   app.route("/years", yearLifecycleApp)
   app.route("/years", yearActivitiesApp)

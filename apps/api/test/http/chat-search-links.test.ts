@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
-import { chatApp } from "../../src/routes/chat"
+import { chatApp } from "../../src/routes/chat/index"
 import { findAccessibleRoom } from "../../src/services/chat-access"
 import { cachedLinkPreview } from "../../src/services/link-preview"
 import type { ApiEnv } from "../../src/lib/http"
