@@ -1,5 +1,6 @@
 import * as v from "valibot"
 import { chatLinkPreviewSchema } from "@workspace/shared/communications"
+import { previewText } from "../domain/link-preview"
 import { fetchLink, limitedBody, publicLink, urlDigest } from "./link-fetch"
 type Preview = v.InferOutput<typeof chatLinkPreviewSchema>["preview"]
 async function loadLinkPreview(value: string): Promise<Preview> {
@@ -39,31 +40,17 @@ async function loadLinkPreview(value: string): Promise<Preview> {
         })
       )
       .arrayBuffer()
-    const name = (meta.get("og:title") || meta.get("twitter:title") || title)
-      .trim()
-      .slice(0, 200)
-    if (!name) return null
+    const text = previewText(meta, title, url.hostname)
+    if (!text) return null
     let image: string | null = null
-    const source = meta.get("og:image") || meta.get("twitter:image")
-    if (source) {
+    if (text.image) {
       try {
-        image = publicLink(new URL(source, url).href).href
+        image = publicLink(new URL(text.image, url).href).href
       } catch {
         image = null
       }
     }
-    return {
-      url: value,
-      title: name,
-      description: (
-        meta.get("og:description") ||
-        meta.get("description") ||
-        meta.get("twitter:description") ||
-        ""
-      ).slice(0, 300),
-      site: (meta.get("og:site_name") || url.hostname).slice(0, 100),
-      image,
-    }
+    return { ...text, url: value, image }
   } catch {
     return null
   }
@@ -74,7 +61,7 @@ export async function cachedLinkPreview(
   waitUntil: (work: Promise<unknown>) => void
 ) {
   const key = new Request(
-    `${origin}/__link-preview/v1/${await urlDigest(value)}`
+    `${origin}/__link-preview/v2/${await urlDigest(value)}`
   )
   const cache = await caches.open("chat-link-previews")
   const cached = await cache.match(key)
