@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query"
+import { keys } from "@/data/keys"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
@@ -41,7 +42,7 @@ describe("assignment month queries", () => {
     const query = assignmentMonthQuery("2026-08", 2026)
     const range = assignmentMonthRange("2026-08")
 
-    expect(query.queryKey).toEqual(["assignments", "month", "2026-08", 2026])
+    expect(query.queryKey).toEqual(keys.assignmentMonth("2026-08", 2026))
     expect(range).toEqual({
       from: "2026-07-31T15:00:00.000Z",
       to: "2026-08-31T15:00:00.000Z",

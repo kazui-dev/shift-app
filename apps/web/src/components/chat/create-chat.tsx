@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react"
+import { keys } from "@/data/keys"
 import { getRouteApi } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -58,7 +59,7 @@ export function CreateChat({
             }
           : { rooms: [room] }
       )
-      void client.invalidateQueries({ queryKey: ["chat-rooms", year] })
+      void client.invalidateQueries({ queryKey: keys.chatRooms(year) })
       onCreated(room.id)
     },
   })

@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query"
+import { keys, roomKeys } from "./keys"
 import type { ChatEvent } from "@workspace/shared/communications"
 import { receiveMessage, updateRoom, removeRoom } from "./chat-cache"
 
@@ -8,17 +9,8 @@ export function applyChatEvent(
   memberId: string
 ) {
   if (!event || event.type === "access_changed") {
-    for (const key of [
-      "chat-rooms",
-      "chat-room",
-      "chat-messages",
-      "chat-members",
-      "chat-settings",
-      "chat-search",
-      "chat-link-preview",
-      "chat-image-message",
-    ])
-      void client.invalidateQueries({ queryKey: [key] })
+    for (const key of [keys.chatRooms, ...roomKeys])
+      void client.invalidateQueries({ queryKey: key() })
     return
   }
   const id = event.roomId
@@ -27,17 +19,9 @@ export function applyChatEvent(
     return
   }
   if (event.type === "room_changed") {
-    void client.invalidateQueries({ queryKey: ["chat-rooms"] })
-    for (const key of [
-      "chat-room",
-      "chat-members",
-      "chat-settings",
-      "chat-messages",
-      "chat-search",
-      "chat-link-preview",
-      "chat-image-message",
-    ])
-      void client.invalidateQueries({ queryKey: [key, id] })
+    void client.invalidateQueries({ queryKey: keys.chatRooms() })
+    for (const key of roomKeys)
+      void client.invalidateQueries({ queryKey: key(id) })
     return
   }
   if (event.type === "preferences_changed") {
@@ -52,7 +36,7 @@ export function applyChatEvent(
     }))
     return
   }
-  void client.invalidateQueries({ queryKey: ["chat-search", id] })
+  void client.invalidateQueries({ queryKey: keys.chatSearch(id) })
   const continuous = receiveMessage(
     client,
     id,
@@ -60,7 +44,7 @@ export function applyChatEvent(
     event.type === "message" && event.message.memberId === memberId
   )
   if (!continuous || event.type === "message_changed")
-    void client.invalidateQueries({ queryKey: ["chat-messages", id] })
+    void client.invalidateQueries({ queryKey: keys.chatMessages(id) })
   if (event.type === "message_changed")
-    void client.invalidateQueries({ queryKey: ["chat-image-message", id] })
+    void client.invalidateQueries({ queryKey: keys.chatImageMessage(id) })
 }

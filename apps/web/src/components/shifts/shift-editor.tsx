@@ -1,4 +1,5 @@
 import { mergePlan } from "./merge-plan"
+import { keys } from "@/data/keys"
 import { japanDateWeekday } from "@workspace/shared/japan-time"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
@@ -199,9 +200,9 @@ export function ShiftEditor({
       setConflicted(false)
       void Promise.all([
         client.invalidateQueries({
-          queryKey: ["activities", data.activity.year],
+          queryKey: keys.activities(data.activity.year),
         }),
-        client.invalidateQueries({ queryKey: ["assignments"] }),
+        client.invalidateQueries({ queryKey: keys.assignments() }),
       ])
       toast.success("保存しました。")
     } catch (error) {
@@ -228,7 +229,7 @@ export function ShiftEditor({
     try {
       await work()
       await client.invalidateQueries({
-        queryKey: ["activities", data.activity.year],
+        queryKey: keys.activities(data.activity.year),
       })
       setActions(false)
     } catch (error) {

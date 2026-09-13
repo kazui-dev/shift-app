@@ -1,4 +1,5 @@
 import { activitiesQuery } from "@/data/activities"
+import { keys } from "@/data/keys"
 import { japanMonthDay, japanTime } from "@workspace/shared/japan-time"
 import { rosterQuery, rolesQuery } from "@/data/years"
 import { TargetPicker } from "@/components/shifts/target-picker"
@@ -67,7 +68,7 @@ export function ActivityManager({ year }: { year: number }) {
             }
           : undefined
       )
-      void client.invalidateQueries({ queryKey: ["activities", year] })
+      void client.invalidateQueries({ queryKey: keys.activities(year) })
       setCreating(false)
       setName("")
       toast.success("シフトを作成しました。")

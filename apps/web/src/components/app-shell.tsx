@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { keys } from "@/data/keys"
 import { onlineManager, useQueryClient } from "@tanstack/react-query"
 import {
   Outlet,
@@ -68,7 +69,7 @@ export function AppShell({
     const revalidateAccount = () => {
       if (!navigator.onLine) return
       void queryClient
-        .invalidateQueries({ queryKey: ["account"], refetchType: "none" })
+        .invalidateQueries({ queryKey: keys.account(), refetchType: "none" })
         .then(() => router.invalidate())
     }
     const handleOffline = () => setBrowserOffline(true)

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { keys } from "@/data/keys"
 import { useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle } from "lucide-react"
 
@@ -31,10 +32,10 @@ export function DiscordLinkRequestCard({
       await decideDiscordLinkRequest(request.id, { decision, reason })
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ["admin", "discord-link-requests"],
+          queryKey: keys.adminLinkRequests(),
         }),
-        queryClient.invalidateQueries({ queryKey: ["admin", "members"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] }),
+        queryClient.invalidateQueries({ queryKey: keys.adminUsers() }),
+        queryClient.invalidateQueries({ queryKey: keys.adminAuditLogs() }),
       ])
     } catch (caught) {
       toast.error(errorMessage(caught))

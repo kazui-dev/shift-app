@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { keys } from "@/data/keys"
 import { japanFullDate } from "@workspace/shared/japan-time"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
@@ -36,10 +37,10 @@ export function AvailabilitySummary({ year }: { year: number }) {
     try {
       await action()
       await Promise.all([
-        client.invalidateQueries({ queryKey: ["availability-dates", year] }),
-        client.invalidateQueries({ queryKey: ["availability", year] }),
+        client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
+        client.invalidateQueries({ queryKey: keys.availability(year) }),
         client.invalidateQueries({
-          queryKey: ["availability-submissions", year],
+          queryKey: keys.availabilitySubmissions(year),
         }),
       ])
       setSelected([])

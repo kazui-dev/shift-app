@@ -1,4 +1,5 @@
 import { attendanceQuery } from "@/data/attendance"
+import { keys } from "@/data/keys"
 import { japanMonthDayTime, japanTime } from "@workspace/shared/japan-time"
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -54,11 +55,11 @@ export function ShiftAttendance({
       await work()
       await Promise.all([
         client.invalidateQueries({
-          queryKey: ["shift-attendance", activityId],
+          queryKey: keys.shiftAttendance(activityId),
         }),
-        client.invalidateQueries({ queryKey: ["assignments"] }),
-        client.invalidateQueries({ queryKey: ["attendance-events"] }),
-        client.invalidateQueries({ queryKey: ["report-events"] }),
+        client.invalidateQueries({ queryKey: keys.assignments() }),
+        client.invalidateQueries({ queryKey: keys.attendanceEvents() }),
+        client.invalidateQueries({ queryKey: keys.reportEvents() }),
       ])
       setEditing(null)
       setCorrecting(null)
@@ -377,7 +378,7 @@ function AttendanceCorrection({
 }
 function ReportHistory({ id, onClose }: { id: string; onClose: () => void }) {
   const query = useQuery({
-    queryKey: ["report-events", id],
+    queryKey: keys.reportEvents(id),
     queryFn: () => getReportEvents(id),
   })
   return (
@@ -431,7 +432,7 @@ function AttendanceHistory({
   onClose: () => void
 }) {
   const query = useQuery({
-    queryKey: ["attendance-events", id],
+    queryKey: keys.attendanceEvents(id),
     queryFn: () => getAttendanceEvents(id),
   })
   return (

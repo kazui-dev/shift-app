@@ -1,4 +1,5 @@
 import { resetPushControl } from "./push-control-store"
+import { keyRoot, keys, persistedKeys, roomKeys } from "@/data/keys"
 import { boundPersistedClient } from "@/data/persistence"
 import { QueryCache, QueryClient } from "@tanstack/react-query"
 import type {
@@ -14,24 +15,19 @@ import { clearChatStorage } from "./chat-store"
 
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const PERSISTED_QUERY_KEY = "shift-app-query-cache"
-const persistedQueryRoots = new Set([
-  "assignments",
-  "display-year",
-  "chat-rooms",
-  "chat-messages",
-  "chat-room",
-])
+const persistedRoots = new Set([...persistedKeys.keys()].map(keyRoot))
 
 export function shouldPersistQueryKey(queryKey: readonly unknown[]): boolean {
-  return typeof queryKey[0] === "string" && persistedQueryRoots.has(queryKey[0])
+  return typeof queryKey[0] === "string" && persistedRoots.has(queryKey[0])
 }
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error, query) => {
+      const root = String(query.queryKey[0])
       if (
-        query.queryKey[0] === "account" ||
-        query.queryKey[0] === "chat-link-preview" ||
+        root === keyRoot(keys.account) ||
+        root === keyRoot(keys.chatLinkPreview) ||
         !navigator.onLine
       )
         return
@@ -39,13 +35,7 @@ export const queryClient = new QueryClient({
       if (
         error instanceof ApiError &&
         error.status === 404 &&
-        [
-          "chat-room",
-          "chat-messages",
-          "chat-members",
-          "chat-settings",
-          "chat-image-message",
-        ].includes(String(query.queryKey[0]))
+        roomKeys.map(keyRoot).includes(root)
       )
         return
       toast.error(errorMessage(error), { id: `query:${query.queryHash}` })
@@ -76,7 +66,7 @@ export async function clearPersistedUserData(
 ): Promise<void> {
   resetPushControl()
   client.removeQueries({
-    predicate: (query) => query.queryKey[0] !== "account",
+    predicate: (query) => query.queryKey[0] !== keyRoot(keys.account),
   })
   client.getMutationCache().clear()
   await persister.removeClient()

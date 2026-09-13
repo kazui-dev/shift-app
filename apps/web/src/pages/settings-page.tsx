@@ -1,4 +1,5 @@
 import { displayYearQuery } from "@/data/years"
+import { keys } from "@/data/keys"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "@workspace/ui/lib/toast"
 import { setDisplayYear } from "@/api/years"
@@ -14,7 +15,7 @@ export function SettingsPage() {
   const changeYear = useMutation({
     mutationFn: setDisplayYear,
     onMutate: async (year) => {
-      await client.cancelQueries({ queryKey: ["display-year"] })
+      await client.cancelQueries({ queryKey: keys.displayYear() })
       const previous = client.getQueryData(displayYearQuery.queryKey)
       if (previous)
         client.setQueryData(displayYearQuery.queryKey, { ...previous, year })

@@ -1,4 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query"
+import { keys, roomKeys } from "./keys"
 import type { getChatRoom, getChatRooms, getChatMessages } from "@/api/chat"
 import { messagesQuery } from "./chat"
 
@@ -7,22 +8,13 @@ type Message = Awaited<ReturnType<typeof getChatMessages>>["messages"][number]
 
 export function removeRoom(client: QueryClient, id: string) {
   client.setQueriesData<Awaited<ReturnType<typeof getChatRooms>>>(
-    { queryKey: ["chat-rooms"] },
+    { queryKey: keys.chatRooms() },
     (current) =>
       current
         ? { rooms: current.rooms.filter((room) => room.id !== id) }
         : undefined
   )
-  for (const root of [
-    "chat-room",
-    "chat-messages",
-    "chat-members",
-    "chat-settings",
-    "chat-search",
-    "chat-link-preview",
-    "chat-image-message",
-  ])
-    client.removeQueries({ queryKey: [root, id] })
+  for (const key of roomKeys) client.removeQueries({ queryKey: key(id) })
 }
 
 export function updateRoom(
@@ -35,7 +27,7 @@ export function updateRoom(
     (current) => (current ? { room: change(current.room) } : undefined)
   )
   client.setQueriesData<Awaited<ReturnType<typeof getChatRooms>>>(
-    { queryKey: ["chat-rooms"] },
+    { queryKey: keys.chatRooms() },
     (current) =>
       current
         ? {

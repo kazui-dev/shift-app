@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query"
+import { keys } from "@/data/keys"
 import {
   getAvailability,
   getAvailabilityDates,
@@ -6,19 +7,19 @@ import {
 } from "@/api/availability"
 export const availabilityQuery = (year: number) =>
   queryOptions({
-    queryKey: ["availability", year],
+    queryKey: keys.availability(year),
     queryFn: () => getAvailability(year),
     staleTime: 60_000,
   })
 export const availabilityDatesQuery = (year: number) =>
   queryOptions({
-    queryKey: ["availability-dates", year],
+    queryKey: keys.availabilityDates(year),
     queryFn: () => getAvailabilityDates(year),
     staleTime: 60_000,
   })
 export const availabilitySubmissionsQuery = (year: number) =>
   queryOptions({
-    queryKey: ["availability-submissions", year],
+    queryKey: keys.availabilitySubmissions(year),
     queryFn: () => getAvailabilitySubmissions(year),
     staleTime: 30_000,
   })

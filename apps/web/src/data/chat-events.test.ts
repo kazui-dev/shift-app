@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vite-plus/test"
+import { keys } from "@/data/keys"
 import { QueryClient } from "@tanstack/react-query"
 import { applyChatEvent } from "./chat-events"
 import { roomsQuery, messagesQuery } from "./chat"
@@ -96,15 +97,15 @@ it("applies edited content immediately and refreshes room access and history on 
   )
   expect(client.getQueryData(key)?.pages[0]?.messages[0]?.content).toBe("編集")
   expect(invalidate).toHaveBeenCalledWith({
-    queryKey: ["chat-image-message", "room"],
+    queryKey: keys.chatImageMessage("room"),
   })
   applyChatEvent(client, { type: "room_changed", roomId: "room" }, "me")
   expect(invalidate).toHaveBeenCalledWith({
-    queryKey: ["chat-members", "room"],
+    queryKey: keys.chatMembers("room"),
   })
-  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chat-room", "room"] })
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: keys.chatRoom("room") })
   applyChatEvent(client, null, "me")
-  expect(invalidate).toHaveBeenCalledWith({ queryKey: ["chat-messages"] })
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: keys.chatMessages() })
   client.clear()
 })
 

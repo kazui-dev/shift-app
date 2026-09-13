@@ -1,4 +1,5 @@
 import { queryOptions } from "@tanstack/react-query"
+import { keys } from "@/data/keys"
 import {
   getDisplayYear,
   getYears,
@@ -7,30 +8,30 @@ import {
   getYearMemberships,
 } from "@/api/years"
 export const displayYearQuery = queryOptions({
-  queryKey: ["display-year"],
+  queryKey: keys.displayYear(),
   queryFn: getDisplayYear,
   staleTime: 300_000,
 })
 export const yearsQuery = queryOptions({
-  queryKey: ["years"],
+  queryKey: keys.years(),
   queryFn: getYears,
   staleTime: 300_000,
 })
 export const rosterQuery = (year: number) =>
   queryOptions({
-    queryKey: ["roster", year],
+    queryKey: keys.roster(year),
     queryFn: () => getRoster(year),
     staleTime: 60_000,
   })
 export const rolesQuery = (year: number) =>
   queryOptions({
-    queryKey: ["year-roles", year],
+    queryKey: keys.yearRoles(year),
     queryFn: () => getYearRoles(year),
     staleTime: 60_000,
   })
 export const membershipsQuery = (year: number) =>
   queryOptions({
-    queryKey: ["year-memberships", year],
+    queryKey: keys.yearMemberships(year),
     queryFn: () => getYearMemberships(year),
     staleTime: 60_000,
   })

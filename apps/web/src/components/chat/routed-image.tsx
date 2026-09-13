@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useState } from "react"
+import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, useRouter, useRouterState } from "@tanstack/react-router"
 import { getChatMessageAt } from "@/api/chat"
@@ -28,7 +29,7 @@ export function RoutedImage({
   const { image, message: sequence } = chatImageLocation(search)
   const cached = messages.find((message) => message.sequence === sequence)
   const query = useQuery({
-    queryKey: ["chat-image-message", roomId, sequence],
+    queryKey: keys.chatImageMessage(roomId, sequence),
     queryFn: () => getChatMessageAt(roomId, sequence ?? 0),
     enabled: !!image && sequence !== undefined && !cached,
     meta: { persist: false },

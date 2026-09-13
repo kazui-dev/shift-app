@@ -1,4 +1,5 @@
 import { expect, it } from "vite-plus/test"
+import { keys } from "@/data/keys"
 import { QueryClient, dehydrate } from "@tanstack/react-query"
 import { boundPersistedClient } from "./persistence"
 it("bounds recent histories without losing older-page cursors and excludes privileged data", () => {
@@ -25,7 +26,7 @@ it("bounds recent histories without losing older-page cursors and excludes privi
   const queries = bounded.clientState.queries
   expect(queries).toHaveLength(19)
   expect(queries.some((query) => query.queryKey[0] === "admin")).toBe(false)
-  expect(queries[0]?.queryKey).toEqual(["chat-messages", "24"])
+  expect(queries[0]?.queryKey).toEqual(keys.chatMessages("24"))
   expect(queries[0]?.state.data).toEqual({
     pages: Array.from({ length: 3 }, () => ({ messages: [], hasMore: true })),
     pageParams: [null, 50, 40],

@@ -1,4 +1,5 @@
 import { yearsQuery } from "@/data/years"
+import { keys } from "@/data/keys"
 import { useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -15,7 +16,7 @@ export function YearSettingsPanel() {
   const [pending, setPending] = useState(false)
 
   async function refreshYears() {
-    await queryClient.invalidateQueries({ queryKey: ["years"] })
+    await queryClient.invalidateQueries({ queryKey: keys.years() })
   }
 
   async function addYear(event: FormEvent<HTMLFormElement>) {
