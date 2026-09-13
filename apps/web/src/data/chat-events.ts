@@ -1,7 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { keys, roomKeys } from "./keys"
 import type { ChatEvent } from "@workspace/shared/communications"
-import { receiveMessage, updateRoom, removeRoom } from "./chat-cache"
+import { forgetImages } from "@/lib/chat/image-cache"
+import {
+  cachedAttachmentIds,
+  receiveMessage,
+  updateRoom,
+  removeRoom,
+} from "./chat-cache"
 
 export function applyChatEvent(
   client: QueryClient,
@@ -37,6 +43,8 @@ export function applyChatEvent(
     return
   }
   void client.invalidateQueries({ queryKey: keys.chatSearch(id) })
+  if (event.type === "message_changed" && event.message.deleted)
+    void forgetImages(id, cachedAttachmentIds(client, id, event.message.id))
   const continuous = receiveMessage(
     client,
     id,

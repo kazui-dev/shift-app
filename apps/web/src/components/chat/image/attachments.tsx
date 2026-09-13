@@ -3,6 +3,7 @@ import { ImageIcon } from "lucide-react"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { RemoteImage } from "@/components/chat/image/remote"
 import { imageSize } from "@/components/chat/image/size"
+import { mosaic } from "@/components/chat/image/mosaic"
 
 export function LocalImage({
   blob,
@@ -58,29 +59,67 @@ export function MessageImages({
   images: ChatAttachment[]
   onOpen: (id: string) => void
 }) {
-  if (!images.length) return null
-  return (
-    <>
+  const [first] = images
+  if (!first) return null
+  if (images.length === 1)
+    return (
       <div
-        className={`mt-2 grid max-w-lg gap-2 ${images.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
+        className="mt-2 max-w-full overflow-hidden rounded-xl border"
+        style={imageSize(first)}
       >
-        {images.map((image, index) => (
-          <div
-            key={image.id}
-            className="max-w-full overflow-hidden rounded-xl border"
-            style={imageSize(image)}
-          >
-            <RemoteImage
-              roomId={roomId}
-              id={image.id}
-              width={image.width}
-              height={image.height}
-              alt={`画像${index + 1}を拡大`}
-              onOpen={() => onOpen(image.id)}
-            />
-          </div>
-        ))}
+        <RemoteImage
+          roomId={roomId}
+          id={first.id}
+          width={first.width}
+          height={first.height}
+          alt="画像1を拡大"
+          onOpen={() => onOpen(first.id)}
+        />
       </div>
-    </>
+    )
+  const tile = (image: ChatAttachment, index: number, className = "") => (
+    <div
+      key={image.id}
+      className={`min-h-0 overflow-hidden bg-muted ${className}`}
+    >
+      <RemoteImage
+        roomId={roomId}
+        id={image.id}
+        width={image.width}
+        height={image.height}
+        alt={`画像${index + 1}を拡大`}
+        fit="cover"
+        onOpen={() => onOpen(image.id)}
+      />
+    </div>
+  )
+  // Several images share one rounded frame, arranged as in the mosaic rule.
+  const layout = mosaic(images.length)
+  if (layout.split)
+    return (
+      <div className="mt-2 grid aspect-[4/3] w-full max-w-lg grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-lg">
+        {images.map((image, index) =>
+          tile(image, index, index === 0 ? "row-span-2" : "")
+        )}
+      </div>
+    )
+  let offset = 0
+  return (
+    <div className="mt-2 flex w-full max-w-lg flex-col gap-1 overflow-hidden rounded-lg">
+      {layout.rows.map((size) => {
+        const start = offset
+        offset += size
+        return (
+          <div
+            key={start}
+            className={`grid gap-1 ${size === 1 ? "aspect-video grid-cols-1" : size === 2 ? "aspect-[2/1] grid-cols-2" : "aspect-[3/1] grid-cols-3"}`}
+          >
+            {images
+              .slice(start, start + size)
+              .map((image, index) => tile(image, start + index))}
+          </div>
+        )
+      })}
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { keys, roomKeys } from "./keys"
 import type { getChatRoom, getChatRooms, getChatMessages } from "@/api/chat"
+import { forgetRoomImages } from "@/lib/chat/image-cache"
 import { messagesQuery } from "./chat"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
@@ -15,6 +16,22 @@ export function removeRoom(client: QueryClient, id: string) {
         : undefined
   )
   for (const key of roomKeys) client.removeQueries({ queryKey: key(id) })
+  void forgetRoomImages(id)
+}
+
+/** Image ids the cache last knew for a message, before an update replaces them. */
+export function cachedAttachmentIds(
+  client: QueryClient,
+  roomId: string,
+  messageId: string
+) {
+  return (
+    client
+      .getQueryData(messagesQuery(roomId).queryKey)
+      ?.pages.flatMap((page) => page.messages)
+      .find((message) => message.id === messageId)
+      ?.attachments.map((image) => image.id) ?? []
+  )
 }
 
 export function updateRoom(

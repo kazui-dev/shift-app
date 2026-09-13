@@ -1,4 +1,5 @@
 import { getChatImage } from "@/api/chat"
+import { readCachedImage, storeCachedImage } from "@/lib/chat/image-cache"
 
 type Entry = {
   promise: Promise<string>
@@ -22,6 +23,19 @@ function trim() {
     bytes -= entry.bytes
   }
 }
+/** This device's copy when it has one; otherwise the network, kept for next time. */
+async function loadImage(
+  user: string,
+  room: string,
+  id: string,
+  signal: AbortSignal
+) {
+  const kept = await readCachedImage(user, room, id)
+  if (kept) return kept
+  const blob = await getChatImage(room, id, signal)
+  void storeCachedImage(user, room, id, blob)
+  return blob
+}
 export function acquireChatImage(user: string, room: string, id: string) {
   const key = JSON.stringify([user, room, id])
   let entry = images.get(key)
@@ -33,7 +47,7 @@ export function acquireChatImage(user: string, room: string, id: string) {
       bytes: 0,
       promise: Promise.resolve(""),
     }
-    created.promise = getChatImage(room, id, controller.signal)
+    created.promise = loadImage(user, room, id, controller.signal)
       .then(async (blob) => {
         if (controller.signal.aborted)
           throw new Error("Image request was cancelled")

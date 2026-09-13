@@ -9,6 +9,7 @@ export function RemoteImage({
   width,
   height,
   alt,
+  fit = "contain",
   onOpen,
 }: {
   roomId: string
@@ -16,6 +17,7 @@ export function RemoteImage({
   width: number
   height: number
   alt: string
+  fit?: "contain" | "cover"
   onOpen: (src: string) => void
 }) {
   const { state } = getRouteApi("/_app").useRouteContext()
@@ -73,7 +75,7 @@ export function RemoteImage({
           height={height}
           alt={alt}
           draggable={false}
-          className="size-full object-contain"
+          className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
         />
       ) : (
         <span className="flex size-full items-center justify-center text-xs text-muted-foreground">

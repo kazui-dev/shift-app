@@ -15,7 +15,10 @@ import {
   queryClient,
   shouldPersistQueryKey,
 } from "@/data/query-client.ts"
+import { pruneCachedImages } from "@/lib/chat/image-cache"
 import { routeTree } from "./routeTree.gen.ts"
+
+void pruneCachedImages()
 
 const router = createRouter({
   routeTree,
