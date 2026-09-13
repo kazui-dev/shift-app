@@ -65,7 +65,7 @@ export function SettingsPage() {
         </h2>
         <div className="flex min-h-18 items-center justify-between gap-4 border-y px-4 py-3 sm:px-6">
           <span className="shrink-0 font-medium">テーマ</span>
-          <div
+          <fieldset
             className="flex gap-1 rounded-lg bg-muted p-1"
             aria-label="テーマ"
           >
@@ -86,7 +86,7 @@ export function SettingsPage() {
                 {label}
               </button>
             ))}
-          </div>
+          </fieldset>
         </div>
       </div>
 

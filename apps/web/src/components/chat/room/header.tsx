@@ -88,18 +88,19 @@ export function RoomHeader({
       >
         <ArrowLeft />
       </Button>
-      <button
-        type="button"
-        disabled={!room}
-        onClick={onMembers}
-        aria-label={`${name}のチャット情報`}
-        className="min-w-0 flex-1 text-left md:hidden"
-      >
-        <h1 className="truncate text-sm font-semibold">{name}</h1>
-      </button>
-      <div className="hidden min-w-0 flex-1 items-center gap-2 md:flex">
-        <h1 className="truncate text-sm font-semibold">{name}</h1>
-      </div>
+      {/* The heading holds the button, as a button cannot hold a heading. */}
+      <h1 className="min-w-0 flex-1 text-sm font-semibold">
+        <button
+          type="button"
+          disabled={!room}
+          onClick={onMembers}
+          aria-label={`${name}のチャット情報`}
+          className="block w-full truncate text-left md:hidden"
+        >
+          {name}
+        </button>
+        <span className="hidden truncate md:block">{name}</span>
+      </h1>
       {room?.activityId && (
         <Button variant="ghost" size="sm" onClick={onAttendance}>
           出勤・連絡
