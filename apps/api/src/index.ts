@@ -4,6 +4,7 @@ import { app } from "./app"
 import { sendDueAssignmentReminders } from "./services/push"
 
 export { ChatRoom } from "./durable-objects/chat-room"
+export { SharedCache } from "./entrypoints/shared-cache"
 
 export default {
   fetch: (request, env, ctx) => app.fetch(request, env, ctx),

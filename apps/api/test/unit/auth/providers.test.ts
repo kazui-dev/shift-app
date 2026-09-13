@@ -61,7 +61,7 @@ it("returns the current Discord avatar and explicitly clears a removed avatar", 
   vi.stubGlobal("fetch", fetchMock)
   expect(
     (await getDiscordUserInfo({ accessToken: "token" }, "guild"))?.user.image
-  ).toBe("https://cdn.discordapp.com/avatars/4194304/new_hash.png")
+  ).toBe("https://cdn.discordapp.com/avatars/4194304/new_hash.webp?size=128")
   expect(
     (await getDiscordUserInfo({ accessToken: "token" }, "guild"))?.user.image
   ).toBe("")
@@ -74,9 +74,11 @@ it("clears an empty OAuth image at persistence without changing other profile fi
   })
   expect(
     normalizeProfileImage({
-      image: "https://cdn.discordapp.com/avatars/123/hash.png",
+      image: "https://cdn.discordapp.com/avatars/123/hash.webp?size=128",
     })
-  ).toEqual({ image: "https://cdn.discordapp.com/avatars/123/hash.png" })
+  ).toEqual({
+    image: "https://cdn.discordapp.com/avatars/123/hash.webp?size=128",
+  })
   expect(normalizeProfileImage({ name: "Member", image: undefined })).toEqual({
     name: "Member",
     image: undefined,

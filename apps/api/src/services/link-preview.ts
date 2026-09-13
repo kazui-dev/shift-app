@@ -1,9 +1,17 @@
 import * as v from "valibot"
 import { chatLinkPreviewSchema } from "@workspace/shared/communications"
 import { previewText } from "../domain/link-preview"
-import { fetchLink, limitedBody, publicLink, urlDigest } from "./link-fetch"
+import { fetchLink, limitedBody, publicLink } from "./link-fetch"
 type Preview = v.InferOutput<typeof chatLinkPreviewSchema>["preview"]
-async function loadLinkPreview(value: string): Promise<Preview> {
+const imageTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+]
+/** What a public page says about itself, or `null` when it cannot be read. */
+export async function loadLinkPreview(value: string): Promise<Preview> {
   try {
     const { response, url } = await fetchLink(
       value,
@@ -55,33 +63,34 @@ async function loadLinkPreview(value: string): Promise<Preview> {
     return null
   }
 }
-export async function cachedLinkPreview(
-  value: string,
-  origin: string,
-  waitUntil: (work: Promise<unknown>) => void
+/**
+ * A link card's image: the page's image cropped to the card's square as WebP,
+ * or `null` when it is not a readable image.
+ */
+export async function loadLinkImage(
+  images: Pick<ImagesBinding, "info" | "input">,
+  value: string
 ) {
-  const key = new Request(
-    `${origin}/__link-preview/v2/${await urlDigest(value)}`
-  )
-  const cache = await caches.open("chat-link-previews")
-  const cached = await cache.match(key)
-  if (cached) {
-    const parsed = v.safeParse(chatLinkPreviewSchema, await cached.json())
-    if (parsed.success) return parsed.output.preview
-  }
-  const preview = await loadLinkPreview(value)
-  waitUntil(
-    cache.put(
-      key,
-      Response.json(
-        { preview },
-        {
-          headers: {
-            "Cache-Control": `public, max-age=${preview ? 86400 : 300}`,
-          },
-        }
-      )
+  try {
+    const { response } = await fetchLink(
+      value,
+      "image/avif,image/webp,image/png,image/jpeg,image/gif",
+      AbortSignal.timeout(10_000)
     )
-  )
-  return preview
+    const bytes = await limitedBody(response, 20 * 1024 * 1024)
+    const info = await images.info(new Blob([bytes]).stream())
+    if (
+      !("width" in info) ||
+      !imageTypes.includes(info.format) ||
+      info.width * info.height > 100_000_000
+    )
+      return null
+    const result = await images
+      .input(new Blob([bytes]).stream())
+      .transform({ width: 336, height: 336, fit: "cover" })
+      .output({ format: "image/webp", quality: 85, anim: false })
+    return await result.response().arrayBuffer()
+  } catch {
+    return null
+  }
 }

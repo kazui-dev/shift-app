@@ -42,6 +42,8 @@ vp run cf-typegen
 
 チャットの画像には非公開R2 bucket `shift-app-chat-images` とImages bindingを使う。別環境を作成する場合はbucketを作成し、`r2.dev`公開アクセスとカスタムドメインを有効にしない。`CHAT_IMAGES`と`IMAGES`のbindingは`apps/api/wrangler.jsonc`で管理する。local previewはローカルのR2/Imagesエミュレーターで検証できる。
 
+Workers Cacheは`SharedCache` entrypointだけで有効にし、既定のentrypointでは無効にする（`cache`と`exports`）。キャッシュキーは経路とqueryだけで利用者を含まないため、呼び出す前に必ず認可し、`src/lib/shared-cache.ts`から呼ぶ。`cross_version_cache`によりデプロイ後もキャッシュを再利用するので、応答の形や変換を変えるときは経路の版（`/v1/`）を上げる。Node上のテストでは`cloudflare:workers`を`test/support/cloudflare-workers.ts`に置き換える。
+
 Hono では `CloudflareBindings` を使う。
 
 ```ts

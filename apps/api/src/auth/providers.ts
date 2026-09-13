@@ -66,7 +66,7 @@ export async function getDiscordUserInfo(
 
   const profile = parsedProfile.output
   const image = profile.avatar
-    ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
+    ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.webp?size=128`
     : ""
 
   return {
@@ -81,12 +81,12 @@ export async function getDiscordUserInfo(
   }
 }
 
-// Keep only Discord custom avatars; an empty OAuth image explicitly clears it.
+// Keep only Discord custom avatars at 128px WebP; an empty OAuth image clears it.
 export function normalizeProfileImage<
   T extends { image?: string | null | undefined },
 >(profile: T) {
   if (profile.image == null) return profile
-  return /^https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/[a-zA-Z0-9_]+\.png$/.test(
+  return /^https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/[a-zA-Z0-9_]+\.webp\?size=128$/.test(
     profile.image
   )
     ? profile

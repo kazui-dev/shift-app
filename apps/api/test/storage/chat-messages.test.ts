@@ -6,14 +6,6 @@ import {
   type RoomRow,
 } from "../../src/services/chat-access"
 import { roomRecipients } from "../../src/services/chat-permissions"
-vi.mock("cloudflare:workers", () => ({
-  DurableObject: class {
-    constructor(
-      public ctx: unknown,
-      public env: unknown
-    ) {}
-  },
-}))
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
