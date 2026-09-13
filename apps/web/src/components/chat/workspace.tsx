@@ -1,3 +1,4 @@
+import { useChatInfo } from "./use-chat-info"
 import { useEffect, useState, type ReactNode } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -46,12 +47,12 @@ export function ChatWorkspace({
   const client = useQueryClient(),
     navigate = useNavigate()
   const desktop = useMediaQuery("(min-width: 768px)")
-  const [membersFor, setMembersFor] = useState<string>()
   const [attendanceFor, setAttendanceFor] = useState<string>()
-  const membersOpen = !!roomId && membersFor === roomId
-  useEffect(() => {
-    setMembersFor(undefined)
-  }, [roomId, showingRoom])
+  const {
+    open: membersOpen,
+    show: showInfo,
+    close: closeInfo,
+  } = useChatInfo(roomId)
   useEffect(() => {
     if (!room || !showingRoom || offline) return
     void client.prefetchQuery(membersQuery(room.id))
@@ -79,7 +80,7 @@ export function ChatWorkspace({
   const openSettings = () => {
     if (room)
       void navigate({
-        to: "/chat/$roomId/settings",
+        to: "/chat/$roomId/info/settings",
         params: { roomId: room.id },
         state: { chatSettings: true },
       })
@@ -97,8 +98,8 @@ export function ChatWorkspace({
         showingRoom={showingRoom}
         hasRoom={!!roomId}
         showingMembers={membersOpen}
-        onMembers={() => setMembersFor(roomId)}
-        onConversation={() => setMembersFor(undefined)}
+        onMembers={showInfo}
+        onConversation={closeInfo}
         onBack={onBack}
         onResume={onResume}
         list={list}
@@ -109,7 +110,7 @@ export function ChatWorkspace({
             name={room?.name ?? name}
             offline={offline}
             onBack={onBack}
-            onMembers={() => setMembersFor(roomId)}
+            onMembers={showInfo}
             onMute={mute}
             onSettings={openSettings}
             onAttendance={openAttendance}
@@ -121,7 +122,7 @@ export function ChatWorkspace({
               <MembersHeader
                 room={room}
                 offline={offline}
-                onBack={() => setMembersFor(undefined)}
+                onBack={closeInfo}
                 onMute={mute}
                 onSettings={openSettings}
               />

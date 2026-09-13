@@ -69,7 +69,7 @@ export function ChatPanels({
         <aside
           ref={membersPanel}
           data-chat-panel="members"
-          aria-label="チャットメンバー"
+          aria-label="チャット情報"
           className="relative z-10 flex min-h-0 min-w-0 flex-[0_0_100%] flex-col bg-[color-mix(in_oklab,var(--background),var(--muted)_50%)] pb-[env(safe-area-inset-bottom)] md:col-start-3 md:row-start-2 md:border-l md:pb-0"
         >
           {members}

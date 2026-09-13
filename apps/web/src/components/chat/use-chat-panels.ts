@@ -28,7 +28,7 @@ export function useChatPanels({
 }) {
   const desktop = useMediaQuery("(min-width: 768px)")
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
-  const initial = useRef(showingRoom ? 1 : 0)
+  const initial = useRef(showingRoom ? (showingMembers ? 2 : 1) : 0)
   const requested = useRef(initial.current)
   const list = useRef<HTMLElement>(null)
   const conversation = useRef<HTMLDivElement>(null)

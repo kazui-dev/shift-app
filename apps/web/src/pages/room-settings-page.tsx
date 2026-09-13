@@ -16,7 +16,7 @@ import { useChatStore } from "@/components/chat/use-chat-store"
 import { RoutePage } from "@/components/route-page"
 
 export function RoomSettingsPage() {
-  const { roomId } = getRouteApi("/_app/chat/$roomId/settings").useParams()
+  const { roomId } = getRouteApi("/_app/chat/$roomId/info/settings").useParams()
   return <RoomSettingsScreen key={roomId} roomId={roomId} />
 }
 function RoomSettingsScreen({ roomId }: { roomId: string }) {
@@ -29,7 +29,7 @@ function RoomSettingsScreen({ roomId }: { roomId: string }) {
     if (router.history.location.state.chatSettings) router.history.back()
     else
       void router.navigate({
-        to: "/chat/$roomId",
+        to: "/chat/$roomId/info",
         params: { roomId },
         replace: true,
       })

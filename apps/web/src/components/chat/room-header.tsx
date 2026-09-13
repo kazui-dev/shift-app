@@ -90,7 +90,7 @@ export function RoomHeader({
         type="button"
         disabled={!room}
         onClick={onMembers}
-        aria-label={`${name}のメンバー`}
+        aria-label={`${name}のチャット情報`}
         className="min-w-0 flex-1 text-left md:hidden"
       >
         <h1 className="truncate text-sm font-semibold">{name}</h1>
