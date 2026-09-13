@@ -15,7 +15,7 @@ import { SquarePen } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 
-import { confirmCampusLocation } from "@/lib/campus-location"
+import { confirmCampusLocation } from "@/components/calendar/campus-location"
 import { checkIn } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { useCalendarViewState } from "@/components/calendar-view-context"
@@ -30,9 +30,9 @@ import { CalendarWeekHeader } from "@/components/calendar/calendar-week-header"
 import { paintCalendarWeekHeader } from "@/components/calendar/calendar-week-presentation"
 import { MonthSwitcher } from "@/components/calendar/month-switcher"
 import { useCalendarAssignments } from "@/components/calendar/use-calendar-assignments"
-import { calendarSlideDates } from "@/lib/calendar-carousel"
+import { calendarSlideDates } from "@/lib/calendar/carousel"
 import { japanDateTime, japanFullDate } from "@workspace/shared/japan-time"
-import { loopCarouselInitialSlide } from "@/lib/loop-carousel"
+import { loopCarouselInitialSlide } from "@/lib/calendar/loop-carousel"
 
 function initialCalendarScrollTop(now: Date): number {
   const japanNow = japanDateTime(now)

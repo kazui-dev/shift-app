@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { calendarDate } from "@/lib/calendar-view"
+import { calendarDate } from "@/lib/calendar/view"
 
 export const Route = createFileRoute("/_app/_calendar/calendar")({
   validateSearch: (

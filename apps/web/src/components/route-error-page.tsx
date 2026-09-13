@@ -5,7 +5,7 @@ import { useRouter } from "@tanstack/react-router"
 import { Button } from "@workspace/ui/components/button"
 
 import { AuthShell } from "@/components/auth-shell"
-import { OfflineAccountUnavailableError } from "@/lib/account-state"
+import { OfflineAccountUnavailableError } from "@/lib/account/state"
 
 export function RouteErrorPage({ error, reset }: ErrorComponentProps) {
   const offline = error instanceof OfflineAccountUnavailableError

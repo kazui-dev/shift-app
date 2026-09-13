@@ -33,6 +33,10 @@
 - UI 部品は shadcn/ui CLI で管理し、共有可能な部品を `packages/ui` に置く。
 - API 入出力は Valibot schema で検証し、共通 schema は `packages/shared` に置く。
 - HTTP通信は`apps/web/src/api`へ集約し、React componentはURL、header、response parseを扱わない。
+- cache keyは`apps/web/src/data/keys.ts`だけが組み立てる。ルーム単位・参加状態・永続化の
+  まとまりも同じ場所で命名し、無効化や削除は名前で参照する。
+- チャットの部品は`components/chat`の`message`、`composer`、`image`、`room`に分け、
+  会話の外枠(遷移、パネル、配信)だけを直下に置く。
 - Service Worker の asset cache と、TanStack Query のデータ cache を別物として設計する。
 
 カレンダーの日、週、月送りは共通のloop carousel adapterを介してEmbla Carouselの
@@ -179,24 +183,29 @@ WebとAPIを同一originにすることでCORSと認証cookieの構成を単純�
 
 ## Packages
 
-| Package                        | Responsibility                                             |
-| ------------------------------ | ---------------------------------------------------------- |
-| `packages/ui`                  | shadcn/ui の共有コンポーネントと global CSS                |
-| `packages/db`                  | Drizzle schema。DB client は Worker の D1 binding から作る |
-| `apps/api/src/app.ts`          | Hono applicationとHTTP routeの合成                         |
-| `apps/api/src/index.ts`        | Workerのfetch・scheduled・Durable Object export            |
-| `apps/api/src/auth`            | D1 bindingを使うBetter Auth設定、provider所属確認          |
-| `apps/api/src/routes`          | HTTP resourceごとのroute                                   |
-| `apps/api/src/routes/admin`    | 管理APIの共通認証、read query、監査付きcommand             |
-| `apps/api/src/routes/years`    | 年度をcanonical parentとするresource collection            |
-| `apps/api/src/routes/me`       | ログイン中member固有のresource                             |
-| `apps/api/src/domain`          | WorkerやHonoに依存しない純粋なdomain logic                 |
-| `apps/api/src/services`        | Pushなど外部I/Oを伴うapplication service                   |
-| `apps/api/src/durable-objects` | Durable Object class                                       |
-| `apps/api/test/unit`           | 純粋logicと外部境界adapterのunit test                      |
-| `apps/api/test/http`           | Hono request boundaryの挙動test                            |
-| `apps/web/src/api`             | Valibot検証付きWeb API client                              |
-| `packages/shared`              | API schema、共有型、正規化処理                             |
+| Package                        | Responsibility                                                   |
+| ------------------------------ | ---------------------------------------------------------------- |
+| `packages/ui`                  | shadcn/ui の共有コンポーネントと global CSS                      |
+| `packages/db`                  | Drizzle schema。DB client は Worker の D1 binding から作る       |
+| `apps/api/src/app.ts`          | Hono applicationとHTTP routeの合成                               |
+| `apps/api/src/index.ts`        | Workerのfetch・scheduled・Durable Object export                  |
+| `apps/api/src/auth`            | D1 bindingを使うBetter Auth設定、provider所属確認                |
+| `apps/api/src/routes`          | HTTP resourceごとのroute                                         |
+| `apps/api/src/routes/admin`    | 管理APIの共通認証、read query、監査付きcommand                   |
+| `apps/api/src/routes/years`    | 年度をcanonical parentとするresource collection                  |
+| `apps/api/src/routes/me`       | ログイン中member固有のresource                                   |
+| `apps/api/src/domain`          | WorkerやHonoに依存しない純粋なdomain logic                       |
+| `apps/api/src/services`        | Pushなど外部I/Oを伴うapplication service                         |
+| `apps/api/src/durable-objects` | Durable Object class                                             |
+| `apps/api/test/unit`           | 純粋logicと外部境界adapterのunit test                            |
+| `apps/api/test/http`           | Hono request boundaryの挙動test                                  |
+| `apps/api/test/storage`        | Durable ObjectとD1 migrationのtest                               |
+| `apps/api/test/support`        | migration済みDBとD1 bindingのtest harness                        |
+| `apps/web/src/api`             | Valibot検証付きWeb API client                                    |
+| `apps/web/src/data`            | query options、cache key、永続化                                 |
+| `apps/web/src/lib`             | 領域別の非UI logic(`chat`、`calendar`、`account`、`push`、`app`) |
+| `apps/web/src/components`      | 画面部品と、その画面固有の純粋logic                              |
+| `packages/shared`              | API schema、共有型、正規化処理                                   |
 
 ## Cloudflare Bindings
 
@@ -358,7 +367,7 @@ PWAの更新はcontrollerchangeで切り替えを確認してから再読み込�
 
 ### データの準備と更新
 
-`apps/web/src/data` がリソース別の query options、起動・遷移時の準備、更新結果の反映を所有する。
+`apps/web/src/data` がリソース別の query options、cache key、起動・遷移時の準備、更新結果の反映を所有する。
 画面と先読みは同じキーと鮮度を使い、重複リクエストをまとめる。年度情報を準備してから
 直近のカレンダー、本人の希望、ルーム一覧を取得する。管理情報は管理可能な年度だけを対象とし、
 全利用者や操作履歴は該当画面への遷移で取得する。表示できるデータがあれば維持したまま再検証する。

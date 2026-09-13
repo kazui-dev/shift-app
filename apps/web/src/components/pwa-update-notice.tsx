@@ -1,10 +1,10 @@
-import { settleChatStorage } from "@/lib/chat-store"
-import { activateAppUpdate } from "@/lib/app-update"
+import { settleChatStorage } from "@/lib/chat/store"
+import { activateAppUpdate } from "@/lib/app/update"
 import { toast } from "@workspace/ui/lib/toast"
 import { useEffect, useRef, useState } from "react"
 import { LoaderCircle, RefreshCw, X } from "lucide-react"
 import { registerSW } from "virtual:pwa-register"
-import { monitorUpdates } from "@/lib/update-monitor"
+import { monitorUpdates } from "@/lib/app/update-monitor"
 
 import { Button } from "@workspace/ui/components/button"
 

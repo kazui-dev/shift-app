@@ -5,7 +5,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react"
-import { pageDrag, boundPages } from "./page-motion"
+import { pageDrag, boundPages } from "@/components/chat/page-motion"
 import useEmblaCarousel from "embla-carousel-react"
 import { useMediaQuery } from "@/hooks/use-media-query"
 

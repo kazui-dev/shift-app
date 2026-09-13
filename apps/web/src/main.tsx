@@ -14,7 +14,7 @@ import {
   persister,
   queryClient,
   shouldPersistQueryKey,
-} from "@/lib/query-client.ts"
+} from "@/data/query-client.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
 const router = createRouter({

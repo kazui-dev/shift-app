@@ -2,7 +2,7 @@ import { getRouteApi, useSearch } from "@tanstack/react-router"
 import { CalendarPage } from "@/pages/calendar-page"
 import { CalendarViewStateProvider } from "@/components/calendar-view-state"
 import { useDisplayYear } from "@/components/use-display-year"
-import { calendarViewKey } from "@/lib/calendar-view"
+import { calendarViewKey } from "@/lib/calendar/view"
 export function CalendarScreen() {
   const { state } = getRouteApi("/_app").useRouteContext()
   const { date } = useSearch({ strict: false })

@@ -8,7 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query"
 import { replaceAvailability } from "@/api/availability"
 import { errorMessage } from "@/api/client"
-import { answerError } from "@/lib/availability-editor"
+import { answerError } from "@/components/availability/answer-status"
 
 export function useAvailabilityEditor(
   user: string,

@@ -1,12 +1,12 @@
-import { chatRoomId } from "@/lib/chat-location"
+import { chatRoomId } from "@/lib/chat/location"
 import { keys } from "@/data/keys"
 import { useRouter } from "@tanstack/react-router"
-import { useChatEvents } from "./use-chat-events"
+import { useChatEvents } from "@/components/chat/use-chat-events"
 import { useEffect } from "react"
 import { receiveMessage } from "@/data/chat-cache"
 import { useQueryClient } from "@tanstack/react-query"
-import { useChatStore } from "./use-chat-store"
-import { useOfflineMode } from "../offline-mode-context"
+import { useChatStore } from "@/components/chat/use-chat-store"
+import { useOfflineMode } from "@/components/offline-mode-context"
 
 export function ChatDelivery() {
   useChatEvents()

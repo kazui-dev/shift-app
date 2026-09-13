@@ -5,8 +5,8 @@ import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { subscribeChatEvents } from "@/api/chat-events"
 import { applyChatEvent } from "@/data/chat-events"
-import { useChatStore } from "./use-chat-store"
-import { useOfflineMode } from "../offline-mode-context"
+import { useChatStore } from "@/components/chat/use-chat-store"
+import { useOfflineMode } from "@/components/offline-mode-context"
 
 export function useChatEvents() {
   const client = useQueryClient(),

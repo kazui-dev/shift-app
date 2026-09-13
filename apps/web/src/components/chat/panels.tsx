@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useChatPanels } from "./use-chat-panels"
+import { useChatPanels } from "@/components/chat/use-chat-panels"
 
 export function ChatPanels({
   showingRoom,

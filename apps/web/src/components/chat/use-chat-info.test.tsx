@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
-import { useChatInfo } from "./use-chat-info"
+import { useChatInfo } from "@/components/chat/use-chat-info"
 
 const boundary = vi.hoisted(() => ({
   location: {

@@ -1,5 +1,5 @@
 import { useRouter, useRouterState } from "@tanstack/react-router"
-import { useCloseOverlay } from "./overlay"
+import { useCloseOverlay } from "@/components/chat/overlay"
 
 export function useChatInfo(roomId: string | undefined) {
   const router = useRouter()

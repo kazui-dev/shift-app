@@ -1,4 +1,4 @@
-import { calendarWeekPresentation } from "@/lib/calendar-week"
+import { calendarWeekPresentation } from "@/lib/calendar/week"
 
 export function resetCalendarWeekHeader(root: HTMLDivElement): void {
   root.style.setProperty("--calendar-day-progress-active", "0")

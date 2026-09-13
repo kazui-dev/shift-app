@@ -2,12 +2,12 @@ import { useEffect, useSyncExternalStore } from "react"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 import { useOfflineMode } from "./offline-mode-context"
-import { pushSupported } from "@/lib/push-browser"
+import { pushSupported } from "@/lib/push/browser"
 import {
   getPushControlState,
   setPushEnabled,
   subscribePushControl,
-} from "@/lib/push-control-store"
+} from "@/lib/push/control-store"
 
 export function PushControl() {
   const offline = useOfflineMode()

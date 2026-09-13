@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test"
-import { ChatNavigation } from "./navigation"
+import { ChatNavigation } from "@/components/chat/navigation"
 
 function fixture(roomId: string | undefined = "room", canGoBack = true) {
   const writes: unknown[] = []
