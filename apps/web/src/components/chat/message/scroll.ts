@@ -14,6 +14,9 @@ type Surface = {
   locate: (id: string) => number | null
 }
 
+/** How far above the bottom a reader still counts as watching the latest. */
+const NEAR_BOTTOM = 48
+
 // One owner for render, resize, user scrolling and explicit jumps.
 export class MessageScroll {
   private initialized = false
@@ -21,6 +24,7 @@ export class MessageScroll {
   private jumping = false
   private targetId: string | null = null
   private anchor: Anchor | null = null
+  private bottomGap = Number.POSITIVE_INFINITY
   private showLatest = false
   private surface: Surface
   private change: (status: ScrollStatus) => void
@@ -49,6 +53,9 @@ export class MessageScroll {
       if (destination !== null) this.move(destination, true)
     } else if (this.following || this.jumping) {
       this.move(view.extent(), this.jumping)
+    } else if (this.bottomGap <= NEAR_BOTTOM) {
+      // Near the latest, keyboards and a growing composer keep the bottom in view.
+      this.move(view.extent() - view.height() - this.bottomGap, false)
     } else if (this.anchor) {
       const offset = view.locate(this.anchor.id)
       if (offset !== null)
@@ -142,7 +149,7 @@ export class MessageScroll {
   }
 
   isAtBottom() {
-    return this.initialized && this.distance() <= 48
+    return this.initialized && this.distance() <= NEAR_BOTTOM
   }
 
   private distance() {
@@ -154,6 +161,7 @@ export class MessageScroll {
 
   private remember() {
     this.anchor = this.surface.anchor()
+    this.bottomGap = this.distance()
   }
 
   private move(top: number, smooth: boolean) {
