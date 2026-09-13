@@ -81,6 +81,7 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
       content: "",
       createdAt: new Date().toISOString(),
       attachments: [attachment],
+      linkPreview: null,
     },
   })
   value.retry(queued.id)
@@ -158,6 +159,7 @@ it("restores persisted drafts and interrupted uploads after reload", async () =>
       memberImage: null,
       content: "送信",
       attachments: [],
+      linkPreview: null,
       createdAt: new Date().toISOString(),
     },
   })
@@ -262,6 +264,7 @@ it("persists a reply target with the queued draft and includes it when sending",
       content: "Reply",
       createdAt: new Date().toISOString(),
       attachments: [],
+      linkPreview: null,
       reply,
     },
   })

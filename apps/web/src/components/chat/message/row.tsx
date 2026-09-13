@@ -163,12 +163,12 @@ export function ChatMessageRow({
                 )}
               </p>
             )}
-            {message.status === "sent" && (
+            {message.status === "sent" && message.linkPreview && (
               <MessageLinkPreview
+                key={message.linkPreview.url}
                 roomId={room.id}
                 messageId={message.id}
-                content={message.content}
-                offline={offline}
+                preview={message.linkPreview}
               />
             )}
             <MessageImages

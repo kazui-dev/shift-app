@@ -6,7 +6,6 @@ import {
 } from "@tanstack/react-query"
 import { keys } from "@/data/keys"
 import {
-  getChatLinkPreview,
   getChatMessages,
   getChatRoom,
   getChatRooms,
@@ -28,18 +27,6 @@ export const messagesQuery = (id: string) =>
     getNextPageParam: (last) =>
       last.hasMore ? last.messages[0]?.sequence : undefined,
   })
-export const linkPreviewQuery = (
-  roomId: string,
-  messageId: string,
-  url: string
-) =>
-  queryOptions({
-    queryKey: keys.chatLinkPreview(roomId, messageId, url),
-    queryFn: ({ signal }) => getChatLinkPreview(roomId, messageId, signal),
-    staleTime: 86_400_000,
-    retry: false,
-  })
-
 export function prepareConversation(client: QueryClient, id: string) {
   return Promise.all([
     client.prefetchQuery(roomQuery(id)),

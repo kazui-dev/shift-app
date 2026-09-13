@@ -40,6 +40,7 @@ export function messageRows(
         reply: message.reply,
         createdAt: message.createdAt,
         attachments: [],
+        linkPreview: null,
         files: message.files,
         status: message.status,
       })),

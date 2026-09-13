@@ -1,7 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { messageLinks } from "@workspace/shared/messages"
 import { frameHeight, tileSizes } from "@/components/chat/image/frame"
-import { linkPreviewQuery, messagesQuery } from "@/data/chat"
+import { messagesQuery } from "@/data/chat"
 import {
   acquireChatImage,
   acquireLinkImage,
@@ -15,6 +14,7 @@ type RecentMessage = {
   reply?: object | undefined
   memberImage?: string | null | undefined
   attachments: { id: string; width: number; height: number }[]
+  linkPreview: { url: string; image: string | null } | null
 }
 
 /** Rough pixel sizes of a history row, to tell which messages fill a screen. */
@@ -27,9 +27,6 @@ const row = {
   gutter: 64,
   character: 15,
 }
-
-const firstLink = (content: string) =>
-  messageLinks(content).find((part) => part.href)?.href
 
 function messageHeight(message: RecentMessage, width: number) {
   const perLine = Math.max(1, Math.floor(width / row.character))
@@ -48,13 +45,14 @@ function messageHeight(message: RecentMessage, width: number) {
     (message.attachments.length
       ? row.frameMargin + frameHeight(message.attachments, width)
       : 0) +
-    (firstLink(message.content) ? row.card : 0)
+    (message.linkPreview ? row.card : 0)
   )
 }
 
 /**
  * What a room shows when opened and one screen above it: the newest messages
- * filling two screens, with each image at its tile's size, avatars and links.
+ * filling two screens, with each image at its tile's size, avatars and link
+ * card images.
  */
 export function warmTargets(
   messages: readonly RecentMessage[],
@@ -80,10 +78,11 @@ export function warmTargets(
     avatars: [
       ...new Set(recent.flatMap((message) => message.memberImage ?? [])),
     ],
-    links: recent.flatMap((message) => {
-      const url = firstLink(message.content)
-      return url ? [{ messageId: message.id, url }] : []
-    }),
+    links: recent.flatMap((message) =>
+      message.linkPreview?.image
+        ? [{ messageId: message.id, url: message.linkPreview.url }]
+        : []
+    ),
   }
 }
 
@@ -104,11 +103,5 @@ export async function warmConversation(
   for (const image of images)
     warmImage(acquireChatImage(user, id, image.id, image.size))
   for (const link of links)
-    void client
-      .fetchQuery(linkPreviewQuery(id, link.messageId, link.url))
-      .then(({ preview }) => {
-        if (preview?.image)
-          warmImage(acquireLinkImage(user, id, link.messageId, link.url))
-      })
-      .catch(() => undefined)
+    warmImage(acquireLinkImage(user, id, link.messageId, link.url))
 }

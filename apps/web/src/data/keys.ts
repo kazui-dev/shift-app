@@ -31,7 +31,6 @@ export const keys = {
   chatSettings: key("chat-settings"),
   chatTargets: key("chat-targets"),
   chatSearch: key("chat-search"),
-  chatLinkPreview: key("chat-link-preview"),
   chatImageMessage: key("chat-image-message"),
   admin: key("admin"),
   adminUsers: key("admin", "users"),
@@ -50,7 +49,6 @@ export const roomKeys = [
   keys.chatMembers,
   keys.chatSettings,
   keys.chatSearch,
-  keys.chatLinkPreview,
   keys.chatImageMessage,
 ]
 

@@ -47,6 +47,7 @@ it("caps a page expanded by live messages and resumes older history at the retai
     memberImage: null,
     content: "本文",
     attachments: [],
+    linkPreview: null,
     createdAt: "2026-09-12T00:00:00.000Z",
   }))
   client.setQueryData(["chat-messages", "room"], {

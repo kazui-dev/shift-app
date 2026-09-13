@@ -15,6 +15,7 @@ const message = (sequence: number) => ({
   memberImage: null,
   content: "本文",
   attachments: [],
+  linkPreview: null,
   createdAt: "2026-09-12T00:00:00Z",
 })
 

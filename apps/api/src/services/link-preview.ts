@@ -16,7 +16,8 @@ export async function loadLinkPreview(value: string): Promise<Preview> {
     const { response, url } = await fetchLink(
       value,
       "text/html",
-      AbortSignal.timeout(5000)
+      // A message waits for its preview before it is stored.
+      AbortSignal.timeout(3000)
     )
     if (!response.headers.get("content-type")?.includes("text/html")) {
       await response.body?.cancel()

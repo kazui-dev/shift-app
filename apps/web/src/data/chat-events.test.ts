@@ -30,6 +30,7 @@ const message = {
   content: "本文",
   createdAt: "2026-09-13T02:00:00Z",
   attachments: [],
+  linkPreview: null,
 }
 it("updates order in unopened rooms and atomically keeps visible own posts read on the same event stream", () => {
   const client = new QueryClient()
