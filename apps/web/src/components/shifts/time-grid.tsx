@@ -2,10 +2,11 @@ import { MemberAvatar } from "@/components/member-avatar"
 import { japanTime } from "@workspace/shared/japan-time"
 import { ListFilter } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { useRef, useState, type CSSProperties, type MouseEvent } from "react"
+import { useRef, useState, type MouseEvent } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { getActivity } from "@/api/activities"
+import { gridMembers, timeScale } from "./time-scale"
 
 export type EditorData = Awaited<ReturnType<typeof getActivity>>
 export function TimeGrid({
@@ -31,9 +32,8 @@ export function TimeGrid({
   onMember: (memberId: string) => void
   onFilter: () => void
 }) {
-  const start = Date.parse(plan.startsAt),
-    end = Date.parse(plan.endsAt),
-    duration = end - start
+  const scale = timeScale(plan.startsAt, plan.endsAt)
+  const { start, end, duration, hours, labels } = scale
   const drag = useRef<{
     memberId: string
     minute: number
@@ -46,28 +46,7 @@ export function TimeGrid({
   const suppressClick = useRef(false)
   const pointerSlot = useRef<string | null>(null)
   const [preview, setPreview] = useState<ShiftSelection | null>(null)
-  const minuteAt = (x: number, left: number, width: number) =>
-    Math.max(
-      0,
-      Math.min(
-        Math.floor(duration / 60000),
-        (Math.round((start + ((x - left) / width) * duration) / 300000) *
-          300000 -
-          start) /
-          60000
-      )
-    )
-  function range(memberId: string, from: number, to: number): ShiftSelection {
-    const max = Math.floor(duration / 60000)
-    const first = Math.min(Math.min(from, to), max - 1)
-    const last = Math.min(max, Math.max(first + 1, Math.max(from, to)))
-    return {
-      memberId,
-      slotId: null,
-      startsAt: new Date(start + first * 60000).toISOString(),
-      endsAt: new Date(start + last * 60000).toISOString(),
-    }
-  }
+  const { minuteAt, range, position, resize } = scale
   function dragged(
     current: NonNullable<typeof drag.current>,
     x: number
@@ -75,35 +54,9 @@ export function TimeGrid({
     const minute = minuteAt(x, current.left, current.width)
     if (!current.slot || !current.edge)
       return range(current.memberId, current.minute, minute)
-    const slot = current.slot
-    const value = start + minute * 60000
     return {
+      ...resize(current.slot, current.edge, minute),
       memberId: current.memberId,
-      slotId: slot.id,
-      startsAt:
-        current.edge === "start"
-          ? new Date(
-              Math.max(
-                start,
-                Math.min(
-                  value,
-                  Math.floor((Date.parse(slot.endsAt) - 1) / 300000) * 300000
-                )
-              )
-            ).toISOString()
-          : slot.startsAt,
-      endsAt:
-        current.edge === "end"
-          ? new Date(
-              Math.min(
-                end,
-                Math.max(
-                  value,
-                  Math.ceil((Date.parse(slot.startsAt) + 1) / 300000) * 300000
-                )
-              )
-            ).toISOString()
-          : slot.endsAt,
     }
   }
   function click(event: MouseEvent<HTMLButtonElement>, memberId: string) {
@@ -135,49 +88,11 @@ export function TimeGrid({
       event.detail === 0 ? 0 : minuteAt(event.clientX, rect.left, rect.width)
     onCommit(range(memberId, from, from + 60))
   }
-  function position(from: string, to: string): CSSProperties {
-    const left = Math.max(start, Date.parse(from)),
-      right = Math.min(end, Date.parse(to))
-    return {
-      left: `${((left - start) / duration) * 100}%`,
-      width: `${Math.max(0, ((right - left) / duration) * 100)}%`,
-    }
-  }
-  const firstHour = Math.ceil(start / 3600000) * 3600000
-  const hours = [
-    ...new Set([
-      start,
-      ...Array.from(
-        { length: Math.max(0, Math.ceil((end - firstHour) / 3600000)) },
-        (_, index) => firstHour + index * 3600000
-      ),
-      end,
-    ]),
-  ]
-  const labels = hours.filter(
-    (hour) =>
-      hour === start ||
-      hour === end ||
-      (hour - start >= 1800000 && end - hour >= 1800000)
-  )
-  const members = data.members.filter(
-    (member) =>
-      (includeUnavailable ||
-        data.availability.some(
-          (window) =>
-            window.memberId === member.id &&
-            Date.parse(window.startsAt) < end &&
-            Date.parse(window.endsAt) > start
-        )) &&
-      `${member.displayName} ${member.studentId}`
-        .toLocaleLowerCase()
-        .includes(search.trim().toLocaleLowerCase()) &&
-      (!role ||
-        member.roles.some((item) =>
-          role === "candidates"
-            ? plan.candidateRoleIds.includes(item.id)
-            : item.id === role
-        ))
+  const members = gridMembers(
+    data,
+    plan,
+    { search, role, includeUnavailable },
+    scale
   )
   return (
     <div className="min-h-0 max-w-full min-w-0 flex-1 overflow-auto border-y border-border/70">

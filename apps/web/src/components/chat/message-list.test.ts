@@ -1,5 +1,10 @@
 import { expect, it } from "vite-plus/test"
-import { messageRows, unreadMessage } from "./message-list"
+import {
+  groupedWithPrevious,
+  messageRows,
+  unreadMessage,
+  type MessageRow,
+} from "./message-list"
 import type { QueuedMessage } from "@/lib/chat-store"
 const member = {
   id: "member",
@@ -119,4 +124,51 @@ it("retains a deleting row through confirmation fade even when the server has al
   const deleted = { ...original, deleted: true, content: "", attachments: [] }
   expect(messageRows([deleted], [], member, retained)).toEqual([retained])
   expect(messageRows([deleted], [], member, null)).toEqual([])
+})
+
+const row = (values: Partial<MessageRow>): MessageRow => ({
+  id: "id",
+  sequence: 1,
+  memberId: member.id,
+  memberDisplayName: member.displayName,
+  memberImage: member.image,
+  content: "本文",
+  attachments: [],
+  files: [],
+  status: "sent",
+  createdAt: "2026-09-11T01:00:00+09:00",
+  ...values,
+})
+
+it("starts a new block on a new day, a new author, a gap, a reply, a deletion or the unread mark", () => {
+  const previous = row({ id: "previous" })
+  const near = row({ id: "near", createdAt: "2026-09-11T01:04:00+09:00" })
+  expect(groupedWithPrevious(near, previous, false)).toEqual({
+    newDay: false,
+    grouped: true,
+  })
+  expect(groupedWithPrevious(near, undefined, false)).toEqual({
+    newDay: true,
+    grouped: false,
+  })
+  expect(groupedWithPrevious(near, previous, true).grouped).toBe(false)
+  for (const values of [
+    { createdAt: "2026-09-11T01:06:00+09:00" },
+    { memberId: "other" },
+    { reply: { id: "r", sequence: 0, memberDisplayName: "名前", content: "" } },
+    { deleted: true },
+  ])
+    expect(
+      groupedWithPrevious(row({ ...values }), previous, false).grouped
+    ).toBe(false)
+  expect(groupedWithPrevious(near, row({ deleted: true }), false).grouped).toBe(
+    false
+  )
+  expect(
+    groupedWithPrevious(
+      row({ createdAt: "2026-09-12T00:30:00+09:00" }),
+      previous,
+      false
+    )
+  ).toEqual({ newDay: true, grouped: false })
 })
