@@ -152,8 +152,8 @@ export function ChatMessageRow({
               >
                 <MessageText content={message.content} />
                 {message.editedAt && (
-                  <span className="ml-2 text-[10px] text-muted-foreground">
-                    (編集済)
+                  <span className="ml-2 inline-flex h-lh items-center align-top text-muted-foreground">
+                    <span className="text-[10px]">(編集済)</span>
                   </span>
                 )}
               </p>

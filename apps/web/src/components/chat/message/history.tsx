@@ -40,6 +40,7 @@ export function ChatMessages({
   const [deleting, setDeleting] = useState<MessageRow | null>(null)
   const [deletionClosing, setDeletionClosing] = useState(false)
   const [blockedSend, setBlockedSend] = useState(false)
+  const [focusRequest, setFocusRequest] = useState(0)
   const edit = useMessageEdit(room.id)
   const composerEdit = edit.editing
   const { store, member, ready, queue } = useChatStore(),
@@ -84,12 +85,14 @@ export function ChatMessages({
     setDeletionClosing(false)
     setDeleting(message)
   }
+  // The draft, its images and reply target wait underneath an edit.
   function editMessage(message: MessageRow) {
-    store.edit(room.id, { content: "", files: [] })
     edit.start(message)
+    setFocusRequest((request) => request + 1)
   }
   function replyTo(message: MessageRow) {
     edit.cancel()
+    setFocusRequest((request) => request + 1)
     if (message.sequence !== null)
       store.edit(room.id, {
         ...store.draft(room.id),
@@ -201,7 +204,7 @@ export function ChatMessages({
           canPost={room.canPost}
           roomName={room.name}
           draft={
-            composerEdit ? { content: composerEdit.content, files: [] } : draft
+            composerEdit ? { ...draft, content: composerEdit.content } : draft
           }
           editing={
             composerEdit
@@ -214,11 +217,16 @@ export function ChatMessages({
           }
           disabled={!ready}
           saving={composerEdit !== null && edit.pending}
-          onChange={(value) =>
-            composerEdit
-              ? edit.change(value.content)
-              : store.edit(room.id, value)
-          }
+          onChange={(value) => {
+            if (!composerEdit) {
+              store.edit(room.id, value)
+              return
+            }
+            edit.change(value.content)
+            const current = store.draft(room.id)
+            if (value.files !== current.files)
+              store.edit(room.id, { ...current, files: value.files })
+          }}
           onAddFiles={(files) => {
             const current = store.draft(room.id)
             if (current.files.length + files.length > chatImageLimits.count) {
@@ -231,6 +239,7 @@ export function ChatMessages({
             })
           }}
           onSend={send}
+          focusRequest={focusRequest}
         />
       </div>
       <MessageActionDrawer

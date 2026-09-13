@@ -12,7 +12,7 @@ export function ComposerAttachments({
 }) {
   if (!files.length) return null
   return (
-    <div className="relative isolate before:pointer-events-none before:absolute before:-inset-x-[var(--chat-gutter)] before:inset-y-0 before:-z-10 before:bg-linear-to-b before:from-transparent before:to-background before:to-30%">
+    <div data-composer-rail className="relative isolate">
       <ul
         data-horizontal-scroll
         className="flex max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
