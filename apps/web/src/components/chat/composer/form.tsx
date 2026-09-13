@@ -15,6 +15,7 @@ import { attachImages } from "@/components/chat/composer/attach-images"
 import { ComposerAttachments } from "@/components/chat/composer/attachments"
 import { useComposerLayout } from "@/components/chat/composer/use-layout"
 import { canSubmit } from "@/components/chat/composer/send-rule"
+import { useKeyboardFocus } from "@/components/chat/composer/use-keyboard-focus"
 import { useMediaQuery } from "@/hooks/use-media-query"
 
 export type ComposerHandle = { focus: () => void }
@@ -49,8 +50,9 @@ export function ChatComposer({
     draft.content,
     !disabled
   )
-  // Focus moves only when asked in the same gesture; nothing else here opens or
-  // closes the mobile keyboard.
+  // Focus arrives only when asked in the same gesture and leaves with the
+  // keyboard, so the keyboard never opens on its own.
+  useKeyboardFocus(input)
   useImperativeHandle(
     handle,
     () => ({ focus: () => input.current?.focus({ preventScroll: true }) }),
