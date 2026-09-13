@@ -11,7 +11,8 @@ vi.mock("../../src/services/chat-access", async (original) => ({
 vi.mock("../../src/services/chat-profiles", () => ({
   withMemberImages: async (env: unknown, messages: unknown) => messages,
 }))
-vi.mock("../../src/lib/shared-cache", () => ({
+vi.mock("../../src/lib/shared-cache", async (original) => ({
+  ...(await original<typeof import("../../src/lib/shared-cache")>()),
   linkPreview: vi.fn<typeof linkPreview>(),
   sharedResource: vi.fn<typeof sharedResource>(),
 }))

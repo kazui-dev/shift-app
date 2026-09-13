@@ -7,8 +7,15 @@ import type {
 import type { ChatFile } from "@/lib/chat/store"
 import { imagePreview } from "@/lib/chat/preview"
 import { RemoteImage } from "@/components/chat/image/remote"
-import { imageSize } from "@/components/chat/image/size"
-import { mosaic, tileSizes } from "@/components/chat/image/mosaic"
+import {
+  frameWidth,
+  mosaic,
+  rowAspect,
+  singleImageSize,
+  splitAspect,
+  tileGap,
+  tileSizes,
+} from "@/components/chat/image/frame"
 
 /** A picked image, shown through this device's preview of it. */
 export function LocalImage({
@@ -114,7 +121,7 @@ function ImageFrame({ images }: { images: FrameImage[] }) {
       <div
         data-message-media
         className="mt-2 max-w-full overflow-hidden rounded-lg"
-        style={imageSize(first.dimensions)}
+        style={singleImageSize(first.dimensions)}
       >
         <FrameContent image={first} fit="contain" />
       </div>
@@ -131,11 +138,14 @@ function ImageFrame({ images }: { images: FrameImage[] }) {
     </div>
   )
   const layout = mosaic(images.length)
+  // Sized from the frame module, which the history's warming measures too.
+  const frame = { maxWidth: frameWidth, gap: tileGap }
   if (layout.split)
     return (
       <div
         data-message-media
-        className="mt-2 grid aspect-[4/3] w-full max-w-lg grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-lg"
+        className="mt-2 grid w-full grid-cols-2 grid-rows-2 overflow-hidden rounded-lg"
+        style={{ ...frame, aspectRatio: splitAspect }}
       >
         {images.map((image, index) =>
           tile(image, index === 0 ? "row-span-2" : "")
@@ -146,7 +156,8 @@ function ImageFrame({ images }: { images: FrameImage[] }) {
   return (
     <div
       data-message-media
-      className="mt-2 flex w-full max-w-lg flex-col gap-1 overflow-hidden rounded-lg"
+      className="mt-2 flex w-full flex-col overflow-hidden rounded-lg"
+      style={frame}
     >
       {layout.rows.map((size) => {
         const start = offset
@@ -154,7 +165,12 @@ function ImageFrame({ images }: { images: FrameImage[] }) {
         return (
           <div
             key={start}
-            className={`grid grid-rows-[minmax(0,1fr)] gap-1 ${size === 1 ? "aspect-video grid-cols-1" : size === 2 ? "aspect-[2/1] grid-cols-2" : "aspect-[3/1] grid-cols-3"}`}
+            className="grid grid-rows-[minmax(0,1fr)]"
+            style={{
+              gap: tileGap,
+              aspectRatio: rowAspect(size),
+              gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
+            }}
           >
             {images.slice(start, start + size).map((image) => tile(image))}
           </div>

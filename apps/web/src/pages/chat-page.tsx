@@ -2,7 +2,8 @@ import { MessageTargetProvider } from "@/components/chat/message/target"
 import { useCloseOverlay } from "@/components/chat/overlay"
 import { keys } from "@/data/keys"
 import { RoutePage } from "@/components/route-page"
-import { prepareConversation, roomsQuery, warmConversation } from "@/data/chat"
+import { prepareConversation, roomsQuery } from "@/data/chat"
+import { warmConversation } from "@/data/chat-warm"
 import {
   Outlet,
   getRouteApi,

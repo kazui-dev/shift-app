@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useRef } from "react"
 import { getRouteApi } from "@tanstack/react-router"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
 import { useQuery } from "@tanstack/react-query"
@@ -6,6 +6,7 @@ import { messageLinks } from "@workspace/shared/messages"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { linkPreviewQuery } from "@/data/chat"
 import { acquireLinkImage, cachedLinkImage } from "@/lib/chat/images"
+import { useHeldImage } from "@/components/chat/image/use-held-image"
 export function MessageLinkPreview({
   roomId,
   messageId,
@@ -51,27 +52,12 @@ function LinkPreview({
   })
   const preview = query.data?.preview
   const hasImage = !!preview?.image
-  // An image in memory shows on the first render; otherwise it is held, from
-  // this device when kept there, for as long as the card is shown.
-  const [image, setImage] = useState<string | null | undefined>(() =>
-    cachedLinkImage(user, roomId, messageId, url)
+  // Held like a list tile: from memory at once, else from this device or the network.
+  const image = useHeldImage(
+    () => acquireLinkImage(user, roomId, messageId, url),
+    hasImage,
+    () => cachedLinkImage(user, roomId, messageId, url)
   )
-  useEffect(() => {
-    if (!hasImage) return undefined
-    const held = acquireLinkImage(user, roomId, messageId, url)
-    let active = true
-    void held.promise
-      .then((value) => {
-        if (active) setImage(value)
-      })
-      .catch(() => {
-        if (active) setImage(null)
-      })
-    return () => {
-      active = false
-      held.release()
-    }
-  }, [hasImage, user, roomId, messageId, url])
   // Hold the card's space until the preview settles, so reading never jumps.
   const settling = !offline && query.data === undefined && !query.isError
   return (
@@ -100,13 +86,13 @@ function LinkPreview({
             )}
           </div>
           {hasImage &&
-            image !== null &&
-            (image ? (
+            !image.failed &&
+            (image.src ? (
               <img
-                src={image}
+                src={image.src}
                 alt=""
                 className="h-28 w-28 shrink-0 object-cover"
-                onError={() => setImage(null)}
+                onError={image.retry}
               />
             ) : (
               <span aria-hidden className="h-28 w-28 shrink-0 bg-muted" />

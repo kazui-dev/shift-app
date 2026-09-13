@@ -10,7 +10,7 @@ import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
 import { messageLinks } from "@workspace/shared/messages"
 import { publishChatEvent } from "../../services/chat-directory"
-import { sharedResource } from "../../lib/shared-cache"
+import { sharedResource, sharedRoutes } from "../../lib/shared-cache"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
 import type { RoomEnv } from "./room"
@@ -48,7 +48,7 @@ function warmLinkPreview(c: Context<RoomEnv>, content: string) {
   const link = messageLinks(content).find((part) => part.href)?.href
   if (!link) return
   c.executionCtx.waitUntil(
-    sharedResource("/v1/link-images", { url: link }).then((response) =>
+    sharedResource(sharedRoutes.linkImages, { url: link }).then((response) =>
       response.body?.cancel()
     )
   )
