@@ -4,7 +4,8 @@ import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
 import { cn } from "@workspace/ui/lib/utils"
 
 type DrawerContextProps = {
-  afterClose: React.RefObject<(() => void) | null>
+  replacing: boolean
+  replace: () => void
   hasSnapPoints: boolean
   modal: DrawerPrimitive.Root.Props["modal"]
   showSwipeHandle: boolean
@@ -27,24 +28,24 @@ function Drawer({
   modal = true,
   showSwipeHandle = false,
   snapPoints,
-  onOpenChange,
   onOpenChangeComplete,
   swipeDirection = "down",
   ...props
 }: DrawerPrimitive.Root.Props & {
   showSwipeHandle?: boolean
 }) {
-  const afterClose = React.useRef<(() => void) | null>(null)
+  const [replacing, setReplacing] = React.useState(false)
   const hasSnapPoints = snapPoints != null && snapPoints.length > 0
   const contextValue = React.useMemo(
     () => ({
-      afterClose,
+      replacing,
+      replace: () => setReplacing(true),
       hasSnapPoints,
       modal,
       showSwipeHandle,
       swipeDirection,
     }),
-    [hasSnapPoints, modal, showSwipeHandle, swipeDirection]
+    [replacing, hasSnapPoints, modal, showSwipeHandle, swipeDirection]
   )
 
   return (
@@ -55,14 +56,8 @@ function Drawer({
         snapPoints={snapPoints}
         swipeDirection={swipeDirection}
         {...props}
-        onOpenChange={(open, details) => {
-          onOpenChange?.(open, details)
-          if (open || details.isCanceled) afterClose.current = null
-        }}
         onOpenChangeComplete={(open) => {
-          const action = afterClose.current
-          afterClose.current = null
-          if (!open) action?.()
+          if (!open) setReplacing(false)
           onOpenChangeComplete?.(open)
         }}
       />
@@ -79,18 +74,18 @@ function DrawerPortal({ ...props }: DrawerPrimitive.Portal.Props) {
 }
 
 function DrawerClose({
-  onClosed,
+  replace = false,
   onClick,
   ...props
-}: DrawerPrimitive.Close.Props & { onClosed?: () => void }) {
-  const { afterClose } = useDrawer()
+}: DrawerPrimitive.Close.Props & { replace?: boolean }) {
+  const drawer = useDrawer()
   return (
     <DrawerPrimitive.Close
       data-slot="drawer-close"
       {...props}
       onClick={(event) => {
         onClick?.(event)
-        if (!event.defaultPrevented && onClosed) afterClose.current = onClosed
+        if (!event.defaultPrevented && replace) drawer.replace()
       }}
     />
   )
@@ -132,9 +127,11 @@ function DrawerSwipeHandle({
 function DrawerContent({
   className,
   children,
+  style,
   ...props
 }: DrawerPrimitive.Popup.Props) {
-  const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer()
+  const { replacing, hasSnapPoints, modal, showSwipeHandle, swipeDirection } =
+    useDrawer()
   const swipeAxis =
     swipeDirection === "down" || swipeDirection === "up" ? "y" : "x"
 
@@ -150,6 +147,13 @@ function DrawerContent({
       >
         <DrawerPrimitive.Popup
           data-slot="drawer-popup"
+          style={(state) => {
+            const value = typeof style === "function" ? style(state) : style
+            return {
+              ...value,
+              visibility: replacing ? "hidden" : value?.visibility,
+            }
+          }}
           data-swipe-axis={swipeAxis}
           data-snap-points={hasSnapPoints ? "" : undefined}
           className={cn(
