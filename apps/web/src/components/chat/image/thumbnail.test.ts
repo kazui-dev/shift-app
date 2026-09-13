@@ -1,16 +1,23 @@
 import { expect, it } from "vite-plus/test"
 import { thumbnailWidth } from "@/components/chat/image/thumbnail"
 
-it("rests narrow and widens to the image's proportions as it comes into view", () => {
-  const landscape = { width: 1600, height: 900 }
-  expect(thumbnailWidth(landscape, 0)).toBe(1.75)
-  expect(thumbnailWidth(landscape, 1)).toBeCloseTo(6.222, 3)
-  expect(thumbnailWidth(landscape, 0.5)).toBeCloseTo(3.986, 3)
+it("rests narrow and widens to a square as it comes into view", () => {
+  expect(thumbnailWidth(0)).toBe(1.5)
+  expect(thumbnailWidth(0.5)).toBe(2.25)
+  expect(thumbnailWidth(1)).toBe(3)
 })
 
-it("keeps very wide or tall images within the strip's bounds", () => {
-  expect(thumbnailWidth({ width: 4000, height: 500 }, 1)).toBe(7)
-  expect(thumbnailWidth({ width: 500, height: 4000 }, 1)).toBe(1.75)
-  expect(thumbnailWidth({ width: 1600, height: 900 }, 2)).toBeCloseTo(6.222, 3)
-  expect(thumbnailWidth({ width: 1600, height: 900 }, -1)).toBe(1.75)
+it("keeps the width between narrow and square", () => {
+  expect(thumbnailWidth(-1)).toBe(1.5)
+  expect(thumbnailWidth(2)).toBe(3)
+})
+
+it("fits ten thumbnails and their gaps in a 320px strip mid-swipe", () => {
+  const rem = 16
+  const gap = 6
+  const widths = Array.from({ length: 10 }, (_, index) =>
+    thumbnailWidth(Math.max(0, 1 - Math.abs(4.3 - index)))
+  )
+  const total = widths.reduce((sum, width) => sum + width * rem, 0) + gap * 9
+  expect(total).toBeLessThanOrEqual(320)
 })

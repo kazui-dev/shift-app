@@ -1,19 +1,12 @@
 /** Height of a mobile thumbnail and its narrow resting width, in rem. */
-const height = 3.5
-const narrow = 1.75
-const widest = 7
+const height = 3
+const narrow = 1.5
 
 /**
- * A mobile thumbnail rests narrow and portrait, and widens towards the image's
- * own proportions as it comes into view (`focus` from 0 to 1).
+ * A mobile thumbnail rests narrow and widens to a square as it comes into view
+ * (`focus` from 0 to 1). Every strip is as wide whatever image is in view, so
+ * ten images fit a phone's width.
  */
-export function thumbnailWidth(
-  image: { width: number; height: number },
-  focus: number
-) {
-  const natural = Math.min(
-    widest,
-    Math.max(narrow, (height * image.width) / image.height)
-  )
-  return narrow + (natural - narrow) * Math.min(1, Math.max(0, focus))
+export function thumbnailWidth(focus: number) {
+  return narrow + (height - narrow) * Math.min(1, Math.max(0, focus))
 }

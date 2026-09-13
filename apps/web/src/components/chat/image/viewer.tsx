@@ -437,11 +437,11 @@ export function ImageViewer({
                       aria-label={`画像${thumb + 1}を表示`}
                       aria-current={thumb === index}
                       onClick={() => carousel?.scrollTo(thumb)}
-                      className="h-14 shrink-0 overflow-hidden rounded-md bg-white/10"
+                      className="h-12 shrink-0 overflow-hidden rounded-md bg-white/10 md:h-14"
                       style={{
                         width: desktop
                           ? "3.5rem"
-                          : `${thumbnailWidth(item, focus)}rem`,
+                          : `${thumbnailWidth(focus)}rem`,
                         opacity: 0.55 + 0.45 * focus,
                       }}
                     >
