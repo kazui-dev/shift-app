@@ -27,8 +27,8 @@ import {
   sendChatMessageInputSchema,
 } from "@workspace/shared/communications"
 
+import { apiError, errors } from "../lib/errors"
 import {
-  apiError,
   type ApiEnv,
   hasActiveYearMembership,
   readJson,
@@ -58,7 +58,7 @@ chatApp.route("/", chatLinksApp)
 
 chatApp.get("/rooms", async (c) => {
   const year = parseYear(c.req.query("year") ?? "")
-  if (year === null) return apiError(c, 422, "INVALID_YEAR", "Year is required")
+  if (year === null) return apiError(c, errors.yearRequired)
   const member = c.get("member")
   const rooms = await c.env.shift_app
     .prepare(
@@ -78,20 +78,17 @@ chatApp.get("/rooms/:roomId", async (c) => {
   )
   return room
     ? c.json({ room: roomJson(room) })
-    : apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
+    : apiError(c, errors.chatRoomNotFound)
 })
 
 chatApp.delete("/rooms/:roomId", async (c) => {
   const actor = c.get("member")
   const room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
-  if (!room)
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
-  if (!room.canManage)
-    return apiError(c, 403, "FORBIDDEN", "チャットの管理権限が必要です。")
+  if (!room) return apiError(c, errors.chatRoomNotFound)
+  if (!room.canManage) return apiError(c, errors.chatManagementRequired)
   const previous = await roomChangeRecipients(c.env, room.id)
   const deleted = await deleteRoom(c.env.shift_app, room.id, actor.id)
-  if (!deleted)
-    return apiError(c, 409, "CHAT_SETTINGS_CHANGED", "権限が変更されました。")
+  if (!deleted) return apiError(c, errors.chatSettingsChanged)
   c.executionCtx.waitUntil(publishRoomChange(c.env, room.id, previous))
   return c.body(null, 204)
 })
@@ -102,7 +99,7 @@ chatApp.get("/rooms/:roomId/members", async (c) => {
     c.req.param("roomId"),
     c.get("member").id
   )
-  if (!room) return apiError(c, 404, "NOT_FOUND", "メンバーを表示できません。")
+  if (!room) return apiError(c, errors.chatMembersUnavailable)
   const members = await roomRecipients(c.env, room.id)
   return c.json({
     members: members.map(({ muted: _muted, ...member }) => ({
@@ -116,7 +113,7 @@ chatApp.get("/events", async (c) => {
   if (c.req.header("Upgrade")?.toLowerCase() !== "websocket")
     return c.text("Expected WebSocket", 426)
   if (c.req.header("Origin") !== c.env.BETTER_AUTH_URL)
-    return apiError(c, 403, "FORBIDDEN_ORIGIN", "Request origin is not allowed")
+    return apiError(c, errors.forbiddenOrigin)
   const headers = new Headers({
     Upgrade: "websocket",
     "X-Chat-Member-Id": c.get("member").id,
@@ -132,21 +129,11 @@ chatApp.post("/rooms", async (c) => {
     await readJson(c.req.raw)
   )
   if (!input.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_CHAT_ROOM",
-      input.issues[0]?.message ?? "Invalid chat room"
-    )
+    return apiError(c, errors.invalidChatRoom, input.issues[0]?.message)
   }
   const actor = c.get("member")
   if (!(await hasActiveYearMembership(c.env, actor.id, input.output.year))) {
-    return apiError(
-      c,
-      403,
-      "YEAR_MEMBERSHIP_REQUIRED",
-      "Active year membership is required"
-    )
+    return apiError(c, errors.yearMembershipRequired)
   }
   const targets = [
     ...new Map(
@@ -160,7 +147,7 @@ chatApp.post("/rooms", async (c) => {
     targets.map((target) => targetExists(c.env, input.output.year, target))
   )
   if (validTargets.some((valid) => !valid)) {
-    return apiError(c, 422, "INVALID_CHAT_TARGET", "A chat target is invalid")
+    return apiError(c, errors.invalidChatTarget)
   }
 
   const roomId = crypto.randomUUID()
@@ -196,11 +183,10 @@ chatApp.post("/rooms", async (c) => {
   ]
   const results = await c.env.shift_app.batch(statements)
   if (!results[0]?.results.length) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   const created = await findAccessibleRoom(c.env, roomId, actor.id)
-  if (!created)
-    return apiError(c, 500, "ROOM_CREATE_FAILED", "Room could not be read")
+  if (!created) return apiError(c, errors.chatRoomCreateFailed)
   c.executionCtx.waitUntil(publishRoomChange(c.env, roomId))
   return c.json({ room: roomJson(created) }, 201)
 })
@@ -209,12 +195,12 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
   const id = v.safeParse(idSchema, c.req.param("roomId"))
   const query = v.safeParse(messagesQuerySchema, c.req.query())
   if (!id.success || !query.success) {
-    return apiError(c, 422, "INVALID_CHAT_QUERY", "Invalid chat request")
+    return apiError(c, errors.invalidChatRequest)
   }
   const member = c.get("member")
   const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
+    return apiError(c, errors.chatRoomNotFound)
   }
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const history = query.output.q
@@ -233,32 +219,21 @@ chatApp.get("/rooms/:roomId/messages", async (c) => {
 chatApp.post("/rooms/:roomId/messages", async (c) => {
   const id = v.safeParse(idSchema, c.req.param("roomId"))
   if (!id.success) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
+    return apiError(c, errors.chatRoomNotFound)
   }
   const input = v.safeParse(
     sendChatMessageInputSchema,
     await readJson(c.req.raw)
   )
   if (!input.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_CHAT_MESSAGE",
-      input.issues[0]?.message ?? "Invalid chat message"
-    )
+    return apiError(c, errors.invalidChatMessage, input.issues[0]?.message)
   }
   const member = c.get("member")
   const room = await findAccessibleRoom(c.env, id.output, member.id)
   if (!room) {
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
+    return apiError(c, errors.chatRoomNotFound)
   }
-  if (!room.canPost)
-    return apiError(
-      c,
-      403,
-      "CHAT_READ_ONLY",
-      "このチャットには投稿できません。"
-    )
+  if (!room.canPost) return apiError(c, errors.chatReadOnly)
   const now = Date.now()
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const message = await stub
@@ -287,14 +262,8 @@ chatApp.post("/rooms/:roomId/messages", async (c) => {
       throw error
     })
   if (message === "CHAT_READ_ONLY")
-    return apiError(c, 403, "CHAT_READ_ONLY", "投稿権限が変更されました。")
-  if (!message)
-    return apiError(
-      c,
-      422,
-      "INVALID_CHAT_ATTACHMENTS",
-      "画像または返信先を確認して、もう一度送信してください。"
-    )
+    return apiError(c, errors.chatPostingRevoked)
+  if (!message) return apiError(c, errors.invalidChatAttachments)
   const updated = await c.env.shift_app
     .prepare(
       "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
@@ -339,20 +308,14 @@ for (const method of ["patch", "delete"] as const) {
     const roomId = v.safeParse(idSchema, c.req.param("roomId")),
       id = v.safeParse(idSchema, c.req.param("messageId"))
     if (!roomId.success || !id.success)
-      return apiError(
-        c,
-        404,
-        "MESSAGE_NOT_FOUND",
-        "メッセージが見つかりません。"
-      )
+      return apiError(c, errors.messageNotFound)
     let content: string | undefined
     if (method === "patch") {
       const input = v.safeParse(
         editChatMessageInputSchema,
         await readJson(c.req.raw)
       )
-      if (!input.success)
-        return apiError(c, 422, "INVALID_MESSAGE", "本文を確認してください。")
+      if (!input.success) return apiError(c, errors.invalidMessageContent)
       content = input.output.content
     }
     const result = await c.env.CHAT_ROOMS.getByName(
@@ -365,20 +328,10 @@ for (const method of ["patch", "delete"] as const) {
     })
     if ("error" in result) {
       if (result.error === "not_found")
-        return apiError(
-          c,
-          404,
-          "MESSAGE_NOT_FOUND",
-          "メッセージが見つかりません。"
-        )
+        return apiError(c, errors.messageNotFound)
       if (result.error === "forbidden")
-        return apiError(
-          c,
-          403,
-          "MESSAGE_FORBIDDEN",
-          "このメッセージは変更できません。"
-        )
-      return apiError(c, 422, "EMPTY_MESSAGE", "本文または画像が必要です。")
+        return apiError(c, errors.messageForbidden)
+      return apiError(c, errors.emptyMessage)
     }
     const [message] = await withMemberImages(c.env, [result.message])
     if (message && result.changed)
@@ -398,15 +351,13 @@ chatApp.patch("/rooms/:roomId/preferences", async (c) => {
     chatPreferencesInputSchema,
     await readJson(c.req.raw)
   )
-  if (!input.success)
-    return apiError(c, 422, "INVALID_PREFERENCES", "Invalid room preferences")
+  if (!input.success) return apiError(c, errors.invalidChatPreferences)
   const room = await findAccessibleRoom(
     c.env,
     c.req.param("roomId"),
     c.get("member").id
   )
-  if (!room)
-    return apiError(c, 404, "CHAT_ROOM_NOT_FOUND", "チャットが見つかりません。")
+  if (!room) return apiError(c, errors.chatRoomNotFound)
   const memberId = c.get("member").id
   await c.env.shift_app
     .prepare(
@@ -442,8 +393,7 @@ chatApp.get("/rooms/:roomId/settings", async (c) => {
     c.req.param("roomId"),
     c.get("member").id
   )
-  if (!room?.canManage)
-    return apiError(c, 403, "FORBIDDEN", "チャットの管理権限が必要です。")
+  if (!room?.canManage) return apiError(c, errors.chatManagementRequired)
   const targets = await c.env.shift_app
     .prepare(
       "SELECT target_type AS targetType,target_id AS targetId,can_read AS canRead,can_post AS canPost,can_manage AS canManage FROM chat_room_targets WHERE room_id=?"
@@ -469,22 +419,15 @@ chatApp.get("/rooms/:roomId/settings", async (c) => {
 })
 chatApp.put("/rooms/:roomId/settings", async (c) => {
   const input = v.safeParse(roomSettingsInputSchema, await readJson(c.req.raw))
-  if (!input.success)
-    return apiError(c, 422, "INVALID_ROOM_SETTINGS", "Invalid room settings")
+  if (!input.success) return apiError(c, errors.invalidChatSettings)
   const actor = c.get("member"),
     room = await findAccessibleRoom(c.env, c.req.param("roomId"), actor.id)
-  if (!room?.canManage)
-    return apiError(c, 403, "FORBIDDEN", "チャットの管理権限が必要です。")
+  if (!room?.canManage) return apiError(c, errors.chatManagementRequired)
   const valid = await Promise.all(
     input.output.targets.map((target) => targetExists(c.env, room.year, target))
   )
   if (valid.some((value) => !value))
-    return apiError(
-      c,
-      422,
-      "INVALID_TARGET",
-      "Targets must belong to this year"
-    )
+    return apiError(c, errors.invalidActivityTarget)
   const managers = input.output.targets.filter((target) => target.canManage)
   const subjects = await c.env.shift_app
     .prepare(
@@ -501,12 +444,7 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
       )
     )
   )
-    return apiError(
-      c,
-      409,
-      "LAST_CHAT_MANAGER",
-      "管理権限を持つメンバーを残してください。"
-    )
+    return apiError(c, errors.chatManagerRequired)
   if (
     new Set(
       input.output.targets.map(
@@ -514,23 +452,13 @@ chatApp.put("/rooms/:roomId/settings", async (c) => {
       )
     ).size !== input.output.targets.length
   )
-    return apiError(
-      c,
-      422,
-      "DUPLICATE_TARGET",
-      "同じ対象は一度だけ指定してください。"
-    )
+    return apiError(c, errors.duplicateTarget)
   const previous = await roomRecipients(c.env, room.id)
   try {
     await saveRoomSettings(c.env.shift_app, room.id, actor.id, input.output)
   } catch (error) {
     if (error instanceof Error && error.message.includes("chat_rooms.name"))
-      return apiError(
-        c,
-        409,
-        "CHAT_SETTINGS_CHANGED",
-        "権限が変更されました。設定を読み直してください。"
-      )
+      return apiError(c, errors.chatSettingsReload)
     throw error
   }
   c.executionCtx.waitUntil(

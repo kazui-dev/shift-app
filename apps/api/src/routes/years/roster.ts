@@ -1,12 +1,8 @@
 import { canManageYear } from "../../services/role-authority"
 import { Hono } from "hono"
 
-import {
-  apiError,
-  type ApiEnv,
-  canManageShifts,
-  parseYear,
-} from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, canManageShifts, parseYear } from "../../lib/http"
 
 function getYearParam(value: string): number | null {
   return parseYear(value)
@@ -17,7 +13,7 @@ export const rosterApp = new Hono<ApiEnv>()
 rosterApp.get("/:year/roster", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   if (
     !(await canManageShifts(c.env, c.get("member"), year)) &&
@@ -40,12 +36,7 @@ rosterApp.get("/:year/roster", async (c) => {
       "role.manage"
     ))
   ) {
-    return apiError(
-      c,
-      403,
-      "FORBIDDEN",
-      "Shift management permission is required"
-    )
+    return apiError(c, errors.shiftManagementRequired)
   }
 
   const members = await c.env.shift_app

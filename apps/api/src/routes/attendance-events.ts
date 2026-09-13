@@ -1,5 +1,6 @@
 import { Hono } from "hono"
-import { apiError, type ApiEnv, toIso } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, toIso } from "../lib/http"
 import { canManageActivity } from "../services/activity-access"
 export const attendanceEventsApp = new Hono<ApiEnv>()
 attendanceEventsApp.get("/:assignmentId/attendance/events", async (c) => {
@@ -10,8 +11,7 @@ attendanceEventsApp.get("/:assignmentId/attendance/events", async (c) => {
     )
     .bind(id)
     .first<{ memberId: string; activityId: string; year: number }>()
-  if (!assignment)
-    return apiError(c, 404, "ASSIGNMENT_NOT_FOUND", "シフトが見つかりません")
+  if (!assignment) return apiError(c, errors.assignmentNotFound)
   const member = c.get("member")
   if (
     member.id !== assignment.memberId &&
@@ -22,7 +22,7 @@ attendanceEventsApp.get("/:assignmentId/attendance/events", async (c) => {
       assignment.year
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "本人または責任者のみ確認できます")
+    return apiError(c, errors.attendanceViewForbidden)
   const events = await c.env.shift_app
     .prepare(
       'SELECT e.id,e."before",e."after",e.reason,e.created_at AS createdAt,m.display_name AS actor FROM attendance_events e JOIN app_users m ON m.id=e.actor_id WHERE e.assignment_id=? ORDER BY e.created_at DESC'

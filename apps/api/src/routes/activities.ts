@@ -4,7 +4,8 @@ import { activityAttendanceApp } from "./activity-attendance"
 import { Hono } from "hono"
 import * as v from "valibot"
 import { activityEditorInputSchema } from "@workspace/shared/shifts"
-import { apiError, type ApiEnv, readJson } from "../lib/http"
+import { apiError, errors, shiftPlanErrors } from "../lib/errors"
+import { type ApiEnv, readJson } from "../lib/http"
 import { canEditActivity } from "../services/activity-access"
 import { readActivityEditor } from "../services/activity-editor"
 import { saveShiftPlan } from "../services/save-shift-plan"
@@ -16,8 +17,7 @@ activitiesApp.use("/:activityId", async (c, next) => {
     .prepare("SELECT year FROM activities WHERE id=?")
     .bind(c.req.param("activityId"))
     .first<{ year: number }>()
-  if (!activity)
-    return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Shift not found")
+  if (!activity) return apiError(c, errors.activityNotFound)
   if (
     !(await canEditActivity(
       c.env,
@@ -26,7 +26,7 @@ activitiesApp.use("/:activityId", async (c, next) => {
       activity.year
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "Shift responsibility is required")
+    return apiError(c, errors.shiftResponsibilityRequired)
   return next()
 })
 activitiesApp.get("/:activityId", async (c) => {
@@ -34,7 +34,7 @@ activitiesApp.get("/:activityId", async (c) => {
     c.env.shift_app,
     c.req.param("activityId")
   )
-  if (!result) return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Shift not found")
+  if (!result) return apiError(c, errors.activityNotFound)
   return c.json(result)
 })
 activitiesApp.put("/:activityId", async (c) => {
@@ -43,49 +43,26 @@ activitiesApp.put("/:activityId", async (c) => {
     await readJson(c.req.raw)
   )
   if (!parsed.success)
-    return apiError(
-      c,
-      422,
-      "INVALID_SHIFT",
-      parsed.issues[0]?.message ?? "Invalid shift"
-    )
+    return apiError(c, errors.invalidShift, parsed.issues[0]?.message)
   const id = c.req.param("activityId"),
     input = parsed.output
   const current = await readActivityEditor(c.env.shift_app, id)
-  if (!current) return apiError(c, 404, "ACTIVITY_NOT_FOUND", "Shift not found")
+  if (!current) return apiError(c, errors.activityNotFound)
   if (current.activity.version !== input.version)
-    return apiError(
-      c,
-      409,
-      "SHIFT_CHANGED",
-      "別の操作で更新されています。編集内容を確認して読み直してください。"
-    )
+    return apiError(c, errors.shiftStale)
   const checked = validateShiftPlan(
     input,
     current.members.map((member) => member.id),
     current.otherAssignments,
     current.availability
   )
-  if (checked.error)
-    return apiError(
-      c,
-      409,
-      checked.error,
-      checked.error === "SHIFT_OVERLAP"
-        ? "勤務時間が重なるメンバーがいます。"
-        : "時間枠とメンバーを確認してください。"
-    )
+  if (checked.error) return apiError(c, shiftPlanErrors[checked.error])
   if (
     input.candidateRoleIds.some(
       (roleId) => !current.roles.some((role) => role.id === roleId)
     )
   )
-    return apiError(
-      c,
-      422,
-      "INVALID_ROLE",
-      "この年度のロールを選択してください"
-    )
+    return apiError(c, errors.invalidYearRole)
   if (
     input.responsibles.some((target) =>
       target.targetType === "member"
@@ -93,12 +70,7 @@ activitiesApp.put("/:activityId", async (c) => {
         : !current.roles.some((role) => role.id === target.targetId)
     )
   )
-    return apiError(
-      c,
-      422,
-      "INVALID_RESPONSIBLE",
-      "Responsible must belong to this year"
-    )
+    return apiError(c, errors.invalidResponsible)
   const hasResponsible = current.members.some((member) =>
     input.responsibles.some((target) =>
       target.targetType === "member"
@@ -107,12 +79,7 @@ activitiesApp.put("/:activityId", async (c) => {
     )
   )
   if (input.active && !hasResponsible)
-    return apiError(
-      c,
-      409,
-      "RESPONSIBLE_REQUIRED",
-      "有効にするには責任者が必要です。"
-    )
+    return apiError(c, errors.responsibleRequired)
   const slotIds = await c.env.shift_app
     .prepare("SELECT id,activity_id AS activityId FROM shift_slots")
     .all<{ id: string; activityId: string }>()
@@ -123,7 +90,7 @@ activitiesApp.put("/:activityId", async (c) => {
       )
     )
   )
-    return apiError(c, 409, "INVALID_SLOT", "Slot belongs to another shift")
+    return apiError(c, errors.slotFromOtherShift)
   try {
     await saveShiftPlan(c.env.shift_app, id, c.get("member").id, input, current)
   } catch (error) {
@@ -133,12 +100,7 @@ activitiesApp.put("/:activityId", async (c) => {
         error.message
       )
     )
-      return apiError(
-        c,
-        409,
-        "SHIFT_CHANGED",
-        "他の変更と競合しました。編集内容を保持したまま確認してください。"
-      )
+      return apiError(c, errors.shiftConflict)
     throw error
   }
   return c.json(await readActivityEditor(c.env.shift_app, id))
@@ -151,8 +113,7 @@ activitiesApp.delete("/:activityId", async (c) => {
   const id = c.req.param("activityId"),
     actor = c.get("member")
   const before = await readActivityEditor(c.env.shift_app, id)
-  if (!before)
-    return apiError(c, 404, "ACTIVITY_NOT_FOUND", "シフトが見つかりません")
+  if (!before) return apiError(c, errors.activityNotFound)
   await c.env.shift_app.batch([
     c.env.shift_app
       .prepare(

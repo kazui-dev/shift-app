@@ -6,6 +6,7 @@ import { appUsers } from "@workspace/db/schema"
 import type { ShiftPermission } from "@workspace/shared/shifts"
 
 import { createAuth } from "../auth"
+import { apiError, errorBody, errors } from "./errors"
 
 export type MemberContext = {
   id: string
@@ -25,24 +26,11 @@ export type ApiEnv = {
   }
 }
 
-export function apiErrorBody(code: string, message: string) {
-  return { error: { code, message } }
-}
-
-export function apiError(
-  c: Context<ApiEnv>,
-  status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500,
-  code: string,
-  message: string
-) {
-  return c.json(apiErrorBody(code, message), status)
-}
-
 export const requireMember: MiddlewareHandler<ApiEnv> = async (c, next) => {
   const auth = createAuth(c.env)
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
   if (!session) {
-    return apiError(c, 401, "UNAUTHORIZED", "Authentication is required")
+    return apiError(c, errors.unauthorized)
   }
 
   const db = drizzle(c.env.shift_app)
@@ -58,7 +46,7 @@ export const requireMember: MiddlewareHandler<ApiEnv> = async (c, next) => {
     .limit(1)
 
   if (!member) {
-    return apiError(c, 403, "ONBOARDING_REQUIRED", "Onboarding is required")
+    return apiError(c, errors.onboardingRequired)
   }
 
   c.set("member", member)
@@ -71,10 +59,7 @@ export const requireSameOriginForMutation: MiddlewareHandler<
 > = async (c, next) => {
   if (c.req.method !== "GET" && c.req.method !== "HEAD") {
     if (c.req.header("Origin") !== c.env.BETTER_AUTH_URL) {
-      return c.json(
-        apiErrorBody("FORBIDDEN_ORIGIN", "Request origin is not allowed"),
-        403
-      )
+      return c.json(errorBody(errors.forbiddenOrigin), 403)
     }
   }
   return next()
@@ -82,12 +67,7 @@ export const requireSameOriginForMutation: MiddlewareHandler<
 
 export function requireSystemAdmin(c: Context<ApiEnv>): Response | null {
   if (c.get("member").accessLevel !== "system_admin") {
-    return apiError(
-      c,
-      403,
-      "FORBIDDEN",
-      "System administrator access is required"
-    )
+    return apiError(c, errors.systemAdminRequired)
   }
   return null
 }

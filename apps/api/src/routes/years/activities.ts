@@ -9,8 +9,8 @@ import {
   serializeActivity,
   type ActivityRow,
 } from "../../domain/year-projections"
+import { apiError, errors } from "../../lib/errors"
 import {
-  apiError,
   type ApiEnv,
   canAccessYear,
   canManageShifts,
@@ -27,10 +27,10 @@ export const yearActivitiesApp = new Hono<ApiEnv>()
 yearActivitiesApp.get("/:year/activities", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   if (!(await canAccessYear(c.env, c.get("member"), year))) {
-    return apiError(c, 403, "FORBIDDEN", "Active year membership is required")
+    return apiError(c, errors.yearMembershipRequired)
   }
   const canManage = await canManageShifts(c.env, c.get("member"), year)
   const result = await c.env.shift_app
@@ -61,31 +61,21 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
 yearActivitiesApp.post("/:year/activities", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   const member = c.get("member")
   if (
     !(await canManageShifts(c.env, member, year)) &&
     !(await canManageYear(c.env.shift_app, member, year, "shift.create"))
   ) {
-    return apiError(
-      c,
-      403,
-      "FORBIDDEN",
-      "Shift management permission is required"
-    )
+    return apiError(c, errors.shiftManagementRequired)
   }
   const parsed = v.safeParse(
     createActivityInputSchema,
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_ACTIVITY",
-      parsed.issues[0]?.message ?? "Invalid activity"
-    )
+    return apiError(c, errors.invalidActivity, parsed.issues[0]?.message)
   }
 
   const eligible = await c.env.shift_app
@@ -109,12 +99,7 @@ yearActivitiesApp.post("/:year/activities", async (c) => {
       (roleId) => !roles.results.some((role) => role.id === roleId)
     )
   )
-    return apiError(
-      c,
-      422,
-      "INVALID_TARGET",
-      "この年度のメンバー・ロールを選択してください"
-    )
+    return apiError(c, errors.invalidActivityTarget)
   const id = crypto.randomUUID()
   const now = Date.now()
   const statement = c.env.shift_app
@@ -171,7 +156,7 @@ yearActivitiesApp.post("/:year/activities", async (c) => {
   const result = results[0]
 
   if (!result?.results.length) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
 
   return c.json(

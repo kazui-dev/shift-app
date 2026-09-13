@@ -1,4 +1,5 @@
 import { Hono } from "hono"
+import { errorBody, errors } from "../../src/lib/errors"
 import { describe, expect, it } from "vite-plus/test"
 
 import { requireSameOriginForMutation } from "../../src/lib/http"
@@ -34,12 +35,9 @@ describe("same-origin mutation boundary", () => {
     )
 
     expect(response.status).toBe(403)
-    await expect(response.json()).resolves.toEqual({
-      error: {
-        code: "FORBIDDEN_ORIGIN",
-        message: "Request origin is not allowed",
-      },
-    })
+    await expect(response.json()).resolves.toEqual(
+      errorBody(errors.forbiddenOrigin)
+    )
   })
 
   it("allows mutations from the configured Origin", async () => {

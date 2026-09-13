@@ -6,7 +6,8 @@ import { bodyLimit } from "hono/body-limit"
 import { appUsers } from "@workspace/db/schema"
 
 import { createAuth } from "../../auth"
-import { apiErrorBody, requireSameOriginForMutation } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { requireSameOriginForMutation } from "../../lib/http"
 import { adminCommandsApp } from "./commands"
 import type { AdminEnv } from "./context"
 import { adminQueriesApp } from "./queries"
@@ -17,8 +18,7 @@ adminApp.use(
   "*",
   bodyLimit({
     maxSize: 4 * 1024,
-    onError: (c) =>
-      c.json(apiErrorBody("BODY_TOO_LARGE", "Request body is too large"), 413),
+    onError: (c) => apiError(c, errors.bodyTooLarge),
   })
 )
 adminApp.use("*", requireSameOriginForMutation)
@@ -29,10 +29,7 @@ adminApp.use("*", async (c, next) => {
     headers: c.req.raw.headers,
   })
   if (!authSession) {
-    return c.json(
-      apiErrorBody("UNAUTHORIZED", "Authentication is required"),
-      401
-    )
+    return apiError(c, errors.unauthorized)
   }
 
   const db = drizzle(c.env.shift_app)
@@ -47,10 +44,7 @@ adminApp.use("*", async (c, next) => {
     .limit(1)
 
   if (!member || member.accessLevel !== "system_admin") {
-    return c.json(
-      apiErrorBody("FORBIDDEN", "System administrator access is required"),
-      403
-    )
+    return apiError(c, errors.systemAdminRequired)
   }
 
   c.set("adminUser", { id: member.id, userId: member.userId })

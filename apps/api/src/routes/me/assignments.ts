@@ -3,7 +3,8 @@ import * as v from "valibot"
 
 import { timeWindowSchema } from "@workspace/shared/shifts"
 
-import { apiError, type ApiEnv, parseYear, toIso } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, parseYear, toIso } from "../../lib/http"
 
 const MAX_ASSIGNMENT_RANGE_MS = 31 * 24 * 60 * 60 * 1000
 
@@ -28,29 +29,19 @@ export const meAssignmentsApp = new Hono<ApiEnv>()
 
 meAssignmentsApp.get("/assignments", async (c) => {
   const year = parseYear(c.req.query("year") ?? "")
-  if (year === null) return apiError(c, 422, "INVALID_YEAR", "Year is required")
+  if (year === null) return apiError(c, errors.yearRequired)
   const range = v.safeParse(timeWindowSchema, {
     startsAt: c.req.query("from"),
     endsAt: c.req.query("to"),
   })
   if (!range.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_TIME_RANGE",
-      "from and to must be valid ISO 8601 timestamps"
-    )
+    return apiError(c, errors.invalidTimeRange)
   }
 
   const startsAt = Date.parse(range.output.startsAt)
   const endsAt = Date.parse(range.output.endsAt)
   if (endsAt - startsAt > MAX_ASSIGNMENT_RANGE_MS) {
-    return apiError(
-      c,
-      422,
-      "TIME_RANGE_TOO_LARGE",
-      "Assignment range must not exceed 31 days"
-    )
+    return apiError(c, errors.timeRangeTooLarge)
   }
 
   const member = c.get("member")

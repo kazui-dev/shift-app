@@ -1,6 +1,6 @@
 import * as v from "valibot"
 import { sendMemberNotification } from "../../services/push"
-import { readJson } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
 import { Hono } from "hono"
 
 import {
@@ -8,10 +8,10 @@ import {
   type AvailabilityManagerRow,
 } from "../../domain/year-projections"
 import {
-  apiError,
   type ApiEnv,
   canManageShifts,
   parseYear,
+  readJson,
 } from "../../lib/http"
 
 function getYearParam(value: string): number | null {
@@ -23,15 +23,10 @@ export const availabilitySubmissionsApp = new Hono<ApiEnv>()
 availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   if (!(await canManageShifts(c.env, c.get("member"), year))) {
-    return apiError(
-      c,
-      403,
-      "FORBIDDEN",
-      "Shift management permission is required"
-    )
+    return apiError(c, errors.shiftManagementRequired)
   }
   const rows = await c.env.shift_app
     .prepare(
@@ -89,22 +84,16 @@ availabilitySubmissionsApp.post(
       await readJson(c.req.raw)
     )
     if (year === null || !input.success)
-      return apiError(
-        c,
-        422,
-        "INVALID_NOTIFICATION",
-        "通知対象を指定してください"
-      )
+      return apiError(c, errors.invalidNotificationTarget)
     if (!(await canManageShifts(c.env, c.get("member"), year)))
-      return apiError(c, 403, "FORBIDDEN", "シフト管理権限が必要です")
+      return apiError(c, errors.shiftManagementRequired)
     const open = await c.env.shift_app
       .prepare(
         "SELECT 1 FROM availability_dates WHERE year=? AND accepting=1 AND deleted=0 LIMIT 1"
       )
       .bind(year)
       .first()
-    if (!open)
-      return apiError(c, 409, "FORM_CLOSED", "受付中の日程がありません")
+    if (!open) return apiError(c, errors.availabilityFormClosed)
     const recipients = (await readProgress(c.env.shift_app, year)).filter(
       (item) => input.output.scope === "all" || !item.complete
     )
@@ -121,12 +110,7 @@ availabilitySubmissionsApp.post(
       )
     )
     if (sent.some((result) => !result))
-      return apiError(
-        c,
-        500,
-        "NOTIFICATION_RETRY",
-        "一部の通知を送れませんでした"
-      )
+      return apiError(c, errors.notificationRetry)
     return c.body(null, 204)
   }
 )

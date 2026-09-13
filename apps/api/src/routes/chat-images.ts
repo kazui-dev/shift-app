@@ -1,7 +1,8 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { chatImageLimits } from "@workspace/shared/communications"
-import { apiError, type ApiEnv } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv } from "../lib/http"
 import { findAccessibleRoom } from "../services/chat-access"
 import { stripWebpMetadata } from "../domain/chat-image"
 
@@ -10,28 +11,15 @@ export const chatImagesApp = new Hono<ApiEnv>()
 chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
   const id = v.safeParse(uuid, c.req.param("roomId")),
     memberId = c.get("member").id
-  if (!id.success)
-    return apiError(c, 404, "NOT_FOUND", "チャットが見つかりません。")
+  if (!id.success) return apiError(c, errors.chatRoomNotFound)
   const room = await findAccessibleRoom(c.env, id.output, memberId)
-  if (!room?.canPost)
-    return apiError(
-      c,
-      403,
-      "CHAT_READ_ONLY",
-      "このチャットには投稿できません。"
-    )
+  if (!room?.canPost) return apiError(c, errors.chatReadOnly)
   const blob = await c.req.raw.blob()
   if (!blob.size || blob.size > chatImageLimits.bytes)
-    return apiError(c, 413, "IMAGE_SIZE", "画像は1枚10MBまでです。")
+    return apiError(c, errors.imageTooLarge)
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
   const reserved = await stub.reserveAttachment(room.id, memberId)
-  if (!reserved)
-    return apiError(
-      c,
-      429,
-      "IMAGE_LIMIT",
-      "画像のアップロード上限に達しました。時間をおいてお試しください。"
-    )
+  if (!reserved) return apiError(c, errors.imageLimit)
   try {
     const info = await c.env.IMAGES.info(blob.stream())
     if (
@@ -47,12 +35,7 @@ chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
       info.width * info.height > chatImageLimits.pixels
     ) {
       await stub.deleteAttachment(reserved.id, memberId)
-      return apiError(
-        c,
-        422,
-        "INVALID_IMAGE",
-        "対応する写真・画像を選択してください（最大4000万画素）。"
-      )
+      return apiError(c, errors.invalidImage)
     }
     const result = await c.env.IMAGES.input(blob.stream())
       .transform({ width: 2400, height: 2400, fit: "scale-down" })
@@ -72,12 +55,7 @@ chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
     }
     if (!(await stub.finishAttachment(reserved.id, memberId, attachment))) {
       await c.env.CHAT_IMAGES.delete(reserved.objectKey)
-      return apiError(
-        c,
-        409,
-        "IMAGE_EXPIRED",
-        "画像をもう一度添付してください。"
-      )
+      return apiError(c, errors.imageExpired)
     }
     return c.json({ attachment }, 201)
   } catch (error) {
@@ -86,32 +64,25 @@ chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
       "Chat image conversion failed",
       error instanceof Error ? error.message : "Unknown error"
     )
-    return apiError(
-      c,
-      422,
-      "IMAGE_PROCESSING_FAILED",
-      "画像を処理できませんでした。別の画像でお試しください。"
-    )
+    return apiError(c, errors.imageProcessingFailed)
   }
 })
 chatImagesApp.get("/rooms/:roomId/attachments/:attachmentId", async (c) => {
   const roomId = v.safeParse(uuid, c.req.param("roomId")),
     id = v.safeParse(uuid, c.req.param("attachmentId"))
-  if (!roomId.success || !id.success)
-    return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+  if (!roomId.success || !id.success) return apiError(c, errors.imageNotFound)
   const room = await findAccessibleRoom(
     c.env,
     roomId.output,
     c.get("member").id
   )
-  if (!room) return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+  if (!room) return apiError(c, errors.imageNotFound)
   const attachment = await c.env.CHAT_ROOMS.getByName(room.id).getAttachment(
     id.output
   )
-  if (!attachment)
-    return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+  if (!attachment) return apiError(c, errors.imageNotFound)
   const object = await c.env.CHAT_IMAGES.get(attachment.objectKey)
-  if (!object) return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+  if (!object) return apiError(c, errors.imageNotFound)
   return new Response(object.body, {
     headers: {
       "Content-Type": "image/webp",
@@ -128,18 +99,16 @@ chatImagesApp.delete("/rooms/:roomId/attachments/:attachmentId", async (c) => {
     !v.safeParse(uuid, c.req.param("roomId")).success ||
     !v.safeParse(uuid, c.req.param("attachmentId")).success
   )
-    return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+    return apiError(c, errors.imageNotFound)
   const room = await findAccessibleRoom(
     c.env,
     c.req.param("roomId"),
     c.get("member").id
   )
-  if (!room) return apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+  if (!room) return apiError(c, errors.imageNotFound)
   const removed = await c.env.CHAT_ROOMS.getByName(room.id).deleteAttachment(
     c.req.param("attachmentId"),
     c.get("member").id
   )
-  return removed
-    ? c.body(null, 204)
-    : apiError(c, 404, "NOT_FOUND", "画像が見つかりません。")
+  return removed ? c.body(null, 204) : apiError(c, errors.imageNotFound)
 })

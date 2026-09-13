@@ -2,7 +2,8 @@ import { canManageYear, roleAuthority } from "../../services/role-authority"
 import { Hono } from "hono"
 import * as v from "valibot"
 
-import { apiError, type ApiEnv, parseYear, toIso } from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, parseYear, toIso } from "../../lib/http"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 
@@ -13,8 +14,7 @@ function getYearParam(value: string): number | null {
 export const yearMembershipsApp = new Hono<ApiEnv>()
 yearMembershipsApp.use("/:year/memberships/*", async (c, next) => {
   const year = parseYear(c.req.param("year"))
-  if (year === null)
-    return apiError(c, 404, "YEAR_NOT_FOUND", "年度が見つかりません")
+  if (year === null) return apiError(c, errors.yearNotFound)
   if (
     !(await canManageYear(
       c.env.shift_app,
@@ -23,13 +23,12 @@ yearMembershipsApp.use("/:year/memberships/*", async (c, next) => {
       "member.manage"
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "メンバー管理権限が必要です")
+    return apiError(c, errors.memberManagementRequired)
   return next()
 })
 yearMembershipsApp.use("/:year/memberships", async (c, next) => {
   const year = parseYear(c.req.param("year"))
-  if (year === null)
-    return apiError(c, 404, "YEAR_NOT_FOUND", "年度が見つかりません")
+  if (year === null) return apiError(c, errors.yearNotFound)
   if (
     !(await canManageYear(
       c.env.shift_app,
@@ -38,21 +37,19 @@ yearMembershipsApp.use("/:year/memberships", async (c, next) => {
       "member.manage"
     ))
   )
-    return apiError(c, 403, "FORBIDDEN", "メンバー管理権限が必要です")
+    return apiError(c, errors.memberManagementRequired)
   return next()
 })
 
 yearMembershipsApp.get("/:year/memberships", async (c) => {
   const year = getYearParam(c.req.param("year"))
-  if (year === null)
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+  if (year === null) return apiError(c, errors.yearNotFound)
 
   const operatingYear = await c.env.shift_app
     .prepare("SELECT year FROM operating_years WHERE year = ?")
     .bind(year)
     .first<{ year: number }>()
-  if (!operatingYear)
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+  if (!operatingYear) return apiError(c, errors.yearNotFound)
 
   const result = await c.env.shift_app
     .prepare(
@@ -94,7 +91,7 @@ yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
   const year = getYearParam(c.req.param("year"))
   const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (year === null || !memberId.success)
-    return apiError(c, 404, "RESOURCE_NOT_FOUND", "Year or member not found")
+    return apiError(c, errors.yearMemberNotFound)
   const now = Date.now()
   const result = await c.env.shift_app
     .prepare(
@@ -106,8 +103,7 @@ yearMembershipsApp.put("/:year/memberships/:memberId", async (c) => {
     )
     .bind(now, now, year, memberId.output)
     .run()
-  if (!result.results.length)
-    return apiError(c, 404, "RESOURCE_NOT_FOUND", "Year or member not found")
+  if (!result.results.length) return apiError(c, errors.yearMemberNotFound)
   const member = await c.env.shift_app
     .prepare(
       "SELECT display_name AS displayName, student_id AS studentId FROM app_users WHERE id = ?"
@@ -132,12 +128,7 @@ yearMembershipsApp.delete("/:year/memberships/:memberId", async (c) => {
   const year = getYearParam(c.req.param("year"))
   const memberId = v.safeParse(idSchema, c.req.param("memberId"))
   if (year === null || !memberId.success)
-    return apiError(
-      c,
-      404,
-      "YEAR_MEMBERSHIP_NOT_FOUND",
-      "Year membership not found"
-    )
+    return apiError(c, errors.yearMembershipNotFound)
   const actor = c.get("member")
   const authority = await roleAuthority(c.env.shift_app, actor, year)
   const target = await c.env.shift_app
@@ -152,25 +143,14 @@ yearMembershipsApp.delete("/:year/memberships/:memberId", async (c) => {
       target.accessLevel === "system_admin" ||
       (target.position ?? Number.NEGATIVE_INFINITY) >= authority.position)
   )
-    return apiError(
-      c,
-      403,
-      "ROLE_HIERARCHY",
-      "このメンバーの参加を変更する権限がありません"
-    )
+    return apiError(c, errors.membershipEditForbidden)
   const future = await c.env.shift_app
     .prepare(
       `SELECT 1 FROM shift_assignments a JOIN shift_slots s ON s.id=a.slot_id JOIN activities activity ON activity.id=s.activity_id WHERE a.member_id=? AND activity.year=? AND a.status='active' AND s.ends_at>? LIMIT 1`
     )
     .bind(memberId.output, year, Date.now())
     .first()
-  if (future)
-    return apiError(
-      c,
-      409,
-      "FUTURE_SHIFTS",
-      "今後のシフトからメンバーを外してから参加を解除してください"
-    )
+  if (future) return apiError(c, errors.futureShiftsAssigned)
   const result = await c.env.shift_app
     .prepare(
       `UPDATE year_memberships SET status = 'inactive', updated_at = ?
@@ -178,12 +158,6 @@ yearMembershipsApp.delete("/:year/memberships/:memberId", async (c) => {
     )
     .bind(Date.now(), year, memberId.output)
     .run()
-  if (!result.results.length)
-    return apiError(
-      c,
-      404,
-      "YEAR_MEMBERSHIP_NOT_FOUND",
-      "Active year membership not found"
-    )
+  if (!result.results.length) return apiError(c, errors.yearMembershipNotFound)
   return c.body(null, 204)
 })

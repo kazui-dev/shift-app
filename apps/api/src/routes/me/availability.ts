@@ -1,8 +1,8 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 import { formAnswersInputSchema } from "@workspace/shared/availability"
+import { apiError, errors } from "../../lib/errors"
 import {
-  apiError,
   type ApiEnv,
   hasActiveYearMembership,
   parseYear,
@@ -13,9 +13,9 @@ import { validateFormAnswers } from "../../domain/availability-form"
 export const meAvailabilityApp = new Hono<ApiEnv>()
 meAvailabilityApp.use("/:year", async (c, next) => {
   const year = parseYear(c.req.param("year"))
-  if (year === null) return apiError(c, 422, "INVALID_YEAR", "Invalid year")
+  if (year === null) return apiError(c, errors.invalidYear)
   if (!(await hasActiveYearMembership(c.env, c.get("member").id, year)))
-    return apiError(c, 403, "FORBIDDEN", "Year membership is required")
+    return apiError(c, errors.yearMembershipRequired)
   return next()
 })
 meAvailabilityApp.get("/:year", async (c) =>
@@ -29,8 +29,7 @@ meAvailabilityApp.get("/:year", async (c) =>
 )
 meAvailabilityApp.put("/:year", async (c) => {
   const input = v.safeParse(formAnswersInputSchema, await readJson(c.req.raw))
-  if (!input.success)
-    return apiError(c, 422, "INVALID_ANSWERS", "Invalid answers")
+  if (!input.success) return apiError(c, errors.invalidAnswers)
   const year = Number(c.req.param("year")),
     memberId = c.get("member").id,
     db = c.env.shift_app
@@ -41,7 +40,7 @@ meAvailabilityApp.put("/:year", async (c) => {
     input.output.submit
   )
   if (validationError)
-    return apiError(c, 422, "INVALID_ANSWERS", validationError)
+    return apiError(c, errors.invalidAnswers, validationError)
   const now = Date.now(),
     json = JSON.stringify(input.output.answers)
   const statements: D1PreparedStatement[] = []
@@ -127,12 +126,7 @@ meAvailabilityApp.put("/:year", async (c) => {
       error instanceof Error &&
       error.message.includes("availability_drafts.answers")
     )
-      return apiError(
-        c,
-        409,
-        "FORM_CHANGED",
-        "受付内容が変更されました。入力内容を確認してください。"
-      )
+      return apiError(c, errors.availabilityFormChanged)
     throw error
   }
   return c.json(await readAvailabilityForm(db, year, memberId))

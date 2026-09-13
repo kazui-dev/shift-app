@@ -2,7 +2,8 @@ import { chatAccessEvents } from "./routes/chat-access-events"
 import { Hono } from "hono"
 
 import { createAuth } from "./auth"
-import { apiErrorBody } from "./lib/http"
+import { apiError, errors } from "./lib/errors"
+
 import { accountApp } from "./routes/account"
 import { adminApp } from "./routes/admin/index"
 import { apiApp } from "./routes/api"
@@ -65,7 +66,7 @@ app.route("/api", accountApp)
 app.route("/api/admin", adminApp)
 app.route("/api", apiApp)
 
-app.notFound((c) => c.json(apiErrorBody("NOT_FOUND", "Route not found"), 404))
+app.notFound((c) => apiError(c, errors.routeNotFound))
 
 app.onError((error, c) => {
   console.error(
@@ -76,5 +77,5 @@ app.onError((error, c) => {
     })
   )
 
-  return c.json(apiErrorBody("INTERNAL_ERROR", "Internal server error"), 500)
+  return apiError(c, errors.internalError)
 })

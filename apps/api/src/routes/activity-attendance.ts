@@ -1,5 +1,6 @@
 import { Hono } from "hono"
-import { apiError, type ApiEnv, toIso } from "../lib/http"
+import { apiError, errors } from "../lib/errors"
+import { type ApiEnv, toIso } from "../lib/http"
 import { canManageActivity } from "../services/activity-access"
 import {
   reportSelection,
@@ -14,8 +15,7 @@ activityAttendanceApp.get("/:activityId/attendance", async (c) => {
     .prepare("SELECT year FROM activities WHERE id=?")
     .bind(id)
     .first<{ year: number }>()
-  if (!activity)
-    return apiError(c, 404, "ACTIVITY_NOT_FOUND", "シフトが見つかりません")
+  if (!activity) return apiError(c, errors.activityNotFound)
   const actor = c.get("member")
   const canManage = await canManageActivity(c.env, actor, id, activity.year)
   if (!canManage) {
@@ -25,8 +25,7 @@ activityAttendanceApp.get("/:activityId/attendance", async (c) => {
       )
       .bind(activity.year, actor.id)
       .first()
-    if (!membership)
-      return apiError(c, 403, "FORBIDDEN", "年度への参加が必要です")
+    if (!membership) return apiError(c, errors.yearMembershipRequired)
   }
   const assignments = await c.env.shift_app
     .prepare(`SELECT a.id, a.member_id AS memberId, m.display_name AS memberDisplayName,

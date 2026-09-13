@@ -7,13 +7,8 @@ import {
   reorderRoleInputSchema,
 } from "@workspace/shared/shifts"
 
-import {
-  apiError,
-  type ApiEnv,
-  canAccessYear,
-  parseYear,
-  readJson,
-} from "../../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, canAccessYear, parseYear, readJson } from "../../lib/http"
 
 function getYearParam(value: string): number | null {
   return parseYear(value)
@@ -24,10 +19,10 @@ export const yearRolesApp = new Hono<ApiEnv>()
 yearRolesApp.get("/:year/roles", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   if (!(await canAccessYear(c.env, c.get("member"), year))) {
-    return apiError(c, 403, "FORBIDDEN", "Active year membership is required")
+    return apiError(c, errors.yearMembershipRequired)
   }
 
   const roles = await c.env.shift_app
@@ -78,19 +73,14 @@ yearRolesApp.get("/:year/roles", async (c) => {
 yearRolesApp.post("/:year/roles", async (c) => {
   const year = getYearParam(c.req.param("year"))
   if (year === null) {
-    return apiError(c, 404, "YEAR_NOT_FOUND", "Operating year not found")
+    return apiError(c, errors.yearNotFound)
   }
   const parsed = v.safeParse(
     createYearRoleInputSchema,
     await readJson(c.req.raw)
   )
   if (!parsed.success) {
-    return apiError(
-      c,
-      422,
-      "INVALID_ROLE",
-      parsed.issues[0]?.message ?? "Invalid role"
-    )
+    return apiError(c, errors.invalidRole, parsed.issues[0]?.message)
   }
 
   const authority = await roleAuthority(c.env.shift_app, c.get("member"), year)
@@ -101,12 +91,7 @@ yearRolesApp.post("/:year/roles", async (c) => {
         (permission) => !authority.permissions.has(permission)
       ))
   ) {
-    return apiError(
-      c,
-      403,
-      "FORBIDDEN",
-      "Role management and granted permissions are required"
-    )
+    return apiError(c, errors.roleGrantAuthorityRequired)
   }
   const last = await c.env.shift_app
     .prepare("SELECT MIN(position) AS position FROM year_roles WHERE year = ?")
@@ -142,12 +127,7 @@ yearRolesApp.post("/:year/roles", async (c) => {
   ]
   const results = await c.env.shift_app.batch(statements)
   if (!results[0]?.results.length) {
-    return apiError(
-      c,
-      409,
-      "ROLE_CONFLICT",
-      "Year is missing or role name already exists"
-    )
+    return apiError(c, errors.roleConflict)
   }
 
   return c.json({ role: { id: roleId, year, position, ...parsed.output } }, 201)
@@ -157,10 +137,10 @@ yearRolesApp.put("/:year/role-order", async (c) => {
   const year = parseYear(c.req.param("year"))
   const input = v.safeParse(reorderRoleInputSchema, await readJson(c.req.raw))
   if (year === null || !input.success)
-    return apiError(c, 422, "INVALID_ROLE_ORDER", "Invalid role order")
+    return apiError(c, errors.invalidRoleOrder)
   const authority = await roleAuthority(c.env.shift_app, c.get("member"), year)
   if (!authority.systemAdmin && !authority.permissions.has("role.manage"))
-    return apiError(c, 403, "FORBIDDEN", "Role management is required")
+    return apiError(c, errors.roleManagementRequired)
   const roles = await c.env.shift_app
     .prepare(
       "SELECT id, position FROM year_roles WHERE year = ? ORDER BY position DESC, id"
@@ -173,12 +153,7 @@ yearRolesApp.put("/:year/role-order", async (c) => {
     ids.length !== roles.results.length ||
     roles.results.some((role) => !ids.includes(role.id))
   )
-    return apiError(
-      c,
-      409,
-      "ROLE_ORDER_CHANGED",
-      "Reload the roles before reordering"
-    )
+    return apiError(c, errors.roleOrderChanged)
   if (
     !authority.systemAdmin &&
     roles.results.some(
@@ -186,12 +161,7 @@ yearRolesApp.put("/:year/role-order", async (c) => {
         role.position >= authority.position && ids[index] !== role.id
     )
   )
-    return apiError(
-      c,
-      403,
-      "ROLE_HIERARCHY",
-      "Cannot move roles at or above your highest role"
-    )
+    return apiError(c, errors.roleOrderForbidden)
   await c.env.shift_app.batch(
     ids.map((id, index) =>
       c.env.shift_app
