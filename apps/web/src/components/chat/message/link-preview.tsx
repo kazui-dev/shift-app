@@ -1,9 +1,10 @@
 import { useRef, useState } from "react"
 import { useNearHistory } from "@/components/chat/message/use-near-history"
-import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
 import { messageLinks } from "@workspace/shared/messages"
-import { chatLinkImageUrl, getChatLinkPreview } from "@/api/chat"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { chatLinkImageUrl } from "@/api/chat"
+import { linkPreviewQuery } from "@/data/chat"
 export function MessageLinkPreview({
   roomId,
   messageId,
@@ -43,15 +44,17 @@ function LinkPreview({
   // Fetch two screens ahead. Once fetched, the cached card stays when scrolled away.
   const near = useNearHistory(ref, 2)
   const query = useQuery({
-    queryKey: keys.chatLinkPreview(roomId, messageId, url),
-    queryFn: ({ signal }) => getChatLinkPreview(roomId, messageId, signal),
+    ...linkPreviewQuery(roomId, messageId, url),
     enabled: near && !offline,
-    staleTime: 86400000,
-    retry: false,
   })
   const preview = query.data?.preview
+  // Hold the card's space until the preview settles, so reading never jumps.
+  const settling = !offline && query.data === undefined && !query.isError
   return (
     <div ref={ref}>
+      {settling && (
+        <Skeleton aria-hidden className="mt-1 h-28 max-w-lg rounded-lg" />
+      )}
       {preview && (
         <a
           href={url}

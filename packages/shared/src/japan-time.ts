@@ -87,6 +87,14 @@ export const japanMonthDayTime = formatter({
   hour: "2-digit",
   minute: "2-digit",
 })
+/** 2026/9/13 09:30 */
+export const japanDateMinute = formatter({
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+})
 /** 2026/9/13 9:30:45 */
 export const japanTimestamp = formatter({
   year: "numeric",

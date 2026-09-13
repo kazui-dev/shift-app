@@ -12,6 +12,12 @@ import { messagePermissions } from "@workspace/shared/messages"
 import type { ChatRoom } from "@/api/chat"
 import type { MessageRow } from "@/components/chat/message/list"
 
+/**
+ * Controls inside a message are their own targets. Touching a link, an image,
+ * the reply chip or any button never presses, colors or opens the message.
+ */
+const controls = "a,button,input,textarea,select,[role=toolbar]"
+
 export function MessageActions({
   message,
   room,
@@ -95,15 +101,10 @@ export function MessageActions({
     const down = (event: PointerEvent) => {
       consumed.current = false
       cancelPress()
-      const target = event.target instanceof Element ? event.target : null
-      const button = target?.closest("button")
       if (
         event.pointerType === "mouse" ||
         !event.isPrimary ||
-        target?.closest(
-          "input,textarea,a,select,[role=toolbar],[data-message-reply]"
-        ) ||
-        (button && !button.querySelector("img"))
+        (event.target instanceof Element && event.target.closest(controls))
       )
         return
       setPressed(true)
@@ -152,7 +153,7 @@ export function MessageActions({
     const context = (event: MouseEvent) => {
       if (
         !available ||
-        (event.target instanceof Element && event.target.closest("a"))
+        (event.target instanceof Element && event.target.closest(controls))
       )
         return
       event.preventDefault()
@@ -189,7 +190,7 @@ export function MessageActions({
       data-message-actions
       data-active={opened || menuOpen || pressed || undefined}
       data-editing={editing || undefined}
-      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has(:is([data-message-reply],a):focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has(:is([data-message-reply],a):hover))]:bg-foreground/5"} ${!editing && (opened || menuOpen || pressed) ? "bg-foreground/5" : ""}`}
+      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has([data-message-content]_:focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has([data-message-content]_:is(a,button):hover))]:bg-foreground/5"} ${!editing && (opened || menuOpen || pressed) ? "bg-foreground/5" : ""}`}
     >
       {available && (
         <button

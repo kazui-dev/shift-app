@@ -5,7 +5,12 @@ import { usersQuery, auditQuery, linksQuery } from "./admin"
 import { assignmentMonthQuery } from "@/api/assignments"
 import { calendarViewKey, resolveCalendarView } from "@/lib/calendar/view"
 import { displayYearQuery, yearsQuery, rolesQuery, rosterQuery } from "./years"
-import { roomsQuery, targetsQuery, prepareConversation } from "./chat"
+import {
+  roomsQuery,
+  targetsQuery,
+  prepareConversation,
+  warmConversation,
+} from "./chat"
 import { activitiesQuery, activityQuery } from "./activities"
 import {
   availabilityQuery,
@@ -92,6 +97,9 @@ export async function prepareApp(
       client.prefetchQuery(activityQuery(activity))
     )
   const room = chatRoomId(pathname)
-  if (room) void prepareConversation(client, room)
+  if (room) {
+    void prepareConversation(client, room)
+    void warmConversation(client, room, studentId)
+  }
   await Promise.all(work)
 }

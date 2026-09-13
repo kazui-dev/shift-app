@@ -5,7 +5,10 @@ import {
   type QueryClient,
 } from "@tanstack/react-query"
 import { keys } from "@/data/keys"
+import { messageLinks } from "@workspace/shared/messages"
+import { acquireChatImage } from "@/lib/chat/images"
 import {
+  getChatLinkPreview,
   getChatMessages,
   getChatRoom,
   getChatRooms,
@@ -27,6 +30,56 @@ export const messagesQuery = (id: string) =>
     getNextPageParam: (last) =>
       last.hasMore ? last.messages[0]?.sequence : undefined,
   })
+export const linkPreviewQuery = (
+  roomId: string,
+  messageId: string,
+  url: string
+) =>
+  queryOptions({
+    queryKey: keys.chatLinkPreview(roomId, messageId, url),
+    queryFn: ({ signal }) => getChatLinkPreview(roomId, messageId, signal),
+    staleTime: 86_400_000,
+    retry: false,
+  })
+
+type RecentMessage = {
+  id: string
+  content: string
+  attachments: { id: string }[]
+}
+
+/** About one screen of a room: its last 15 messages, up to 6 images and each first link. */
+export function warmTargets(messages: readonly RecentMessage[]) {
+  const recent = messages.slice(-15)
+  return {
+    images: recent
+      .flatMap((message) => message.attachments.map((image) => image.id))
+      .slice(-6),
+    links: recent.flatMap((message) => {
+      const url = messageLinks(message.content).find((part) => part.href)?.href
+      return url ? [{ messageId: message.id, url }] : []
+    }),
+  }
+}
+
+/** Starts the newest screen's images and link cards once its history is known. */
+export async function warmConversation(
+  client: QueryClient,
+  id: string,
+  user: string
+) {
+  const history = await client
+    .fetchInfiniteQuery(messagesQuery(id))
+    .catch(() => undefined)
+  const { images, links } = warmTargets(history?.pages[0]?.messages ?? [])
+  for (const image of images) {
+    const held = acquireChatImage(user, id, image)
+    void held.promise.catch(() => undefined).finally(held.release)
+  }
+  for (const link of links)
+    void client.prefetchQuery(linkPreviewQuery(id, link.messageId, link.url))
+}
+
 export function prepareConversation(client: QueryClient, id: string) {
   return Promise.all([
     client.prefetchQuery(roomQuery(id)),

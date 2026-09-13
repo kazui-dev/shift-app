@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import {
+  japanDateMinute,
   japanDateStart,
   japanDateTime,
   japanDateWeekday,
@@ -96,6 +97,7 @@ describe("Japan calendar labels", () => {
       expect(japanDateWeekday(instant)).toBe("9月13日(日)")
       expect(japanMonthDayTime(instant)).toBe("9/13 09:30")
       expect(japanTimestamp(instant)).toBe("2026/9/13 09:30:00")
+      expect(japanDateMinute(instant)).toBe("2026/9/13 09:30")
       expect(japanFullDate("2026-09-13")).toBe("2026年9月13日（日）")
       expect(japanWeekday("2026-09-13")).toBe(0)
       expect(japanWeekday("2026-09-19")).toBe(6)
