@@ -1,4 +1,4 @@
-import { messageLinks } from "@workspace/shared/communications"
+import { messageLinks } from "@workspace/shared/messages"
 export function MessageText({ content }: { content: string }) {
   return messageLinks(content).map((part) =>
     part.href ? (

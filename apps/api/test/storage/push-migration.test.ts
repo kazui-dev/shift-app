@@ -1,7 +1,6 @@
-import { URL } from "node:url"
 import { DatabaseSync } from "node:sqlite"
-import { readFileSync } from "node:fs"
 import { expect, it } from "vite-plus/test"
+import { applyMigration } from "../support/sqlite"
 it("preserves push settings and delivery history with foreign keys enabled inside a migration transaction", () => {
   const db = new DatabaseSync(":memory:")
   try {
@@ -15,24 +14,9 @@ it("preserves push settings and delivery history with foreign keys enabled insid
       INSERT INTO push_subscriptions VALUES ('device','user','https://push.example',NULL,'key','auth',0,0);
       INSERT INTO notification_deliveries VALUES ('shift','device','ten_minute','sent',1,2);
       BEGIN;`)
-    db.exec(
-      readFileSync(
-        new URL("../migrations/0026_push_devices.sql", import.meta.url),
-        "utf8"
-      )
-    )
-    db.exec(
-      readFileSync(
-        new URL("../migrations/0027_push_subscriptions.sql", import.meta.url),
-        "utf8"
-      )
-    )
-    db.exec(
-      readFileSync(
-        new URL("../migrations/0029_notification_devices.sql", import.meta.url),
-        "utf8"
-      )
-    )
+    applyMigration(db, "0026_push_devices.sql")
+    applyMigration(db, "0027_push_subscriptions.sql")
+    applyMigration(db, "0029_notification_devices.sql")
     db.exec("COMMIT")
     expect(
       db.prepare("SELECT id, enabled, endpoint FROM notification_devices").get()

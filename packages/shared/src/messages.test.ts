@@ -1,5 +1,40 @@
 import { expect, it } from "vite-plus/test"
-import { messageLinks } from "./chat-links"
+import { messageLinks, messagePermissions } from "./messages"
+const base = {
+  memberId: "me",
+  authorId: "other",
+  canPost: true,
+  canManage: false,
+  deleted: false,
+}
+it("limits editing to the author and permits room managers to delete", () => {
+  expect(messagePermissions(base)).toEqual({
+    reply: true,
+    edit: false,
+    delete: false,
+  })
+  expect(messagePermissions({ ...base, authorId: "me" })).toEqual({
+    reply: true,
+    edit: true,
+    delete: true,
+  })
+  expect(messagePermissions({ ...base, canManage: true })).toEqual({
+    reply: true,
+    edit: false,
+    delete: true,
+  })
+  expect(
+    messagePermissions({ ...base, authorId: "me", canPost: false })
+  ).toEqual({ reply: false, edit: false, delete: true })
+  expect(
+    messagePermissions({
+      ...base,
+      authorId: "me",
+      canManage: true,
+      deleted: true,
+    })
+  ).toEqual({ reply: false, edit: false, delete: false })
+})
 it("links http URLs without swallowing surrounding punctuation or Japanese delimiters", () => {
   const text =
     "案内「https://example.com/a?q=1&b=2」。 (https://example.com/wiki/A_(B)). https://example.com/end]"

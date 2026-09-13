@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 
-import { messageLinks } from "@workspace/shared/communications"
+import { messageLinks } from "@workspace/shared/messages"
 
 import { apiError, errors } from "../../lib/errors"
 import { fetchLink, limitedBody } from "../../services/link-fetch"

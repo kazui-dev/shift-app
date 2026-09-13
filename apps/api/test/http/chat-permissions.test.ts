@@ -1,7 +1,6 @@
 import { chatApp } from "../../src/routes/chat/index"
 import { activityActionsApp } from "../../src/routes/activity-actions"
-import { readFileSync, readdirSync } from "node:fs"
-import { DatabaseSync, type SQLInputValue } from "node:sqlite"
+import { DatabaseSync } from "node:sqlite"
 import { Hono } from "hono"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
@@ -15,6 +14,7 @@ import {
   roomCommands,
 } from "../../src/services/chat-creation"
 import { chatPermissions } from "../../src/services/chat-permissions"
+import { d1Binding, migrated } from "../support/sqlite"
 
 vi.mock("../../src/services/push", () => ({
   notifyRoomMessage: async () => {},
@@ -31,15 +31,9 @@ const admin = "10000000-0000-4000-8000-000000000001",
 const activity = "20000000-0000-4000-8000-000000000001",
   role = "30000000-0000-4000-8000-000000000001"
 function fixture() {
-  const db = new DatabaseSync(":memory:")
+  const db = migrated()
   databases.push(db)
-  for (const file of readdirSync("migrations")
-    .filter((f) => f.endsWith(".sql"))
-    .sort())
-    db.exec(readFileSync(`migrations/${file}`, "utf8"))
-  db.exec(
-    "PRAGMA foreign_keys=ON; INSERT INTO operating_years VALUES(2026,0,0),(2027,0,0)"
-  )
+  db.exec("INSERT INTO operating_years VALUES(2026,0,0),(2027,0,0)")
   for (const [i, id] of [admin, member, other].entries()) {
     db.prepare("INSERT INTO user(id,name,email) VALUES(?,?,?)").run(
       id,
@@ -59,31 +53,7 @@ function fixture() {
   }
   let actor = admin
   let beforeBatch = () => {}
-  const prepare = (sql: string) => {
-    const statement = (params: SQLInputValue[]) => ({
-      bind: (...values: SQLInputValue[]) => statement(values),
-      first: () => Promise.resolve(db.prepare(sql).get(...params) ?? null),
-      all: () => {
-        const results = db.prepare(sql).all(...params)
-        return Promise.resolve({
-          success: true,
-          results,
-          meta: {
-            changes: Number(db.prepare("SELECT changes() AS n").get()?.n),
-          },
-        })
-      },
-      run: () => {
-        const result = db.prepare(sql).run(...params)
-        return Promise.resolve({
-          success: true,
-          results: [],
-          meta: { changes: Number(result.changes) },
-        })
-      },
-    })
-    return statement([])
-  }
+  const binding = d1Binding(db, { beforeBatch: () => beforeBatch() })
   const delivered = {
     id: "40000000-0000-4000-8000-000000000001",
     sequence: 1,
@@ -98,23 +68,7 @@ function fixture() {
   const env = {
     CHAT_ROOMS: { getByName: () => ({ sendMessage: async () => delivered }) },
     CHAT_DIRECTORY: { getByName: () => ({ publish: published }) },
-    shift_app: {
-      prepare,
-      batch: async (statements: { all: () => Promise<unknown> }[]) => {
-        beforeBatch()
-        db.exec("BEGIN")
-        try {
-          const result = await Promise.all(
-            statements.map((statement) => statement.all())
-          )
-          db.exec("COMMIT")
-          return result
-        } catch (error) {
-          db.exec("ROLLBACK")
-          throw error
-        }
-      },
-    },
+    shift_app: binding,
   }
   const app = new Hono<ApiEnv>()
   app.use("*", async (c, next) => {

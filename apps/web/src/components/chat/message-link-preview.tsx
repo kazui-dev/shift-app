@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { keys } from "@/data/keys"
 import { useQuery } from "@tanstack/react-query"
-import { messageLinks } from "@workspace/shared/communications"
+import { messageLinks } from "@workspace/shared/messages"
 import { chatLinkImageUrl, getChatLinkPreview } from "@/api/chat"
 export function MessageLinkPreview({
   roomId,

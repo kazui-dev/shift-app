@@ -1,4 +1,4 @@
-import { messagePermissions } from "@workspace/shared/communications"
+import { messagePermissions } from "@workspace/shared/messages"
 import { findAccessibleRoom } from "../services/chat-access"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import { ChatAttachments } from "./chat-attachments"
