@@ -13,6 +13,7 @@ export function ChatComposer({
   roomName,
   draft,
   disabled,
+  saving = false,
   onChange,
   onAddFiles,
   onSend,
@@ -22,6 +23,7 @@ export function ChatComposer({
   roomName: string
   draft: ChatDraft
   disabled: boolean
+  saving?: boolean
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
   onSend: () => void
@@ -37,11 +39,8 @@ export function ChatComposer({
     !disabled
   )
   const modeId = editing?.id ?? draft.reply?.id
-  const previousMode = useRef(modeId)
   useEffect(() => {
     if (modeId) input.current?.focus({ preventScroll: true })
-    else if (previousMode.current) input.current?.blur()
-    previousMode.current = modeId
   }, [modeId, input])
   const mode = editing
     ? {
@@ -61,7 +60,8 @@ export function ChatComposer({
       event.key !== "Escape" ||
       event.defaultPrevented ||
       event.isComposing ||
-      disabled
+      disabled ||
+      saving
     )
       return
     if (
@@ -72,6 +72,7 @@ export function ChatComposer({
     )
       return
     event.preventDefault()
+    input.current?.blur()
     mode?.cancel()
   })
   const modeActive = mode !== null
@@ -220,6 +221,7 @@ export function ChatComposer({
           event.preventDefault()
           if (
             !disabled &&
+            !saving &&
             (draft.content.trim() || draft.files.length || editing?.hasImages)
           ) {
             onSend()
@@ -239,9 +241,12 @@ export function ChatComposer({
               size="icon-xs"
               className="rounded-full"
               aria-label={mode.cancelLabel}
-              disabled={disabled}
+              disabled={disabled || saving}
               onPointerDown={(event) => event.preventDefault()}
-              onClick={mode.cancel}
+              onClick={() => {
+                input.current?.blur()
+                mode.cancel()
+              }}
             >
               <X />
             </Button>
@@ -298,9 +303,13 @@ export function ChatComposer({
             value={draft.content}
             enterKeyHint={touch ? "enter" : "send"}
             className={`${textClass} placeholder:truncate`}
-            onChange={(event) =>
-              onChange({ ...draft, content: event.currentTarget.value })
-            }
+            onBeforeInput={(event) => {
+              if (saving) event.preventDefault()
+            }}
+            onChange={(event) => {
+              if (!saving)
+                onChange({ ...draft, content: event.currentTarget.value })
+            }}
             onPaste={(event) => {
               const images = Array.from(event.clipboardData.files)
               if (images.length) {
@@ -338,6 +347,7 @@ export function ChatComposer({
             aria-label={editing ? "保存" : "送信"}
             disabled={
               disabled ||
+              saving ||
               (!draft.content.trim() &&
                 !draft.files.length &&
                 !editing?.hasImages)

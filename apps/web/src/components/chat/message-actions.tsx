@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import { CornerUpLeft, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerClose,
-  DrawerTitle,
-} from "@workspace/ui/components/drawer"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { messagePermissions } from "@workspace/shared/communications"
 import type { ChatRoom } from "@/api/chat"
@@ -20,6 +20,8 @@ export function MessageActions({
   onReply,
   onEdit,
   onDelete,
+  onMenu,
+  menuOpen,
   editing,
   children,
 }: {
@@ -29,6 +31,8 @@ export function MessageActions({
   offline: boolean
   onEdit: () => void
   onDelete: () => void
+  onMenu: () => void
+  menuOpen: boolean
   editing: boolean
   onReply: () => void
   children: ReactNode
@@ -43,6 +47,10 @@ export function MessageActions({
   } | null>(null)
   const consumed = useRef(false)
   const [opened, setOpened] = useState(false)
+  const openActions = useEffectEvent(() => {
+    if (mobile) onMenu()
+    else setOpened(true)
+  })
   const permission = messagePermissions({
     memberId,
     authorId: message.memberId,
@@ -103,7 +111,7 @@ export function MessageActions({
         y,
         timer: setTimeout(() => {
           consumed.current = true
-          setOpened(true)
+          openActions()
           press.current = null
         }, 450),
       }
@@ -129,7 +137,7 @@ export function MessageActions({
       if (!available) return
       event.preventDefault()
       cancelPress()
-      setOpened(true)
+      openActions()
     }
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -159,134 +167,73 @@ export function MessageActions({
       ref={root}
       aria-label={`${message.memberDisplayName}のメッセージ`}
       data-message-actions
-      data-active={opened || pressed || undefined}
+      data-active={opened || menuOpen || pressed || undefined}
       data-editing={editing || undefined}
-      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has([data-message-reply]:focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has([data-message-reply]:hover))]:bg-foreground/5"} ${!editing && (opened || pressed) ? "bg-foreground/5" : ""}`}
+      className={`group relative -mx-[var(--chat-gutter)] px-[var(--chat-gutter)] transition-colors duration-200 motion-reduce:transition-none [@media(pointer:coarse)]:select-none ${editing ? "bg-blue-500/10 dark:bg-blue-400/15" : "focus-within:[&:not(:has([data-message-reply]:focus))]:bg-foreground/5 [@media(hover:hover)]:hover:[&:not(:has([data-message-reply]:hover))]:bg-foreground/5"} ${!editing && (opened || menuOpen || pressed) ? "bg-foreground/5" : ""}`}
     >
       {available && (
         <button
           type="button"
           className="sr-only"
-          onClick={() => setOpened(true)}
+          onClick={() => {
+            if (mobile) onMenu()
+            else setOpened(true)
+          }}
         >
           メッセージの操作を表示
         </button>
       )}
       {children}
-      {available &&
-        !editing &&
-        (mobile ? (
-          <Drawer
-            open={opened}
-            onOpenChange={(next, details) => {
-              // The release that completed a long press belongs to the message,
-              // not to the drawer backdrop that just appeared under the finger.
-              if (
-                !next &&
-                consumed.current &&
-                details.reason === "outside-press"
-              ) {
-                details.cancel()
-                return
-              }
-              setOpened(next)
-            }}
-          >
-            <DrawerContent
-              finalFocus={false}
-              className="pb-[env(safe-area-inset-bottom)]"
+      {available && !editing && !mobile && (
+        <div
+          role="toolbar"
+          aria-label="メッセージの操作"
+          className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
+        >
+          {permission.reply && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="返信"
+              title="返信"
+              onClick={() => {
+                onReply()
+                setOpened(false)
+              }}
             >
-              <DrawerTitle className="sr-only">メッセージの操作</DrawerTitle>
-              <div className="flex flex-col gap-1 p-3">
-                {permission.reply && (
-                  <DrawerClose
-                    render={
-                      <Button variant="ghost" className="h-12 justify-start" />
-                    }
-                    onClosed={onReply}
-                  >
-                    <CornerUpLeft />
-                    返信
-                  </DrawerClose>
-                )}
-                {permission.edit && (
-                  <DrawerClose
-                    render={
-                      <Button variant="ghost" className="h-12 justify-start" />
-                    }
-                    onClosed={onEdit}
-                  >
-                    <Pencil />
-                    編集
-                  </DrawerClose>
-                )}
-                {permission.delete && (
-                  <DrawerClose
-                    render={
-                      <Button
-                        variant="ghost"
-                        className="h-12 justify-start text-destructive"
-                      />
-                    }
-                    onClosed={onDelete}
-                  >
-                    <Trash2 />
-                    削除
-                  </DrawerClose>
-                )}
-              </div>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <div
-            role="toolbar"
-            aria-label="メッセージの操作"
-            className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
-          >
-            {permission.reply && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="返信"
-                title="返信"
-                onClick={() => {
-                  onReply()
-                  setOpened(false)
-                }}
-              >
-                <CornerUpLeft />
-              </Button>
-            )}
-            {permission.edit && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="編集"
-                title="編集"
-                onClick={() => {
-                  onEdit()
-                  setOpened(false)
-                }}
-              >
-                <Pencil />
-              </Button>
-            )}
-            {permission.delete && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="削除"
-                title="削除"
-                onClick={() => {
-                  onDelete()
-                  setOpened(false)
-                }}
-              >
-                <Trash2 />
-              </Button>
-            )}
-          </div>
-        ))}
+              <CornerUpLeft />
+            </Button>
+          )}
+          {permission.edit && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="編集"
+              title="編集"
+              onClick={() => {
+                onEdit()
+                setOpened(false)
+              }}
+            >
+              <Pencil />
+            </Button>
+          )}
+          {permission.delete && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="削除"
+              title="削除"
+              onClick={() => {
+                onDelete()
+                setOpened(false)
+              }}
+            >
+              <Trash2 />
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

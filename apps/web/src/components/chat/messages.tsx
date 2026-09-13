@@ -1,3 +1,4 @@
+import { MessageActionDrawer } from "./message-action-drawer"
 import { DeleteMessageDialog } from "./delete-message-dialog"
 import { OfflineSendDialog } from "./offline-send-dialog"
 import { useReplyTarget } from "./use-reply-target"
@@ -44,6 +45,10 @@ export function ChatMessages({
   active: boolean
 }) {
   const navigate = useNavigate()
+  const [menu, setMenu] = useState<{
+    message: MessageRow
+    open: boolean
+  } | null>(null)
   const [deleting, setDeleting] = useState<MessageRow | null>(null)
   const [deletionClosing, setDeletionClosing] = useState(false)
   const [blockedSend, setBlockedSend] = useState(false)
@@ -91,8 +96,33 @@ export function ChatMessages({
     history.markRead,
     history.query.data !== undefined
   )
+  const selectedMessage = rows.find(
+    (message) => message.id === menu?.message.id
+  )
   const firstUnread = unreadMessage(rows, history.initialRead)
   const setReplyTarget = useReplyTarget(history, scroll, active, offline)
+  function removeMessage(message: MessageRow) {
+    setDeletionClosing(false)
+    setDeleting(message)
+  }
+  function editMessage(message: MessageRow) {
+    store.edit(room.id, { content: "", files: [] })
+    edit.start(message)
+  }
+  function replyTo(message: MessageRow) {
+    edit.cancel()
+    if (message.sequence !== null)
+      store.edit(room.id, {
+        ...store.draft(room.id),
+        reply: {
+          id: message.id,
+          sequence: message.sequence,
+          memberDisplayName: message.memberDisplayName,
+          memberImage: message.memberImage,
+          content: message.content,
+        },
+      })
+  }
   return (
     <>
       <div
@@ -169,31 +199,13 @@ export function ChatMessages({
                       memberId={member.id}
                       offline={offline}
                       editing={edit.editing?.id === message.id}
-                      onDelete={() => {
-                        setDeletionClosing(false)
-                        setDeleting(message)
-                      }}
-                      onEdit={() => {
-                        store.edit(room.id, {
-                          content: "",
-                          files: [],
-                        })
-                        edit.start(message)
-                      }}
-                      onReply={() => {
-                        edit.cancel()
-                        if (message.sequence !== null)
-                          store.edit(room.id, {
-                            ...store.draft(room.id),
-                            reply: {
-                              id: message.id,
-                              sequence: message.sequence,
-                              memberDisplayName: message.memberDisplayName,
-                              memberImage: message.memberImage,
-                              content: message.content,
-                            },
-                          })
-                      }}
+                      menuOpen={
+                        menu?.open === true && menu.message.id === message.id
+                      }
+                      onMenu={() => setMenu({ message, open: true })}
+                      onDelete={() => removeMessage(message)}
+                      onEdit={() => editMessage(message)}
+                      onReply={() => replyTo(message)}
                     >
                       <div className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
                         {message.reply && (
@@ -374,7 +386,8 @@ export function ChatMessages({
                     }
                   : undefined
               }
-              disabled={!ready || (composerEdit !== null && edit.pending)}
+              disabled={!ready}
+              saving={composerEdit !== null && edit.pending}
               onChange={(value) =>
                 composerEdit
                   ? edit.change(value.content)
@@ -410,6 +423,28 @@ export function ChatMessages({
           </div>
         )}
       </div>
+      {menu && (
+        <MessageActionDrawer
+          message={selectedMessage ?? menu.message}
+          room={room}
+          memberId={member.id}
+          open={menu.open && !!selectedMessage && !offline}
+          disabled={!selectedMessage || offline}
+          onOpenChange={(open) =>
+            setMenu((current) => (current ? { ...current, open } : null))
+          }
+          onClosed={() => setMenu(null)}
+          onReply={() => {
+            if (selectedMessage) replyTo(selectedMessage)
+          }}
+          onEdit={() => {
+            if (selectedMessage) editMessage(selectedMessage)
+          }}
+          onDelete={() => {
+            if (selectedMessage) removeMessage(selectedMessage)
+          }}
+        />
+      )}
       {deleting && (
         <DeleteMessageDialog
           roomId={room.id}
