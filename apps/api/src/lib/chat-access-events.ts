@@ -1,5 +1,5 @@
 import { createMiddleware } from "hono/factory"
-import type { ApiEnv } from "../lib/http"
+import type { ApiEnv } from "./http"
 
 // Roles, year membership and shift assignments also determine chat access.
 // Broadcast no room data: clients recheck through authorized reads.

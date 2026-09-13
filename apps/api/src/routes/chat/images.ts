@@ -1,19 +1,20 @@
 import { Hono } from "hono"
 import * as v from "valibot"
-import { chatImageLimits } from "@workspace/shared/communications"
-import { apiError, errors } from "../lib/errors"
-import { type ApiEnv } from "../lib/http"
-import { findAccessibleRoom } from "../services/chat-access"
-import { stripWebpMetadata } from "../domain/chat-image"
 
-const uuid = v.pipe(v.string(), v.uuid())
-export const chatImagesApp = new Hono<ApiEnv>()
-chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
-  const id = v.safeParse(uuid, c.req.param("roomId")),
+import { chatImageLimits } from "@workspace/shared/communications"
+
+import { stripWebpMetadata } from "../../domain/chat-image"
+import { apiError, errors } from "../../lib/errors"
+import type { RoomEnv } from "./room"
+
+const idSchema = v.pipe(v.string(), v.uuid())
+
+export const imagesApp = new Hono<RoomEnv>()
+
+imagesApp.post("/attachments", async (c) => {
+  const room = c.get("room"),
     memberId = c.get("member").id
-  if (!id.success) return apiError(c, errors.chatRoomNotFound)
-  const room = await findAccessibleRoom(c.env, id.output, memberId)
-  if (!room?.canPost) return apiError(c, errors.chatReadOnly)
+  if (!room.canPost) return apiError(c, errors.chatReadOnly)
   const blob = await c.req.raw.blob()
   if (!blob.size || blob.size > chatImageLimits.bytes)
     return apiError(c, errors.imageTooLarge)
@@ -67,19 +68,13 @@ chatImagesApp.post("/rooms/:roomId/attachments", async (c) => {
     return apiError(c, errors.imageProcessingFailed)
   }
 })
-chatImagesApp.get("/rooms/:roomId/attachments/:attachmentId", async (c) => {
-  const roomId = v.safeParse(uuid, c.req.param("roomId")),
-    id = v.safeParse(uuid, c.req.param("attachmentId"))
-  if (!roomId.success || !id.success) return apiError(c, errors.imageNotFound)
-  const room = await findAccessibleRoom(
-    c.env,
-    roomId.output,
-    c.get("member").id
-  )
-  if (!room) return apiError(c, errors.imageNotFound)
-  const attachment = await c.env.CHAT_ROOMS.getByName(room.id).getAttachment(
-    id.output
-  )
+
+imagesApp.get("/attachments/:attachmentId", async (c) => {
+  const id = v.safeParse(idSchema, c.req.param("attachmentId"))
+  if (!id.success) return apiError(c, errors.imageNotFound)
+  const attachment = await c.env.CHAT_ROOMS.getByName(
+    c.get("room").id
+  ).getAttachment(id.output)
   if (!attachment) return apiError(c, errors.imageNotFound)
   const object = await c.env.CHAT_IMAGES.get(attachment.objectKey)
   if (!object) return apiError(c, errors.imageNotFound)
@@ -94,21 +89,12 @@ chatImagesApp.get("/rooms/:roomId/attachments/:attachmentId", async (c) => {
     },
   })
 })
-chatImagesApp.delete("/rooms/:roomId/attachments/:attachmentId", async (c) => {
-  if (
-    !v.safeParse(uuid, c.req.param("roomId")).success ||
-    !v.safeParse(uuid, c.req.param("attachmentId")).success
-  )
-    return apiError(c, errors.imageNotFound)
-  const room = await findAccessibleRoom(
-    c.env,
-    c.req.param("roomId"),
-    c.get("member").id
-  )
-  if (!room) return apiError(c, errors.imageNotFound)
-  const removed = await c.env.CHAT_ROOMS.getByName(room.id).deleteAttachment(
-    c.req.param("attachmentId"),
-    c.get("member").id
-  )
+
+imagesApp.delete("/attachments/:attachmentId", async (c) => {
+  const id = v.safeParse(idSchema, c.req.param("attachmentId"))
+  if (!id.success) return apiError(c, errors.imageNotFound)
+  const removed = await c.env.CHAT_ROOMS.getByName(
+    c.get("room").id
+  ).deleteAttachment(id.output, c.get("member").id)
   return removed ? c.body(null, 204) : apiError(c, errors.imageNotFound)
 })

@@ -2,8 +2,8 @@ import { Hono } from "hono"
 
 import type { ChatTargetOption } from "@workspace/shared/communications"
 
-import { apiError, errors } from "../lib/errors"
-import { type ApiEnv, hasActiveYearMembership, parseYear } from "../lib/http"
+import { apiError, errors } from "../../lib/errors"
+import { type ApiEnv, hasActiveYearMembership, parseYear } from "../../lib/http"
 
 export const chatTargetsApp = new Hono<ApiEnv>()
 

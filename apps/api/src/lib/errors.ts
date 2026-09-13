@@ -212,11 +212,6 @@ export const errors = {
     "FORBIDDEN",
     "チャットの管理権限が必要です。"
   ),
-  chatMembersUnavailable: define(
-    404,
-    "NOT_FOUND",
-    "メンバーを表示できません。"
-  ),
   chatExitDisabled: define(
     409,
     "EXIT_DISABLED",

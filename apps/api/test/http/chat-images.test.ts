@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { chatImagesApp } from "../../src/routes/chat-images"
+import { chatApp } from "../../src/routes/chat/index"
 import {
   findAccessibleRoom,
   type RoomRow,
@@ -62,7 +62,7 @@ app.use("*", async (c, next) => {
   })
   await next()
 })
-app.route("/chat", chatImagesApp)
+app.route("/chat", chatApp)
 beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(findAccessibleRoom).mockResolvedValue(room)
@@ -81,8 +81,22 @@ it("does not touch storage when room access is denied", async () => {
         env
       )
     ).status
-  ).toBe(403)
+  ).toBe(404)
   expect(getAttachment).not.toHaveBeenCalled()
+  expect(reserveAttachment).not.toHaveBeenCalled()
+})
+
+it("refuses to upload into a readable room the member cannot post to", async () => {
+  vi.mocked(findAccessibleRoom).mockResolvedValue({ ...room, canPost: 0 })
+  expect(
+    (
+      await app.request(
+        `/chat/rooms/${roomId}/attachments`,
+        { method: "POST", body: "image" },
+        env
+      )
+    ).status
+  ).toBe(403)
   expect(reserveAttachment).not.toHaveBeenCalled()
 })
 it("never caches protected images publicly", async () => {

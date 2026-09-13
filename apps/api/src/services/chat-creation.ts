@@ -38,6 +38,38 @@ export function yearRoom(year: number, createdBy: string): Room {
     ],
   }
 }
+/** A conversation someone starts, managed by its creator. */
+export function memberRoom(
+  input: {
+    year: number
+    name: string
+    targets: { targetType: Grant["targetType"]; targetId: string }[]
+  },
+  createdBy: string
+): Room {
+  const invited = new Map(
+    input.targets.map((target) => [
+      `${target.targetType}:${target.targetId}`,
+      target,
+    ])
+  )
+  invited.delete(`member:${createdBy}`)
+  return {
+    id: crypto.randomUUID(),
+    year: input.year,
+    name: input.name,
+    createdBy,
+    activityId: null,
+    allowExit: true,
+    targets: [
+      grant("member", createdBy, true),
+      ...[...invited.values()].map((target) =>
+        grant(target.targetType, target.targetId)
+      ),
+    ],
+  }
+}
+
 export function activityRoom(activity: {
   id: string
   year: number

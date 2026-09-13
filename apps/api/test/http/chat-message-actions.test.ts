@@ -1,7 +1,14 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
-import { chatApp } from "../../src/routes/chat"
+import { chatApp } from "../../src/routes/chat/index"
 import type { ApiEnv } from "../../src/lib/http"
+import {
+  findAccessibleRoom,
+  type RoomRow,
+} from "../../src/services/chat-access"
+vi.mock("../../src/services/chat-access", () => ({
+  findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
+}))
 const roomId = "10000000-0000-4000-8000-000000000001",
   messageId = "20000000-0000-4000-8000-000000000001"
 const change = vi.fn<() => Promise<{ error: "forbidden" }>>(),
@@ -22,8 +29,26 @@ const env = {
   CHAT_ROOMS: { getByName: () => ({ changeMessage: change }) },
   CHAT_DIRECTORY: { getByName: () => ({ fetch: connect }) },
 }
+const room: RoomRow = {
+  id: roomId,
+  year: 2026,
+  name: "連絡",
+  createdBy: "trusted",
+  createdAt: 0,
+  updatedAt: 0,
+  allowExit: 1,
+  activityId: null,
+  activityStartsAt: null,
+  activityEndsAt: null,
+  canPost: 1,
+  canManage: 0,
+  muted: 0,
+  lastRead: 0,
+  lastSequence: 0,
+}
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(findAccessibleRoom).mockResolvedValue(room)
   change.mockResolvedValue({ error: "forbidden" })
   connect.mockResolvedValue(new Response("connected"))
 })
@@ -49,6 +74,13 @@ it("validates edits before the room call and returns server permission failures"
     id: messageId,
     memberId: "trusted",
   })
+})
+
+it("never reaches the room when the member cannot read it", async () => {
+  vi.mocked(findAccessibleRoom).mockResolvedValue(null)
+  const url = `/chat/rooms/${roomId}/messages/${messageId}`
+  expect((await app.request(url, { method: "DELETE" }, env)).status).toBe(404)
+  expect(change).not.toHaveBeenCalled()
 })
 it("rejects cross-origin directory connections and replaces caller-supplied identity", async () => {
   expect(
