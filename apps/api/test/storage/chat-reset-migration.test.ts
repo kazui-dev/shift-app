@@ -1,15 +1,9 @@
-import { readFileSync, readdirSync } from "node:fs"
-import { DatabaseSync } from "node:sqlite"
 import { expect, it } from "vite-plus/test"
+import { applyMigration, migrated, migrations } from "../support/sqlite"
 it("resets only chat data, queues old storage cleanup, and removes all chat policy from the database", () => {
-  const db = new DatabaseSync(":memory:")
+  const db = migrated(30)
   try {
-    const files = readdirSync("migrations")
-      .filter((f) => f.endsWith(".sql"))
-      .sort()
-    for (const file of files.filter((f) => Number(f.slice(0, 4)) < 30))
-      db.exec(readFileSync(`migrations/${file}`, "utf8"))
-    db.exec(`PRAGMA foreign_keys=ON;
+    db.exec(`
    INSERT INTO operating_years VALUES(2026,0,0);
    INSERT INTO user(id,name,email) VALUES('u','Test','test@example.com');
    INSERT INTO app_users VALUES('m','u','Test','26AJ001','system_admin',0,0);
@@ -24,9 +18,11 @@ it("resets only chat data, queues old storage cleanup, and removes all chat poli
       .prepare("SELECT id FROM chat_rooms")
       .all()
       .map((row) => String(row.id))
-    for (const file of files.filter((f) => Number(f.slice(0, 4)) >= 30)) {
+    for (const file of migrations().filter(
+      (f) => Number(f.slice(0, 4)) >= 30
+    )) {
       db.exec("BEGIN")
-      db.exec(readFileSync(`migrations/${file}`, "utf8"))
+      applyMigration(db, file)
       db.exec("COMMIT")
     }
     expect(

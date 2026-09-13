@@ -1,19 +1,12 @@
-import { readFileSync, readdirSync } from "node:fs"
-import { URL } from "node:url"
 import { DatabaseSync } from "node:sqlite"
 import { describe, expect, it } from "vite-plus/test"
+import { applyMigration, migrations } from "../support/sqlite"
 
-const folder = new URL("../migrations/", import.meta.url)
 function migrate(db: DatabaseSync, first: number, last: number) {
-  for (const file of readdirSync(folder)
-    .filter(
-      (name) =>
-        name.endsWith(".sql") &&
-        Number(name.slice(0, 4)) >= first &&
-        Number(name.slice(0, 4)) <= last
-    )
-    .sort())
-    db.exec(readFileSync(new URL(file, folder), "utf8"))
+  for (const file of migrations(last + 1).filter(
+    (name) => Number(name.slice(0, 4)) >= first
+  ))
+    applyMigration(db, file)
 }
 describe("shift slot migration", () => {
   it("retains assignments, attendance, reports and notification records", () => {

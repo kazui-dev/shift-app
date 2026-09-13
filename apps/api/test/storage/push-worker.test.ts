@@ -4,7 +4,7 @@ import { runInNewContext } from "node:vm"
 import { expect, it, vi } from "vite-plus/test"
 
 const source = readFileSync(
-  new URL("../../web/public/push-sw.js", import.meta.url),
+  new URL("../../../web/public/push-sw.js", import.meta.url),
   "utf8"
 )
 type Click = {

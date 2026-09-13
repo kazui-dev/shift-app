@@ -1,26 +1,16 @@
-import { readFileSync, readdirSync } from "node:fs"
-import { URL } from "node:url"
-import { DatabaseSync } from "node:sqlite"
 import { expect, it } from "vite-plus/test"
+import { applyMigration, migrated } from "../support/sqlite"
 
 it("removes archive state while retaining chats, permissions and automatic room creation", () => {
-  const db = new DatabaseSync(":memory:")
-  const folder = new URL("../migrations/", import.meta.url)
+  const db = migrated(28)
   try {
-    db.exec("PRAGMA foreign_keys=ON")
-    for (const name of readdirSync(folder)
-      .filter((file) => file.endsWith(".sql") && Number(file.slice(0, 4)) < 28)
-      .sort())
-      db.exec(readFileSync(new URL(name, folder), "utf8"))
     db.exec(`INSERT INTO operating_years VALUES (2026,0,0);
       INSERT INTO user (id,name,email) VALUES ('u','Test','test@example.com');
       INSERT INTO app_users VALUES ('m','u','Test','26AJ001','member',0,0);
       INSERT INTO chat_rooms(id,year,name,status,created_by,created_at,updated_at,last_sequence) VALUES('custom',2026,'Test','archived','m',0,0,12);
       INSERT INTO chat_room_preferences(room_id,member_id,muted,last_read) VALUES('custom','m',1,7);
       BEGIN;`)
-    db.exec(
-      readFileSync(new URL("0028_remove_chat_archive.sql", folder), "utf8")
-    )
+    applyMigration(db, "0028_remove_chat_archive.sql")
     db.exec("COMMIT")
     expect(
       db

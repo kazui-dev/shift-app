@@ -7,7 +7,7 @@ import {
   DrawerClose,
   DrawerTitle,
 } from "@workspace/ui/components/drawer"
-import { messagePermissions } from "@workspace/shared/communications"
+import { messagePermissions } from "@workspace/shared/messages"
 import type { ChatRoom } from "@/api/chat"
 import type { MessageRow } from "./message-list"
 

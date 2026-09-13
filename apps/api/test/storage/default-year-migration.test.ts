@@ -1,12 +1,6 @@
-import { readFileSync } from "node:fs"
-import { URL } from "node:url"
 import { DatabaseSync } from "node:sqlite"
 import { describe, expect, it } from "vite-plus/test"
-
-const migration = readFileSync(
-  new URL("../migrations/0012_default_year.sql", import.meta.url),
-  "utf8"
-)
+import { applyMigration } from "../support/sqlite"
 
 function database(years: [number, string][] = []) {
   const db = new DatabaseSync(":memory:")
@@ -15,7 +9,7 @@ function database(years: [number, string][] = []) {
   for (const [year, status] of years) {
     db.prepare("INSERT INTO operating_years VALUES (?, ?)").run(year, status)
   }
-  db.exec(migration)
+  applyMigration(db, "0012_default_year.sql")
   return db
 }
 

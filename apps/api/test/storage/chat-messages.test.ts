@@ -1,8 +1,11 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
-import { ChatRoom } from "../src/durable-objects/chat-room"
-import { findAccessibleRoom, type RoomRow } from "../src/services/chat-access"
-import { roomRecipients } from "../src/services/chat-permissions"
+import { ChatRoom } from "../../src/durable-objects/chat-room"
+import {
+  findAccessibleRoom,
+  type RoomRow,
+} from "../../src/services/chat-access"
+import { roomRecipients } from "../../src/services/chat-permissions"
 vi.mock("cloudflare:workers", () => ({
   DurableObject: class {
     constructor(
@@ -11,10 +14,10 @@ vi.mock("cloudflare:workers", () => ({
     ) {}
   },
 }))
-vi.mock("../src/services/chat-access", () => ({
+vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
-vi.mock("../src/services/chat-permissions", () => ({
+vi.mock("../../src/services/chat-permissions", () => ({
   roomRecipients: vi.fn<typeof roomRecipients>(),
 }))
 const room: RoomRow = {

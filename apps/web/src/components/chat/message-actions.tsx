@@ -8,7 +8,7 @@ import {
 import { CornerUpLeft, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { useMediaQuery } from "@/hooks/use-media-query"
-import { messagePermissions } from "@workspace/shared/communications"
+import { messagePermissions } from "@workspace/shared/messages"
 import type { ChatRoom } from "@/api/chat"
 import type { MessageRow } from "./message-list"
 
