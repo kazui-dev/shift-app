@@ -10,7 +10,7 @@ import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
 import { messageLinks } from "@workspace/shared/messages"
 import { publishChatEvent } from "../../services/chat-directory"
-import { sharedResource, sharedRoutes } from "../../lib/shared-cache"
+import { sharedRoutes, warmShared } from "../../lib/shared-cache"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
 import type { RoomEnv } from "./room"
@@ -47,11 +47,7 @@ const rejectedSend = [
 function warmLinkPreview(c: Context<RoomEnv>, content: string) {
   const link = messageLinks(content).find((part) => part.href)?.href
   if (!link) return
-  c.executionCtx.waitUntil(
-    sharedResource(sharedRoutes.linkImages, { url: link }).then((response) =>
-      response.body?.cancel()
-    )
-  )
+  c.executionCtx.waitUntil(warmShared(sharedRoutes.linkImages, { url: link }))
 }
 
 export const messagesApp = new Hono<RoomEnv>()

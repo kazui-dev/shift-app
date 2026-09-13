@@ -1,13 +1,11 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { sharedResource } from "../../src/lib/shared-cache"
+import { sharedResource, warmShared } from "../../src/lib/shared-cache"
 import { chatApp } from "../../src/routes/chat/index"
-import {
-  findAccessibleRoom,
-  type RoomRow,
-} from "../../src/services/chat-access"
+import { findAccessibleRoom } from "../../src/services/chat-access"
 import { storableImage } from "../../src/services/chat-image"
+import { chatRoom } from "../support/chat"
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
@@ -17,26 +15,11 @@ vi.mock("../../src/services/chat-image", () => ({
 vi.mock("../../src/lib/shared-cache", async (original) => ({
   ...(await original<typeof import("../../src/lib/shared-cache")>()),
   sharedResource: vi.fn<typeof sharedResource>(),
+  warmShared: vi.fn<typeof warmShared>(),
 }))
 const roomId = crypto.randomUUID(),
   imageId = crypto.randomUUID()
-const room: RoomRow = {
-  id: roomId,
-  year: 2026,
-  name: "連絡",
-  createdBy: "m",
-  createdAt: 0,
-  updatedAt: 0,
-  allowExit: 1,
-  activityId: null,
-  activityStartsAt: null,
-  activityEndsAt: null,
-  canPost: 1,
-  canManage: 1,
-  muted: 0,
-  lastRead: 0,
-  lastSequence: 0,
-}
+const room = chatRoom({ id: roomId, canManage: 1 })
 const getAttachment =
   vi.fn<(id: string) => Promise<{ name: string; type: string } | null>>()
 const reserveAttachment =
@@ -171,7 +154,7 @@ it("stores the original under its name and makes the list tiles at once", async 
     type: "image/jpeg",
   })
   await Promise.all(tasks)
-  expect(vi.mocked(sharedResource).mock.calls).toEqual([
+  expect(vi.mocked(warmShared).mock.calls).toEqual([
     [`/v1/chat-images/${roomId}/${imageId}/640`],
     [`/v1/chat-images/${roomId}/${imageId}/1280`],
   ])

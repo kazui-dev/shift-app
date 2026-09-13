@@ -27,6 +27,15 @@ export function sharedResource(
   return exports.SharedCache.fetch(url)
 }
 
+/** Fills the shared cache ahead of the first reader, discarding the response. */
+export async function warmShared(
+  path: string,
+  query: Record<string, string> = {}
+) {
+  const response = await sharedResource(path, query)
+  await response.body?.cancel()
+}
+
 /** Drops shared responses carrying any of the cache tags. */
 export function purgeShared(tags: string[]) {
   return exports.SharedCache.purge(tags)

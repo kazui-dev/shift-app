@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { sharedApp } from "../../src/routes/shared"
 import { linkPreview } from "../../src/lib/shared-cache"
 import { loadLinkImage, loadLinkPreview } from "../../src/services/link-preview"
+import { fakeTransformer } from "../support/images"
 vi.mock("../../src/lib/shared-cache", async (original) => ({
   ...(await original<typeof import("../../src/lib/shared-cache")>()),
   linkPreview: vi.fn<typeof linkPreview>(),
@@ -54,23 +55,7 @@ describe("chat images", () => {
     httpMetadata: { contentType: string }
   }
   const get = vi.fn<(key: string) => Promise<Stored | null>>()
-  const transform = vi.fn<(options: ImageTransform) => void>()
-  const output = vi.fn<(options: ImageOutputOptions) => void>()
-  const transformer: ImageTransformer = {
-    transform: (options) => {
-      transform(options)
-      return transformer
-    },
-    draw: () => transformer,
-    output: async (options) => {
-      output(options)
-      return {
-        response: () => new Response("scaled"),
-        contentType: () => "image/webp",
-        image: () => new Response("scaled").body ?? new ReadableStream(),
-      }
-    },
-  }
+  const { transformer, transform, output } = fakeTransformer(() => "scaled")
   const images = {
     CHAT_IMAGES: { get },
     IMAGES: { input: () => transformer },

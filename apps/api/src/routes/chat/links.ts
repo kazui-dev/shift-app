@@ -4,6 +4,7 @@ import * as v from "valibot"
 import { messageLinks } from "@workspace/shared/messages"
 
 import { apiError, errors } from "../../lib/errors"
+import { privateResponse } from "../../lib/http"
 import {
   linkPreview,
   sharedResource,
@@ -44,12 +45,5 @@ linksApp.get("/messages/:messageId/link-preview/image", async (c) => {
     await image.body?.cancel()
     return c.body(null, 404)
   }
-  return new Response(image.body, {
-    headers: {
-      "Content-Type": "image/webp",
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Cross-Origin-Resource-Policy": "same-origin",
-    },
-  })
+  return privateResponse(image.body, { "Content-Type": "image/webp" })
 })

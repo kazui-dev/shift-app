@@ -9,7 +9,12 @@ import {
 
 import { attachmentName } from "../../domain/chat-attachment"
 import { apiError, errors } from "../../lib/errors"
-import { chatImagePath, sharedResource } from "../../lib/shared-cache"
+import { privateResponse } from "../../lib/http"
+import {
+  chatImagePath,
+  sharedResource,
+  warmShared,
+} from "../../lib/shared-cache"
 import { storableImage } from "../../services/chat-image"
 import type { RoomEnv } from "./room"
 
@@ -67,12 +72,9 @@ imagesApp.post("/attachments", async (c) => {
     }
     c.executionCtx.waitUntil(
       Promise.all(
-        tileSizes.map(async (size) => {
-          const tile = await sharedResource(
-            chatImagePath(room.id, reserved.id, size)
-          )
-          await tile.body?.cancel()
-        })
+        tileSizes.map((size) =>
+          warmShared(chatImagePath(room.id, reserved.id, size))
+        )
       )
     )
     return c.json({ attachment }, 201)
@@ -102,16 +104,11 @@ imagesApp.get("/attachments/:attachmentId", async (c) => {
     await image.body?.cancel()
     return apiError(c, errors.imageNotFound)
   }
-  return new Response(image.body, {
-    headers: {
-      "Content-Type": size.output ? "image/webp" : attachment.type,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Cross-Origin-Resource-Policy": "same-origin",
-      "Content-Disposition": size.output
-        ? "inline"
-        : `attachment; filename*=UTF-8''${encodedFileName(attachment.name)}`,
-    },
+  return privateResponse(image.body, {
+    "Content-Type": size.output ? "image/webp" : attachment.type,
+    "Content-Disposition": size.output
+      ? "inline"
+      : `attachment; filename*=UTF-8''${encodedFileName(attachment.name)}`,
   })
 })
 

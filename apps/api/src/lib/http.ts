@@ -87,6 +87,21 @@ export async function readJson(request: Request): Promise<unknown> {
   }
 }
 
+/** A response only the requesting member may see, never stored or sniffed. */
+export function privateResponse(
+  body: BodyInit | null,
+  headers: Record<string, string>
+) {
+  return new Response(body, {
+    headers: {
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      ...headers,
+    },
+  })
+}
+
 export function toIso(value: number): string {
   return new Date(value).toISOString()
 }

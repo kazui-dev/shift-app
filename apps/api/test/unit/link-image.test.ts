@@ -1,28 +1,13 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import { fetchLink } from "../../src/services/link-fetch"
 import { loadLinkImage } from "../../src/services/link-preview"
+import { fakeTransformer } from "../support/images"
 vi.mock("../../src/services/link-fetch", async (original) => ({
   ...(await original<typeof import("../../src/services/link-fetch")>()),
   fetchLink: vi.fn<typeof fetchLink>(),
 }))
-const transform = vi.fn<(options: ImageTransform) => void>()
-const output = vi.fn<(options: ImageOutputOptions) => void>()
 const info = vi.fn<() => Promise<ImageInfoResponse>>()
-const transformer: ImageTransformer = {
-  transform: (options) => {
-    transform(options)
-    return transformer
-  },
-  draw: () => transformer,
-  output: async (options) => {
-    output(options)
-    return {
-      response: () => new Response("card"),
-      contentType: () => "image/webp",
-      image: () => new Response("card").body ?? new ReadableStream(),
-    }
-  },
-}
+const { transformer, transform, output } = fakeTransformer(() => "card")
 const images = { info, input: () => transformer }
 beforeEach(() => {
   vi.clearAllMocks()

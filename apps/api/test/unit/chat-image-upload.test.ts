@@ -8,27 +8,12 @@ import {
   pngHeader,
   pngSignature,
   bytes,
+  fakeTransformer,
 } from "../support/images"
 
 const info = vi.fn<() => Promise<ImageInfoResponse>>()
-const transform = vi.fn<(options: ImageTransform) => void>()
-const output = vi.fn<(options: ImageOutputOptions) => void>()
 let converted = new Uint8Array()
-const transformer: ImageTransformer = {
-  transform: (options) => {
-    transform(options)
-    return transformer
-  },
-  draw: () => transformer,
-  output: async (options) => {
-    output(options)
-    return {
-      response: () => new Response(converted),
-      contentType: () => "image/jpeg",
-      image: () => new Response(converted).body ?? new ReadableStream(),
-    }
-  },
-}
+const { transformer, transform, output } = fakeTransformer(() => converted)
 const images = { info, input: () => transformer }
 const size = (format: string, width: number, height: number) => ({
   format,
