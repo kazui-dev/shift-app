@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
-import type { ChatAttachment } from "@workspace/shared/communications"
+import type {
+  ChatAttachment,
+  ChatImageSize,
+} from "@workspace/shared/communications"
 import type { ChatFile } from "@/lib/chat/store"
+import { imagePreview } from "@/lib/chat/preview"
 import { RemoteImage } from "@/components/chat/image/remote"
 import { imageSize } from "@/components/chat/image/size"
-import { mosaic } from "@/components/chat/image/mosaic"
+import { mosaic, tileSizes } from "@/components/chat/image/mosaic"
 
+/** A picked image, shown through this device's preview of it. */
 export function LocalImage({
   blob,
   alt,
@@ -17,13 +22,16 @@ export function LocalImage({
 }) {
   const [source, setSource] = useState<{ blob: Blob; url: string | null }>()
   useEffect(() => {
-    const value = URL.createObjectURL(blob)
     let active = true
-    const image = new Image()
-    image.src = value
-    void image
-      .decode()
-      .then(() => {
+    let url: string | undefined
+    void imagePreview(blob)
+      .then(async (preview) => {
+        if (!preview) throw new Error("This device cannot decode the image")
+        const value = URL.createObjectURL(preview.blob)
+        url = value
+        const image = new Image()
+        image.src = value
+        await image.decode()
         if (active) setSource({ blob, url: value })
       })
       .catch(() => {
@@ -31,7 +39,7 @@ export function LocalImage({
       })
     return () => {
       active = false
-      URL.revokeObjectURL(value)
+      if (url) URL.revokeObjectURL(url)
     }
   }, [blob])
   if (source?.blob !== blob) return null
@@ -51,21 +59,21 @@ export function LocalImage({
     />
   )
 }
-type FrameImage =
+
+type FrameImage = {
+  key: string
+  dimensions: { width: number; height: number } | undefined
+} & (
   | {
       kind: "remote"
-      key: string
-      size: ChatAttachment
       roomId: string
+      id: string
+      tile: ChatImageSize
       label: string
       onOpen: () => void
     }
-  | {
-      kind: "pending"
-      key: string
-      size: { width: number; height: number } | undefined
-      file: ChatFile
-    }
+  | { kind: "pending"; file: ChatFile }
+)
 
 function FrameContent({
   image,
@@ -77,9 +85,10 @@ function FrameContent({
   return image.kind === "remote" ? (
     <RemoteImage
       roomId={image.roomId}
-      id={image.size.id}
-      width={image.size.width}
-      height={image.size.height}
+      id={image.id}
+      size={image.tile}
+      width={image.dimensions?.width ?? 0}
+      height={image.dimensions?.height ?? 0}
       alt={image.label}
       fit={fit}
       onOpen={image.onOpen}
@@ -105,7 +114,7 @@ function ImageFrame({ images }: { images: FrameImage[] }) {
       <div
         data-message-media
         className="mt-2 max-w-full overflow-hidden rounded-lg"
-        style={imageSize(first.size)}
+        style={imageSize(first.dimensions)}
       >
         <FrameContent image={first} fit="contain" />
       </div>
@@ -164,13 +173,16 @@ export function MessageImages({
   images: ChatAttachment[]
   onOpen: (id: string) => void
 }) {
+  const sizes = tileSizes(images.length)
   return (
     <ImageFrame
       images={images.map((image, index) => ({
         kind: "remote" as const,
         key: image.id,
-        size: image,
+        dimensions: image,
         roomId,
+        id: image.id,
+        tile: sizes[index] ?? 640,
         label: `画像${index + 1}を拡大`,
         onOpen: () => onOpen(image.id),
       }))}
@@ -185,7 +197,7 @@ export function PendingImages({ files }: { files: ChatFile[] }) {
       images={files.map((file) => ({
         kind: "pending" as const,
         key: file.id,
-        size: file.uploaded ?? file.dimensions,
+        dimensions: file.uploaded ?? file.dimensions,
         file,
       }))}
     />

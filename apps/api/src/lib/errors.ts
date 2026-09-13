@@ -283,7 +283,7 @@ export const errors = {
     "リンクを確認してください。"
   ),
   imageNotFound: define(404, "NOT_FOUND", "画像が見つかりません。"),
-  imageTooLarge: define(413, "IMAGE_SIZE", "画像は1枚10MBまでです。"),
+  imageTooLarge: define(413, "IMAGE_SIZE", "画像は1枚20MBまでです。"),
   imageLimit: define(
     429,
     "IMAGE_LIMIT",
@@ -292,7 +292,7 @@ export const errors = {
   invalidImage: define(
     422,
     "INVALID_IMAGE",
-    "対応する写真・画像を選択してください（最大4000万画素）。"
+    "対応する写真・画像を選択してください（最大5000万画素）。"
   ),
   imageExpired: define(
     409,

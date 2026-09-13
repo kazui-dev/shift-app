@@ -18,5 +18,8 @@ export const exports = {
     fetch: () => {
       throw new Error("Mock lib/shared-cache to reach SharedCache in tests")
     },
+    purge: () => {
+      throw new Error("Mock lib/shared-cache to reach SharedCache in tests")
+    },
   },
 }

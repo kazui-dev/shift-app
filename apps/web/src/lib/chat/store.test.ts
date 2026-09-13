@@ -61,6 +61,7 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
     width: 20,
     height: 30,
     bytes: 100,
+    name: "photo.png",
   }
   vi.mocked(uploadChatImage).mockResolvedValue({ attachment })
   vi.mocked(sendChatMessage).mockRejectedValueOnce(new Error("Unavailable"))
@@ -95,6 +96,10 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
   await value.flush(confirm)
   expect(confirm).toHaveBeenCalledTimes(1)
   expect(uploadChatImage).toHaveBeenCalledTimes(1)
+  expect(uploadChatImage).toHaveBeenCalledWith(
+    "one",
+    expect.objectContaining({ name: "photo.png" })
+  )
   expect(sendChatMessage).toHaveBeenNthCalledWith(2, "one", {
     id: queued.id,
     content: "",

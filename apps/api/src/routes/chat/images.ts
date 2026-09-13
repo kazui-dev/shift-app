@@ -1,13 +1,32 @@
 import { Hono } from "hono"
 import * as v from "valibot"
 
-import { chatImageLimits } from "@workspace/shared/communications"
+import {
+  chatImageLimits,
+  chatImageSizes,
+  type ChatImageSize,
+} from "@workspace/shared/communications"
 
-import { stripWebpMetadata } from "../../domain/chat-image"
+import { attachmentName } from "../../domain/chat-image"
 import { apiError, errors } from "../../lib/errors"
+import { chatImagePath, sharedResource } from "../../lib/shared-cache"
+import { storableImage } from "../../services/chat-image"
 import type { RoomEnv } from "./room"
 
 const idSchema = v.pipe(v.string(), v.uuid())
+const sizeSchema = v.optional(
+  v.pipe(v.string(), v.transform(Number), v.picklist(chatImageSizes))
+)
+/** The sizes list tiles use, made as soon as an image is uploaded. */
+const tileSizes: ChatImageSize[] = [640, 1280]
+
+/** A filename in a Content-Disposition header (RFC 6266 and 8187). */
+const encodedFileName = (name: string) =>
+  encodeURIComponent(name).replace(
+    /['()]/g,
+    (character) =>
+      `%${character.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`
+  )
 
 export const imagesApp = new Hono<RoomEnv>()
 
@@ -19,50 +38,48 @@ imagesApp.post("/attachments", async (c) => {
   if (!blob.size || blob.size > chatImageLimits.bytes)
     return apiError(c, errors.imageTooLarge)
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
-  const reserved = await stub.reserveAttachment(room.id, memberId)
+  const reserved = await stub.reserveAttachment(room.id, memberId, blob.size)
   if (!reserved) return apiError(c, errors.imageLimit)
   try {
-    const info = await c.env.IMAGES.info(blob.stream())
-    if (
-      !("width" in info) ||
-      ![
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/heic",
-        "image/heif",
-        "image/avif",
-      ].includes(info.format) ||
-      info.width * info.height > chatImageLimits.pixels
-    ) {
+    const image = await storableImage(c.env.IMAGES, blob)
+    if (!image) {
       await stub.deleteAttachment(reserved.id, memberId)
       return apiError(c, errors.invalidImage)
     }
-    const result = await c.env.IMAGES.input(blob.stream())
-      .transform({ width: 2400, height: 2400, fit: "scale-down" })
-      .output({ format: "image/webp", quality: 85, anim: false })
-    const bytes = stripWebpMetadata(await result.response().arrayBuffer())
-    const output = await c.env.IMAGES.info(new Blob([bytes]).stream())
-    if (!("width" in output) || bytes.byteLength > chatImageLimits.bytes)
-      throw new Error("Invalid converted image")
-    await c.env.CHAT_IMAGES.put(reserved.objectKey, bytes, {
-      httpMetadata: { contentType: "image/webp" },
+    await c.env.CHAT_IMAGES.put(reserved.objectKey, image.bytes, {
+      httpMetadata: { contentType: image.type },
     })
     const attachment = {
       id: reserved.id,
-      width: output.width,
-      height: output.height,
-      bytes: bytes.byteLength,
+      width: image.width,
+      height: image.height,
+      bytes: image.bytes.byteLength,
+      name: attachmentName(c.req.query("name") ?? "", image.type),
     }
-    if (!(await stub.finishAttachment(reserved.id, memberId, attachment))) {
+    if (
+      !(await stub.finishAttachment(reserved.id, memberId, {
+        ...attachment,
+        type: image.type,
+      }))
+    ) {
       await c.env.CHAT_IMAGES.delete(reserved.objectKey)
       return apiError(c, errors.imageExpired)
     }
+    c.executionCtx.waitUntil(
+      Promise.all(
+        tileSizes.map(async (size) => {
+          const tile = await sharedResource(
+            chatImagePath(room.id, reserved.id, size)
+          )
+          await tile.body?.cancel()
+        })
+      )
+    )
     return c.json({ attachment }, 201)
   } catch (error) {
     await stub.deleteAttachment(reserved.id, memberId).catch(() => undefined)
     console.error(
-      "Chat image conversion failed",
+      "Chat image upload failed",
       error instanceof Error ? error.message : "Unknown error"
     )
     return apiError(c, errors.imageProcessingFailed)
@@ -71,21 +88,29 @@ imagesApp.post("/attachments", async (c) => {
 
 imagesApp.get("/attachments/:attachmentId", async (c) => {
   const id = v.safeParse(idSchema, c.req.param("attachmentId"))
-  if (!id.success) return apiError(c, errors.imageNotFound)
-  const attachment = await c.env.CHAT_ROOMS.getByName(
-    c.get("room").id
-  ).getAttachment(id.output)
+  const size = v.safeParse(sizeSchema, c.req.query("size"))
+  if (!id.success || !size.success) return apiError(c, errors.imageNotFound)
+  const room = c.get("room")
+  const attachment = await c.env.CHAT_ROOMS.getByName(room.id).getAttachment(
+    id.output
+  )
   if (!attachment) return apiError(c, errors.imageNotFound)
-  const object = await c.env.CHAT_IMAGES.get(attachment.objectKey)
-  if (!object) return apiError(c, errors.imageNotFound)
-  return new Response(object.body, {
+  const image = await sharedResource(
+    chatImagePath(room.id, id.output, size.output ?? "original")
+  )
+  if (!image.ok) {
+    await image.body?.cancel()
+    return apiError(c, errors.imageNotFound)
+  }
+  return new Response(image.body, {
     headers: {
-      "Content-Type": "image/webp",
-      "Content-Length": String(object.size),
+      "Content-Type": size.output ? "image/webp" : attachment.type,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
       "Cross-Origin-Resource-Policy": "same-origin",
-      "Content-Disposition": `inline; filename="${id.output}.webp"`,
+      "Content-Disposition": size.output
+        ? "inline"
+        : `attachment; filename*=UTF-8''${encodedFileName(attachment.name)}`,
     },
   })
 })

@@ -11,4 +11,9 @@ export class SharedCache extends WorkerEntrypoint<CloudflareBindings> {
   override fetch(request: Request) {
     return sharedApp.fetch(request, this.env, this.ctx)
   }
+
+  /** Drops cached responses carrying any of the tags. */
+  async purge(tags: string[]) {
+    await this.ctx.cache?.purge({ tags })
+  }
 }

@@ -4,9 +4,9 @@ const cacheName = "chat-images-v1"
 const indexKey = "chat-image-index-v1"
 const day = 86_400_000
 
+/** List tiles stay on this device while recently shown, within this space. */
 const imageCacheLimits = {
-  bytes: 200 * 1024 * 1024,
-  count: 500,
+  bytes: 100 * 1024 * 1024,
   age: 14 * day,
 }
 
@@ -15,17 +15,18 @@ export type CachedImage = {
   user: string
   room: string
   id: string
+  size: number
   bytes: number
   used: number
 }
 type Index = Record<string, CachedImage>
 
-const keyOf = (user: string, room: string, id: string) =>
-  `/__chat-image/${encodeURIComponent(user)}/${room}/${id}`
+const keyOf = (user: string, room: string, id: string, size: number) =>
+  `/__chat-image/${encodeURIComponent(user)}/${room}/${id}/${size}`
 
 /**
  * Entries to drop: anything unused for longer than the age limit, then the
- * least recently used once the rest would exceed the size or count limit.
+ * least recently used once the rest would exceed the size limit.
  */
 export function staleImages(
   entries: readonly CachedImage[],
@@ -38,18 +39,21 @@ export function staleImages(
     if (now - entry.used > limits.age) stale.push(entry.key)
     else fresh.push(entry)
   let bytes = 0
-  let count = 0
   for (const entry of fresh.toSorted((a, b) => b.used - a.used)) {
     bytes += entry.bytes
-    count += 1
-    if (bytes > limits.bytes || count > limits.count) stale.push(entry.key)
+    if (bytes > limits.bytes) stale.push(entry.key)
   }
   return stale
 }
 
-/** A previously shown image, if this device still keeps it. */
-export async function readCachedImage(user: string, room: string, id: string) {
-  const key = keyOf(user, room, id)
+/** A list tile shown before, if this device still keeps it. */
+export async function readCachedImage(
+  user: string,
+  room: string,
+  id: string,
+  size: number
+) {
+  const key = keyOf(user, room, id, size)
   try {
     const response = await (await caches.open(cacheName)).match(key)
     if (!response) return undefined
@@ -67,16 +71,17 @@ export async function storeCachedImage(
   user: string,
   room: string,
   id: string,
+  size: number,
   blob: Blob
 ) {
-  const key = keyOf(user, room, id)
+  const key = keyOf(user, room, id, size)
   try {
     await (
       await caches.open(cacheName)
     ).put(key, new Response(blob, { headers: { "Content-Type": blob.type } }))
     await update<Index>(indexKey, (index = {}) => ({
       ...index,
-      [key]: { key, user, room, id, bytes: blob.size, used: Date.now() },
+      [key]: { key, user, room, id, size, bytes: blob.size, used: Date.now() },
     }))
     await pruneCachedImages()
   } catch {

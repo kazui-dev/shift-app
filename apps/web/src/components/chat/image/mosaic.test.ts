@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test"
-import { mosaic } from "@/components/chat/image/mosaic"
+import { mosaic, tileSizes } from "@/components/chat/image/mosaic"
 
 it("arranges up to ten images in one frame", () => {
   expect(
@@ -17,4 +17,12 @@ it("arranges up to ten images in one frame", () => {
     [9, { split: false, rows: [3, 3, 3] }],
     [10, { split: false, rows: [1, 3, 3, 3] }],
   ])
+})
+
+it("delivers full-width and tall tiles at 1280 and the rest at 640", () => {
+  expect(tileSizes(0)).toEqual([])
+  expect(tileSizes(1)).toEqual([1280])
+  expect(tileSizes(2)).toEqual([640, 640])
+  expect(tileSizes(3)).toEqual([1280, 640, 640])
+  expect(tileSizes(7)).toEqual([1280, 640, 640, 640, 640, 640, 640])
 })
