@@ -89,7 +89,8 @@ function LinkPreview({
                 onError={image.retry}
               />
             ) : (
-              <span aria-hidden className="h-28 w-28 shrink-0 bg-muted" />
+              // The card's own ground, so an image that never loads changes no colour.
+              <span aria-hidden className="h-28 w-28 shrink-0" />
             ))}
         </a>
       )}
