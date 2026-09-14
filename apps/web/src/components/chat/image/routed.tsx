@@ -163,7 +163,12 @@ function MessageGallery({
   )
   useEffect(() => {
     const held = originals.current
-    const wanted = new Set(nearby.map((attachment) => attachment.id))
+    // An original that has not arrived cannot be saved, so it is not loaded.
+    const wanted = new Set(
+      nearby
+        .filter((attachment) => attachment.original)
+        .map((attachment) => attachment.id)
+    )
     for (const [id, original] of held)
       if (!wanted.has(id)) {
         original.release()
@@ -185,7 +190,7 @@ function MessageGallery({
   function save() {
     const attachment = attachments[index]
     const original = attachment && originals.current.get(attachment.id)
-    if (!attachment || !original) return
+    if (!attachment?.original || !original) return
     void original.promise
       .then((blob) => saveImage(blob, attachment.name, touch))
       .catch(() => toast.error("画像を保存できませんでした。"))
@@ -209,6 +214,7 @@ function MessageGallery({
         const attachment = attachments[target]
         if (attachment) onShow(attachment.id)
       }}
+      canSave={attachments[index]?.original === true}
       onSave={save}
       onClose={onClose}
       caption={{

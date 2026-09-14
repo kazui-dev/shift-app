@@ -1,3 +1,4 @@
+import * as v from "valibot"
 import type {
   ChatImageSize,
   ChatTargetOption,
@@ -110,16 +111,38 @@ export const getChatRoom = (roomId: string) =>
 export type ChatRoom = Awaited<ReturnType<typeof getChatRoom>>["room"]
 const chatImageUrl = (roomId: string, id: string, size?: ChatImageSize) =>
   `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}${size ? `?size=${size}` : ""}`
+/** Uploads an image, or a display copy whose original follows when `copy` is set. */
 export const uploadChatImage = (
   roomId: string,
+  upload: { name: string; blob: Blob; copy: boolean },
+  options?: Parameters<typeof apiUpload>[3]
+) =>
+  apiUpload(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments?name=${encodeURIComponent(upload.name)}${upload.copy ? "&copy=1" : ""}`,
+    chatAttachmentEnvelopeSchema,
+    upload.blob,
+    options
+  )
+
+/** Sends a display copy's original, which takes the copy's place. */
+export const uploadChatOriginal = (
+  roomId: string,
+  id: string,
   file: { name: string; blob: Blob },
   options?: Parameters<typeof apiUpload>[3]
 ) =>
   apiUpload(
-    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments?name=${encodeURIComponent(file.name)}`,
-    chatAttachmentEnvelopeSchema,
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}/original?name=${encodeURIComponent(file.name)}`,
+    v.undefined(),
     file.blob,
-    options
+    { ...options, method: "PUT" }
+  )
+
+/** Gives up a display copy's original, so the copy stands as it. */
+export const keepChatImageCopy = (roomId: string, id: string) =>
+  apiVoid(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}/original`,
+    { method: "DELETE" }
   )
 
 /** Takes back an uploaded image that no message has claimed. */

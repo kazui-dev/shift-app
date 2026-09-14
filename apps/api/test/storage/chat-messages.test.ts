@@ -303,7 +303,8 @@ it("names sent images, denies reads after deletion and removes their objects and
     "room",
     "author",
     50,
-    dailyUploads
+    dailyUploads,
+    false
   )
   if (!reserved) throw Error("No reservation")
   expect(reserved.objectKey).toBe(`room/${reserved.id}`)
@@ -320,7 +321,7 @@ it("names sent images, denies reads after deletion and removes their objects and
   })
   const name = "19700101-090000.png"
   expect(sent.attachments).toEqual([
-    { id: reserved.id, width: 10, height: 10, bytes: 50, name },
+    { id: reserved.id, width: 10, height: 10, bytes: 50, name, original: true },
   ])
   expect(value.getAttachment(reserved.id)).toEqual({ name, type: "image/png" })
   expect(
@@ -344,7 +345,8 @@ it("keeps images in the order they were sent, not the order they were uploaded",
       "room",
       "author",
       1,
-      dailyUploads
+      dailyUploads,
+      false
     )
     if (!reserved) throw Error("No reservation")
     value.finishAttachment(reserved.id, "author", {
@@ -377,29 +379,47 @@ const nearlyDaily = dailyUploads.bytes - 100 * 1024 * 1024
 it("limits each member's daily uploads by count and by bytes", async () => {
   const { value } = fixture()
   expect(
-    await value.reserveAttachment("room", "author", nearlyDaily, dailyUploads)
+    await value.reserveAttachment(
+      "room",
+      "author",
+      nearlyDaily,
+      dailyUploads,
+      false
+    )
   ).not.toBeNull()
   expect(
-    await value.reserveAttachment("room", "author", overflow, dailyUploads)
+    await value.reserveAttachment(
+      "room",
+      "author",
+      overflow,
+      dailyUploads,
+      false
+    )
   ).toBeNull()
   expect(
-    await value.reserveAttachment("room", "other", overflow, dailyUploads)
+    await value.reserveAttachment(
+      "room",
+      "other",
+      overflow,
+      dailyUploads,
+      false
+    )
   ).not.toBeNull()
   const uploads = await Promise.all(
     Array.from({ length: dailyUploads.count - 1 }, () =>
-      value.reserveAttachment("room", "other", 1, dailyUploads)
+      value.reserveAttachment("room", "other", 1, dailyUploads, false)
     )
   )
   expect(uploads).not.toContain(null)
   expect(
-    await value.reserveAttachment("room", "other", 1, dailyUploads)
+    await value.reserveAttachment("room", "other", 1, dailyUploads, false)
   ).toBeNull()
 })
 it("drops every cached size of a deleted room", async () => {
   const { value } = fixture()
   await Promise.all(
     ["author", "other"].map((member) =>
-      value.reserveAttachment("room", member, 1, dailyUploads)
+      value.reserveAttachment("room", member, 1, dailyUploads, false)
     )
   )
   // A card still waiting to be made goes with the room.
@@ -531,30 +551,132 @@ it("gives back an unsent upload's share of the day when it is removed", async ()
     "room",
     "author",
     nearlyDaily,
-    dailyUploads
+    dailyUploads,
+    false
   )
   if (!large) throw Error("No reservation")
   expect(
-    await value.reserveAttachment("room", "author", overflow, dailyUploads)
+    await value.reserveAttachment(
+      "room",
+      "author",
+      overflow,
+      dailyUploads,
+      false
+    )
   ).toBeNull()
   expect(await value.deleteAttachment(large.id, "author")).toBe(true)
   expect(
-    await value.reserveAttachment("room", "author", overflow, dailyUploads)
+    await value.reserveAttachment(
+      "room",
+      "author",
+      overflow,
+      dailyUploads,
+      false
+    )
   ).not.toBeNull()
   const uploads = await Promise.all(
     Array.from({ length: dailyUploads.count - 1 }, () =>
-      value.reserveAttachment("room", "author", 1, dailyUploads)
+      value.reserveAttachment("room", "author", 1, dailyUploads, false)
     )
   )
   expect(
-    await value.reserveAttachment("room", "author", 1, dailyUploads)
+    await value.reserveAttachment("room", "author", 1, dailyUploads, false)
   ).toBeNull()
   const first = uploads[0]
   if (!first) throw Error("No reservation")
   await value.deleteAttachment(first.id, "author")
   expect(
-    await value.reserveAttachment("room", "author", 1, dailyUploads)
+    await value.reserveAttachment("room", "author", 1, dailyUploads, false)
   ).not.toBeNull()
   // Removing twice gives nothing more back.
   expect(await value.deleteAttachment(first.id, "author")).toBe(false)
+})
+
+it("waits for a display copy's original, counting its bytes, then tells the room", async () => {
+  const { value } = fixture()
+  const reserved = await value.reserveAttachment(
+    "room",
+    "author",
+    50,
+    dailyUploads,
+    true
+  )
+  if (!reserved) throw Error("No reservation")
+  value.finishAttachment(reserved.id, "author", {
+    width: 10,
+    height: 10,
+    bytes: 50,
+    name: "copy.webp",
+    type: "image/webp",
+  })
+  const sent = await value.sendMessage({
+    ...input("first"),
+    attachmentIds: [reserved.id],
+  })
+  expect(sent.attachments[0]?.original).toBe(false)
+  expect(value.reserveOriginal(reserved.id, "other", 100, dailyUploads)).toBe(
+    "missing"
+  )
+  expect(
+    value.reserveOriginal(
+      reserved.id,
+      "author",
+      dailyUploads.bytes,
+      dailyUploads
+    )
+  ).toBe("limit")
+  expect(
+    value.reserveOriginal(reserved.id, "author", 100, dailyUploads)
+  ).toEqual({ objectKey: reserved.objectKey })
+  vi.mocked(publishChatEvent).mockClear()
+  expect(
+    await value.finishOriginal("room", reserved.id, "author", {
+      width: 30,
+      height: 40,
+      bytes: 100,
+      name: "photo.jpg",
+      type: "image/jpeg",
+    })
+  ).toBe(true)
+  const [message] = value.getMessages(null, 10).messages
+  expect(message?.attachments[0]).toMatchObject({
+    original: true,
+    width: 30,
+    height: 40,
+    name: "photo.jpg",
+  })
+  expect(message?.version).toBe(sent.version + 1)
+  expect(publishChatEvent).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ type: "message_changed", roomId: "room" })
+  )
+  // An original that has arrived is never replaced again.
+  expect(value.reserveOriginal(reserved.id, "author", 100, dailyUploads)).toBe(
+    "missing"
+  )
+})
+it("lets a display copy stand as its original when the original is lost", async () => {
+  const { value } = fixture()
+  const reserved = await value.reserveAttachment(
+    "room",
+    "author",
+    50,
+    dailyUploads,
+    true
+  )
+  if (!reserved) throw Error("No reservation")
+  value.finishAttachment(reserved.id, "author", {
+    width: 10,
+    height: 10,
+    bytes: 50,
+    name: "copy.webp",
+    type: "image/webp",
+  })
+  await value.sendMessage({ ...input("first"), attachmentIds: [reserved.id] })
+  expect(await value.keepCopy("room", reserved.id, "other")).toBe(false)
+  expect(await value.keepCopy("room", reserved.id, "author")).toBe(true)
+  expect(
+    value.getMessages(null, 10).messages[0]?.attachments[0]?.original
+  ).toBe(true)
+  expect(await value.keepCopy("room", reserved.id, "author")).toBe(false)
 })

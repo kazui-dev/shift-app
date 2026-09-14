@@ -24,6 +24,7 @@ const metadataSchema = v.object({
       ),
     })
   ),
+  originals: v.array(v.omit(stateSchema.entries.originals.item, ["blob"])),
 })
 
 async function access<T>(run: () => Promise<T>): Promise<T> {
@@ -53,9 +54,9 @@ export async function loadChat(user: string): Promise<unknown> {
     const state = v.parse(metadataSchema, raw)
     const ids = [
       ...new Set(
-        [...Object.values(state.drafts), ...state.queue].flatMap((item) =>
-          item.files.map((file) => file.id)
-        )
+        [...Object.values(state.drafts), ...state.queue]
+          .flatMap((item) => item.files.map((file) => file.id))
+          .concat(state.originals.map((original) => original.fileId))
       ),
     ]
     const values = await getMany<unknown>(
@@ -80,16 +81,21 @@ export async function loadChat(user: string): Promise<unknown> {
         ...message,
         files: hydrate(message.files),
       })),
+      originals: state.originals.map((original) => ({
+        ...original,
+        blob: blobs.get(original.fileId),
+      })),
     }
   })
 }
 
 export async function saveChat(user: string, state: SavedChat) {
-  const files = new Map(
-    [...Object.values(state.drafts), ...state.queue].flatMap((item) =>
+  const files = new Map<string, { blob: Blob }>([
+    ...[...Object.values(state.drafts), ...state.queue].flatMap((item) =>
       item.files.map((file) => [file.id, file] as const)
-    )
-  )
+    ),
+    ...state.originals.map((original) => [original.fileId, original] as const),
+  ])
   // Schema parsing deliberately strips Blob values from the lightweight snapshot.
   const metadata = v.parse(metadataSchema, state)
   await access(() =>

@@ -71,6 +71,11 @@ export const chatAttachmentSchema = v.object({
   bytes: v.pipe(v.number(), v.integer(), v.gtValue(0)),
   /** The name the original saves as. */
   name: v.string(),
+  /**
+   * Whether the original has arrived. Until then only the display copy sent
+   * first is stored, and the image cannot be saved.
+   */
+  original: v.boolean(),
 })
 export type ChatAttachment = v.InferOutput<typeof chatAttachmentSchema>
 export const chatAttachmentEnvelopeSchema = v.object({

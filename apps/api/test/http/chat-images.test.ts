@@ -5,7 +5,11 @@ import {
   type UploadLimit,
 } from "../../src/domain/chat-attachment"
 import type { ApiEnv } from "../../src/lib/http"
-import { sharedResource, warmShared } from "../../src/lib/shared-cache"
+import {
+  purgeShared,
+  sharedResource,
+  warmShared,
+} from "../../src/lib/shared-cache"
 import { chatApp } from "../../src/routes/chat/index"
 import { findAccessibleRoom } from "../../src/services/chat-access"
 import { storableImage } from "../../src/services/chat-image"
@@ -20,6 +24,7 @@ vi.mock("../../src/lib/shared-cache", async (original) => ({
   ...(await original<typeof import("../../src/lib/shared-cache")>()),
   sharedResource: vi.fn<typeof sharedResource>(),
   warmShared: vi.fn<typeof warmShared>(),
+  purgeShared: vi.fn<typeof purgeShared>(),
 }))
 const roomId = crypto.randomUUID(),
   imageId = crypto.randomUUID()
@@ -32,9 +37,21 @@ const reserveAttachment =
       roomId: string,
       memberId: string,
       bytes: number,
-      limit: UploadLimit
+      limit: UploadLimit,
+      copy: boolean
     ) => Promise<{ id: string; objectKey: string } | null>
   >()
+const reserveOriginal =
+  vi.fn<
+    (
+      id: string,
+      memberId: string,
+      bytes: number,
+      limit: UploadLimit
+    ) => Promise<{ objectKey: string } | "missing" | "limit">
+  >()
+const finishOriginal = vi.fn<() => Promise<boolean>>()
+const keepCopy = vi.fn<() => Promise<boolean>>()
 const finishAttachment = vi.fn<() => Promise<boolean>>()
 const remove = vi.fn<() => Promise<boolean>>()
 const put = vi.fn<() => Promise<void>>()
@@ -45,6 +62,9 @@ const env = {
       getAttachment,
       reserveAttachment,
       finishAttachment,
+      reserveOriginal,
+      finishOriginal,
+      keepCopy,
       deleteAttachment: remove,
     }),
   },
@@ -126,7 +146,8 @@ it("counts an upload's bytes against the daily limit of the member's role in the
     roomId,
     "m",
     5,
-    dailyUploadLimit("member", true)
+    dailyUploadLimit("member", true),
+    false
   )
   expect(storableImage).not.toHaveBeenCalled()
 })
@@ -154,7 +175,9 @@ it("stores the original under its name and makes the list tiles at once", async 
     name: "IMG_0001.jpg",
   }
   expect(response.status).toBe(201)
-  expect(await response.json()).toEqual({ attachment })
+  expect(await response.json()).toEqual({
+    attachment: { ...attachment, original: true },
+  })
   expect(put).toHaveBeenCalledWith(
     `${roomId}/${imageId}`,
     new Uint8Array([1, 2, 3]),
@@ -210,4 +233,91 @@ it("finds no image for unknown sizes, unsent images or missing objects", async (
     new Response(null, { status: 404 })
   )
   expect((await image("?size=640")).status).toBe(404)
+})
+
+const original = (method: string) =>
+  app.request(
+    `/chat/rooms/${roomId}/attachments/${imageId}/original?name=IMG_0001.jpg`,
+    { method, ...(method === "PUT" ? { body: "original" } : {}) },
+    env,
+    context
+  )
+
+it("takes a display copy first, then its original in the copy's place", async () => {
+  vi.mocked(storableImage).mockResolvedValue({
+    bytes: new Uint8Array([1, 2, 3]),
+    width: 30,
+    height: 40,
+    type: "image/webp",
+  })
+  const copied = await app.request(
+    `/chat/rooms/${roomId}/attachments?name=IMG_0001.jpg&copy=1`,
+    { method: "POST", body: "copy" },
+    env,
+    context
+  )
+  expect(copied.status).toBe(201)
+  expect(await copied.json()).toMatchObject({
+    attachment: { id: imageId, original: false },
+  })
+  expect(reserveAttachment).toHaveBeenCalledWith(
+    roomId,
+    "m",
+    4,
+    dailyUploadLimit("member", true),
+    true
+  )
+  await Promise.all(tasks.splice(0))
+  vi.mocked(warmShared).mockClear()
+
+  reserveOriginal.mockResolvedValue({ objectKey: `${roomId}/${imageId}` })
+  finishOriginal.mockResolvedValue(true)
+  vi.mocked(purgeShared).mockResolvedValue(undefined)
+  vi.mocked(storableImage).mockResolvedValue({
+    bytes: new Uint8Array([4, 5, 6, 7]),
+    width: 3000,
+    height: 4000,
+    type: "image/jpeg",
+  })
+  expect((await original("PUT")).status).toBe(204)
+  expect(reserveOriginal).toHaveBeenCalledWith(
+    imageId,
+    "m",
+    8,
+    dailyUploadLimit("member", true)
+  )
+  expect(put).toHaveBeenLastCalledWith(
+    `${roomId}/${imageId}`,
+    new Uint8Array([4, 5, 6, 7]),
+    { httpMetadata: { contentType: "image/jpeg" } }
+  )
+  expect(finishOriginal).toHaveBeenCalledWith(roomId, imageId, "m", {
+    width: 3000,
+    height: 4000,
+    bytes: 4,
+    name: "IMG_0001.jpg",
+    type: "image/jpeg",
+  })
+  await Promise.all(tasks)
+  expect(purgeShared).toHaveBeenCalledWith([`chat-image:${imageId}`])
+  expect(vi.mocked(warmShared).mock.calls).toEqual([
+    [`/v1/chat-images/${roomId}/${imageId}/640`],
+    [`/v1/chat-images/${roomId}/${imageId}/1280`],
+  ])
+})
+
+it("refuses an original that has no waiting copy or would pass the day's limit", async () => {
+  reserveOriginal.mockResolvedValue("missing")
+  expect((await original("PUT")).status).toBe(404)
+  reserveOriginal.mockResolvedValue("limit")
+  expect((await original("PUT")).status).toBe(429)
+  expect(put).not.toHaveBeenCalled()
+})
+
+it("lets the copy stand when its original is given up", async () => {
+  keepCopy.mockResolvedValue(true)
+  expect((await original("DELETE")).status).toBe(204)
+  expect(keepCopy).toHaveBeenCalledWith(roomId, imageId, "m")
+  keepCopy.mockResolvedValue(false)
+  expect((await original("DELETE")).status).toBe(404)
 })

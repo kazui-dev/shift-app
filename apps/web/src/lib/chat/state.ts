@@ -29,10 +29,19 @@ const queuedSchema = v.object({
   reply: v.optional(chatReplySchema),
   status: v.picklist(["waiting", "sending", "failed"]),
 })
+/** An original still to send after its display copy, kept until it arrives. */
+const originalSchema = v.object({
+  fileId: v.string(),
+  roomId: v.string(),
+  attachmentId: v.string(),
+  name: v.string(),
+  blob: v.instance(Blob),
+})
 export const stateSchema = v.object({
-  version: v.literal(4),
+  version: v.literal(5),
   drafts: v.record(v.string(), draftSchema),
   queue: v.array(queuedSchema),
+  originals: v.array(originalSchema),
 })
 export type ChatFile = v.InferOutput<typeof fileSchema>
 export type ChatDraft = v.InferOutput<typeof draftSchema>

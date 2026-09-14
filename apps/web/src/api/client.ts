@@ -75,9 +75,10 @@ export function apiUpload<TSchema extends v.GenericSchema>(
   options: {
     signal?: AbortSignal | undefined
     onProgress?: ((sent: number, total: number) => void) | undefined
+    method?: "POST" | "PUT" | undefined
   } = {}
 ): Promise<v.InferOutput<TSchema>> {
-  const { signal, onProgress } = options
+  const { signal, onProgress, method = "POST" } = options
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason)
@@ -101,7 +102,7 @@ export function apiUpload<TSchema extends v.GenericSchema>(
       clearTimeout(timer)
       signal?.removeEventListener("abort", abort)
     }
-    request.open("POST", url)
+    request.open(method, url)
     request.setRequestHeader(
       "Content-Type",
       body.type || "application/octet-stream"
@@ -117,7 +118,10 @@ export function apiUpload<TSchema extends v.GenericSchema>(
         return
       }
       try {
-        resolve(v.parse(schema, JSON.parse(request.responseText)))
+        // A response with no content parses as `undefined`.
+        const content =
+          request.status === 204 ? undefined : JSON.parse(request.responseText)
+        resolve(v.parse(schema, content))
       } catch (error) {
         reject(error)
       }

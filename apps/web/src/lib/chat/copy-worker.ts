@@ -1,9 +1,9 @@
 /// <reference lib="webworker" />
-import { scaledCopy } from "@/lib/chat/preview-copy"
+import { makeDisplayCopy } from "@/lib/chat/copy-encode"
 
 declare const self: DedicatedWorkerGlobalScope
 
-// Decodes and scales picked images here, so the page stays responsive.
+// Decodes and encodes picked images here, so the page stays responsive.
 self.addEventListener("message", (event: MessageEvent<unknown>) => {
   const { data } = event
   if (
@@ -16,5 +16,5 @@ self.addEventListener("message", (event: MessageEvent<unknown>) => {
   )
     return
   const { id, blob } = data
-  void scaledCopy(blob).then((preview) => self.postMessage({ id, preview }))
+  void makeDisplayCopy(blob).then((copy) => self.postMessage({ id, copy }))
 })

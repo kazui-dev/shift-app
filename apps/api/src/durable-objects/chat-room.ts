@@ -123,6 +123,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
           "ALTER TABLE messages ADD COLUMN version INTEGER NOT NULL DEFAULT 1;"
         ),
       () => this.attachments.countReservations(),
+      () => this.attachments.trackOriginals(),
     ]
     sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,
@@ -219,10 +220,39 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     roomId: string,
     memberId: string,
     bytes: number,
-    limit: UploadLimit
+    limit: UploadLimit,
+    copy: boolean
   ) {
     if (this.deleted) return null
-    return this.attachments.reserve(roomId, memberId, bytes, limit)
+    return this.attachments.reserve(roomId, memberId, bytes, limit, copy)
+  }
+  reserveOriginal(
+    id: string,
+    memberId: string,
+    bytes: number,
+    limit: UploadLimit
+  ) {
+    if (this.deleted) return "missing" as const
+    return this.attachments.reserveOriginal(id, memberId, bytes, limit)
+  }
+  /** Records an arrived original and tells the room when its message is already sent. */
+  async finishOriginal(
+    roomId: string,
+    id: string,
+    memberId: string,
+    image: StoredAttachment
+  ) {
+    if (this.deleted) return false
+    const row = this.attachments.finishOriginal(id, memberId, image)
+    if (row?.messageId) await this.publishChange(roomId, row.messageId)
+    return row !== null
+  }
+  /** Lets a display copy stand as its original and tells the room. */
+  async keepCopy(roomId: string, id: string, memberId: string) {
+    if (this.deleted) return false
+    const row = this.attachments.keepCopy(id, memberId)
+    if (row?.messageId) await this.publishChange(roomId, row.messageId)
+    return row !== null
   }
   finishAttachment(id: string, memberId: string, image: StoredAttachment) {
     return !this.deleted && this.attachments.finish(id, memberId, image)
@@ -252,6 +282,15 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   private async schedule(at: number) {
     const current = await this.ctx.storage.getAlarm()
     if (current === null || at < current) await this.ctx.storage.setAlarm(at)
+  }
+
+  /** Raises a message's version for a change beside its own row, then tells the room. */
+  private async publishChange(roomId: string, messageId: string) {
+    this.ctx.storage.sql.exec(
+      "UPDATE messages SET version=version+1 WHERE id=?",
+      messageId
+    )
+    await this.publishCard(roomId, messageId)
   }
 
   /** Tells the room a message now shows its card. */

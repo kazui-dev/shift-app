@@ -4,10 +4,13 @@ import { toast } from "@workspace/ui/lib/toast"
 import {
   deleteChatAttachment,
   deleteChatMessage,
+  keepChatImageCopy,
   sendChatMessage,
   uploadChatImage,
+  uploadChatOriginal,
 } from "@/api/chat"
-import { ApiError } from "@/api/client"
+import { ApiError, ApiNetworkError } from "@/api/client"
+import { displayCopy } from "@/lib/chat/copy"
 import { ChatStore } from "@/lib/chat/store"
 
 vi.mock("./storage", () => ({
@@ -18,8 +21,13 @@ vi.mock("./storage", () => ({
 vi.mock("@/api/chat", () => ({
   deleteChatAttachment: vi.fn<typeof deleteChatAttachment>(),
   deleteChatMessage: vi.fn<typeof deleteChatMessage>(),
+  keepChatImageCopy: vi.fn<typeof keepChatImageCopy>(),
+  uploadChatOriginal: vi.fn<typeof uploadChatOriginal>(),
   sendChatMessage: vi.fn<typeof sendChatMessage>(),
   uploadChatImage: vi.fn<typeof uploadChatImage>(),
+}))
+vi.mock("@/lib/chat/copy", () => ({
+  displayCopy: vi.fn<typeof displayCopy>(),
 }))
 vi.mock("@workspace/ui/lib/toast", () => ({
   toast: { error: vi.fn<() => void>() },
@@ -30,6 +38,7 @@ const uploaded = (name: string) => ({
   height: 30,
   bytes: 100,
   name,
+  original: true,
 })
 const sent = (id: string, attachmentIds: string[] = []) => ({
   message: {
@@ -61,6 +70,9 @@ beforeEach(() => {
   vi.mocked(get).mockResolvedValue(undefined)
   vi.mocked(set).mockResolvedValue(undefined)
   vi.mocked(deleteChatAttachment).mockResolvedValue(undefined)
+  vi.mocked(displayCopy).mockResolvedValue(null)
+  vi.mocked(uploadChatOriginal).mockResolvedValue(undefined)
+  vi.mocked(keepChatImageCopy).mockResolvedValue(undefined)
   vi.mocked(uploadChatImage).mockImplementation(async (_room, file) => ({
     attachment: uploaded(file.name),
   }))
@@ -94,6 +106,7 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
     height: 30,
     bytes: 100,
     name: "photo.png",
+    original: true,
   }
   vi.mocked(uploadChatImage).mockResolvedValue({ attachment })
   value.edit("one", {
@@ -158,7 +171,8 @@ it("does not send when durable local storage fails", async () => {
 })
 it("restores persisted drafts and interrupted uploads after reload", async () => {
   vi.mocked(get).mockResolvedValue({
-    version: 4,
+    version: 5,
+    originals: [],
     drafts: {
       two: {
         content: "再開",
@@ -265,7 +279,8 @@ it("waits for restored drafts before an app update can persist and reload", asyn
   expect(settled).toBe(false)
   expect(set).not.toHaveBeenCalled()
   restore?.({
-    version: 4,
+    version: 5,
+    originals: [],
     drafts: { one: { content: "更新前の入力", files: [] } },
     queue: [],
   })
@@ -348,10 +363,12 @@ it("starts uploading as images are attached, shows progress, and sends once they
   )
   const file = { id: "f", name: "photo.png", blob: new Blob(["image"]) }
   value.edit("one", { content: "", files: [file] })
-  expect(uploadChatImage).toHaveBeenCalledExactlyOnceWith(
-    "one",
-    expect.objectContaining({ id: "f" }),
-    expect.objectContaining({ signal: expect.any(AbortSignal) })
+  await vi.waitFor(() =>
+    expect(uploadChatImage).toHaveBeenCalledExactlyOnceWith(
+      "one",
+      { name: "photo.png", blob: file.blob, copy: false },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
   )
   report(50, 100)
   expect(value.snapshot().uploads["f"]).toEqual({ sent: 50, total: 100 })
@@ -521,6 +538,7 @@ it("gives back an upload the server kept just as its image was taken out", async
   )
   const file = { id: "f", name: "photo.png", blob: new Blob(["image"]) }
   value.edit("one", { content: "", files: [file] })
+  await vi.waitFor(() => expect(uploadChatImage).toHaveBeenCalledTimes(1))
   value.edit("one", { content: "", files: [] })
   finish()
   await vi.waitFor(() =>
@@ -528,4 +546,104 @@ it("gives back an upload the server kept just as its image was taken out", async
   )
   expect(value.draft("one").files).toEqual([])
   expect(value.snapshot().uploads).toEqual({})
+})
+
+it("sends a display copy first, then the original once the message is posted", async () => {
+  const value = await store()
+  const original = new Blob(["original image"], { type: "image/jpeg" })
+  const copy = new Blob(["copy"], { type: "image/webp" })
+  vi.mocked(displayCopy).mockResolvedValue({
+    blob: copy,
+    width: 30,
+    height: 40,
+    copied: true,
+  })
+  const attachment = { ...uploaded("photo.jpg"), original: false }
+  vi.mocked(uploadChatImage).mockResolvedValueOnce({ attachment })
+  vi.mocked(sendChatMessage).mockImplementation(async (_room, input) =>
+    sent(input.id, input.attachmentIds)
+  )
+  let arrive: () => void = () => {}
+  vi.mocked(uploadChatOriginal).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        arrive = () => resolve(undefined)
+      })
+  )
+  value.edit("one", {
+    content: "",
+    files: [{ id: "f", name: "photo.jpg", blob: original }],
+  })
+  await vi.waitFor(() =>
+    expect(value.draft("one").files[0]?.uploaded).toBeDefined()
+  )
+  expect(uploadChatImage).toHaveBeenCalledWith(
+    "one",
+    { name: "photo.jpg", blob: copy, copy: true },
+    expect.anything()
+  )
+  expect(uploadChatOriginal).not.toHaveBeenCalled()
+  await value.enqueue("one")
+  await value.flush()
+  await vi.waitFor(() =>
+    expect(uploadChatOriginal).toHaveBeenCalledWith(
+      "one",
+      attachment.id,
+      expect.objectContaining({ name: "photo.jpg", blob: original })
+    )
+  )
+  expect(value.snapshot().originals).toHaveLength(1)
+  arrive()
+  await vi.waitFor(() => expect(value.snapshot().originals).toEqual([]))
+})
+
+it("keeps an original it could not send for the next chance, and drops one whose image is gone", async () => {
+  const pending = (fileId: string) => ({
+    fileId,
+    roomId: "one",
+    attachmentId: crypto.randomUUID(),
+    name: `${fileId}.jpg`,
+    blob: new Blob([fileId]),
+  })
+  vi.mocked(get).mockResolvedValue({
+    version: 5,
+    drafts: {},
+    queue: [],
+    originals: [pending("a"), pending("b")],
+  })
+  vi.mocked(uploadChatOriginal)
+    .mockRejectedValueOnce(new ApiNetworkError(new Error("offline")))
+    .mockRejectedValueOnce(new ApiError("gone", 404, "NOT_FOUND"))
+    .mockResolvedValueOnce(undefined)
+  const value = await store()
+  await vi.waitFor(() => expect(uploadChatOriginal).toHaveBeenCalledTimes(1))
+  expect(value.snapshot().originals.map((item) => item.fileId)).toEqual([
+    "a",
+    "b",
+  ])
+  await value.flush()
+  await vi.waitFor(() => expect(value.snapshot().originals).toEqual([]))
+  expect(uploadChatOriginal).toHaveBeenCalledTimes(3)
+})
+
+it("lets display copies stand as originals before this device forgets them", async () => {
+  const attachmentId = crypto.randomUUID()
+  vi.mocked(get).mockResolvedValue({
+    version: 5,
+    drafts: {},
+    queue: [],
+    originals: [
+      {
+        fileId: "x",
+        roomId: "one",
+        attachmentId,
+        name: "x.jpg",
+        blob: new Blob(["x"]),
+      },
+    ],
+  })
+  vi.mocked(uploadChatOriginal).mockReturnValue(new Promise(() => {}))
+  const value = await store()
+  await value.giveUpOriginals()
+  expect(keepChatImageCopy).toHaveBeenCalledWith("one", attachmentId)
 })
