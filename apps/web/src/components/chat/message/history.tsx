@@ -50,7 +50,7 @@ export function ChatMessages({
   const composer = useRef<ComposerHandle>(null)
   const edit = useMessageEdit(room.id)
   const composerEdit = edit.editing
-  const { store, member, ready, queue } = useChatStore(),
+  const { store, member, ready, queue, uploads } = useChatStore(),
     draft = store.draft(room.id)
   const history = useMessages(room, offline, active),
     older = useRef<HTMLDivElement>(null)
@@ -216,7 +216,9 @@ export function ChatMessages({
                         else store.retry(message.id)
                       },
                       onCancel: () => store.cancel(message.id),
+                      onRetryUpload: (fileId) => store.retryUpload(fileId),
                     }}
+                    uploads={uploads}
                   />
                 ))}
               </ol>
@@ -249,6 +251,7 @@ export function ChatMessages({
             canPost={room.canPost}
             roomName={room.name}
             draft={composerDraft}
+            uploads={uploads}
             editing={
               composerEdit
                 ? {
@@ -270,6 +273,7 @@ export function ChatMessages({
               if (value.files !== current.files)
                 store.edit(room.id, { ...current, files: value.files })
             }}
+            onRetryUpload={(fileId) => store.retryUpload(fileId)}
             onAddFiles={(files) => {
               const current = store.draft(room.id)
               if (current.files.length + files.length > chatImageLimits.count) {

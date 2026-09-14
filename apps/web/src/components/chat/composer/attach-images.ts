@@ -1,7 +1,6 @@
 import { chatImageLimits } from "@workspace/shared/communications"
 import { toast } from "@workspace/ui/lib/toast"
 import type { ChatFile } from "@/lib/chat/store"
-import { imagePreview } from "@/lib/chat/preview"
 
 const imageTypes = /^image\/(jpeg|png|webp|gif|heic|heif|avif)$/
 const imageNames = /\.(heic|heif)$/i
@@ -9,7 +8,8 @@ const megabytes = chatImageLimits.bytes / 1024 / 1024
 
 /**
  * Turns picked or dropped files into attachments, reading each one now so a
- * queued send survives the original file being moved or deleted.
+ * queued send survives the original file being moved or deleted. Sizes and
+ * previews follow once the images are attached, so the rail fills at once.
  */
 export async function attachImages(
   incoming: File[],
@@ -34,19 +34,16 @@ export async function attachImages(
   const readable = await Promise.all(
     accepted.map(async (selected) => {
       try {
-        selected.blob = new Blob([await selected.blob.arrayBuffer()], {
-          type: selected.blob.type,
-        })
+        return {
+          ...selected,
+          blob: new Blob([await selected.blob.arrayBuffer()], {
+            type: selected.blob.type,
+          }),
+        }
       } catch {
         toast.error("画像を読み込めませんでした。もう一度選択してください。")
         return null
       }
-      // The preview made now also serves the rail; HEIC this device cannot
-      // decode has no size until the server reads it.
-      const preview = await imagePreview(selected.blob)
-      if (preview)
-        selected.dimensions = { width: preview.width, height: preview.height }
-      return selected
     })
   )
   return readable.filter((file) => file !== null)

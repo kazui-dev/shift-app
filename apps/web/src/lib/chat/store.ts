@@ -1,22 +1,43 @@
 import * as v from "valibot"
 import { toast } from "@workspace/ui/lib/toast"
-import { sendChatMessage, uploadChatImage } from "@/api/chat"
+import type { ChatAttachment } from "@workspace/shared/communications"
+import {
+  deleteChatAttachment,
+  sendChatMessage,
+  uploadChatImage,
+} from "@/api/chat"
 import { ApiError, errorMessage } from "@/api/client"
 
 import {
   stateSchema,
+  type ChatFile,
   type SavedChat,
   type ChatDraft,
   type QueuedMessage,
 } from "@/lib/chat/state"
 import { loadChat, saveChat, clearChat } from "@/lib/chat/storage"
 import { keepSentImage } from "@/lib/chat/images"
+import { imagePreview } from "@/lib/chat/preview"
 export type { ChatFile, ChatDraft, QueuedMessage } from "@/lib/chat/state"
-type State = SavedChat & { ready: boolean }
+
+/** How far an image's upload has gone, or that it stopped; absent once uploaded. */
+export type UploadProgress = { sent: number; total: number } | "failed"
+type State = SavedChat & {
+  ready: boolean
+  uploads: Record<string, UploadProgress>
+}
 const empty: ChatDraft = { content: "", files: [] }
+/** Uploads running at once, so a phone's connection is not split ten ways. */
+const concurrentUploads = 3
 const stores = new Map<string, ChatStore>()
 export class ChatStore {
-  private state: State = { version: 4, drafts: {}, queue: [], ready: false }
+  private state: State = {
+    version: 4,
+    drafts: {},
+    queue: [],
+    ready: false,
+    uploads: {},
+  }
   private listeners = new Set<() => void>()
   private writing = Promise.resolve()
   private saved: State | undefined
@@ -24,6 +45,14 @@ export class ChatStore {
   private active = true
   private userId: string
   private loading: Promise<void>
+  private uploading = new Map<
+    string,
+    { controller: AbortController; promise: Promise<ChatAttachment> }
+  >()
+  private measuring = false
+  private measured = new Set<string>()
+  /** Messages whose expired uploads were already sent again once. */
+  private reuploaded = new Set<string>()
   constructor(userId: string) {
     this.userId = userId
     this.loading = this.load()
@@ -51,8 +80,10 @@ export class ChatStore {
             ? parsed.output
             : { version: 4, drafts: {}, queue: [] }),
           ready: true,
+          uploads: {},
         })
       if (!parsed.success && this.active) await this.persist()
+      this.prepareFiles()
     } catch (error) {
       console.error("Chat restoration failed", error)
       toast.error("入力内容を復元できません。ページを再読み込みしてください。")
@@ -77,10 +108,17 @@ export class ChatStore {
     await this.persist()
   }
   edit(roomId: string, draft: ChatDraft) {
+    const previous = this.draft(roomId).files
     this.publish({
       ...this.state,
       drafts: { ...this.state.drafts, [roomId]: draft },
     })
+    const kept = new Set(draft.files.map((file) => file.id))
+    this.forget(
+      roomId,
+      previous.filter((file) => !kept.has(file.id))
+    )
+    this.prepareFiles()
     void this.persist().catch((error: unknown) => {
       toast.error(storageMessage(error), { id: "chat-storage" })
     })
@@ -143,11 +181,18 @@ export class ChatStore {
       .then(() => this.publish({ ...this.state }))
       .catch(() => toast.error("送信待ちを保存できませんでした。"))
   }
+  /** Tries a stopped upload again, wherever its image waits. */
+  retryUpload(fileId: string) {
+    this.setUpload(fileId, undefined)
+    this.prepareFiles()
+  }
   cancel(id: string) {
+    const message = this.state.queue.find((item) => item.id === id)
     this.publish({
       ...this.state,
       queue: this.state.queue.filter((item) => item.id !== id),
     })
+    if (message) this.forget(message.roomId, message.files)
     void this.persist().catch(() =>
       toast.error("送信待ちを保存できませんでした。")
     )
@@ -156,6 +201,10 @@ export class ChatStore {
     await this.loading
     const drafts = { ...this.state.drafts }
     delete drafts[roomId]
+    for (const { file } of this.files().filter(
+      (item) => item.roomId === roomId
+    ))
+      this.uploading.get(file.id)?.controller.abort()
     this.publish({
       ...this.state,
       drafts,
@@ -165,6 +214,8 @@ export class ChatStore {
   }
   stop() {
     this.active = false
+    for (const { controller } of this.uploading.values()) controller.abort()
+    this.uploading.clear()
     this.listeners.clear()
   }
   async flush(
@@ -173,6 +224,7 @@ export class ChatStore {
       message: Awaited<ReturnType<typeof sendChatMessage>>["message"]
     ) => void
   ) {
+    this.prepareFiles()
     if (this.running || !this.active || !this.state.ready || !navigator.onLine)
       return
     this.running = true
@@ -188,31 +240,23 @@ export class ChatStore {
       if (!message) return
       this.update(message.id, { status: "sending" })
       try {
+        // Uploads began when the images were attached; only unfinished ones are awaited.
         const files = await Promise.all(
-          message.files.map(async (file) =>
-            file.uploaded
-              ? file
-              : {
-                  ...file,
-                  uploaded: (await uploadChatImage(message.roomId, file))
-                    .attachment,
-                }
-          )
+          message.files.map(async (file) => ({
+            ...file,
+            uploaded: await this.upload(message.roomId, file),
+          }))
         )
         if (!this.active) return
         // Ready before the send is confirmed, so the sent images never show empty.
         await Promise.all(
-          files.flatMap((file) =>
-            file.uploaded
-              ? [
-                  keepSentImage(
-                    this.userId,
-                    message.roomId,
-                    file.uploaded.id,
-                    file.blob
-                  ),
-                ]
-              : []
+          files.map((file) =>
+            keepSentImage(
+              this.userId,
+              message.roomId,
+              file.uploaded.id,
+              file.blob
+            )
           )
         )
         this.update(message.id, { files })
@@ -221,9 +265,7 @@ export class ChatStore {
           id: message.id,
           content: message.content,
           ...(message.reply ? { replyToId: message.reply.id } : {}),
-          attachmentIds: files.flatMap((file) =>
-            file.uploaded ? [file.uploaded.id] : []
-          ),
+          attachmentIds: files.map((file) => file.uploaded.id),
         })
         if (!this.active) return
         onSent?.(message.roomId, result.message)
@@ -234,21 +276,26 @@ export class ChatStore {
         await this.persist()
       } catch (error) {
         if (!this.active) return
+        const expired =
+          error instanceof ApiError && error.code === "INVALID_CHAT_ATTACHMENTS"
+        // Uploads older than the server keeps are sent again once, not reported.
+        const again = expired && !this.reuploaded.has(message.id)
+        if (again) this.reuploaded.add(message.id)
         this.update(message.id, {
-          status: navigator.onLine ? "failed" : "waiting",
-          ...(error instanceof ApiError &&
-          error.code === "INVALID_CHAT_ATTACHMENTS"
+          status: again || !navigator.onLine ? "waiting" : "failed",
+          ...(expired
             ? {
                 files: message.files.map((file) => ({
                   id: file.id,
                   name: file.name,
                   blob: file.blob,
+                  ...(file.dimensions ? { dimensions: file.dimensions } : {}),
                 })),
               }
             : {}),
         })
         await this.persist().catch(() => undefined)
-        if (navigator.onLine)
+        if (navigator.onLine && !again)
           toast.error(errorMessage(error), { id: `send:${message.id}` })
       }
     } finally {
@@ -260,6 +307,132 @@ export class ChatStore {
       this.state.queue.some((item) => item.status === "waiting")
     )
       void this.flush(onSent)
+  }
+  /** Every drafted and queued image, with the room it goes to. */
+  private files() {
+    return [
+      ...Object.entries(this.state.drafts).flatMap(([roomId, draft]) =>
+        draft.files.map((file) => ({ roomId, file }))
+      ),
+      ...this.state.queue.flatMap((message) =>
+        message.files.map((file) => ({ roomId: message.roomId, file }))
+      ),
+    ]
+  }
+  /** Starts sizing and uploading attached images that still need it. */
+  private prepareFiles() {
+    if (!this.active || !this.state.ready) return
+    this.measure()
+    if (!navigator.onLine) return
+    for (const { roomId, file } of this.files()) {
+      if (this.uploading.size >= concurrentUploads) break
+      if (
+        !file.uploaded &&
+        !this.uploading.has(file.id) &&
+        this.state.uploads[file.id] !== "failed"
+      )
+        void this.upload(roomId, file).catch(() => undefined)
+    }
+  }
+  /** An image's upload, joining the one already running for it. */
+  private upload(roomId: string, file: ChatFile): Promise<ChatAttachment> {
+    const current =
+      this.files().find((item) => item.file.id === file.id)?.file ?? file
+    if (current.uploaded) return Promise.resolve(current.uploaded)
+    const running = this.uploading.get(file.id)
+    if (running) return running.promise
+    const controller = new AbortController()
+    let reported = -1
+    const promise = uploadChatImage(roomId, current, {
+      signal: controller.signal,
+      onProgress: (sent, total) => {
+        // Whole percents only, so progress never floods the chat with renders.
+        const percent = Math.floor((sent / total) * 100)
+        if (percent === reported || !this.uploading.has(file.id)) return
+        reported = percent
+        this.setUpload(file.id, { sent, total })
+      },
+    }).then(
+      ({ attachment }) => {
+        this.uploading.delete(file.id)
+        this.setUpload(file.id, undefined)
+        this.updateFile(file.id, { uploaded: attachment })
+        void this.persist().catch(() => undefined)
+        this.prepareFiles()
+        return attachment
+      },
+      (error: unknown) => {
+        this.uploading.delete(file.id)
+        if (!controller.signal.aborted) this.setUpload(file.id, "failed")
+        this.prepareFiles()
+        throw error
+      }
+    )
+    this.uploading.set(file.id, { controller, promise })
+    this.setUpload(file.id, { sent: 0, total: current.blob.size })
+    return promise
+  }
+  /** Stops the uploads of images taken out, and gives back those already uploaded. */
+  private forget(roomId: string, files: readonly ChatFile[]) {
+    for (const file of files) {
+      this.uploading.get(file.id)?.controller.abort()
+      this.uploading.delete(file.id)
+      this.setUpload(file.id, undefined)
+      if (file.uploaded)
+        void deleteChatAttachment(roomId, file.uploaded.id).catch(
+          () => undefined
+        )
+    }
+  }
+  /** Reads attached images' sizes one at a time, for the frames they are sent in. */
+  private measure() {
+    if (this.measuring || !this.active) return
+    const next = this.files().find(
+      ({ file }) =>
+        !file.dimensions && !file.uploaded && !this.measured.has(file.id)
+    )
+    if (!next) return
+    this.measuring = true
+    this.measured.add(next.file.id)
+    void imagePreview(next.file.blob)
+      .then((preview) => {
+        if (preview)
+          this.updateFile(next.file.id, {
+            dimensions: { width: preview.width, height: preview.height },
+          })
+      })
+      .finally(() => {
+        this.measuring = false
+        this.measure()
+      })
+  }
+  private setUpload(fileId: string, progress: UploadProgress | undefined) {
+    if (!progress && !(fileId in this.state.uploads)) return
+    const uploads = { ...this.state.uploads }
+    if (progress) uploads[fileId] = progress
+    else delete uploads[fileId]
+    this.publish({ ...this.state, uploads })
+  }
+  private updateFile(fileId: string, patch: Partial<ChatFile>) {
+    const change = (files: ChatFile[]) =>
+      files.some((file) => file.id === fileId)
+        ? files.map((file) =>
+            file.id === fileId ? { ...file, ...patch } : file
+          )
+        : files
+    this.publish({
+      ...this.state,
+      drafts: Object.fromEntries(
+        Object.entries(this.state.drafts).map(([roomId, draft]) => [
+          roomId,
+          { ...draft, files: change(draft.files) },
+        ])
+      ),
+      queue: this.state.queue.map((message) => ({
+        ...message,
+        files: change(message.files),
+      })),
+    })
   }
   private update(id: string, patch: Partial<QueuedMessage>) {
     this.publish({

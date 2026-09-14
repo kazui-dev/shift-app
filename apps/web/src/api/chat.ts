@@ -117,6 +117,13 @@ export const uploadChatImage = (
     options
   )
 
+/** Takes back an uploaded image that no message has claimed. */
+export const deleteChatAttachment = (roomId: string, id: string) =>
+  apiVoid(
+    `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  )
+
 export const getChatMembers = (roomId: string) =>
   apiJson(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/members`,

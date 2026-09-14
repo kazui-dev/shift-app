@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
 import { loadChat as get, saveChat as set } from "@/lib/chat/storage"
 import { toast } from "@workspace/ui/lib/toast"
-import { sendChatMessage, uploadChatImage } from "@/api/chat"
+import {
+  deleteChatAttachment,
+  sendChatMessage,
+  uploadChatImage,
+} from "@/api/chat"
+import { ApiError } from "@/api/client"
 import { ChatStore } from "@/lib/chat/store"
 
 vi.mock("./storage", () => ({
@@ -10,12 +15,37 @@ vi.mock("./storage", () => ({
   clearChat: vi.fn<() => Promise<void>>(),
 }))
 vi.mock("@/api/chat", () => ({
+  deleteChatAttachment: vi.fn<typeof deleteChatAttachment>(),
   sendChatMessage: vi.fn<typeof sendChatMessage>(),
   uploadChatImage: vi.fn<typeof uploadChatImage>(),
 }))
 vi.mock("@workspace/ui/lib/toast", () => ({
   toast: { error: vi.fn<() => void>() },
 }))
+const uploaded = (name: string) => ({
+  id: crypto.randomUUID(),
+  width: 20,
+  height: 30,
+  bytes: 100,
+  name,
+})
+const sent = (id: string, attachmentIds: string[] = []) => ({
+  message: {
+    id,
+    sequence: 1,
+    memberId: "m",
+    memberDisplayName: "名前",
+    memberImage: null,
+    content: "",
+    createdAt: new Date().toISOString(),
+    attachments: attachmentIds.map((attachment) => ({
+      ...uploaded("photo.png"),
+      id: attachment,
+    })),
+    linkPreview: null,
+    version: 1,
+  },
+})
 const active: ChatStore[] = []
 async function store() {
   const result = new ChatStore("member")
@@ -28,6 +58,10 @@ beforeEach(() => {
   vi.stubGlobal("navigator", { onLine: true })
   vi.mocked(get).mockResolvedValue(undefined)
   vi.mocked(set).mockResolvedValue(undefined)
+  vi.mocked(deleteChatAttachment).mockResolvedValue(undefined)
+  vi.mocked(uploadChatImage).mockImplementation(async (_room, file) => ({
+    attachment: uploaded(file.name),
+  }))
 })
 afterEach(() => {
   active.splice(0).forEach((item) => item.stop())
@@ -52,10 +86,6 @@ it("keeps independent room drafts and persists image blobs before queuing offlin
 })
 it("retains a failed message and reuses its id and uploaded image on retry", async () => {
   const value = await store()
-  value.edit("one", {
-    content: "",
-    files: [{ id: "f", name: "photo.png", blob: new Blob(["image"]) }],
-  })
   const attachment = {
     id: crypto.randomUUID(),
     width: 20,
@@ -64,6 +94,10 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
     name: "photo.png",
   }
   vi.mocked(uploadChatImage).mockResolvedValue({ attachment })
+  value.edit("one", {
+    content: "",
+    files: [{ id: "f", name: "photo.png", blob: new Blob(["image"]) }],
+  })
   vi.mocked(sendChatMessage).mockRejectedValueOnce(new Error("Unavailable"))
   await value.enqueue("one")
   await value.flush()
@@ -100,7 +134,8 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
   expect(uploadChatImage).toHaveBeenCalledTimes(1)
   expect(uploadChatImage).toHaveBeenCalledWith(
     "one",
-    expect.objectContaining({ name: "photo.png" })
+    expect.objectContaining({ name: "photo.png" }),
+    expect.objectContaining({ signal: expect.any(AbortSignal) })
   )
   expect(sendChatMessage).toHaveBeenNthCalledWith(2, "one", {
     id: queued.id,
@@ -290,4 +325,125 @@ it("removes only the departed chat's drafts and pending messages from durable st
   })
   expect(value.snapshot().queue).toEqual([])
   expect(set).toHaveBeenLastCalledWith("member", value.snapshot())
+})
+
+it("starts uploading as images are attached, shows progress, and sends once they finish", async () => {
+  const value = await store()
+  const attachment = uploaded("photo.png")
+  let finish: () => void = () => {}
+  let report: (sent: number, total: number) => void = () => {}
+  vi.mocked(uploadChatImage).mockImplementationOnce(
+    (_room, _file, options) =>
+      new Promise((resolve) => {
+        report = options?.onProgress ?? report
+        finish = () => resolve({ attachment })
+      })
+  )
+  vi.mocked(sendChatMessage).mockImplementation(async (_room, input) =>
+    sent(input.id, input.attachmentIds)
+  )
+  const file = { id: "f", name: "photo.png", blob: new Blob(["image"]) }
+  value.edit("one", { content: "", files: [file] })
+  expect(uploadChatImage).toHaveBeenCalledExactlyOnceWith(
+    "one",
+    expect.objectContaining({ id: "f" }),
+    expect.objectContaining({ signal: expect.any(AbortSignal) })
+  )
+  report(50, 100)
+  expect(value.snapshot().uploads["f"]).toEqual({ sent: 50, total: 100 })
+  await value.enqueue("one")
+  const sending = value.flush()
+  await vi.waitFor(() =>
+    expect(value.snapshot().queue[0]?.status).toBe("sending")
+  )
+  expect(sendChatMessage).not.toHaveBeenCalled()
+  finish()
+  await sending
+  expect(sendChatMessage).toHaveBeenCalledWith(
+    "one",
+    expect.objectContaining({ attachmentIds: [attachment.id] })
+  )
+  expect(uploadChatImage).toHaveBeenCalledTimes(1)
+  expect(value.snapshot().uploads).toEqual({})
+  expect(value.snapshot().queue).toEqual([])
+})
+
+it("stops or gives back the uploads of images taken out of a draft", async () => {
+  const value = await store()
+  const done = uploaded("done.png")
+  let signal: AbortSignal | undefined
+  vi.mocked(uploadChatImage).mockImplementation(
+    async (_room, file, options) => {
+      if (file.name === "done.png") return { attachment: done }
+      signal = options?.signal
+      return new Promise(() => {})
+    }
+  )
+  value.edit("one", {
+    content: "",
+    files: [
+      { id: "done", name: "done.png", blob: new Blob(["a"]) },
+      { id: "running", name: "running.png", blob: new Blob(["b"]) },
+    ],
+  })
+  await vi.waitFor(() =>
+    expect(value.draft("one").files[0]?.uploaded).toEqual(done)
+  )
+  value.edit("one", { content: "", files: [] })
+  expect(signal?.aborted).toBe(true)
+  expect(deleteChatAttachment).toHaveBeenCalledExactlyOnceWith("one", done.id)
+  expect(value.snapshot().uploads).toEqual({})
+})
+
+it("waits to upload while offline and starts once the chat is online again", async () => {
+  vi.stubGlobal("navigator", { onLine: false })
+  const value = await store()
+  value.edit("one", {
+    content: "",
+    files: [{ id: "f", name: "photo.png", blob: new Blob(["image"]) }],
+  })
+  expect(uploadChatImage).not.toHaveBeenCalled()
+  vi.stubGlobal("navigator", { onLine: true })
+  await value.flush()
+  expect(uploadChatImage).toHaveBeenCalledTimes(1)
+})
+
+it("marks a stopped upload inside its image and tries it again on request", async () => {
+  const value = await store()
+  vi.mocked(uploadChatImage).mockRejectedValueOnce(new Error("Unavailable"))
+  value.edit("one", {
+    content: "",
+    files: [{ id: "f", name: "photo.png", blob: new Blob(["image"]) }],
+  })
+  await vi.waitFor(() => expect(value.snapshot().uploads["f"]).toBe("failed"))
+  value.retryUpload("f")
+  await vi.waitFor(() =>
+    expect(value.draft("one").files[0]?.uploaded).toBeDefined()
+  )
+  expect(uploadChatImage).toHaveBeenCalledTimes(2)
+  expect(value.snapshot().uploads).toEqual({})
+})
+
+it("uploads expired images again once instead of reporting the send as failed", async () => {
+  const value = await store()
+  vi.mocked(sendChatMessage)
+    .mockRejectedValueOnce(
+      new ApiError("expired", 422, "INVALID_CHAT_ATTACHMENTS")
+    )
+    .mockImplementation(async (_room, input) =>
+      sent(input.id, input.attachmentIds)
+    )
+  value.edit("one", {
+    content: "",
+    files: [{ id: "f", name: "photo.png", blob: new Blob(["image"]) }],
+  })
+  await vi.waitFor(() =>
+    expect(value.draft("one").files[0]?.uploaded).toBeDefined()
+  )
+  await value.enqueue("one")
+  await value.flush()
+  await vi.waitFor(() => expect(value.snapshot().queue).toEqual([]))
+  expect(uploadChatImage).toHaveBeenCalledTimes(2)
+  expect(sendChatMessage).toHaveBeenCalledTimes(2)
+  expect(toast.error).not.toHaveBeenCalled()
 })
