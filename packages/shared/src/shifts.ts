@@ -206,7 +206,8 @@ export const replaceAvailabilityInputSchema = v.pipe(
 export const createAssignmentReportInputSchema = v.object({
   eta: v.optional(v.nullable(instantSchema), null),
   kind: v.picklist(["late", "absence"]),
-  message: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(1000)),
+  /** The reason, which may be left out when there is no time to write one. */
+  message: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(1000)), ""),
 })
 
 export const operatingYearResponseSchema = v.object({
@@ -340,6 +341,15 @@ export const myAssignmentResponseSchema = v.object({
   place: v.string(),
   activityType: v.string(),
   color: v.string(),
+  /** The member's own late or absence report for the shift, if any. */
+  report: v.nullable(
+    v.object({
+      kind: v.picklist(["late", "absence"]),
+      message: v.string(),
+      eta: v.nullable(instantSchema),
+      status: v.picklist(["open", "resolved", "withdrawn"]),
+    })
+  ),
 })
 
 export const yearsResponseSchema = v.object({
