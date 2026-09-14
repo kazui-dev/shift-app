@@ -202,6 +202,11 @@ export function ChatMessages({
                       onReply: () => replyTo(message),
                       onEdit: () => editMessage(message),
                       onDelete: () => removeMessage(message),
+                      onRetry: () => {
+                        if (offline || !navigator.onLine) setBlockedSend(true)
+                        else store.retry(message.id)
+                      },
+                      onCancel: () => store.cancel(message.id),
                       onOpenReply: (id) => setReplyTarget(id),
                       onOpenImage: (image, sequence) =>
                         void navigate({

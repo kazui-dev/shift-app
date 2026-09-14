@@ -23,6 +23,8 @@ export type MessageRowActions = {
   onDelete: () => void
   onOpenReply: (id: string | null) => void
   onOpenImage: (image: string, sequence: number) => void
+  onRetry: () => void
+  onCancel: () => void
 }
 
 export function ChatMessageRow({
@@ -85,6 +87,8 @@ export function ChatMessageRow({
         editing={editing}
         menuOpen={menuOpen}
         onMenu={actions.onMenu}
+        onRetry={actions.onRetry}
+        onCancel={actions.onCancel}
         onDelete={actions.onDelete}
         onEdit={actions.onEdit}
         onReply={actions.onReply}
@@ -167,8 +171,8 @@ export function ChatMessageRow({
                       size="icon-xs"
                       aria-label="送信できませんでした。操作を表示"
                       className="size-5 rounded-full"
+                      data-open-actions
                       onPointerDown={(event) => event.preventDefault()}
-                      onClick={actions.onMenu}
                     >
                       <CircleAlert className="size-3" aria-hidden />
                     </Button>

@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from "react"
-import { CornerUpLeft, Pencil, Trash2 } from "lucide-react"
+import { CornerUpLeft, Pencil, RotateCw, Trash2, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { messagePermissions } from "@workspace/shared/messages"
@@ -17,6 +17,8 @@ import type { MessageRow } from "@/components/chat/message/list"
  * the reply chip or any button never presses, colors or opens the message.
  */
 const controls = "a,button,input,textarea,select,[role=toolbar]"
+/** A control that opens the message's actions, like the failed mark. */
+const opener = "[data-open-actions]"
 
 export function MessageActions({
   message,
@@ -27,6 +29,8 @@ export function MessageActions({
   onEdit,
   onDelete,
   onMenu,
+  onRetry,
+  onCancel,
   menuOpen,
   editing,
   children,
@@ -38,6 +42,8 @@ export function MessageActions({
   onEdit: () => void
   onDelete: () => void
   onMenu: () => void
+  onRetry: () => void
+  onCancel: () => void
   menuOpen: boolean
   editing: boolean
   onReply: () => void
@@ -54,10 +60,10 @@ export function MessageActions({
   const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const consumed = useRef(false)
   const [opened, setOpened] = useState(false)
-  // A message not yet sent is only sent again or taken back, in the drawer.
+  // A message not yet sent is only sent again or taken back.
   const pending = message.status !== "sent"
   const openActions = useEffectEvent(() => {
-    if (mobile || pending) onMenu()
+    if (mobile) onMenu()
     else setOpened(true)
   })
   const permission = messagePermissions({
@@ -149,6 +155,11 @@ export function MessageActions({
         event.preventDefault()
         event.stopPropagation()
         consumed.current = false
+        return
+      }
+      if (event.target instanceof Element && event.target.closest(opener)) {
+        event.preventDefault()
+        openActions()
       }
     }
     const context = (event: MouseEvent) => {
@@ -198,7 +209,7 @@ export function MessageActions({
           type="button"
           className="sr-only"
           onClick={() => {
-            if (mobile || pending) onMenu()
+            if (mobile) onMenu()
             else setOpened(true)
           }}
         >
@@ -206,13 +217,42 @@ export function MessageActions({
         </button>
       )}
       {children}
-      {available && !pending && !editing && !mobile && (
+      {available && !editing && !mobile && (
         <div
           role="toolbar"
           aria-label="メッセージの操作"
           className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
         >
-          {permission.reply && (
+          {message.status === "failed" && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="再送"
+              title="再送"
+              onClick={() => {
+                onRetry()
+                setOpened(false)
+              }}
+            >
+              <RotateCw />
+            </Button>
+          )}
+          {pending && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="取り消し"
+              title="取り消し"
+              className="text-destructive"
+              onClick={() => {
+                onCancel()
+                setOpened(false)
+              }}
+            >
+              <X />
+            </Button>
+          )}
+          {!pending && permission.reply && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -226,7 +266,7 @@ export function MessageActions({
               <CornerUpLeft />
             </Button>
           )}
-          {permission.edit && (
+          {!pending && permission.edit && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -240,7 +280,7 @@ export function MessageActions({
               <Pencil />
             </Button>
           )}
-          {permission.delete && (
+          {!pending && permission.delete && (
             <Button
               variant="ghost"
               size="icon-sm"
