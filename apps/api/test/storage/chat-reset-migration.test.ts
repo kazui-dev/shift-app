@@ -37,8 +37,7 @@ it("resets only chat data, queues old storage cleanup, and removes all chat poli
       "app_users",
       "activities",
       "shift_assignments",
-      "assignment_reports",
-      "attendance_records",
+      "assignment_attendance",
       "notification_devices",
     ])
       expect(db.prepare(`SELECT count(*) AS n FROM ${table}`).get()?.n).toBe(1)

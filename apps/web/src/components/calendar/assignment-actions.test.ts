@@ -1,48 +1,58 @@
 import { expect, it } from "vite-plus/test"
 import {
-  cardActionsOpen,
-  reportLabel,
-  reportOpen,
-  standingReport,
+  attendanceButtonShown,
+  attendanceLabel,
+  attendanceOpen,
 } from "@/components/calendar/assignment-actions"
 
 const shift = {
   startsAt: "2026-09-15T01:00:00.000Z",
   endsAt: "2026-09-15T02:00:00.000Z",
-  checkedInAt: null,
+  attendance: null,
 }
 const at = (iso: string) => Date.parse(iso)
+const attendance = (state: "late" | "absent" | "present") => ({
+  state,
+  expectedAt: null,
+  reason: "",
+  checkedInAt: null,
+  checkInStatus: null,
+  resolvedAt: null,
+  updatedAt: "2026-09-15T00:00:00.000Z",
+})
 
-it("offers check-in from 30 minutes before a shift until it ends, until checked in", () => {
-  expect(cardActionsOpen(shift, at("2026-09-15T00:29:59.999Z"))).toBe(false)
-  expect(cardActionsOpen(shift, at("2026-09-15T00:30:00.000Z"))).toBe(true)
-  expect(cardActionsOpen(shift, at("2026-09-15T01:59:59.999Z"))).toBe(true)
-  expect(cardActionsOpen(shift, at("2026-09-15T02:00:00.000Z"))).toBe(false)
+it("shows the attendance button from 30 minutes before a shift until it ends, or once set", () => {
+  expect(attendanceButtonShown(shift, at("2026-09-15T00:29:59.999Z"))).toBe(
+    false
+  )
+  expect(attendanceButtonShown(shift, at("2026-09-15T00:30:00.000Z"))).toBe(
+    true
+  )
+  expect(attendanceButtonShown(shift, at("2026-09-15T02:00:00.000Z"))).toBe(
+    false
+  )
   expect(
-    cardActionsOpen(
-      { ...shift, checkedInAt: "2026-09-15T01:00:00.000Z" },
+    attendanceButtonShown(
+      { ...shift, attendance: attendance("absent") },
+      at("2026-09-14T00:00:00.000Z")
+    )
+  ).toBe(true)
+})
+
+it("takes attendance until a shift ends, and never after checking in", () => {
+  expect(attendanceOpen(shift, at("2026-09-14T00:00:00.000Z"))).toBe(true)
+  expect(attendanceOpen(shift, at("2026-09-15T02:00:00.000Z"))).toBe(false)
+  expect(
+    attendanceOpen(
+      { ...shift, attendance: attendance("present") },
       at("2026-09-15T01:10:00.000Z")
     )
   ).toBe(false)
 })
 
-it("takes late or absence reports until a shift ends", () => {
-  expect(reportOpen(shift, at("2026-09-14T00:00:00.000Z"))).toBe(true)
-  expect(reportOpen(shift, at("2026-09-15T02:00:00.000Z"))).toBe(false)
-})
-
-it("reads a standing report on its shift, and none once taken back", () => {
-  const report = (
-    kind: "late" | "absence",
-    eta: string | null,
-    status: "open" | "resolved" | "withdrawn" = "open"
-  ) => ({ report: { kind, message: "", eta, status } })
-  expect(reportLabel({ report: null })).toBe("遅刻・欠勤")
-  expect(reportLabel(report("absence", null))).toBe("欠勤連絡済み")
-  expect(reportLabel(report("late", null, "resolved"))).toBe("遅刻連絡済み")
-  expect(reportLabel(report("late", "2026-09-15T01:30:00.000Z"))).toBe(
-    "遅刻連絡済み・10:30到着"
-  )
-  expect(standingReport(report("late", null, "withdrawn"))).toBeNull()
-  expect(reportLabel(report("late", null, "withdrawn"))).toBe("遅刻・欠勤")
+it("labels the button by what has been set", () => {
+  expect(attendanceLabel({ attendance: null })).toBe("勤怠")
+  expect(attendanceLabel({ attendance: attendance("present") })).toBe("出勤済")
+  expect(attendanceLabel({ attendance: attendance("late") })).toBe("遅刻")
+  expect(attendanceLabel({ attendance: attendance("absent") })).toBe("欠勤")
 })

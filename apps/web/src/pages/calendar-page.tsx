@@ -19,9 +19,9 @@ import {
   checkCampusLocation,
   type CampusLocation,
 } from "@/components/calendar/campus-location"
-import { AssignmentReportSheet } from "@/components/calendar/assignment-report-sheet"
+import { AttendanceSheet } from "@/components/calendar/attendance-sheet"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { checkIn } from "@/api/assignments"
+import { submitAttendance } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { useOfflineMode } from "@/components/offline-mode-context"
@@ -39,7 +39,7 @@ import { calendarSlideDates } from "@/lib/calendar/carousel"
 import { japanDateTime, japanFullDate } from "@workspace/shared/japan-time"
 import { loopCarouselInitialSlide } from "@/lib/calendar/loop-carousel"
 
-/** Why a check-in could not confirm the campus, as the confirmation's first line. */
+/** Why a check-in could not confirm the campus, as the confirmation's first sentence. */
 const locationIssues: Record<Exclude<CampusLocation, "confirmed">, string> = {
   denied: "位置情報の利用が許可されていません。",
   far: "現在地が大学の近くではありません。",
@@ -73,15 +73,15 @@ export function CalendarPage() {
   const offline = useOfflineMode()
   const { date, selectDate, selectMonth, readScrollTop, saveScrollTop } =
     useCalendarViewState()
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<
+    string | null
+  >(null)
+  const [attendanceId, setAttendanceId] = useState<string | null>(null)
   const [checkingInId, setCheckingInId] = useState<string | null>(null)
   const [locationIssue, setLocationIssue] = useState<{
     assignmentId: string
     reason: Exclude<CampusLocation, "confirmed">
   } | null>(null)
-  const [reportingId, setReportingId] = useState<string | null>(null)
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<
-    string | null
-  >(null)
   const calendarRef = useRef<HTMLDivElement>(null)
   const weekHeaderRef = useRef<HTMLDivElement>(null)
   const dateRef = useRef(date)
@@ -98,9 +98,9 @@ export function CalendarPage() {
   const selectedAssignment = (calendarAssignments.byDate.get(date) ?? []).find(
     (assignment) => assignment.id === selectedAssignmentId
   )
-  const reportingAssignment = [...calendarAssignments.byDate.values()]
+  const attendanceAssignment = [...calendarAssignments.byDate.values()]
     .flat()
-    .find((assignment) => assignment.id === reportingId)
+    .find((assignment) => assignment.id === attendanceId)
 
   useLayoutEffect(() => {
     const calendar = calendarRef.current
@@ -145,11 +145,19 @@ export function CalendarPage() {
     [date, selectDate]
   )
 
+  const openAttendance = useCallback((assignmentId: string) => {
+    setSelectedAssignmentId(null)
+    setAttendanceId(assignmentId)
+  }, [])
+
   const saveCheckIn = useCallback(
     async (assignmentId: string, locationConfirmed: boolean) => {
       setCheckingInId(assignmentId)
       try {
-        await checkIn(assignmentId, locationConfirmed)
+        await submitAttendance(assignmentId, {
+          state: "present",
+          locationConfirmed,
+        })
         await queryClient.invalidateQueries({
           queryKey: keys.assignmentMonth(),
         })
@@ -165,7 +173,7 @@ export function CalendarPage() {
 
   // A check-in confirms the campus first; when it cannot, the member decides
   // whether to check in anyway, and cancelling leaves no trace.
-  const startCheckIn = useCallback(
+  const checkIn = useCallback(
     async (assignmentId: string) => {
       setCheckingInId(assignmentId)
       const location = await checkCampusLocation()
@@ -178,13 +186,6 @@ export function CalendarPage() {
     },
     [saveCheckIn]
   )
-  const requestCheckIn = useCallback(
-    (assignmentId: string) => void startCheckIn(assignmentId),
-    [startCheckIn]
-  )
-  const requestReport = useCallback((assignmentId: string) => {
-    setReportingId(assignmentId)
-  }, [])
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
@@ -230,13 +231,10 @@ export function CalendarPage() {
             assignmentsByDate={calendarAssignments.byDate}
             now={now}
             nowMs={nowMs}
-            offline={offline}
-            checkingInId={checkingInId}
             onDateChange={changeDate}
             onProgress={updateWeekHeader}
             onSelectAssignment={selectAssignment}
-            onCheckIn={requestCheckIn}
-            onReport={requestReport}
+            onAttendance={openAttendance}
           />
         </div>
 
@@ -244,34 +242,25 @@ export function CalendarPage() {
           <AssignmentDetailsDialog
             key={selectedAssignment.id}
             assignment={selectedAssignment}
-            now={nowMs}
-            offline={offline}
-            checkingIn={checkingInId === selectedAssignment.id}
-            onCheckIn={requestCheckIn}
-            onReport={(assignmentId) => {
-              setSelectedAssignmentId(null)
-              setReportingId(assignmentId)
-            }}
+            onAttendance={openAttendance}
             onClose={() => setSelectedAssignmentId(null)}
           />
         )}
-        {reportingAssignment && (
-          <AssignmentReportSheet
-            key={reportingAssignment.id}
-            assignment={reportingAssignment}
-            onClose={() => setReportingId(null)}
+        {attendanceAssignment && (
+          <AttendanceSheet
+            key={attendanceAssignment.id}
+            assignment={attendanceAssignment}
+            now={nowMs}
+            offline={offline}
+            checkingIn={checkingInId === attendanceAssignment.id}
+            onCheckIn={(assignmentId) => void checkIn(assignmentId)}
+            onClose={() => setAttendanceId(null)}
           />
         )}
         {locationIssue && (
           <ConfirmDialog
             title="このまま出勤しますか"
-            description={
-              <>
-                {locationIssues[locationIssue.reason]}
-                <br />
-                出勤は記録され、あとで責任者が確認します。
-              </>
-            }
+            description={`${locationIssues[locationIssue.reason]}出勤確認の依頼が責任者に送信されます。`}
             confirmLabel="このまま出勤する"
             tone="default"
             onCancel={() => setLocationIssue(null)}

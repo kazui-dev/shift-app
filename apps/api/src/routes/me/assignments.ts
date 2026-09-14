@@ -5,6 +5,11 @@ import { timeWindowSchema } from "@workspace/shared/shifts"
 
 import { apiError, errors } from "../../lib/errors"
 import { type ApiEnv, parseYear, toIso } from "../../lib/http"
+import {
+  attendanceColumns,
+  withAttendance,
+  type AttendanceColumns,
+} from "../../services/attendance"
 
 const MAX_ASSIGNMENT_RANGE_MS = 31 * 24 * 60 * 60 * 1000
 
@@ -21,13 +26,7 @@ type AssignmentRow = {
   place: string
   activityType: string
   color: string
-  attendanceStatus: "pending" | "confirmed" | null
-  checkedInAt: number | null
-  reportKind: "late" | "absence" | null
-  reportMessage: string | null
-  reportEta: number | null
-  reportStatus: "open" | "resolved" | "withdrawn" | null
-}
+} & AttendanceColumns
 
 export const meAssignmentsApp = new Hono<ApiEnv>()
 
@@ -64,9 +63,7 @@ meAssignmentsApp.get("/assignments", async (c) => {
          activity.place,
          activity.activity_type AS activityType,
          activity.color,
-         attendance.checked_in_at AS checkedInAt, attendance.status AS attendanceStatus,
-         report.kind AS reportKind, report.message AS reportMessage,
-         report.eta AS reportEta, report.status AS reportStatus
+         ${attendanceColumns}
        FROM shift_assignments assignment
        JOIN shift_slots slot ON slot.id = assignment.slot_id
        JOIN activities activity ON activity.id = slot.activity_id
@@ -76,9 +73,7 @@ meAssignmentsApp.get("/assignments", async (c) => {
         AND year_membership.member_id = assignment.member_id
         AND year_membership.status = 'active'
        JOIN app_users member ON member.id = assignment.member_id
-       LEFT JOIN attendance_records attendance ON attendance.assignment_id = assignment.id
-       LEFT JOIN assignment_reports report
-         ON report.assignment_id = assignment.id AND report.member_id = assignment.member_id
+       LEFT JOIN assignment_attendance attendance ON attendance.assignment_id = assignment.id
        WHERE assignment.member_id = ? AND activity.year = ?
          AND assignment.status = 'active' AND activity.active = 1
          AND slot.starts_at < ?
@@ -90,31 +85,13 @@ meAssignmentsApp.get("/assignments", async (c) => {
     .all<AssignmentRow>()
 
   return c.json({
-    assignments: assignments.results.map(
-      ({
-        reportKind,
-        reportMessage,
-        reportEta,
-        reportStatus,
-        ...assignment
-      }) => ({
+    assignments: assignments.results.map((row) => {
+      const assignment = withAttendance(row)
+      return {
         ...assignment,
         startsAt: toIso(assignment.startsAt),
         endsAt: toIso(assignment.endsAt),
-        checkedInAt:
-          assignment.checkedInAt === null
-            ? null
-            : toIso(assignment.checkedInAt),
-        report:
-          reportKind === null || reportStatus === null
-            ? null
-            : {
-                kind: reportKind,
-                message: reportMessage ?? "",
-                eta: reportEta === null ? null : toIso(reportEta),
-                status: reportStatus,
-              },
-      })
-    ),
+      }
+    }),
   })
 })

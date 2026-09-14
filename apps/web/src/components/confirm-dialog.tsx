@@ -53,7 +53,10 @@ export function ConfirmDialog({
             {title.replace(/[？?。]+$/, "")}？
           </AlertDialogTitle>
           {description && (
-            <AlertDialogDescription>{description}</AlertDialogDescription>
+            // Japanese breaks between phrases, never inside a word.
+            <AlertDialogDescription className="[word-break:auto-phrase]">
+              {description}
+            </AlertDialogDescription>
           )}
         </AlertDialogHeader>
         <AlertDialogFooter>

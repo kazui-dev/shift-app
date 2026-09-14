@@ -7,7 +7,6 @@ import { warmConversation } from "@/data/chat-warm"
 import {
   Outlet,
   getRouteApi,
-  useSearch,
   useRouter,
   useRouterState,
 } from "@tanstack/react-router"
@@ -46,7 +45,6 @@ function ChatScreen() {
   })
   const creating = pathname === "/chat/new"
   const desktop = useMediaQuery("(min-width: 768px)")
-  const { report } = useSearch({ strict: false })
   const { roomId, retainedId, open, back, resume, remove } = useChatNavigation()
   const display = useDisplayYear(),
     offline = useOfflineMode()
@@ -113,7 +111,6 @@ function ChatScreen() {
             (rooms.data?.rooms ?? []).find((item) => item.id === retainedId)
               ?.name ?? ""
           }
-          report={report}
           offline={offline}
           error={room.isError && !missing}
           onRetry={() => void room.refetch()}

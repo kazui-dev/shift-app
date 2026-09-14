@@ -1,28 +1,18 @@
 import { japanTime } from "@workspace/shared/japan-time"
-import { LoaderCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { CalendarAssignment } from "@/api/assignments"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { reportLabel, reportOpen, standingReport } from "./assignment-actions"
+import { attendanceLabel } from "./assignment-actions"
 
 export function AssignmentDetailsDialog({
   assignment,
-  now,
-  offline,
-  checkingIn,
-  onCheckIn,
-  onReport,
+  onAttendance,
   onClose,
 }: {
   assignment: CalendarAssignment
-  now: number
-  offline: boolean
-  checkingIn: boolean
-  onCheckIn: (id: string) => void
-  onReport: (id: string) => void
+  onAttendance: (id: string) => void
   onClose: () => void
 }) {
-  const absent = standingReport(assignment)?.kind === "absence"
   return (
     <ResponsiveDialog
       open
@@ -34,34 +24,9 @@ export function AssignmentDetailsDialog({
     >
       <div className="space-y-4">
         {assignment.notes && <p className="text-sm">{assignment.notes}</p>}
-        <div className="flex flex-wrap items-center gap-2">
-          {assignment.checkedInAt ? (
-            <p className="text-sm text-muted-foreground">
-              {japanTime(assignment.checkedInAt)}に出勤
-              {assignment.attendanceStatus === "pending"
-                ? "（確認待ち）"
-                : "記録済み"}
-            </p>
-          ) : (
-            !absent && (
-              <Button
-                disabled={offline || checkingIn}
-                onClick={() => onCheckIn(assignment.id)}
-              >
-                {checkingIn && <LoaderCircle className="animate-spin" />}出勤
-              </Button>
-            )
-          )}
-          {!assignment.checkedInAt && reportOpen(assignment, now) && (
-            <Button
-              variant="outline"
-              disabled={offline}
-              onClick={() => onReport(assignment.id)}
-            >
-              {reportLabel(assignment)}
-            </Button>
-          )}
-        </div>
+        <Button variant="outline" onClick={() => onAttendance(assignment.id)}>
+          {attendanceLabel(assignment)}
+        </Button>
       </div>
     </ResponsiveDialog>
   )

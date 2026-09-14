@@ -1,5 +1,5 @@
-import { memo } from "react"
-import { Clock, LoaderCircle } from "lucide-react"
+import { memo, useRef } from "react"
+import { Clock } from "lucide-react"
 
 import type { CalendarAssignment } from "@/api/assignments"
 import { Button } from "@workspace/ui/components/button"
@@ -14,38 +14,39 @@ import {
   calendarInset,
   calendarTimelineHeight,
 } from "./calendar-layout"
-import {
-  cardActionsOpen,
-  reportLabel,
-  stackedCardHeight,
-  standingReport,
-} from "./assignment-actions"
+import { attendanceButtonShown, attendanceLabel } from "./assignment-actions"
 
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
+/** How long a card is held before it opens its attendance. */
+const holdMs = 450
 
 export const CalendarDayTimeline = memo(function CalendarDayTimeline({
   date,
   assignments,
   now,
   nowMs,
-  offline,
-  checkingInId,
   onSelectAssignment,
-  onCheckIn,
-  onReport,
+  onAttendance,
 }: {
   date: string
   assignments: CalendarAssignment[]
   now: JapanDateTime
   nowMs: number
-  offline: boolean
-  checkingInId: string | null
   onSelectAssignment: (date: string, assignmentId: string) => void
-  onCheckIn: (assignmentId: string) => void
-  onReport: (assignmentId: string) => void
+  onAttendance: (assignmentId: string) => void
 }) {
   const nowMinute = now.hour * 60 + now.minute
   const showNow = date === now.date
+  const hold = useRef<{
+    timer: ReturnType<typeof setTimeout>
+    x: number
+    y: number
+  } | null>(null)
+  const held = useRef(false)
+  const release = () => {
+    if (hold.current) clearTimeout(hold.current.timer)
+    hold.current = null
+  }
 
   return (
     <section
@@ -86,6 +87,15 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
           />
         ))}
 
+        {showNow && (
+          <div
+            className="pointer-events-none absolute right-0 -left-1 border-t border-blue-500"
+            style={{
+              top: calendarInset + (nowMinute / 60) * calendarHourHeight,
+            }}
+          />
+        )}
+
         {assignments.map((assignment) => {
           const startMinute = Math.max(
             0,
@@ -100,40 +110,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
             30,
             ((endMinute - startMinute) / 60) * calendarHourHeight
           )
-          const stacked = height >= stackedCardHeight
-          const checkingIn = checkingInId === assignment.id
-          const absent = standingReport(assignment)?.kind === "absence"
-          const actions = cardActionsOpen(assignment, nowMs) && (
-            <div className="flex shrink-0 items-center gap-1.5">
-              {!absent && (
-                <Button
-                  type="button"
-                  size="xs"
-                  disabled={offline || checkingIn}
-                  onClick={() => onCheckIn(assignment.id)}
-                >
-                  {checkingIn && <LoaderCircle className="animate-spin" />}
-                  出勤
-                </Button>
-              )}
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                className="bg-background/70"
-                disabled={offline}
-                onClick={() => onReport(assignment.id)}
-              >
-                {reportLabel(assignment)}
-              </Button>
-            </div>
-          )
-          const checkedIn = assignment.checkedInAt && (
-            <span className="shrink-0 text-xs tabular-nums opacity-75">
-              {japanTime(assignment.checkedInAt)} 出勤
-              {assignment.attendanceStatus === "pending" && "（確認待ち）"}
-            </span>
-          )
+          const button = attendanceButtonShown(assignment, nowMs)
           return (
             <div
               key={assignment.id}
@@ -144,26 +121,61 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 backgroundColor: `color-mix(in oklab, ${assignment.color} 22%, var(--background))`,
               }}
             >
-              {/* The whole card opens the shift; its own buttons sit above this. */}
+              {/* Tapping opens the shift; holding opens its attendance. */}
               <button
                 type="button"
                 aria-label={`${assignment.activityName}の詳細`}
-                className="absolute inset-0 hover:bg-foreground/5"
-                onClick={() => onSelectAssignment(date, assignment.id)}
+                className="absolute inset-0 select-none [-webkit-touch-callout:none] hover:bg-foreground/5"
+                onPointerDown={(event) => {
+                  held.current = false
+                  release()
+                  if (!event.isPrimary || event.button !== 0) return
+                  hold.current = {
+                    x: event.clientX,
+                    y: event.clientY,
+                    timer: setTimeout(() => {
+                      held.current = true
+                      hold.current = null
+                      onAttendance(assignment.id)
+                    }, holdMs),
+                  }
+                }}
+                onPointerMove={(event) => {
+                  if (
+                    hold.current &&
+                    Math.hypot(
+                      event.clientX - hold.current.x,
+                      event.clientY - hold.current.y
+                    ) > 10
+                  )
+                    release()
+                }}
+                onPointerUp={release}
+                onPointerCancel={release}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  release()
+                  onAttendance(assignment.id)
+                }}
+                onClick={() => {
+                  if (held.current) {
+                    held.current = false
+                    return
+                  }
+                  onSelectAssignment(date, assignment.id)
+                }}
               />
               <span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-y-1.5 left-1.5 w-1 rounded-full"
                 style={{ backgroundColor: assignment.color }}
               />
-              <div
-                className={`pointer-events-none relative flex h-full min-w-0 py-1.5 pr-2 pl-[22px] ${stacked ? "flex-col" : "items-start gap-2"}`}
-              >
-                <div className="min-w-0 flex-1">
+              <div className="pointer-events-none relative flex h-full min-w-0 items-start gap-2 py-1 pr-1.5 pl-[22px]">
+                <div className="min-w-0 flex-1 pt-0.5">
                   <span className="block truncate text-sm font-semibold">
                     {assignment.activityName}
                   </span>
-                  {(stacked || (!actions && height >= 44)) && (
+                  {height >= 44 && (
                     <span className="flex items-center gap-1 text-xs tabular-nums opacity-75">
                       <Clock aria-hidden="true" className="size-3 shrink-0" />
                       <span>
@@ -173,26 +185,21 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                     </span>
                   )}
                 </div>
-                {(actions || checkedIn) && (
-                  <div
-                    className={`pointer-events-auto ${stacked ? "mt-auto" : ""}`}
+                {button && (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant={assignment.attendance ? "outline" : "default"}
+                    className="pointer-events-auto shrink-0 bg-clip-padding"
+                    onClick={() => onAttendance(assignment.id)}
                   >
-                    {actions || checkedIn}
-                  </div>
+                    {attendanceLabel(assignment)}
+                  </Button>
                 )}
               </div>
             </div>
           )
         })}
-
-        {showNow && (
-          <div
-            className="pointer-events-none absolute right-0 -left-1 z-10 border-t border-blue-500"
-            style={{
-              top: calendarInset + (nowMinute / 60) * calendarHourHeight,
-            }}
-          />
-        )}
       </div>
     </section>
   )

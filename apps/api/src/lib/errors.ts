@@ -362,6 +362,16 @@ export const errors = {
     "ATTENDANCE_CONFLICT",
     "出勤記録が変更されました。"
   ),
+  attendanceFinal: define(
+    409,
+    "ATTENDANCE_CONFLICT",
+    "出勤済みのシフトは変更できません。"
+  ),
+  attendanceNotFound: define(
+    404,
+    "ATTENDANCE_NOT_FOUND",
+    "遅刻・欠勤の記録がありません。"
+  ),
 
   // Shift plans
   invalidShift: define(
@@ -406,21 +416,6 @@ export const errors = {
     404,
     "ASSIGNMENT_NOT_FOUND",
     "シフトが見つかりません。"
-  ),
-
-  // Reports
-  invalidReport: define(422, "INVALID_REPORT", "連絡内容を確認してください。"),
-  reportNotFound: define(404, "REPORT_NOT_FOUND", "連絡が見つかりません。"),
-  reportChanged: define(409, "REPORT_CHANGED", "連絡が変更されました。"),
-  reportCancelled: define(
-    409,
-    "REPORT_CHANGED",
-    "この連絡は取り消されています。"
-  ),
-  reportStale: define(
-    409,
-    "REPORT_CHANGED",
-    "連絡が更新されています。内容を読み直してください。"
   ),
 
   // Memberships
