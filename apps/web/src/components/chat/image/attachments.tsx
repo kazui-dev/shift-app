@@ -4,9 +4,10 @@ import type {
   ChatAttachment,
   ChatImageSize,
 } from "@workspace/shared/communications"
-import type { ChatFile } from "@/lib/chat/store"
+import type { ChatFile, UploadProgress } from "@/lib/chat/store"
 import { imagePreview } from "@/lib/chat/preview"
 import { RemoteImage } from "@/components/chat/image/remote"
+import { UploadOverlay } from "@/components/chat/image/upload-progress"
 import {
   frameWidth,
   mosaic,
@@ -79,7 +80,12 @@ type FrameImage = {
       label: string
       onOpen: () => void
     }
-  | { kind: "pending"; file: ChatFile }
+  | {
+      kind: "pending"
+      file: ChatFile
+      progress: UploadProgress | undefined
+      onRetry: () => void
+    }
 )
 
 function FrameContent({
@@ -101,11 +107,18 @@ function FrameContent({
       onOpen={image.onOpen}
     />
   ) : (
-    <LocalImage
-      blob={image.file.blob}
-      alt={image.file.name}
-      className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
-    />
+    <>
+      <LocalImage
+        blob={image.file.blob}
+        alt={image.file.name}
+        className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
+      />
+      <UploadOverlay
+        progress={image.progress}
+        name={image.file.name}
+        onRetry={image.onRetry}
+      />
+    </>
   )
 }
 
@@ -120,7 +133,7 @@ function ImageFrame({ images }: { images: FrameImage[] }) {
     return (
       <div
         data-message-media
-        className="mt-2 max-w-full overflow-hidden rounded-lg"
+        className="relative mt-2 max-w-full overflow-hidden rounded-lg"
         style={singleImageSize(first.dimensions)}
       >
         <FrameContent image={first} fit="contain" />
@@ -207,7 +220,15 @@ export function MessageImages({
 }
 
 /** Images of a message that is still sending, framed as they will be once sent. */
-export function PendingImages({ files }: { files: ChatFile[] }) {
+export function PendingImages({
+  files,
+  uploads,
+  onRetryUpload,
+}: {
+  files: ChatFile[]
+  uploads: Record<string, UploadProgress>
+  onRetryUpload: (id: string) => void
+}) {
   return (
     <ImageFrame
       images={files.map((file) => ({
@@ -215,6 +236,8 @@ export function PendingImages({ files }: { files: ChatFile[] }) {
         key: file.id,
         dimensions: file.uploaded ?? file.dimensions,
         file,
+        progress: uploads[file.id],
+        onRetry: () => onRetryUpload(file.id),
       }))}
     />
   )

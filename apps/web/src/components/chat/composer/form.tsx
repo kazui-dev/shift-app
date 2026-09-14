@@ -10,7 +10,7 @@ import {
 import { SendHorizontal, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
-import type { ChatDraft, ChatFile } from "@/lib/chat/store"
+import type { ChatDraft, ChatFile, UploadProgress } from "@/lib/chat/store"
 import { attachImages } from "@/components/chat/composer/attach-images"
 import { ComposerAttachments } from "@/components/chat/composer/attachments"
 import { useComposerLayout } from "@/components/chat/composer/use-layout"
@@ -23,10 +23,12 @@ export type ComposerHandle = { focus: () => void }
 export function ChatComposer({
   roomName,
   draft,
+  uploads,
   disabled,
   saving = false,
   onChange,
   onAddFiles,
+  onRetryUpload,
   onSend,
   editing,
   handle,
@@ -34,10 +36,12 @@ export function ChatComposer({
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   roomName: string
   draft: ChatDraft
+  uploads: Record<string, UploadProgress>
   disabled: boolean
   saving?: boolean
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
+  onRetryUpload: (id: string) => void
   onSend: () => void
   /** Lets the conversation focus the input the moment a reply or edit is chosen. */
   handle: RefObject<ComposerHandle | null>
@@ -153,6 +157,8 @@ export function ChatComposer({
     <div className="min-w-0">
       <ComposerAttachments
         files={draft.files}
+        uploads={uploads}
+        onRetryUpload={onRetryUpload}
         onRemove={(id) =>
           onChange({
             ...draft,

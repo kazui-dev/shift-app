@@ -1,5 +1,13 @@
+import { CircleAlert } from "lucide-react"
 import { japanDateWeekday, japanTime } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
+import type { UploadProgress } from "@/lib/chat/store"
 import type { ChatRoom } from "@/api/chat"
 import { MemberAvatar } from "@/components/member-avatar"
 import {
@@ -23,6 +31,41 @@ export type MessageRowActions = {
   onOpenImage: (image: string, sequence: number) => void
   onRetry: () => void
   onCancel: () => void
+  onRetryUpload: (fileId: string) => void
+}
+
+/**
+ * A message that could not be sent, marked on its avatar so nothing below it
+ * moves; its menu sends it again or takes it back.
+ */
+function DeliveryFailed({
+  onRetry,
+  onCancel,
+}: {
+  onRetry: () => void
+  onCancel: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon-xs"
+            aria-label="送信できませんでした。操作を選ぶ"
+            className="absolute -right-1 -bottom-1 size-5 rounded-full border-2 border-background"
+          />
+        }
+      >
+        <CircleAlert className="size-3" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="pointer-events-auto">
+        <DropdownMenuItem onClick={onRetry}>再送</DropdownMenuItem>
+        <DropdownMenuItem onClick={onCancel}>取り消す</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 export function ChatMessageRow({
@@ -34,6 +77,7 @@ export function ChatMessageRow({
   unread,
   editing,
   menuOpen,
+  uploads,
   actions,
 }: {
   message: MessageRow
@@ -44,6 +88,7 @@ export function ChatMessageRow({
   unread: boolean
   editing: boolean
   menuOpen: boolean
+  uploads: Record<string, UploadProgress>
   actions: MessageRowActions
 }) {
   const { newDay, grouped } = groupedWithPrevious(message, previous, unread)
@@ -119,22 +164,30 @@ export function ChatMessageRow({
               </button>
             </>
           )}
-          {grouped ? (
-            <time
-              dateTime={message.createdAt}
-              className="flex h-lh items-center justify-center self-start text-sm leading-snug whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-data-active:opacity-100"
-            >
-              <span className="text-[10px]">
-                {japanTime(message.createdAt)}
-              </span>
-            </time>
-          ) : (
-            <MemberAvatar
-              name={message.memberDisplayName}
-              image={message.memberImage}
-              className="mt-0.5"
-            />
-          )}
+          <div className="relative self-start">
+            {grouped ? (
+              <time
+                dateTime={message.createdAt}
+                className="flex h-lh items-center justify-center text-sm leading-snug whitespace-nowrap text-muted-foreground tabular-nums opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 group-data-active:opacity-100"
+              >
+                <span className="text-[10px]">
+                  {japanTime(message.createdAt)}
+                </span>
+              </time>
+            ) : (
+              <MemberAvatar
+                name={message.memberDisplayName}
+                image={message.memberImage}
+                className="mt-0.5"
+              />
+            )}
+            {message.status === "failed" && (
+              <DeliveryFailed
+                onRetry={actions.onRetry}
+                onCancel={actions.onCancel}
+              />
+            )}
+          </div>
           {/* A message ending in media keeps it off the highlight's bottom edge. */}
           <div className="min-w-0 [&>[data-message-media]:last-child]:mb-1">
             {!grouped && (
@@ -179,17 +232,11 @@ export function ChatMessageRow({
                   actions.onOpenImage(image, message.sequence)
               }}
             />
-            <PendingImages files={message.files} />
-            {message.status === "failed" && (
-              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                <Button size="sm" variant="ghost" onClick={actions.onRetry}>
-                  再送
-                </Button>
-                <Button size="sm" variant="ghost" onClick={actions.onCancel}>
-                  取り消す
-                </Button>
-              </div>
-            )}
+            <PendingImages
+              files={message.files}
+              uploads={uploads}
+              onRetryUpload={actions.onRetryUpload}
+            />
           </div>
         </div>
       </MessageActions>
