@@ -28,10 +28,9 @@ export function DeleteMessageDialog({
     try {
       const { message } = await deleteChatMessage(roomId, messageId)
       receiveMessage(client, roomId, message)
-      await Promise.all([
-        client.invalidateQueries({ queryKey: keys.chatMessages(roomId) }),
-        client.invalidateQueries({ queryKey: keys.chatImageMessage(roomId) }),
-      ])
+      await client.invalidateQueries({
+        queryKey: keys.chatImageMessage(roomId),
+      })
     } catch (error) {
       rollback()
       toast.error(errorMessage(error))

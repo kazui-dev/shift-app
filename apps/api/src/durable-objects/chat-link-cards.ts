@@ -89,7 +89,7 @@ export class ChatLinkCards {
       if (card || wait === undefined) {
         if (card)
           this.storage.sql.exec(
-            "UPDATE messages SET link_preview=? WHERE id=?",
+            "UPDATE messages SET link_preview=?,version=version+1 WHERE id=?",
             JSON.stringify(card),
             job.messageId
           )

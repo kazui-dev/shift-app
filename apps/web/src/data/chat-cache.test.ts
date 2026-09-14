@@ -16,6 +16,7 @@ const message = (sequence: number) => ({
   content: "本文",
   attachments: [],
   linkPreview: null,
+  version: 1,
   createdAt: "2026-09-12T00:00:00Z",
 })
 
@@ -214,5 +215,56 @@ it("updates unloaded reply targets without inserting an old sequence into the ne
   expect(client.getQueryData(key)?.pages[0]?.messages).toMatchObject([
     { sequence: 100, reply: { deleted: true, content: "" } },
   ])
+  client.clear()
+})
+
+it("keeps the newest copy of a message when an older one arrives late", () => {
+  const client = new QueryClient()
+  const key = messagesQuery("room").queryKey
+  const card = {
+    url: "https://example.com/",
+    title: "Example",
+    description: "",
+    site: "example.com",
+    image: null,
+  }
+  const reply = {
+    ...message(2),
+    reply: {
+      id: "id-1",
+      sequence: 1,
+      memberDisplayName: "名前",
+      content: "本文",
+    },
+  }
+  client.setQueryData(key, {
+    pages: [
+      {
+        messages: [{ ...message(1), linkPreview: card, version: 2 }, reply],
+        hasMore: false,
+      },
+    ],
+    pageParams: [null],
+  })
+  receiveMessage(client, "room", { ...message(1), content: "old", version: 1 })
+  const kept = client.getQueryData(key)?.pages[0]?.messages
+  expect(kept?.[0]).toMatchObject({
+    linkPreview: card,
+    version: 2,
+    content: "本文",
+  })
+  expect(kept?.[1]?.reply?.content).toBe("本文")
+  receiveMessage(client, "room", {
+    ...message(1),
+    content: "edited",
+    version: 3,
+  })
+  expect(client.getQueryData(key)?.pages[0]?.messages[0]).toMatchObject({
+    content: "edited",
+    version: 3,
+  })
+  expect(client.getQueryData(key)?.pages[0]?.messages[1]?.reply?.content).toBe(
+    "edited"
+  )
   client.clear()
 })

@@ -479,3 +479,30 @@ it("pages history newest first and offers older pages only while visible message
   expect(rest.hasMore).toBe(false)
   expect(value.getMessages(1, 2)).toEqual({ messages: [], hasMore: false })
 })
+
+it("raises a message's version with every change, and only then", async () => {
+  const { value } = fixture()
+  vi.mocked(makeLinkCard).mockResolvedValue(card("a"))
+  const sent = await value.sendMessage({
+    ...input("first"),
+    content: "https://example.com/a",
+  })
+  expect(sent.version).toBe(1)
+  expect(
+    await value.sendMessage({
+      ...input("first"),
+      content: "https://example.com/a",
+    })
+  ).toMatchObject({ version: 1 })
+  await value.alarm()
+  expect(value.getMessages(null, 100).messages[0]?.version).toBe(2)
+  expect(
+    await value.changeMessage(editFirst("https://example.com/a"))
+  ).toMatchObject({ changed: false, message: { version: 2 } })
+  expect(
+    await value.changeMessage(editFirst("https://example.com/a again"))
+  ).toMatchObject({ message: { version: 3 } })
+  expect(await value.changeMessage(editFirst())).toMatchObject({
+    message: { version: 4, deleted: true },
+  })
+})

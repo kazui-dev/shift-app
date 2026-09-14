@@ -154,6 +154,8 @@ const storedChatMessageSchema = v.object({
   content: v.string(),
   attachments: v.array(chatAttachmentSchema),
   createdAt: instantSchema,
+  /** Rises with every change, so an older copy never replaces a newer one. */
+  version: v.pipe(v.number(), v.integer(), v.minValue(1)),
 })
 
 export const chatMessageResponseSchema = v.object({

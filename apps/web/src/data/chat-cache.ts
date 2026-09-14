@@ -71,21 +71,26 @@ export function receiveMessage(
   const current = client.getQueryData(options.queryKey)
   const latest = current?.pages[0]?.messages.at(-1)?.sequence ?? 0
   const continuous = !!current && message.sequence <= latest + 1
+  // A response or event that arrives late never replaces a newer copy.
+  const known = current?.pages
+    .flatMap((page) => page.messages)
+    .find((item) => item.id === message.id)
+  const incoming = known && known.version > message.version ? known : message
   if (continuous)
     client.setQueryData(options.queryKey, {
       ...current,
       pages: current.pages.map((page, index) => {
         const messages = page.messages.map((item) => {
-          if (item.id === message.id) return message
+          if (item.id === message.id) return incoming
           if (item.reply?.id !== message.id) return item
           return {
             ...item,
             reply: {
               ...item.reply,
-              content: message.content,
-              deleted: message.deleted,
-              memberImage: message.memberImage,
-              memberDisplayName: message.memberDisplayName,
+              content: incoming.content,
+              deleted: incoming.deleted,
+              memberImage: incoming.memberImage,
+              memberDisplayName: incoming.memberDisplayName,
             },
           }
         })
