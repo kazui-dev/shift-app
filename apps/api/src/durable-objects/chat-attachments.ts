@@ -26,7 +26,7 @@ const sent =
   "SELECT a.id,a.message_id AS messageId,a.width,a.height,a.bytes,a.name,a.type,m.created_at AS sentAt FROM attachments a JOIN messages m ON m.id=a.message_id"
 const expiry = 24 * 60 * 60 * 1000
 /** What one member may upload to a room per day, counted as uploads start. */
-const dailyUploads = { count: 1000, bytes: 5 * 1024 * 1024 * 1024 }
+export const dailyUploads = { count: 1000, bytes: 5 * 1024 * 1024 * 1024 }
 /** Tags per purge, kept small since the purge limits are not documented. */
 const purgeBatch = 30
 

@@ -1,5 +1,6 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
+import { dailyUploads } from "../../src/durable-objects/chat-attachments"
 import { ChatRoom } from "../../src/durable-objects/chat-room"
 import { findAccessibleRoom } from "../../src/services/chat-access"
 import { roomRecipients } from "../../src/services/chat-permissions"
@@ -358,19 +359,21 @@ it("keeps images in the order they were sent, not the order they were uploaded",
     "later.png",
   ])
 })
+/** An upload leaving less of the day's bytes than `overflow`. */
+const overflow = 101 * 1024 * 1024
+const nearlyDaily = dailyUploads.bytes - 100 * 1024 * 1024
+
 it("limits each member's daily uploads by count and by bytes", async () => {
   const { value } = fixture()
   expect(
-    await value.reserveAttachment("room", "author", 400 * 1024 * 1024)
+    await value.reserveAttachment("room", "author", nearlyDaily)
   ).not.toBeNull()
+  expect(await value.reserveAttachment("room", "author", overflow)).toBeNull()
   expect(
-    await value.reserveAttachment("room", "author", 101 * 1024 * 1024)
-  ).toBeNull()
-  expect(
-    await value.reserveAttachment("room", "other", 101 * 1024 * 1024)
+    await value.reserveAttachment("room", "other", overflow)
   ).not.toBeNull()
   const uploads = await Promise.all(
-    Array.from({ length: 99 }, () =>
+    Array.from({ length: dailyUploads.count - 1 }, () =>
       value.reserveAttachment("room", "other", 1)
     )
   )
@@ -509,21 +512,15 @@ it("raises a message's version with every change, and only then", async () => {
 
 it("gives back an unsent upload's share of the day when it is removed", async () => {
   const { value } = fixture()
-  const large = await value.reserveAttachment(
-    "room",
-    "author",
-    400 * 1024 * 1024
-  )
+  const large = await value.reserveAttachment("room", "author", nearlyDaily)
   if (!large) throw Error("No reservation")
-  expect(
-    await value.reserveAttachment("room", "author", 101 * 1024 * 1024)
-  ).toBeNull()
+  expect(await value.reserveAttachment("room", "author", overflow)).toBeNull()
   expect(await value.deleteAttachment(large.id, "author")).toBe(true)
   expect(
-    await value.reserveAttachment("room", "author", 101 * 1024 * 1024)
+    await value.reserveAttachment("room", "author", overflow)
   ).not.toBeNull()
   const uploads = await Promise.all(
-    Array.from({ length: 99 }, () =>
+    Array.from({ length: dailyUploads.count - 1 }, () =>
       value.reserveAttachment("room", "author", 1)
     )
   )
