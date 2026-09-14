@@ -48,12 +48,17 @@ export const sendChatMessage = (
     content: string
     attachmentIds: string[]
     replyToId?: string
-  }
+  },
+  signal?: AbortSignal
 ) =>
   apiJson(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/messages`,
     chatMessageEnvelopeSchema,
-    { method: "POST", body: JSON.stringify(input) }
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+      ...(signal ? { signal } : {}),
+    }
   )
 
 export const updateChatPreferences = (

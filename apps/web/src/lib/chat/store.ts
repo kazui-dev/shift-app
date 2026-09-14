@@ -51,6 +51,8 @@ export class ChatStore {
   >()
   private measuring = false
   private measured = new Set<string>()
+  /** The message being sent, so taking it back stops its send. */
+  private sending: { id: string; controller: AbortController } | undefined
   /** Messages whose expired uploads were already sent again once. */
   private reuploaded = new Set<string>()
   constructor(userId: string) {
@@ -183,6 +185,7 @@ export class ChatStore {
   }
   cancel(id: string) {
     const message = this.state.queue.find((item) => item.id === id)
+    if (this.sending?.id === id) this.sending.controller.abort()
     this.publish({
       ...this.state,
       queue: this.state.queue.filter((item) => item.id !== id),
@@ -233,6 +236,8 @@ export class ChatStore {
         return
       const message = this.state.queue.find((item) => item.status !== "failed")
       if (!message) return
+      const controller = new AbortController()
+      this.sending = { id: message.id, controller }
       this.update(message.id, { status: "sending" })
       try {
         // Uploads began when the images were attached; only unfinished ones are awaited.
@@ -257,12 +262,16 @@ export class ChatStore {
         )
         this.update(message.id, { files })
         await this.persist()
-        const result = await sendChatMessage(message.roomId, {
-          id: message.id,
-          content: message.content,
-          ...(message.reply ? { replyToId: message.reply.id } : {}),
-          attachmentIds: files.map((file) => file.uploaded.id),
-        })
+        const result = await sendChatMessage(
+          message.roomId,
+          {
+            id: message.id,
+            content: message.content,
+            ...(message.reply ? { replyToId: message.reply.id } : {}),
+            attachmentIds: files.map((file) => file.uploaded.id),
+          },
+          controller.signal
+        )
         await kept
         if (!this.active) return
         onSent?.(message.roomId, result.message)
@@ -272,7 +281,12 @@ export class ChatStore {
         })
         await this.persist()
       } catch (error) {
-        if (!this.active) return
+        // A message taken back while sending is simply gone.
+        if (
+          !this.active ||
+          !this.state.queue.some((item) => item.id === message.id)
+        )
+          return
         const expired =
           error instanceof ApiError && error.code === "INVALID_CHAT_ATTACHMENTS"
         // Uploads older than the server keeps are sent again once, not reported.
@@ -296,6 +310,7 @@ export class ChatStore {
           toast.error(errorMessage(error), { id: `send:${message.id}` })
       }
     } finally {
+      this.sending = undefined
       this.running = false
     }
     if (

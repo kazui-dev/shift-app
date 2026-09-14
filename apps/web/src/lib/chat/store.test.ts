@@ -137,11 +137,12 @@ it("retains a failed message and reuses its id and uploaded image on retry", asy
     expect.objectContaining({ name: "photo.png" }),
     expect.objectContaining({ signal: expect.any(AbortSignal) })
   )
-  expect(sendChatMessage).toHaveBeenNthCalledWith(2, "one", {
-    id: queued.id,
-    content: "",
-    attachmentIds: [attachment.id],
-  })
+  expect(sendChatMessage).toHaveBeenNthCalledWith(
+    2,
+    "one",
+    { id: queued.id, content: "", attachmentIds: [attachment.id] },
+    expect.any(AbortSignal)
+  )
   expect(value.snapshot().queue).toEqual([])
 })
 it("does not send when durable local storage fails", async () => {
@@ -309,7 +310,8 @@ it("persists a reply target with the queued draft and includes it when sending",
   await value.flush()
   expect(sendChatMessage).toHaveBeenCalledWith(
     "room",
-    expect.objectContaining({ replyToId: reply.id, content: "Reply" })
+    expect.objectContaining({ replyToId: reply.id, content: "Reply" }),
+    expect.any(AbortSignal)
   )
 })
 
@@ -361,7 +363,8 @@ it("starts uploading as images are attached, shows progress, and sends once they
   await sending
   expect(sendChatMessage).toHaveBeenCalledWith(
     "one",
-    expect.objectContaining({ attachmentIds: [attachment.id] })
+    expect.objectContaining({ attachmentIds: [attachment.id] }),
+    expect.any(AbortSignal)
   )
   expect(uploadChatImage).toHaveBeenCalledTimes(1)
   expect(value.snapshot().uploads).toEqual({})
@@ -446,5 +449,28 @@ it("uploads expired images again once instead of reporting the send as failed", 
   await vi.waitFor(() => expect(value.snapshot().queue).toEqual([]))
   expect(uploadChatImage).toHaveBeenCalledTimes(2)
   expect(sendChatMessage).toHaveBeenCalledTimes(2)
+  expect(toast.error).not.toHaveBeenCalled()
+})
+
+it("stops a send that is taken back on its way, without reporting it", async () => {
+  const value = await store()
+  let signal: AbortSignal | undefined
+  vi.mocked(sendChatMessage).mockImplementation(
+    (_room, _input, abort) =>
+      new Promise((_resolve, reject) => {
+        signal = abort
+        abort?.addEventListener("abort", () => reject(new Error("Aborted")))
+      })
+  )
+  value.edit("one", { content: "取り消す", files: [] })
+  await value.enqueue("one")
+  const flushing = value.flush()
+  await vi.waitFor(() => expect(signal).toBeDefined())
+  const [queued] = value.snapshot().queue
+  if (!queued) throw Error("Not queued")
+  value.cancel(queued.id)
+  await flushing
+  expect(signal?.aborted).toBe(true)
+  expect(value.snapshot().queue).toEqual([])
   expect(toast.error).not.toHaveBeenCalled()
 })
