@@ -647,3 +647,13 @@ it("lets display copies stand as originals before this device forgets them", asy
   await value.giveUpOriginals()
   expect(keepChatImageCopy).toHaveBeenCalledWith("one", attachmentId)
 })
+
+it("keeps the chat usable and lets updates go ahead when the saved chat cannot be read", async () => {
+  vi.mocked(get).mockRejectedValue(new Error("unreadable"))
+  const value = await store()
+  expect(value.draft("one")).toEqual({ content: "", files: [] })
+  await expect(value.settle()).resolves.toBeUndefined()
+  vi.mocked(set).mockRejectedValue(new Error("full"))
+  value.edit("one", { content: "書ける", files: [] })
+  await expect(value.settle()).resolves.toBeUndefined()
+})

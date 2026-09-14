@@ -104,8 +104,19 @@ export class ChatStore {
       if (!parsed.success && this.active) await this.persist()
       this.prepareFiles()
     } catch (error) {
+      // What cannot be restored is not worth blocking the chat or an update
+      // for: the chat starts empty and keeps working.
       console.error("Chat restoration failed", error)
-      toast.error("入力内容を復元できません。ページを再読み込みしてください。")
+      toast.error("保存していた入力内容を復元できませんでした。")
+      if (this.active)
+        this.publish({
+          version: 5,
+          drafts: {},
+          queue: [],
+          originals: [],
+          ready: true,
+          uploads: {},
+        })
     }
   }
   private persist() {
@@ -120,11 +131,12 @@ export class ChatStore {
     this.writing = task
     return task
   }
+  /** Finishes pending writes before an app update; an update never waits on anything else. */
   async settle() {
     await this.loading
-    if (!this.state.ready)
-      throw new Error("入力内容を復元できないため、更新を中止しました。")
-    await this.persist()
+    await this.persist().catch((error: unknown) => {
+      console.error("Chat persistence before update failed", error)
+    })
   }
   edit(roomId: string, draft: ChatDraft) {
     const previous = this.draft(roomId).files
