@@ -34,15 +34,17 @@ export type MessageRowActions = {
 }
 
 /**
- * A message that could not be sent, marked on its avatar so nothing below it
- * moves; its menu sends it again or takes it back.
+ * A message that could not be sent, marked where it ends so nothing below it
+ * moves and nothing beside it is covered; its menu sends it again or takes it back.
  */
 function DeliveryFailed({
   onRetry,
   onCancel,
+  className,
 }: {
   onRetry: () => void
   onCancel: () => void
+  className?: string
 }) {
   return (
     <DropdownMenu>
@@ -53,7 +55,7 @@ function DeliveryFailed({
             variant="destructive"
             size="icon-xs"
             aria-label="送信できませんでした。操作を選ぶ"
-            className="absolute -right-1 -bottom-1 size-5 rounded-full border-2 border-background"
+            className={`size-5 rounded-full ${className ?? ""}`}
           />
         }
       >
@@ -91,6 +93,7 @@ export function ChatMessageRow({
   actions: MessageRowActions
 }) {
   const { newDay, grouped } = groupedWithPrevious(message, previous, unread)
+  const failed = message.status === "failed"
   return (
     <li
       data-message-id={message.id}
@@ -163,7 +166,7 @@ export function ChatMessageRow({
               </button>
             </>
           )}
-          <div className="relative self-start">
+          <div className="self-start">
             {grouped ? (
               <time
                 dateTime={message.createdAt}
@@ -178,12 +181,6 @@ export function ChatMessageRow({
                 name={message.memberDisplayName}
                 image={message.memberImage}
                 className="mt-0.5"
-              />
-            )}
-            {message.status === "failed" && (
-              <DeliveryFailed
-                onRetry={actions.onRetry}
-                onCancel={actions.onCancel}
               />
             )}
           </div>
@@ -213,6 +210,14 @@ export function ChatMessageRow({
                     <span className="text-[10px]">(編集済)</span>
                   </span>
                 )}
+                {failed && message.content && (
+                  <span className="ml-1.5 inline-flex h-lh items-center align-top">
+                    <DeliveryFailed
+                      onRetry={actions.onRetry}
+                      onCancel={actions.onCancel}
+                    />
+                  </span>
+                )}
               </p>
             )}
             {message.status === "sent" && message.linkPreview && (
@@ -231,7 +236,19 @@ export function ChatMessageRow({
                   actions.onOpenImage(image, message.sequence)
               }}
             />
-            <PendingImages files={message.files} uploads={uploads} />
+            <PendingImages
+              files={message.files}
+              uploads={uploads}
+              badge={
+                failed && !message.content ? (
+                  <DeliveryFailed
+                    onRetry={actions.onRetry}
+                    onCancel={actions.onCancel}
+                    className="absolute right-1.5 bottom-1.5"
+                  />
+                ) : undefined
+              }
+            />
           </div>
         </div>
       </MessageActions>
