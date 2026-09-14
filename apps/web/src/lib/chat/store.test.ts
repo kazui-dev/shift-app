@@ -3,6 +3,7 @@ import { loadChat as get, saveChat as set } from "@/lib/chat/storage"
 import { toast } from "@workspace/ui/lib/toast"
 import {
   deleteChatAttachment,
+  deleteChatMessage,
   sendChatMessage,
   uploadChatImage,
 } from "@/api/chat"
@@ -16,6 +17,7 @@ vi.mock("./storage", () => ({
 }))
 vi.mock("@/api/chat", () => ({
   deleteChatAttachment: vi.fn<typeof deleteChatAttachment>(),
+  deleteChatMessage: vi.fn<typeof deleteChatMessage>(),
   sendChatMessage: vi.fn<typeof sendChatMessage>(),
   uploadChatImage: vi.fn<typeof uploadChatImage>(),
 }))
@@ -452,26 +454,58 @@ it("uploads expired images again once instead of reporting the send as failed", 
   expect(toast.error).not.toHaveBeenCalled()
 })
 
-it("stops a send that is taken back on its way, without reporting it", async () => {
+it("stops a send taken back before its request leaves, without reporting it", async () => {
   const value = await store()
-  let signal: AbortSignal | undefined
+  let finish: () => void = () => {}
+  vi.mocked(uploadChatImage).mockImplementationOnce(
+    (_room, _file, options) =>
+      new Promise((resolve, reject) => {
+        finish = () => resolve({ attachment: uploaded("photo.png") })
+        options?.signal?.addEventListener("abort", () =>
+          reject(new Error("Aborted"))
+        )
+      })
+  )
+  const file = { id: "f", name: "photo.png", blob: new Blob(["image"]) }
+  value.edit("one", { content: "", files: [file] })
+  await value.enqueue("one")
+  const flushing = value.flush()
+  await vi.waitFor(() =>
+    expect(value.snapshot().queue[0]?.status).toBe("sending")
+  )
+  const [queued] = value.snapshot().queue
+  if (!queued) throw Error("Not queued")
+  value.cancel(queued.id)
+  finish()
+  await flushing
+  expect(sendChatMessage).not.toHaveBeenCalled()
+  expect(value.snapshot().queue).toEqual([])
+  expect(toast.error).not.toHaveBeenCalled()
+})
+
+it("deletes a message taken back after its request left, once the server has it", async () => {
+  const value = await store()
+  let answer: (id: string) => void = () => {}
   vi.mocked(sendChatMessage).mockImplementation(
-    (_room, _input, abort) =>
-      new Promise((_resolve, reject) => {
-        signal = abort
-        abort?.addEventListener("abort", () => reject(new Error("Aborted")))
+    (_room, input) =>
+      new Promise((resolve) => {
+        answer = (id) => resolve(sent(id))
+        void input
       })
   )
   value.edit("one", { content: "取り消す", files: [] })
   await value.enqueue("one")
-  const flushing = value.flush()
-  await vi.waitFor(() => expect(signal).toBeDefined())
+  const onSent = vi.fn<() => void>()
+  const flushing = value.flush(onSent)
+  await vi.waitFor(() => expect(sendChatMessage).toHaveBeenCalledTimes(1))
   const [queued] = value.snapshot().queue
   if (!queued) throw Error("Not queued")
   value.cancel(queued.id)
-  await flushing
-  expect(signal?.aborted).toBe(true)
   expect(value.snapshot().queue).toEqual([])
+  answer(queued.id)
+  await flushing
+  expect(deleteChatMessage).toHaveBeenCalledWith("one", queued.id)
+  expect(onSent).not.toHaveBeenCalled()
   expect(toast.error).not.toHaveBeenCalled()
 })
 

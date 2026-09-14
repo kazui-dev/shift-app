@@ -50,14 +50,23 @@ export function ChatMessageRow({
   uploads: Record<string, UploadProgress>
   actions: MessageRowActions
 }) {
-  const { newDay, grouped: follows } = groupedWithPrevious(
-    message,
-    previous,
-    unread
-  )
+  const { newDay, grouped } = groupedWithPrevious(message, previous, unread)
   const failed = message.status === "failed"
-  // A failed message shows its name and time, which its mark sits beside.
-  const grouped = follows && !failed
+  // Marked on the message itself, as chat apps do, and never beside the time:
+  // after the name when it shows, else after the text, else on its images.
+  const mark = failed && (
+    <Button
+      type="button"
+      variant="destructive"
+      size="icon-xs"
+      aria-label="送信できませんでした。操作を表示"
+      className="size-5 rounded-full"
+      data-open-actions
+      onPointerDown={(event) => event.preventDefault()}
+    >
+      <CircleAlert className="size-3" aria-hidden />
+    </Button>
+  )
   return (
     <li
       data-message-id={message.id}
@@ -164,19 +173,7 @@ export function ChatMessageRow({
                   >
                     {japanTime(message.createdAt)}
                   </time>
-                  {failed && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon-xs"
-                      aria-label="送信できませんでした。操作を表示"
-                      className="size-5 rounded-full"
-                      data-open-actions
-                      onPointerDown={(event) => event.preventDefault()}
-                    >
-                      <CircleAlert className="size-3" aria-hidden />
-                    </Button>
-                  )}
+                  {mark}
                 </span>
               </p>
             )}
@@ -189,6 +186,11 @@ export function ChatMessageRow({
                 {message.editedAt && (
                   <span className="ml-2 inline-flex h-lh items-center align-top text-muted-foreground">
                     <span className="text-[10px]">(編集済)</span>
+                  </span>
+                )}
+                {grouped && mark && (
+                  <span className="ml-1.5 inline-flex h-lh items-center align-top">
+                    {mark}
                   </span>
                 )}
               </p>
@@ -209,7 +211,11 @@ export function ChatMessageRow({
                   actions.onOpenImage(image, message.sequence)
               }}
             />
-            <PendingImages files={message.files} uploads={uploads} />
+            <PendingImages
+              files={message.files}
+              uploads={uploads}
+              mark={grouped && !message.content ? mark : null}
+            />
           </div>
         </div>
       </MessageActions>

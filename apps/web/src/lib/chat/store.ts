@@ -3,6 +3,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import type { ChatAttachment } from "@workspace/shared/communications"
 import {
   deleteChatAttachment,
+  deleteChatMessage,
   sendChatMessage,
   uploadChatImage,
 } from "@/api/chat"
@@ -51,8 +52,19 @@ export class ChatStore {
   >()
   private measuring = false
   private measured = new Set<string>()
-  /** The message being sent, so taking it back stops its send. */
-  private sending: { id: string; controller: AbortController } | undefined
+  /**
+   * The message being sent. Taken back before its request leaves, the send
+   * stops; once the request has left, the server may already have it, so the
+   * send finishes and the message is deleted.
+   */
+  private sending:
+    | {
+        id: string
+        controller: AbortController
+        requested: boolean
+        takenBack: boolean
+      }
+    | undefined
   /** Messages whose expired uploads were already sent again once. */
   private reuploaded = new Set<string>()
   constructor(userId: string) {
@@ -185,7 +197,10 @@ export class ChatStore {
   }
   cancel(id: string) {
     const message = this.state.queue.find((item) => item.id === id)
-    if (this.sending?.id === id) this.sending.controller.abort()
+    if (this.sending?.id === id) {
+      this.sending.takenBack = true
+      if (!this.sending.requested) this.sending.controller.abort()
+    }
     this.publish({
       ...this.state,
       queue: this.state.queue.filter((item) => item.id !== id),
@@ -237,7 +252,13 @@ export class ChatStore {
       const message = this.state.queue.find((item) => item.status !== "failed")
       if (!message) return
       const controller = new AbortController()
-      this.sending = { id: message.id, controller }
+      const sending = {
+        id: message.id,
+        controller,
+        requested: false,
+        takenBack: false,
+      }
+      this.sending = sending
       this.update(message.id, { status: "sending" })
       try {
         // Uploads began when the images were attached; only unfinished ones are awaited.
@@ -262,6 +283,8 @@ export class ChatStore {
         )
         this.update(message.id, { files })
         await this.persist()
+        if (sending.takenBack) return
+        sending.requested = true
         const result = await sendChatMessage(
           message.roomId,
           {
@@ -273,6 +296,12 @@ export class ChatStore {
           controller.signal
         )
         await kept
+        if (sending.takenBack) {
+          await deleteChatMessage(message.roomId, result.message.id).catch(
+            () => undefined
+          )
+          return
+        }
         if (!this.active) return
         onSent?.(message.roomId, result.message)
         this.publish({

@@ -40,7 +40,16 @@ imagesApp.post("/attachments", async (c) => {
     member = c.get("member"),
     memberId = member.id
   if (!room.canPost) return apiError(c, errors.chatReadOnly)
+  // Each step's duration goes out as Server-Timing, so slow uploads can be read from the client.
+  const timings: string[] = []
+  let mark = Date.now()
+  const lap = (name: string) => {
+    const now = Date.now()
+    timings.push(`${name};dur=${now - mark}`)
+    mark = now
+  }
   const blob = await c.req.raw.blob()
+  lap("body")
   if (!blob.size || blob.size > chatImageLimits.bytes)
     return apiError(c, errors.imageTooLarge)
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
@@ -50,9 +59,11 @@ imagesApp.post("/attachments", async (c) => {
     blob.size,
     dailyUploadLimit(member.accessLevel, room.canManage === 1)
   )
+  lap("reserve")
   if (!reserved) return apiError(c, errors.imageLimit)
   try {
     const image = await storableImage(c.env.IMAGES, blob)
+    lap("image")
     if (!image) {
       await stub.deleteAttachment(reserved.id, memberId)
       return apiError(c, errors.invalidImage)
@@ -60,6 +71,7 @@ imagesApp.post("/attachments", async (c) => {
     await c.env.CHAT_IMAGES.put(reserved.objectKey, image.bytes, {
       httpMetadata: { contentType: image.type },
     })
+    lap("store")
     const attachment = {
       id: reserved.id,
       width: image.width,
@@ -76,6 +88,8 @@ imagesApp.post("/attachments", async (c) => {
       await c.env.CHAT_IMAGES.delete(reserved.objectKey)
       return apiError(c, errors.imageExpired)
     }
+    lap("finish")
+    c.header("Server-Timing", timings.join(", "))
     c.executionCtx.waitUntil(
       Promise.all(
         tileSizes.map((size) =>
