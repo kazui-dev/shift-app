@@ -14,7 +14,7 @@ import {
   roomSettingsResponseSchema,
 } from "@workspace/shared/communications"
 
-import { apiBlob, apiJson, apiVoid } from "./client"
+import { apiBlob, apiJson, apiUpload, apiVoid } from "./client"
 
 export const getChatRooms = (year: number) =>
   apiJson(`/api/chat/rooms?year=${year}`, chatRoomsResponseSchema)
@@ -107,18 +107,14 @@ const chatImageUrl = (roomId: string, id: string, size?: ChatImageSize) =>
   `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments/${encodeURIComponent(id)}${size ? `?size=${size}` : ""}`
 export const uploadChatImage = (
   roomId: string,
-  file: { name: string; blob: Blob }
+  file: { name: string; blob: Blob },
+  options?: Parameters<typeof apiUpload>[3]
 ) =>
-  apiJson(
+  apiUpload(
     `/api/chat/rooms/${encodeURIComponent(roomId)}/attachments?name=${encodeURIComponent(file.name)}`,
     chatAttachmentEnvelopeSchema,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": file.blob.type || "application/octet-stream",
-      },
-      body: file.blob,
-    }
+    file.blob,
+    options
   )
 
 export const getChatMembers = (roomId: string) =>

@@ -506,3 +506,32 @@ it("raises a message's version with every change, and only then", async () => {
     message: { version: 4, deleted: true },
   })
 })
+
+it("gives back an unsent upload's share of the day when it is removed", async () => {
+  const { value } = fixture()
+  const large = await value.reserveAttachment(
+    "room",
+    "author",
+    400 * 1024 * 1024
+  )
+  if (!large) throw Error("No reservation")
+  expect(
+    await value.reserveAttachment("room", "author", 101 * 1024 * 1024)
+  ).toBeNull()
+  expect(await value.deleteAttachment(large.id, "author")).toBe(true)
+  expect(
+    await value.reserveAttachment("room", "author", 101 * 1024 * 1024)
+  ).not.toBeNull()
+  const uploads = await Promise.all(
+    Array.from({ length: 99 }, () =>
+      value.reserveAttachment("room", "author", 1)
+    )
+  )
+  expect(await value.reserveAttachment("room", "author", 1)).toBeNull()
+  const first = uploads[0]
+  if (!first) throw Error("No reservation")
+  await value.deleteAttachment(first.id, "author")
+  expect(await value.reserveAttachment("room", "author", 1)).not.toBeNull()
+  // Removing twice gives nothing more back.
+  expect(await value.deleteAttachment(first.id, "author")).toBe(false)
+})
