@@ -37,14 +37,14 @@ type Choice = "late" | "absent"
 
 const tones = {
   late: {
-    idle: "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900",
+    idle: "bg-amber-100 text-amber-900 hover:bg-amber-100 hover:text-amber-900 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-950 dark:hover:text-amber-200",
     chosen:
-      "bg-amber-500 text-white hover:bg-amber-500 hover:text-white dark:bg-amber-600 dark:hover:bg-amber-600",
+      "bg-amber-500 text-white hover:bg-amber-500 hover:text-white dark:bg-amber-600 dark:hover:bg-amber-600 dark:hover:text-white",
   },
   absent: {
-    idle: "bg-red-100 text-red-900 hover:bg-red-200 dark:bg-red-950 dark:text-red-200 dark:hover:bg-red-900",
+    idle: "bg-red-100 text-red-900 hover:bg-red-100 hover:text-red-900 dark:bg-red-950 dark:text-red-200 dark:hover:bg-red-950 dark:hover:text-red-200",
     chosen:
-      "bg-red-600 text-white hover:bg-red-600 hover:text-white dark:bg-red-700 dark:hover:bg-red-700",
+      "bg-red-600 text-white hover:bg-red-600 hover:text-white dark:bg-red-700 dark:hover:bg-red-700 dark:hover:text-white",
   },
 }
 
@@ -170,7 +170,7 @@ function AttendanceForm({
           type="button"
           variant="ghost"
           size="lg"
-          className="bg-green-100 text-green-900 hover:bg-green-200 active:bg-green-700 active:text-white dark:bg-green-950 dark:text-green-200 dark:hover:bg-green-900 dark:active:bg-green-700"
+          className="bg-green-100 text-green-900 transition-none hover:bg-green-100 hover:text-green-900 active:bg-green-700 active:text-white dark:bg-green-950 dark:text-green-200 dark:hover:bg-green-950 dark:hover:text-green-200 dark:active:bg-green-700 dark:active:text-white"
           disabled={locked || checkingIn}
           onClick={() => {
             onClose()
@@ -186,9 +186,10 @@ function AttendanceForm({
             type="button"
             size="lg"
             variant="ghost"
-            className={
+            className={cn(
+              "transition-none",
               choice === value ? tones[value].chosen : tones[value].idle
-            }
+            )}
             aria-pressed={choice === value}
             disabled={locked}
             onClick={() => setChoice(value)}
