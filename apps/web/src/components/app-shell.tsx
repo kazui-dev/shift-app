@@ -12,7 +12,7 @@ import { ChatDelivery } from "./chat/delivery"
 import { AppNavigation } from "./app-navigation"
 
 import { OfflineModeContext } from "./offline-mode-context"
-import { resolveAccountState } from "@/lib/account/state"
+import { verifyAccountState } from "@/lib/account/state"
 
 const unsafeOfflineRoutes = new Set([
   "/calendar/availability",
@@ -52,7 +52,7 @@ export function AppShell({
   useEffect(() => {
     if (!accountChecking) return undefined
     let active = true
-    void resolveAccountState(queryClient)
+    void verifyAccountState(queryClient)
       .then(() => {
         if (active) return router.invalidate()
         return undefined
