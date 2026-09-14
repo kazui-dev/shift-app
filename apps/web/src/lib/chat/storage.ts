@@ -51,7 +51,10 @@ export async function loadChat(user: string): Promise<unknown> {
       await saveChat(user, existing.output)
       return existing.output
     }
-    const state = v.parse(metadataSchema, raw)
+    // A snapshot from another version is dropped, never left to block the chat.
+    const parsed = v.safeParse(metadataSchema, raw)
+    if (!parsed.success) return undefined
+    const state = parsed.output
     const ids = [
       ...new Set(
         [...Object.values(state.drafts), ...state.queue]
