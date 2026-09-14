@@ -183,7 +183,11 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 </div>
                 <span
                   className={cn(
-                    buttonVariants({ variant: "outline", size: "xs" }),
+                    buttonVariants({
+                      variant: "outline",
+                      // Short cards only have room for the small size.
+                      size: height >= 44 ? "sm" : "xs",
+                    }),
                     "shrink-0 bg-clip-padding"
                   )}
                 >
