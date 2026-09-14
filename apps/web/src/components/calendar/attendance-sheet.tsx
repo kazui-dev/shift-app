@@ -35,6 +35,17 @@ import { attendanceOpen } from "./assignment-actions"
 
 type Choice = "late" | "absent"
 
+const tones = {
+  late: {
+    idle: "bg-amber-100 text-amber-900 hover:bg-amber-200",
+    chosen: "bg-amber-500 text-white hover:bg-amber-500 hover:text-white",
+  },
+  absent: {
+    idle: "bg-red-100 text-red-900 hover:bg-red-200",
+    chosen: "bg-red-600 text-white hover:bg-red-600 hover:text-white",
+  },
+}
+
 /**
  * A shift's attendance: check in, or say late or absent. Choosing check-in
  * acts at once; late and absent open their fields in space kept from the
@@ -155,8 +166,9 @@ function AttendanceForm({
       <div className="grid grid-cols-3 gap-2">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="lg"
+          className="bg-green-100 text-green-900 hover:bg-green-200 active:bg-green-700 active:text-white"
           disabled={locked || checkingIn}
           onClick={() => {
             onClose()
@@ -171,7 +183,10 @@ function AttendanceForm({
             key={value}
             type="button"
             size="lg"
-            variant={choice === value ? "default" : "outline"}
+            variant="ghost"
+            className={
+              choice === value ? tones[value].chosen : tones[value].idle
+            }
             aria-pressed={choice === value}
             disabled={locked}
             onClick={() => setChoice(value)}
