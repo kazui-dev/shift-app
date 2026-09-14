@@ -189,7 +189,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                   <Button
                     type="button"
                     size="xs"
-                    variant={assignment.attendance ? "outline" : "default"}
+                    variant="outline"
                     className="pointer-events-auto shrink-0 bg-clip-padding"
                     onClick={() => onAttendance(assignment.id)}
                   >

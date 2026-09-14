@@ -21,6 +21,7 @@ import {
 import { Input } from "@workspace/ui/components/input"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { toast } from "@workspace/ui/lib/toast"
+import { cn } from "@workspace/ui/lib/utils"
 
 import {
   submitAttendance,
@@ -119,11 +120,15 @@ function AttendanceForm({
     )
   }
 
-  const reasonField = (
-    <label htmlFor="attendance-reason" className="block space-y-1.5 text-sm">
+  /** The reason field; a stand-in copy only holds its space. */
+  const reasonField = (standIn = false) => (
+    <label
+      htmlFor={standIn ? undefined : "attendance-reason"}
+      className="block space-y-2 text-sm"
+    >
       理由（任意）
       <Textarea
-        id="attendance-reason"
+        id={standIn ? undefined : "attendance-reason"}
         rows={2}
         maxLength={1000}
         disabled={locked}
@@ -137,7 +142,12 @@ function AttendanceForm({
   return (
     <div className="space-y-4 px-4 pt-2 pb-4">
       <p className="flex justify-center">
-        <span className="max-w-full truncate rounded-full bg-muted px-3 py-1 text-sm">
+        <span
+          className="max-w-full truncate rounded-full px-3 py-1 text-sm"
+          style={{
+            backgroundColor: `color-mix(in oklab, ${assignment.color} 14%, var(--background))`,
+          }}
+        >
           {assignment.activityName} {japanTime(assignment.startsAt)}–
           {japanTime(assignment.endsAt)}
         </span>
@@ -170,34 +180,40 @@ function AttendanceForm({
           </Button>
         ))}
       </div>
-      {/* Kept as tall as late's two fields, so choosing never moves the sheet. */}
-      <div className="min-h-44 space-y-3">
-        {current?.state === "present" && current.checkedInAt ? (
-          <p className="text-sm text-muted-foreground">
+      {/* Every panel shares one grid cell, so the sheet keeps late's height. */}
+      <div className="grid">
+        {current?.state === "present" && current.checkedInAt && (
+          <p className="col-start-1 row-start-1 text-sm text-muted-foreground">
             {japanTime(current.checkedInAt)} 出勤
             {current.checkInStatus === "pending" && "（確認待ち）"}
           </p>
-        ) : choice === "late" ? (
-          <>
-            <label
-              htmlFor="attendance-arrival"
-              className="flex items-center gap-3 text-sm"
-            >
-              <span className="shrink-0">到着見込み</span>
-              <Input
-                id="attendance-arrival"
-                type="time"
-                disabled={locked}
-                value={arrival}
-                onChange={(event) => setArrival(event.target.value)}
-                className="w-32"
-              />
-            </label>
-            {reasonField}
-          </>
-        ) : choice === "absent" ? (
-          reasonField
-        ) : null}
+        )}
+        <div
+          className={cn(
+            "col-start-1 row-start-1 space-y-4",
+            choice !== "late" && "invisible"
+          )}
+          inert={choice !== "late"}
+        >
+          <label
+            htmlFor="attendance-arrival"
+            className="flex items-center gap-3 text-sm"
+          >
+            <span className="shrink-0">到着見込み</span>
+            <Input
+              id="attendance-arrival"
+              type="time"
+              disabled={locked}
+              value={arrival}
+              onChange={(event) => setArrival(event.target.value)}
+              className="w-32"
+            />
+          </label>
+          {reasonField(choice !== "late")}
+        </div>
+        {choice === "absent" && (
+          <div className="col-start-1 row-start-1">{reasonField()}</div>
+        )}
       </div>
       <div className="flex items-center justify-end gap-2">
         {standing && (
