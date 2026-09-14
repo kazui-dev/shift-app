@@ -1,9 +1,10 @@
 import { Hono } from "hono"
-import { bodyLimit } from "hono/body-limit"
 
 import { apiError, errors } from "../lib/errors"
+
 import {
   type ApiEnv,
+  limitRequestBody,
   requireMember,
   requireSameOriginForMutation,
 } from "../lib/http"
@@ -19,16 +20,7 @@ import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()
 
-apiApp.use("*", (c, next) =>
-  bodyLimit({
-    maxSize:
-      c.req.method === "POST" &&
-      /^\/api\/chat\/rooms\/[^/]+\/attachments$/.test(c.req.path)
-        ? 10 * 1024 * 1024
-        : 32 * 1024,
-    onError: (context) => apiError(context, errors.bodyTooLarge),
-  })(c, next)
-)
+apiApp.use("*", limitRequestBody)
 apiApp.use("*", requireMember)
 apiApp.use("*", requireSameOriginForMutation)
 

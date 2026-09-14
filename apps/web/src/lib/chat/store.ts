@@ -417,12 +417,11 @@ export class ChatStore {
     void uploadChatOriginal(next.roomId, next.attachmentId, next)
       .then(
         () => true,
-        // Refused for good, as when the image is gone, it is not sent again;
-        // a lost connection, the day's limit or a server failure waits.
+        // Only an image that is gone or cannot be read as an image is given
+        // up; any other failure keeps the original for the next chance.
         (error: unknown) =>
           error instanceof ApiError &&
-          error.status !== 429 &&
-          error.status < 500
+          (error.status === 404 || error.status === 422)
       )
       .then((done) => {
         this.sendingOriginal = false

@@ -1,7 +1,9 @@
 import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/d1"
 import type { Context, MiddlewareHandler } from "hono"
+import { bodyLimit } from "hono/body-limit"
 
+import { chatImageLimits } from "@workspace/shared/communications"
 import { appUsers } from "@workspace/db/schema"
 
 import { createAuth } from "../auth"
@@ -105,3 +107,19 @@ export function privateResponse(
 export function toIso(value: number): string {
   return new Date(value).toISOString()
 }
+
+/** Requests that carry an image: a new upload, or the original of a display copy. */
+const carriesImage = (method: string, path: string) =>
+  (method === "POST" &&
+    /^\/api\/chat\/rooms\/[^/]+\/attachments$/.test(path)) ||
+  (method === "PUT" &&
+    /^\/api\/chat\/rooms\/[^/]+\/attachments\/[^/]+\/original$/.test(path))
+
+/** Bounds every API body: an image up to the chat's limit, anything else to 32KB. */
+export const limitRequestBody: MiddlewareHandler = (c, next) =>
+  bodyLimit({
+    maxSize: carriesImage(c.req.method, c.req.path)
+      ? chatImageLimits.bytes
+      : 32 * 1024,
+    onError: (context) => apiError(context, errors.bodyTooLarge),
+  })(c, next)
