@@ -7,14 +7,11 @@ const imageNames = /\.(heic|heif)$/i
 const megabytes = chatImageLimits.bytes / 1024 / 1024
 
 /**
- * Turns picked or dropped files into attachments, reading each one now so a
- * queued send survives the original file being moved or deleted. Sizes and
- * previews follow once the images are attached, so the rail fills at once.
+ * Turns picked or dropped files into attachments at once, so the rail fills
+ * the moment picking ends. Saving the draft copies the bytes to this device,
+ * so a queued send survives the original file being moved or deleted.
  */
-export async function attachImages(
-  incoming: File[],
-  attached: number
-): Promise<ChatFile[]> {
+export function attachImages(incoming: File[], attached: number): ChatFile[] {
   if (incoming.length + attached > chatImageLimits.count) {
     toast.error("添付できる画像は10枚までです。")
     return []
@@ -31,20 +28,5 @@ export async function attachImages(
     }
     accepted.push({ id: crypto.randomUUID(), name: file.name, blob: file })
   }
-  const readable = await Promise.all(
-    accepted.map(async (selected) => {
-      try {
-        return {
-          ...selected,
-          blob: new Blob([await selected.blob.arrayBuffer()], {
-            type: selected.blob.type,
-          }),
-        }
-      } catch {
-        toast.error("画像を読み込めませんでした。もう一度選択してください。")
-        return null
-      }
-    })
-  )
-  return readable.filter((file) => file !== null)
+  return accepted
 }

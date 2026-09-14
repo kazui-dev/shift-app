@@ -1,19 +1,15 @@
 import { X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import type { ChatFile, UploadProgress } from "@/lib/chat/store"
+import type { ChatFile } from "@/lib/chat/store"
 import { LocalImage } from "@/components/chat/image/attachments"
-import { UploadOverlay } from "@/components/chat/image/upload-progress"
 
+/** Attached images, shown as picked; uploads run behind them unseen. */
 export function ComposerAttachments({
   files,
-  uploads,
   onRemove,
-  onRetryUpload,
 }: {
   files: ChatFile[]
-  uploads: Record<string, UploadProgress>
   onRemove: (id: string) => void
-  onRetryUpload: (id: string) => void
 }) {
   if (!files.length) return null
   return (
@@ -32,11 +28,6 @@ export function ComposerAttachments({
               blob={file.blob}
               alt={file.name}
               className="size-full object-cover"
-            />
-            <UploadOverlay
-              progress={uploads[file.id]}
-              name={file.name}
-              onRetry={() => onRetryUpload(file.id)}
             />
             <Button
               type="button"

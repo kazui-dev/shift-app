@@ -10,7 +10,7 @@ import {
 import { SendHorizontal, Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Textarea } from "@workspace/ui/components/textarea"
-import type { ChatDraft, ChatFile, UploadProgress } from "@/lib/chat/store"
+import type { ChatDraft, ChatFile } from "@/lib/chat/store"
 import { attachImages } from "@/components/chat/composer/attach-images"
 import { ComposerAttachments } from "@/components/chat/composer/attachments"
 import { useComposerLayout } from "@/components/chat/composer/use-layout"
@@ -23,12 +23,10 @@ export type ComposerHandle = { focus: () => void }
 export function ChatComposer({
   roomName,
   draft,
-  uploads,
   disabled,
   saving = false,
   onChange,
   onAddFiles,
-  onRetryUpload,
   onSend,
   editing,
   handle,
@@ -36,12 +34,10 @@ export function ChatComposer({
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   roomName: string
   draft: ChatDraft
-  uploads: Record<string, UploadProgress>
   disabled: boolean
   saving?: boolean
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
-  onRetryUpload: (id: string) => void
   onSend: () => void
   /** Lets the conversation focus the input the moment a reply or edit is chosen. */
   handle: RefObject<ComposerHandle | null>
@@ -115,15 +111,15 @@ export function ChatComposer({
     field?.addEventListener("cancel", finishPicking)
     return () => field?.removeEventListener("cancel", finishPicking)
   }, [finishPicking])
-  async function addFiles(incoming: File[]) {
-    const files = await attachImages(incoming, draft.files.length)
+  function addFiles(incoming: File[]) {
+    const files = attachImages(incoming, draft.files.length)
     if (files.length) onAddFiles(files)
   }
   const receiveDrop = useEffectEvent((event: DragEvent) => {
     event.preventDefault()
     setDragging(false)
     if (!disabled && event.dataTransfer)
-      void addFiles(Array.from(event.dataTransfer.files))
+      addFiles(Array.from(event.dataTransfer.files))
   })
   useEffect(() => {
     const element = form.current
@@ -157,8 +153,6 @@ export function ChatComposer({
     <div className="min-w-0">
       <ComposerAttachments
         files={draft.files}
-        uploads={uploads}
-        onRetryUpload={onRetryUpload}
         onRemove={(id) =>
           onChange({
             ...draft,
@@ -215,7 +209,7 @@ export function ChatComposer({
           accept="image/*"
           className="hidden"
           onChange={(event) => {
-            void addFiles(Array.from(event.target.files ?? []))
+            addFiles(Array.from(event.target.files ?? []))
             event.target.value = ""
             finishPicking()
           }}
@@ -268,7 +262,7 @@ export function ChatComposer({
               const images = Array.from(event.clipboardData.files)
               if (images.length) {
                 event.preventDefault()
-                void addFiles(images)
+                addFiles(images)
               }
             }}
             onKeyDown={(event) => {

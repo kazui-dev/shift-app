@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react"
+import { useLayoutEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
 import type {
   ChatAttachment,
   ChatImageSize,
 } from "@workspace/shared/communications"
 import type { ChatFile, UploadProgress } from "@/lib/chat/store"
-import { imagePreview } from "@/lib/chat/preview"
 import { RemoteImage } from "@/components/chat/image/remote"
 import { UploadOverlay } from "@/components/chat/image/upload-progress"
 import {
@@ -18,7 +17,31 @@ import {
   tileSizes,
 } from "@/components/chat/image/frame"
 
-/** A picked image, shown through this device's preview of it. */
+/** Object URLs of picked images, shared by every place one shows at once. */
+const localUrls = new Map<Blob, { url: string; users: number }>()
+
+function acquireUrl(blob: Blob) {
+  const entry = localUrls.get(blob) ?? {
+    url: URL.createObjectURL(blob),
+    users: 0,
+  }
+  entry.users += 1
+  localUrls.set(blob, entry)
+  return entry.url
+}
+
+function releaseUrl(blob: Blob) {
+  const entry = localUrls.get(blob)
+  if (!entry || --entry.users > 0) return
+  localUrls.delete(blob)
+  URL.revokeObjectURL(entry.url)
+}
+
+/**
+ * A picked image, shown from the file itself in the frame it is placed in, so
+ * it appears the moment it is attached. The browser decodes it off the main
+ * thread; the rail and the sending message share one URL and one decode.
+ */
 export function LocalImage({
   blob,
   alt,
@@ -29,26 +52,10 @@ export function LocalImage({
   className?: string
 }) {
   const [source, setSource] = useState<{ blob: Blob; url: string | null }>()
-  useEffect(() => {
-    let active = true
-    let url: string | undefined
-    void imagePreview(blob)
-      .then(async (preview) => {
-        if (!preview) throw new Error("This device cannot decode the image")
-        const value = URL.createObjectURL(preview.blob)
-        url = value
-        const image = new Image()
-        image.src = value
-        await image.decode()
-        if (active) setSource({ blob, url: value })
-      })
-      .catch(() => {
-        if (active) setSource({ blob, url: null })
-      })
-    return () => {
-      active = false
-      if (url) URL.revokeObjectURL(url)
-    }
+  // Before paint, so the image never shows a frame without its source.
+  useLayoutEffect(() => {
+    setSource({ blob, url: acquireUrl(blob) })
+    return () => releaseUrl(blob)
   }, [blob])
   if (source?.blob !== blob) return null
   return source.url === null ? (
@@ -62,6 +69,7 @@ export function LocalImage({
     <img
       src={source.url}
       alt={alt}
+      decoding="async"
       className={className}
       onError={() => setSource({ blob, url: null })}
     />
@@ -84,7 +92,6 @@ type FrameImage = {
       kind: "pending"
       file: ChatFile
       progress: UploadProgress | undefined
-      onRetry: () => void
     }
 )
 
@@ -113,11 +120,7 @@ function FrameContent({
         alt={image.file.name}
         className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
       />
-      <UploadOverlay
-        progress={image.progress}
-        name={image.file.name}
-        onRetry={image.onRetry}
-      />
+      <UploadOverlay progress={image.progress} name={image.file.name} />
     </>
   )
 }
@@ -223,11 +226,9 @@ export function MessageImages({
 export function PendingImages({
   files,
   uploads,
-  onRetryUpload,
 }: {
   files: ChatFile[]
   uploads: Record<string, UploadProgress>
-  onRetryUpload: (id: string) => void
 }) {
   return (
     <ImageFrame
@@ -237,7 +238,6 @@ export function PendingImages({
         dimensions: file.uploaded ?? file.dimensions,
         file,
         progress: uploads[file.id],
-        onRetry: () => onRetryUpload(file.id),
       }))}
     />
   )

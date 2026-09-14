@@ -216,7 +216,6 @@ export function ChatMessages({
                         else store.retry(message.id)
                       },
                       onCancel: () => store.cancel(message.id),
-                      onRetryUpload: (fileId) => store.retryUpload(fileId),
                     }}
                     uploads={uploads}
                   />
@@ -251,7 +250,6 @@ export function ChatMessages({
             canPost={room.canPost}
             roomName={room.name}
             draft={composerDraft}
-            uploads={uploads}
             editing={
               composerEdit
                 ? {
@@ -273,7 +271,6 @@ export function ChatMessages({
               if (value.files !== current.files)
                 store.edit(room.id, { ...current, files: value.files })
             }}
-            onRetryUpload={(fileId) => store.retryUpload(fileId)}
             onAddFiles={(files) => {
               const current = store.draft(room.id)
               if (current.files.length + files.length > chatImageLimits.count) {

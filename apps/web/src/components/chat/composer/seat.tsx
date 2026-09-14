@@ -1,6 +1,6 @@
 import type { RefObject } from "react"
 import type { ComposerHandle } from "@/components/chat/composer/form"
-import type { ChatDraft, ChatFile, UploadProgress } from "@/lib/chat/store"
+import type { ChatDraft, ChatFile } from "@/lib/chat/store"
 import { ChatComposer } from "@/components/chat/composer/form"
 
 /**
@@ -10,27 +10,23 @@ import { ChatComposer } from "@/components/chat/composer/form"
 export function ComposerSeat({
   roomName,
   draft,
-  uploads,
   editing,
   disabled,
   saving,
   canPost,
   onChange,
   onAddFiles,
-  onRetryUpload,
   onSend,
   handle,
 }: {
   roomName: string
   draft: ChatDraft
-  uploads: Record<string, UploadProgress>
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   disabled: boolean
   saving: boolean
   canPost: boolean
   onChange: (draft: ChatDraft) => void
   onAddFiles: (files: ChatFile[]) => void
-  onRetryUpload: (id: string) => void
   onSend: () => void
   handle: RefObject<ComposerHandle | null>
 }) {
@@ -43,13 +39,11 @@ export function ComposerSeat({
       <ChatComposer
         roomName={roomName}
         draft={draft}
-        uploads={uploads}
         editing={editing}
         disabled={disabled}
         saving={saving}
         onChange={onChange}
         onAddFiles={onAddFiles}
-        onRetryUpload={onRetryUpload}
         onSend={onSend}
         handle={handle}
       />
