@@ -408,7 +408,7 @@ it("waits to upload while offline and starts once the chat is online again", asy
   expect(uploadChatImage).toHaveBeenCalledTimes(1)
 })
 
-it("marks a stopped upload inside its image and tries it again on request", async () => {
+it("leaves a stopped upload until the message is sent, then tries it again", async () => {
   const value = await store()
   vi.mocked(uploadChatImage).mockRejectedValueOnce(new Error("Unavailable"))
   value.edit("one", {
@@ -416,11 +416,12 @@ it("marks a stopped upload inside its image and tries it again on request", asyn
     files: [{ id: "f", name: "photo.png", blob: new Blob(["image"]) }],
   })
   await vi.waitFor(() => expect(value.snapshot().uploads["f"]).toBe("failed"))
-  value.retryUpload("f")
-  await vi.waitFor(() =>
-    expect(value.draft("one").files[0]?.uploaded).toBeDefined()
-  )
+  await value.flush()
+  expect(uploadChatImage).toHaveBeenCalledTimes(1)
+  await value.enqueue("one")
+  await value.flush()
   expect(uploadChatImage).toHaveBeenCalledTimes(2)
+  expect(sendChatMessage).toHaveBeenCalledTimes(1)
   expect(value.snapshot().uploads).toEqual({})
 })
 

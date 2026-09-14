@@ -181,11 +181,6 @@ export class ChatStore {
       .then(() => this.publish({ ...this.state }))
       .catch(() => toast.error("送信待ちを保存できませんでした。"))
   }
-  /** Tries a stopped upload again, wherever its image waits. */
-  retryUpload(fileId: string) {
-    this.setUpload(fileId, undefined)
-    this.prepareFiles()
-  }
   cancel(id: string) {
     const message = this.state.queue.find((item) => item.id === id)
     this.publish({
@@ -248,8 +243,9 @@ export class ChatStore {
           }))
         )
         if (!this.active) return
-        // Ready before the send is confirmed, so the sent images never show empty.
-        await Promise.all(
+        // Made alongside the send, and ready before it is shown as sent, so
+        // the sent images never show empty and the send never waits on them.
+        const kept = Promise.all(
           files.map((file) =>
             keepSentImage(
               this.userId,
@@ -267,6 +263,7 @@ export class ChatStore {
           ...(message.reply ? { replyToId: message.reply.id } : {}),
           attachmentIds: files.map((file) => file.uploaded.id),
         })
+        await kept
         if (!this.active) return
         onSent?.(message.roomId, result.message)
         this.publish({

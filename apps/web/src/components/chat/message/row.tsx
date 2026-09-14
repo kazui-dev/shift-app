@@ -31,7 +31,6 @@ export type MessageRowActions = {
   onOpenImage: (image: string, sequence: number) => void
   onRetry: () => void
   onCancel: () => void
-  onRetryUpload: (fileId: string) => void
 }
 
 /**
@@ -232,11 +231,7 @@ export function ChatMessageRow({
                   actions.onOpenImage(image, message.sequence)
               }}
             />
-            <PendingImages
-              files={message.files}
-              uploads={uploads}
-              onRetryUpload={actions.onRetryUpload}
-            />
+            <PendingImages files={message.files} uploads={uploads} />
           </div>
         </div>
       </MessageActions>
