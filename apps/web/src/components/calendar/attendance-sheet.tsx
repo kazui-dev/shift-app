@@ -37,12 +37,14 @@ type Choice = "late" | "absent"
 
 const tones = {
   late: {
-    idle: "bg-amber-100 text-amber-900 hover:bg-amber-200",
-    chosen: "bg-amber-500 text-white hover:bg-amber-500 hover:text-white",
+    idle: "bg-amber-100 text-amber-900 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900",
+    chosen:
+      "bg-amber-500 text-white hover:bg-amber-500 hover:text-white dark:bg-amber-600 dark:hover:bg-amber-600",
   },
   absent: {
-    idle: "bg-red-100 text-red-900 hover:bg-red-200",
-    chosen: "bg-red-600 text-white hover:bg-red-600 hover:text-white",
+    idle: "bg-red-100 text-red-900 hover:bg-red-200 dark:bg-red-950 dark:text-red-200 dark:hover:bg-red-900",
+    chosen:
+      "bg-red-600 text-white hover:bg-red-600 hover:text-white dark:bg-red-700 dark:hover:bg-red-700",
   },
 }
 
@@ -168,7 +170,7 @@ function AttendanceForm({
           type="button"
           variant="ghost"
           size="lg"
-          className="bg-green-100 text-green-900 hover:bg-green-200 active:bg-green-700 active:text-white"
+          className="bg-green-100 text-green-900 hover:bg-green-200 active:bg-green-700 active:text-white dark:bg-green-950 dark:text-green-200 dark:hover:bg-green-900 dark:active:bg-green-700"
           disabled={locked || checkingIn}
           onClick={() => {
             onClose()
