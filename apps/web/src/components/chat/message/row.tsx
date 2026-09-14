@@ -64,7 +64,7 @@ export function ChatMessageRow({
       {unread && (
         <div className="my-4 flex items-center gap-3 text-xs font-medium">
           <span className="h-px flex-1 bg-border" />
-          ここから未読
+          新着メッセージ
           <span className="h-px flex-1 bg-border" />
         </div>
       )}
