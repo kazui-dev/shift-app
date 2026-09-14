@@ -2,7 +2,6 @@ import { memo, useRef } from "react"
 import { Clock } from "lucide-react"
 
 import type { CalendarAssignment } from "@/api/assignments"
-import { buttonVariants } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   japanFullDate,
@@ -166,8 +165,15 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 className="pointer-events-none absolute inset-y-1.5 left-1.5 w-1 rounded-full"
                 style={{ backgroundColor: assignment.color }}
               />
-              <div className="pointer-events-none relative flex h-full min-w-0 items-start gap-2 py-1 pr-1.5 pl-[22px]">
-                <div className="min-w-0 flex-1 pt-0.5">
+              {/* The label shares the title block's center line, and sits as far
+                  from the right edge as the block does from the top. */}
+              <div
+                className={cn(
+                  "pointer-events-none relative flex min-w-0 items-center gap-2 pr-1.5 pl-[22px]",
+                  height >= 44 ? "py-1.5" : "h-full"
+                )}
+              >
+                <div className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">
                     {assignment.activityName}
                   </span>
@@ -183,12 +189,9 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 </div>
                 <span
                   className={cn(
-                    buttonVariants({
-                      variant: "outline",
-                      // Short cards only have room for the small size.
-                      size: height >= 44 ? "sm" : "xs",
-                    }),
-                    "shrink-0 bg-clip-padding"
+                    "inline-flex shrink-0 items-center rounded-full bg-background font-medium",
+                    // Short cards only have room for the small size.
+                    height >= 44 ? "h-9 px-5 text-sm" : "h-6 px-3.5 text-xs"
                   )}
                 >
                   {attendanceLabel(assignment)}
