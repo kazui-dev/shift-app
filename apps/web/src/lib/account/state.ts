@@ -84,19 +84,41 @@ export async function resolveAccountStateWith({
   return { state, offline: false }
 }
 
-const bootedClients = new WeakSet<QueryClient>()
+/** Clients whose account the server has answered for since the app started. */
+const verifiedClients = new WeakSet<QueryClient>()
 
+/**
+ * The member's account for any page. Until the server has answered once, a
+ * verified account kept on this device answers at once with `checking`, as
+ * long as the cache also holds the member's startup data, so every page
+ * renders from the cache while the app verifies in the background.
+ */
 export async function resolveAccountState(
-  queryClient: QueryClient,
-  restoreReading = false
+  queryClient: QueryClient
 ): Promise<ResolvedAccountState> {
-  const first = !bootedClients.has(queryClient)
-  bootedClients.add(queryClient)
-  if (restoreReading && first) {
+  if (
+    !verifiedClients.has(queryClient) &&
+    navigator.onLine &&
+    queryClient.getQueryData(keys.displayYear()) !== undefined
+  ) {
     const cached = await loadOfflineAccount()
-    if (cached && navigator.onLine)
-      return { state: cached, offline: false, checking: true }
+    if (cached) return { state: cached, offline: false, checking: true }
   }
+  return verifyAccountState(queryClient)
+}
+
+/** Asks the server for the account; later resolutions no longer answer from the kept one. */
+export async function verifyAccountState(
+  queryClient: QueryClient
+): Promise<ResolvedAccountState> {
+  try {
+    return await resolveWithServer(queryClient)
+  } finally {
+    verifiedClients.add(queryClient)
+  }
+}
+
+function resolveWithServer(queryClient: QueryClient) {
   return resolveAccountStateWith({
     isOnline: () => navigator.onLine,
     loadCached: loadOfflineAccount,
