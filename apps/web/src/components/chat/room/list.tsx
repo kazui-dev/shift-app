@@ -93,7 +93,7 @@ export function RoomList({
                     aria-label={`${room.unreadCount}件の未読`}
                     className="min-w-5 rounded-full bg-foreground px-1.5 text-center text-[11px] font-medium text-background tabular-nums"
                   >
-                    {room.unreadCount}
+                    {room.unreadCount > 99 ? "99+" : room.unreadCount}
                   </span>
                 )}
               </Link>

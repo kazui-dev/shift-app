@@ -51,6 +51,7 @@ settingsApp.patch("/preferences", async (c) => {
         type: "preferences_changed",
         roomId: room.id,
         lastRead: current.lastRead,
+        unreadCount: current.unreadCount,
         muted: current.muted === 1,
       })
     )

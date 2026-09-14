@@ -3,6 +3,7 @@ import { keys, roomKeys } from "./keys"
 import type { getChatRoom, getChatRooms, getChatMessages } from "@/api/chat"
 import { forgetRoomImages } from "@/lib/chat/image-cache"
 import { messagesQuery } from "./chat"
+import { roomAfterMessage, roomReadThrough } from "./unread"
 
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 type Message = Awaited<ReturnType<typeof getChatMessages>>["messages"][number]
@@ -60,12 +61,34 @@ export function updateRoom(
   )
 }
 
+/** Applies a room change the client can know, or asks the server for the room when it cannot. */
+function changeRoom(
+  client: QueryClient,
+  id: string,
+  change: (room: Room) => Room | null
+) {
+  let known = true
+  updateRoom(client, id, (room) => {
+    const changed = change(room)
+    if (changed) return changed
+    known = false
+    return room
+  })
+  if (known) return
+  void client.invalidateQueries({ queryKey: keys.chatRooms() })
+  void client.invalidateQueries({ queryKey: keys.chatRoom(id) })
+}
+
+/** Marks a room read through a message, as the server now records. */
+export const readRoom = (client: QueryClient, id: string, sequence: number) =>
+  changeRoom(client, id, (room) => roomReadThrough(room, sequence))
+
 /** Returns false when a missing sequence requires recovery from the server. */
 export function receiveMessage(
   client: QueryClient,
   id: string,
   message: Message,
-  read = false
+  memberId: string
 ) {
   const options = messagesQuery(id)
   const current = client.getQueryData(options.queryKey)
@@ -116,22 +139,7 @@ export function receiveMessage(
         }
       }),
     })
-  updateRoom(client, id, (room) => {
-    const lastSequence = Math.max(room.lastSequence, message.sequence)
-    const lastRead = read
-      ? Math.max(room.lastRead, message.sequence)
-      : room.lastRead
-    return {
-      ...room,
-      updatedAt:
-        message.sequence > room.lastSequence
-          ? message.createdAt
-          : room.updatedAt,
-      lastSequence,
-      lastRead,
-      unreadCount: Math.max(0, lastSequence - lastRead),
-    }
-  })
+  changeRoom(client, id, (room) => roomAfterMessage(room, message, memberId))
   return continuous
 }
 

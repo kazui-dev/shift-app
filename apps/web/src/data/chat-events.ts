@@ -31,15 +31,17 @@ export function applyChatEvent(
     return
   }
   if (event.type === "preferences_changed") {
-    updateRoom(client, id, (room) => ({
-      ...room,
-      muted: event.muted,
-      lastRead: Math.max(room.lastRead, event.lastRead),
-      unreadCount: Math.max(
-        0,
-        room.lastSequence - Math.max(room.lastRead, event.lastRead)
-      ),
-    }))
+    // The server's count holds for its read position, unless a later one is known.
+    updateRoom(client, id, (room) =>
+      event.lastRead >= room.lastRead
+        ? {
+            ...room,
+            muted: event.muted,
+            lastRead: event.lastRead,
+            unreadCount: event.unreadCount,
+          }
+        : { ...room, muted: event.muted }
+    )
     return
   }
   void client.invalidateQueries({ queryKey: keys.chatSearch(id) })
@@ -48,13 +50,7 @@ export function applyChatEvent(
       event.message.id,
       ...cachedAttachmentIds(client, id, event.message.id),
     ])
-  const continuous = receiveMessage(
-    client,
-    id,
-    event.message,
-    // An own message is read whichever way it arrives.
-    event.message.memberId === memberId
-  )
+  const continuous = receiveMessage(client, id, event.message, memberId)
   // The event carries the whole message; only a gap needs the history again.
   if (!continuous)
     void client.invalidateQueries({ queryKey: keys.chatMessages(id) })

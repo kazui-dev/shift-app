@@ -225,6 +225,13 @@
       "when": 1789224761198,
       "tag": "0031_activity_chat_links",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1789360051131,
+      "tag": "0032_chat_message_index",
+      "breakpoints": true
     }
   ]
 }

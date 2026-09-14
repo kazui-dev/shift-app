@@ -13,6 +13,7 @@ export function useMessageScroll(
   active: boolean,
   rows: MessageRow[],
   initialRead: number,
+  memberId: string,
   markRead: () => void,
   loaded: boolean
 ) {
@@ -133,7 +134,7 @@ export function useMessageScroll(
       scroll.follow()
       followNext.current = false
     }
-    const firstUnread = unreadMessage(rows, initialRead)
+    const firstUnread = unreadMessage(rows, initialRead, memberId)
     const unread = firstUnread
       ? list.querySelector(`[data-message-id="${CSS.escape(firstUnread.id)}"]`)
       : null
@@ -144,7 +145,7 @@ export function useMessageScroll(
             list.getBoundingClientRect().top
         : undefined
     )
-  }, [rows, active, initialRead, loaded])
+  }, [rows, active, initialRead, memberId, loaded])
 
   useEffect(() => {
     if (controller.current?.isAtBottom()) markRead()

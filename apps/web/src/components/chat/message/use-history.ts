@@ -1,4 +1,4 @@
-import { updateRoom } from "@/data/chat-cache"
+import { readRoom } from "@/data/chat-cache"
 import { messagesQuery } from "@/data/chat"
 import { useCallback, useMemo, useRef } from "react"
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
@@ -28,16 +28,7 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
     ) {
       readSequence.current = sequence
       void updateChatPreferences(room.id, { lastRead: sequence })
-        .then(() => {
-          updateRoom(client, room.id, (current) => ({
-            ...current,
-            lastRead: Math.max(current.lastRead, sequence),
-            unreadCount: Math.max(
-              0,
-              current.lastSequence - Math.max(current.lastRead, sequence)
-            ),
-          }))
-        })
+        .then(() => readRoom(client, room.id, sequence))
         .catch(() => {
           readSequence.current = room.lastRead
         })

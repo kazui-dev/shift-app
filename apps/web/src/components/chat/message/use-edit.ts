@@ -4,11 +4,13 @@ import { useQueryClient } from "@tanstack/react-query"
 import { editChatMessage } from "@/api/chat"
 import { errorMessage } from "@/api/client"
 import { receiveMessage } from "@/data/chat-cache"
+import { useChatMember } from "@/components/chat/use-chat-member"
 import { toast } from "@workspace/ui/lib/toast"
 import type { MessageRow } from "@/components/chat/message/list"
 
 export function useMessageEdit(roomId: string) {
   const client = useQueryClient()
+  const member = useChatMember()
   const [editing, setEditing] = useState<{
     id: string
     content: string
@@ -31,7 +33,7 @@ export function useMessageEdit(roomId: string) {
     setPending(true)
     try {
       const result = await editChatMessage(roomId, editing.id, content)
-      receiveMessage(client, roomId, result.message)
+      receiveMessage(client, roomId, result.message, member.id)
       setEditing(null)
       void client.invalidateQueries({
         queryKey: keys.chatImageMessage(roomId),

@@ -627,6 +627,23 @@ export const chatRoomPreferences = sqliteTable(
   (table) => [primaryKey({ columns: [table.roomId, table.memberId] })]
 )
 
+/**
+ * Who wrote each message of a room and whether it still stands, so unread
+ * counts can be taken in D1 while message bodies stay in the room's storage.
+ */
+export const chatMessageIndex = sqliteTable(
+  "chat_message_index",
+  {
+    roomId: text("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    memberId: text("member_id").notNull(),
+    deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
+  },
+  (table) => [primaryKey({ columns: [table.roomId, table.sequence] })]
+)
+
 export const reportEvents = sqliteTable("report_events", {
   id: text("id").primaryKey(),
   reportId: text("report_id")
