@@ -25,7 +25,6 @@ import { submitAttendance } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { useOfflineMode } from "@/components/offline-mode-context"
-import { AssignmentDetailsDialog } from "@/components/calendar/assignment-details-dialog"
 import { CalendarCarousel } from "@/components/calendar/calendar-carousel"
 import {
   calendarHourHeight,
@@ -73,9 +72,6 @@ export function CalendarPage() {
   const offline = useOfflineMode()
   const { date, selectDate, selectMonth, readScrollTop, saveScrollTop } =
     useCalendarViewState()
-  const [selectedAssignmentId, setSelectedAssignmentId] = useState<
-    string | null
-  >(null)
   const [attendanceId, setAttendanceId] = useState<string | null>(null)
   const [checkingInId, setCheckingInId] = useState<string | null>(null)
   const [locationIssue, setLocationIssue] = useState<{
@@ -95,9 +91,6 @@ export function CalendarPage() {
     [date]
   )
   const calendarAssignments = useCalendarAssignments(date, carouselDates)
-  const selectedAssignment = (calendarAssignments.byDate.get(date) ?? []).find(
-    (assignment) => assignment.id === selectedAssignmentId
-  )
   const attendanceAssignment = [...calendarAssignments.byDate.values()]
     .flat()
     .find((assignment) => assignment.id === attendanceId)
@@ -115,7 +108,6 @@ export function CalendarPage() {
     (nextDate: string) => {
       if (!nextDate || nextDate === dateRef.current) return
       dateRef.current = nextDate
-      setSelectedAssignmentId(null)
       selectDate(nextDate)
     },
     [selectDate]
@@ -131,24 +123,15 @@ export function CalendarPage() {
 
   const changeMonth = useCallback(
     (months: number) => {
-      setSelectedAssignmentId(null)
       selectMonth(months)
     },
     [selectMonth]
   )
 
-  const selectAssignment = useCallback(
-    (pageDate: string, assignmentId: string) => {
-      if (pageDate !== date) selectDate(pageDate)
-      setSelectedAssignmentId(assignmentId)
-    },
-    [date, selectDate]
+  const openAttendance = useCallback(
+    (assignmentId: string) => setAttendanceId(assignmentId),
+    []
   )
-
-  const openAttendance = useCallback((assignmentId: string) => {
-    setSelectedAssignmentId(null)
-    setAttendanceId(assignmentId)
-  }, [])
 
   const saveCheckIn = useCallback(
     async (assignmentId: string, locationConfirmed: boolean) => {
@@ -233,19 +216,10 @@ export function CalendarPage() {
             nowMs={nowMs}
             onDateChange={changeDate}
             onProgress={updateWeekHeader}
-            onSelectAssignment={selectAssignment}
             onAttendance={openAttendance}
           />
         </div>
 
-        {selectedAssignment && (
-          <AssignmentDetailsDialog
-            key={selectedAssignment.id}
-            assignment={selectedAssignment}
-            onAttendance={openAttendance}
-            onClose={() => setSelectedAssignmentId(null)}
-          />
-        )}
         {attendanceAssignment && (
           <AttendanceSheet
             key={attendanceAssignment.id}

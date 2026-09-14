@@ -124,7 +124,7 @@ function AttendanceForm({
   const reasonField = (standIn = false) => (
     <label
       htmlFor={standIn ? undefined : "attendance-reason"}
-      className="block space-y-2 text-sm"
+      className="block space-y-2.5 text-sm font-medium"
     >
       理由（任意）
       <Textarea
@@ -140,7 +140,7 @@ function AttendanceForm({
   )
 
   return (
-    <div className="space-y-4 px-4 pt-2 pb-4">
+    <div className="space-y-6 px-4 pt-2 pb-8">
       <p className="flex justify-center">
         <span
           className="max-w-full truncate rounded-full px-3 py-1 text-sm"
@@ -190,16 +190,16 @@ function AttendanceForm({
         )}
         <div
           className={cn(
-            "col-start-1 row-start-1 space-y-4",
+            "col-start-1 row-start-1 space-y-6",
             choice !== "late" && "invisible"
           )}
           inert={choice !== "late"}
         >
           <label
             htmlFor="attendance-arrival"
-            className="flex items-center gap-3 text-sm"
+            className="flex items-center gap-3 text-sm font-medium"
           >
-            <span className="shrink-0">到着見込み</span>
+            <span className="shrink-0">到着見込み：</span>
             <Input
               id="attendance-arrival"
               type="time"
@@ -215,12 +215,12 @@ function AttendanceForm({
           <div className="col-start-1 row-start-1">{reasonField()}</div>
         )}
       </div>
-      <div className="flex items-center justify-end gap-2">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         {standing && (
           <Button
             type="button"
             variant="ghost"
-            className="mr-auto text-destructive"
+            className="justify-self-start text-destructive"
             disabled={locked}
             onClick={withdraw}
           >
@@ -230,7 +230,13 @@ function AttendanceForm({
             取り消し
           </Button>
         )}
-        <Button type="button" disabled={locked || !choice} onClick={send}>
+        <Button
+          type="button"
+          size="lg"
+          disabled={locked || !choice}
+          onClick={send}
+          className="col-start-2 w-48"
+        >
           {pending === "send" && <LoaderCircle className="animate-spin" />}
           送信
         </Button>

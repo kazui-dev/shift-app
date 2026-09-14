@@ -15,7 +15,6 @@ export function CalendarCarousel({
   nowMs,
   onDateChange,
   onProgress,
-  onSelectAssignment,
   onAttendance,
 }: {
   date: string
@@ -24,7 +23,6 @@ export function CalendarCarousel({
   nowMs: number
   onDateChange: (date: string) => void
   onProgress: (date: string, offset: number) => void
-  onSelectAssignment: (date: string, assignmentId: string) => void
   onAttendance: (assignmentId: string) => void
 }) {
   const { values: dates, viewportRef } = useLoopCarousel({
@@ -59,7 +57,6 @@ export function CalendarCarousel({
                 assignments={assignmentsByDate.get(slideDate) ?? noAssignments}
                 now={now}
                 nowMs={nowMs}
-                onSelectAssignment={onSelectAssignment}
                 onAttendance={onAttendance}
               />
             </section>
