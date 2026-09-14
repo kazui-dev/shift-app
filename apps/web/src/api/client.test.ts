@@ -119,6 +119,32 @@ describe("uploads", () => {
       apiUpload("/api/upload", schema, body, { signal: controller.signal })
     ).rejects.toMatchObject({ name: "AbortError" })
   })
+
+  it("fails like a lost connection once an upload stops making progress", async () => {
+    vi.useFakeTimers()
+    try {
+      vi.stubGlobal("XMLHttpRequest", FakeRequest)
+      const stalled = apiUpload("/api/upload", schema, new Blob(["abc"]))
+      const request = sent()
+      let settled = false
+      const rejection = stalled.catch((error: unknown) => {
+        settled = true
+        return error
+      })
+      await vi.advanceTimersByTimeAsync(30_000)
+      request.upload.listeners.get("progress")?.({
+        lengthComputable: true,
+        loaded: 1,
+        total: 3,
+      })
+      await vi.advanceTimersByTimeAsync(44_999)
+      expect(settled).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(await rejection).toBeInstanceOf(ApiNetworkError)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
 
 describe("API failures", () => {

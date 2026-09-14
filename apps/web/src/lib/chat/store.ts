@@ -367,6 +367,13 @@ export class ChatStore {
     }).then(
       ({ attachment }) => {
         this.uploading.delete(file.id)
+        if (controller.signal.aborted) {
+          // Taken out just as the server kept it, so it is given back.
+          void deleteChatAttachment(roomId, attachment.id).catch(
+            () => undefined
+          )
+          throw new DOMException("Aborted", "AbortError")
+        }
         this.setUpload(file.id, undefined)
         this.updateFile(file.id, { uploaded: attachment })
         void this.persist().catch(() => undefined)

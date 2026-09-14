@@ -65,6 +65,9 @@ async function responseError(response: Response): Promise<ApiError> {
  * Posts a file and reports how much of it has been sent, which fetch cannot,
  * resolving with the parsed response like `apiJson`.
  */
+/** How long an upload may go without progress before it counts as lost. */
+const uploadStall = 45_000
+
 export function apiUpload<TSchema extends v.GenericSchema>(
   url: string,
   schema: TSchema,
@@ -83,13 +86,28 @@ export function apiUpload<TSchema extends v.GenericSchema>(
     const request = new XMLHttpRequest()
     const abort = () => request.abort()
     signal?.addEventListener("abort", abort, { once: true })
-    const settle = () => signal?.removeEventListener("abort", abort)
+    // A connection that silently stops, as when a phone changes networks,
+    // fails like a lost connection instead of waiting forever.
+    let stalled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const watch = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        stalled = true
+        request.abort()
+      }, uploadStall)
+    }
+    const settle = () => {
+      clearTimeout(timer)
+      signal?.removeEventListener("abort", abort)
+    }
     request.open("POST", url)
     request.setRequestHeader(
       "Content-Type",
       body.type || "application/octet-stream"
     )
     request.upload.addEventListener("progress", (event) => {
+      watch()
       if (event.lengthComputable) onProgress?.(event.loaded, event.total)
     })
     request.addEventListener("load", () => {
@@ -110,8 +128,13 @@ export function apiUpload<TSchema extends v.GenericSchema>(
     })
     request.addEventListener("abort", () => {
       settle()
-      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"))
+      reject(
+        stalled
+          ? new ApiNetworkError(new Error("Upload stalled"))
+          : (signal?.reason ?? new DOMException("Aborted", "AbortError"))
+      )
     })
+    watch()
     request.send(body)
   })
 }

@@ -474,3 +474,24 @@ it("stops a send that is taken back on its way, without reporting it", async () 
   expect(value.snapshot().queue).toEqual([])
   expect(toast.error).not.toHaveBeenCalled()
 })
+
+it("gives back an upload the server kept just as its image was taken out", async () => {
+  const value = await store()
+  const attachment = uploaded("photo.png")
+  let finish: () => void = () => {}
+  vi.mocked(uploadChatImage).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ attachment })
+      })
+  )
+  const file = { id: "f", name: "photo.png", blob: new Blob(["image"]) }
+  value.edit("one", { content: "", files: [file] })
+  value.edit("one", { content: "", files: [] })
+  finish()
+  await vi.waitFor(() =>
+    expect(deleteChatAttachment).toHaveBeenCalledWith("one", attachment.id)
+  )
+  expect(value.draft("one").files).toEqual([])
+  expect(value.snapshot().uploads).toEqual({})
+})
