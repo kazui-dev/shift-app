@@ -33,7 +33,7 @@ const message = {
   linkPreview: null,
   version: 1,
 }
-it("updates order in unopened rooms and atomically keeps visible own posts read on the same event stream", () => {
+it("updates order in unopened rooms, counts others' posts and takes the server's count at a read position", () => {
   const client = new QueryClient()
   const key = roomsQuery(2026).queryKey
   client.setQueryData(key, {
@@ -63,21 +63,33 @@ it("updates order in unopened rooms and atomically keeps visible own posts read 
   ).toBe(0)
   applyChatEvent(
     client,
-    { type: "preferences_changed", roomId: "second", lastRead: 2, muted: true },
+    {
+      type: "preferences_changed",
+      roomId: "second",
+      lastRead: 2,
+      unreadCount: 0,
+      muted: true,
+    },
     "me"
   )
   expect(
     client.getQueryData(key)?.rooms.find((item) => item.id === "second")
   ).toMatchObject({ lastRead: 2, unreadCount: 0, muted: true })
+  // A count for an earlier read position never replaces a later one.
   applyChatEvent(
     client,
-    { type: "preferences_changed", roomId: "second", lastRead: 1, muted: true },
+    {
+      type: "preferences_changed",
+      roomId: "second",
+      lastRead: 1,
+      unreadCount: 1,
+      muted: true,
+    },
     "me"
   )
   expect(
     client.getQueryData(key)?.rooms.find((item) => item.id === "second")
-      ?.lastRead
-  ).toBe(2)
+  ).toMatchObject({ lastRead: 2, unreadCount: 0 })
   client.clear()
 })
 it("applies edited content immediately and refreshes room access and history on changes and reconnects", () => {
@@ -123,12 +135,22 @@ it("never publishes an unread badge for an own post received from another device
   applyChatEvent(client, { type: "message", roomId: "room", message }, "me")
   applyChatEvent(
     client,
-    { type: "preferences_changed", roomId: "room", lastRead: 1, muted: false },
+    {
+      type: "preferences_changed",
+      roomId: "room",
+      lastRead: 1,
+      unreadCount: 0,
+      muted: false,
+    },
     "me"
   )
   expect(unread.length).toBeGreaterThan(0)
   expect(unread.every((count) => count === 0)).toBe(true)
-  expect(client.getQueryData(key)?.rooms[0]?.lastRead).toBe(2)
+  // Posting never moves the member's read position.
+  expect(client.getQueryData(key)?.rooms[0]).toMatchObject({
+    lastRead: 1,
+    lastSequence: 2,
+  })
   unsubscribe()
   client.clear()
 })

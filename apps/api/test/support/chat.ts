@@ -17,5 +17,6 @@ export const chatRoom = (change: Partial<RoomRow> = {}): RoomRow => ({
   muted: 0,
   lastRead: 0,
   lastSequence: 0,
+  unreadCount: 0,
   ...change,
 })

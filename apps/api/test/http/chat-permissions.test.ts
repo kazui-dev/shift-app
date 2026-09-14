@@ -3,6 +3,8 @@ import { activityActionsApp } from "../../src/routes/activity-actions"
 import { DatabaseSync } from "node:sqlite"
 import { Hono } from "hono"
 import { afterEach, expect, it, vi } from "vite-plus/test"
+import * as v from "valibot"
+import { chatRoomsResponseSchema } from "@workspace/shared/communications"
 import type { ApiEnv } from "../../src/lib/http"
 import { chatMembershipsApp } from "../../src/routes/me/chat-memberships"
 import { yearLifecycleApp } from "../../src/routes/years/lifecycle"
@@ -557,7 +559,7 @@ it("keeps room settings changes out of latest-post ordering", async () => {
   )
 })
 
-it("commits room order and the sender's read position before publishing a post to the shared stream", async () => {
+it("commits room order and the message index before publishing a post, leaving the sender's read position alone", async () => {
   const f = fixture()
   const id = f.create(yearRoom(2026, admin))
   f.published.mockImplementation(() => {
@@ -567,10 +569,17 @@ it("commits room order and the sender's read position before publishing a post t
     expect(
       f.db
         .prepare(
+          "SELECT member_id FROM chat_message_index WHERE room_id=? AND sequence=1"
+        )
+        .get(id)
+    ).toMatchObject({ member_id: admin })
+    expect(
+      f.db
+        .prepare(
           "SELECT last_read FROM chat_room_preferences WHERE room_id=? AND member_id=?"
         )
         .get(id, admin)
-    ).toMatchObject({ last_read: 1 })
+    ).toBeUndefined()
   })
   const response = await f.request(`/chat/rooms/${id}/messages`, "POST", {
     id: "40000000-0000-4000-8000-000000000001",
@@ -586,16 +595,37 @@ it("commits room order and the sender's read position before publishing a post t
       message: expect.objectContaining({ content: "投稿", memberImage: null }),
     })
   )
+  // Only the post itself is checked against the state it commits.
+  f.published.mockImplementation(() => {})
+  // Unread messages are others' standing messages after the read position.
+  const rooms = async () =>
+    v
+      .parse(
+        chatRoomsResponseSchema,
+        await (await f.request("/chat/rooms?year=2026")).json()
+      )
+      .rooms.find((room) => room.id === id)?.unreadCount
+  expect(await rooms()).toBe(0)
+  const index = f.db.prepare(
+    "INSERT INTO chat_message_index(room_id,sequence,member_id,deleted) VALUES(?,?,?,?)"
+  )
+  index.run(id, 2, member, 0)
+  index.run(id, 3, member, 1)
+  index.run(id, 4, other, 0)
+  f.db.prepare("UPDATE chat_rooms SET last_sequence=4 WHERE id=?").run(id)
+  expect(await rooms()).toBe(2)
   const preferences = await f.request(
     `/chat/rooms/${id}/preferences`,
     "PATCH",
-    { muted: true, lastRead: 1 }
+    { muted: true, lastRead: 2 }
   )
   expect(preferences.status).toBe(204)
   expect(f.published).toHaveBeenLastCalledWith([admin], {
     type: "preferences_changed",
     roomId: id,
-    lastRead: 1,
+    lastRead: 2,
+    unreadCount: 1,
     muted: true,
   })
+  expect(await rooms()).toBe(1)
 })

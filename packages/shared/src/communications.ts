@@ -186,6 +186,8 @@ export const chatEventSchema = v.variant("type", [
     type: v.literal("preferences_changed"),
     roomId: v.pipe(v.string(), v.uuid()),
     lastRead: v.number(),
+    /** The server's count at that read position. */
+    unreadCount: v.pipe(v.number(), v.integer(), v.minValue(0)),
     muted: v.boolean(),
   }),
   v.object({

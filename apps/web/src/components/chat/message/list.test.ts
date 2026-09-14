@@ -109,9 +109,11 @@ it("anchors unread history on the next visible message after a deleted sequence"
     [queued],
     member
   )
-  expect(unreadMessage(rows, 1)?.sequence).toBe(3)
-  expect(unreadMessage(rows, 3)).toBeUndefined()
-  expect(unreadMessage(rows, 0)).toBeUndefined()
+  expect(unreadMessage(rows, 1, "reader")?.sequence).toBe(3)
+  expect(unreadMessage(rows, 3, "reader")).toBeUndefined()
+  expect(unreadMessage(rows, 0, "reader")).toBeUndefined()
+  // An own message never marks where unread messages begin.
+  expect(unreadMessage(rows, 1, member.id)).toBeUndefined()
 })
 
 it("retains a deleting row through confirmation fade even when the server has already deleted it", () => {

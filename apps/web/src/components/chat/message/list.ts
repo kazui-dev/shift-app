@@ -2,6 +2,7 @@ import type * as v from "valibot"
 import type { chatMessageResponseSchema } from "@workspace/shared/communications"
 import { japanDateWeekday } from "@workspace/shared/japan-time"
 import type { ChatFile, QueuedMessage } from "@/lib/chat/store"
+import { isUnread } from "@/data/unread"
 
 type Message = v.InferOutput<typeof chatMessageResponseSchema>
 export type MessageRow = Omit<Message, "sequence"> & {
@@ -48,10 +49,21 @@ export function messageRows(
   ]
 }
 
-export function unreadMessage(rows: MessageRow[], lastRead: number) {
+/** The first unread message, where the history marks what is new; none before a first read. */
+export function unreadMessage(
+  rows: MessageRow[],
+  lastRead: number,
+  memberId: string
+) {
   return lastRead > 0
     ? rows.find(
-        (message) => message.sequence !== null && message.sequence > lastRead
+        (message) =>
+          message.sequence !== null &&
+          isUnread(
+            { ...message, sequence: message.sequence },
+            memberId,
+            lastRead
+          )
       )
     : undefined
 }

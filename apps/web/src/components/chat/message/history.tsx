@@ -70,13 +70,14 @@ export function ChatMessages({
     active,
     rows,
     history.initialRead,
+    member.id,
     history.markRead,
     history.query.data !== undefined
   )
   const selectedMessage = rows.find(
     (message) => message.id === menu?.message.id
   )
-  const firstUnread = unreadMessage(rows, history.initialRead)
+  const firstUnread = unreadMessage(rows, history.initialRead, member.id)
   const setReplyTarget = useReplyTarget(history, scroll, active, offline)
   const { target, setTarget } = useMessageTarget()
   const pathname = useRouterState({
@@ -191,11 +192,7 @@ export function ChatMessages({
                     room={room}
                     memberId={member.id}
                     offline={offline}
-                    unread={
-                      history.initialRead > 0 &&
-                      message.memberId !== member.id &&
-                      message.id === firstUnread?.id
-                    }
+                    unread={message.id === firstUnread?.id}
                     editing={edit.editing?.id === message.id}
                     menuOpen={
                       menu?.open === true && menu.message.id === message.id

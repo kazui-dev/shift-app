@@ -88,18 +88,26 @@ messagesApp.post("/messages", async (c) => {
   if (message === "CHAT_READ_ONLY")
     return apiError(c, errors.chatPostingRevoked)
   if (!message) return apiError(c, errors.invalidChatAttachments)
-  const updated = await c.env.shift_app
-    .prepare(
-      "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
-    )
-    .bind(
-      Date.parse(message.createdAt),
-      message.sequence,
-      room.id,
-      message.sequence
-    )
-    .run()
-  if (updated.meta.changes > 0)
+  const db = c.env.shift_app
+  const [updated] = await db.batch([
+    db
+      .prepare(
+        "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
+      )
+      .bind(
+        Date.parse(message.createdAt),
+        message.sequence,
+        room.id,
+        message.sequence
+      ),
+    // Unread counts come from this index, so sending never moves a read position.
+    db
+      .prepare(
+        "INSERT OR IGNORE INTO chat_message_index(room_id,sequence,member_id) VALUES(?,?,?)"
+      )
+      .bind(room.id, message.sequence, member.id),
+  ])
+  if (updated && updated.meta.changes > 0)
     c.executionCtx.waitUntil(
       notifyRoomMessage(
         c.env,
@@ -109,12 +117,6 @@ messagesApp.post("/messages", async (c) => {
         input.output.content || "画像が送信されました"
       )
     )
-  await c.env.shift_app
-    .prepare(
-      "INSERT INTO chat_room_preferences(room_id,member_id,last_read) VALUES(?,?,?) ON CONFLICT(room_id,member_id) DO UPDATE SET last_read=MAX(last_read,excluded.last_read)"
-    )
-    .bind(room.id, member.id, message.sequence)
-    .run()
   const [enriched] = await withMemberImages(c.env, [message])
   if (enriched)
     c.executionCtx.waitUntil(
@@ -154,6 +156,13 @@ for (const method of ["patch", "delete"] as const) {
         return apiError(c, errors.messageForbidden)
       return apiError(c, errors.emptyMessage)
     }
+    if (result.changed && result.message.deleted)
+      await c.env.shift_app
+        .prepare(
+          "UPDATE chat_message_index SET deleted=1 WHERE room_id=? AND sequence=?"
+        )
+        .bind(roomId, result.message.sequence)
+        .run()
     const [message] = await withMemberImages(c.env, [result.message])
     if (message && result.changed)
       c.executionCtx.waitUntil(

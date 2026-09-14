@@ -1,4 +1,5 @@
-import { expect, it } from "vite-plus/test"
+import { expect, it, vi } from "vite-plus/test"
+import { keys } from "@/data/keys"
 import { QueryClient } from "@tanstack/react-query"
 import { roomsQuery, messagesQuery } from "./chat"
 import {
@@ -53,10 +54,15 @@ it("merges delivery and websocket acknowledgements without duplicates or refetch
     ],
     pageParams: [null, 2],
   })
-  expect(receiveMessage(client, "room", message(3))).toBe(true)
-  expect(receiveMessage(client, "room", message(3))).toBe(true)
+  expect(receiveMessage(client, "room", message(3), "me")).toBe(true)
+  expect(receiveMessage(client, "room", message(3), "me")).toBe(true)
   expect(
-    receiveMessage(client, "room", { ...message(1), content: "canonical" })
+    receiveMessage(
+      client,
+      "room",
+      { ...message(1), content: "canonical" },
+      "me"
+    )
   ).toBe(true)
   expect(
     client
@@ -66,9 +72,9 @@ it("merges delivery and websocket acknowledgements without duplicates or refetch
   expect(client.getQueryData(key)?.pages[1]?.messages[0]?.content).toBe(
     "canonical"
   )
-  expect(receiveMessage(client, "room", message(5))).toBe(false)
+  expect(receiveMessage(client, "room", message(5), "me")).toBe(false)
   expect(client.getQueryData(key)?.pages[0]?.messages.at(-1)?.sequence).toBe(3)
-  expect(receiveMessage(client, "unread-room", message(9))).toBe(false)
+  expect(receiveMessage(client, "unread-room", message(9), "me")).toBe(false)
   expect(
     client.getQueryData(messagesQuery("unread-room").queryKey)
   ).toBeUndefined()
@@ -103,13 +109,13 @@ it("reorders rooms immediately on new delivery without letting old acknowledgeme
     ],
   })
   const delivered = { ...message(2), createdAt: "2026-09-12T02:00:00Z" }
-  receiveMessage(client, "two", delivered)
+  receiveMessage(client, "two", delivered, "me")
   expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
     "two",
     "one",
   ])
-  receiveMessage(client, "two", message(1))
-  receiveMessage(client, "two", delivered)
+  receiveMessage(client, "two", message(1), "me")
+  receiveMessage(client, "two", delivered, "me")
   expect(client.getQueryData(key)?.rooms.map((item) => item.id)).toEqual([
     "two",
     "one",
@@ -120,10 +126,16 @@ it("reorders rooms immediately on new delivery without letting old acknowledgeme
   client.clear()
 })
 
-it("acknowledges an own message in the visible room without an intermediate unread badge", () => {
+it("counts others' new messages once, never an own one, and asks the server when a counted message is deleted", () => {
   const client = new QueryClient()
   client.setQueryData(["chat-room", "room"], {
-    room: { id: "room", lastRead: 1, lastSequence: 1, unreadCount: 0 },
+    room: {
+      id: "room",
+      lastRead: 1,
+      lastSequence: 1,
+      unreadCount: 0,
+      updatedAt: "2026-09-12T00:00:00Z",
+    },
   })
   const counts: number[] = []
   const stop = client.getQueryCache().subscribe(() => {
@@ -133,16 +145,20 @@ it("acknowledges an own message in the visible room without an intermediate unre
     ])
     if (data) counts.push(data.room.unreadCount)
   })
-  receiveMessage(client, "room", message(2), true)
-  receiveMessage(client, "room", message(2), true)
+  receiveMessage(client, "room", message(2), "member")
+  receiveMessage(client, "room", message(2), "member")
   expect(counts.every((count) => count === 0)).toBe(true)
   expect(client.getQueryData(["chat-room", "room"])).toMatchObject({
-    room: { lastRead: 2, lastSequence: 2, unreadCount: 0 },
+    room: { lastRead: 1, lastSequence: 2, unreadCount: 0 },
   })
-  receiveMessage(client, "room", message(3))
+  receiveMessage(client, "room", message(3), "me")
+  receiveMessage(client, "room", message(3), "me")
   expect(client.getQueryData(["chat-room", "room"])).toMatchObject({
     room: { unreadCount: 1 },
   })
+  const invalidate = vi.spyOn(client, "invalidateQueries")
+  receiveMessage(client, "room", { ...message(3), deleted: true }, "me")
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: keys.chatRoom("room") })
   stop()
   client.clear()
 })
@@ -169,7 +185,7 @@ it("immediately hides a deleted message and its reply details, and rolls back on
     { deleted: true, content: "" },
     { reply: { deleted: true, content: "" } },
   ])
-  receiveMessage(client, "room", message(3))
+  receiveMessage(client, "room", message(3), "me")
   rollback()
   expect(client.getQueryData(key)?.pages[0]?.messages).toEqual([
     original,
@@ -178,10 +194,15 @@ it("immediately hides a deleted message and its reply details, and rolls back on
   ])
   const rollbackAgain = optimisticallyDeleteMessage(client, "room", original.id)
   const updated = { ...reply, content: "changed concurrently" }
-  receiveMessage(client, "room", updated)
+  receiveMessage(client, "room", updated, "me")
   rollbackAgain()
   expect(client.getQueryData(key)?.pages[0]?.messages[1]).toEqual(updated)
-  receiveMessage(client, "room", { ...original, deleted: true, content: "" })
+  receiveMessage(
+    client,
+    "room",
+    { ...original, deleted: true, content: "" },
+    "me"
+  )
   expect(client.getQueryData(key)?.pages[0]?.messages[1]?.reply).toMatchObject({
     deleted: true,
     content: "",
@@ -211,7 +232,12 @@ it("updates unloaded reply targets without inserting an old sequence into the ne
     ],
     pageParams: [null],
   })
-  receiveMessage(client, "room", { ...message(1), deleted: true, content: "" })
+  receiveMessage(
+    client,
+    "room",
+    { ...message(1), deleted: true, content: "" },
+    "me"
+  )
   expect(client.getQueryData(key)?.pages[0]?.messages).toMatchObject([
     { sequence: 100, reply: { deleted: true, content: "" } },
   ])
@@ -246,7 +272,12 @@ it("keeps the newest copy of a message when an older one arrives late", () => {
     ],
     pageParams: [null],
   })
-  receiveMessage(client, "room", { ...message(1), content: "old", version: 1 })
+  receiveMessage(
+    client,
+    "room",
+    { ...message(1), content: "old", version: 1 },
+    "me"
+  )
   const kept = client.getQueryData(key)?.pages[0]?.messages
   expect(kept?.[0]).toMatchObject({
     linkPreview: card,
@@ -254,11 +285,16 @@ it("keeps the newest copy of a message when an older one arrives late", () => {
     content: "本文",
   })
   expect(kept?.[1]?.reply?.content).toBe("本文")
-  receiveMessage(client, "room", {
-    ...message(1),
-    content: "edited",
-    version: 3,
-  })
+  receiveMessage(
+    client,
+    "room",
+    {
+      ...message(1),
+      content: "edited",
+      version: 3,
+    },
+    "me"
+  )
   expect(client.getQueryData(key)?.pages[0]?.messages[0]).toMatchObject({
     content: "edited",
     version: 3,

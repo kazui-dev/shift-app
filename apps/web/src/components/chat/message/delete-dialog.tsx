@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { deleteChatMessage } from "@/api/chat"
 import { errorMessage } from "@/api/client"
 import { optimisticallyDeleteMessage, receiveMessage } from "@/data/chat-cache"
+import { useChatMember } from "@/components/chat/use-chat-member"
 import { toast } from "@workspace/ui/lib/toast"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 
@@ -19,6 +20,7 @@ export function DeleteMessageDialog({
   onConfirm: () => void
 }) {
   const client = useQueryClient()
+  const member = useChatMember()
   const pending = useRef(false)
   async function remove() {
     if (pending.current) return
@@ -27,7 +29,7 @@ export function DeleteMessageDialog({
     const rollback = optimisticallyDeleteMessage(client, roomId, messageId)
     try {
       const { message } = await deleteChatMessage(roomId, messageId)
-      receiveMessage(client, roomId, message)
+      receiveMessage(client, roomId, message, member.id)
       await client.invalidateQueries({
         queryKey: keys.chatImageMessage(roomId),
       })
