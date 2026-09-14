@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle } from "lucide-react"
 
@@ -245,44 +245,73 @@ function AttendanceForm({
   )
 }
 
-/** Attendance for one shift: a drawer on phones, a dialog on wider screens. */
-export function AttendanceSheet(props: {
-  assignment: CalendarAssignment
+/**
+ * Attendance for one shift: a drawer on phones, a dialog on wider screens.
+ * It stays mounted while closed so it can slide in and out.
+ */
+export function AttendanceSheet({
+  open,
+  assignment,
+  onClosed,
+  ...props
+}: {
+  open: boolean
+  /** Null only while nothing has been opened yet. */
+  assignment: CalendarAssignment | null
   now: number
   offline: boolean
   checkingIn: boolean
   onCheckIn: (assignmentId: string) => void
   onClose: () => void
+  onClosed: () => void
 }) {
   const desktop = useMediaQuery("(min-width: 768px)")
-  const title = `${props.assignment.activityName}の勤怠`
+  // A long press opens the sheet with the finger still down; lifting it must
+  // not count as a press outside.
+  const openingGesture = useRef(true)
+  useEffect(() => {
+    if (!open) return undefined
+    openingGesture.current = true
+    const started = () => {
+      openingGesture.current = false
+    }
+    document.addEventListener("pointerdown", started, true)
+    return () => document.removeEventListener("pointerdown", started, true)
+  }, [open])
+  const title = assignment ? `${assignment.activityName}の勤怠` : "勤怠"
+  const form = assignment && (
+    <AttendanceForm key={assignment.id} assignment={assignment} {...props} />
+  )
+  const change = (
+    next: boolean,
+    details: { reason: string; cancel: () => void }
+  ) => {
+    if (!next && openingGesture.current && details.reason === "outside-press") {
+      details.cancel()
+      return
+    }
+    if (!next) props.onClose()
+  }
+  const complete = (next: boolean) => {
+    if (!next) onClosed()
+  }
   if (desktop)
     return (
-      <Dialog
-        open
-        onOpenChange={(open) => {
-          if (!open) props.onClose()
-        }}
-      >
+      <Dialog open={open} onOpenChange={change} onOpenChangeComplete={complete}>
         <DialogContent showCloseButton={false} className="gap-0 p-0 pt-4">
           <DialogTitle className="sr-only">{title}</DialogTitle>
-          <AttendanceForm {...props} />
+          {form}
         </DialogContent>
       </Dialog>
     )
   return (
-    <Drawer
-      open
-      onOpenChange={(open) => {
-        if (!open) props.onClose()
-      }}
-    >
+    <Drawer open={open} onOpenChange={change} onOpenChangeComplete={complete}>
       <DrawerContent
         finalFocus={false}
         className="pb-[env(safe-area-inset-bottom)]"
       >
         <DrawerTitle className="sr-only">{title}</DrawerTitle>
-        <AttendanceForm {...props} />
+        {form}
       </DrawerContent>
     </Drawer>
   )

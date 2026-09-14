@@ -72,7 +72,11 @@ export function CalendarPage() {
   const offline = useOfflineMode()
   const { date, selectDate, selectMonth, readScrollTop, saveScrollTop } =
     useCalendarViewState()
-  const [attendanceId, setAttendanceId] = useState<string | null>(null)
+  // Kept after closing until the drawer has slid away.
+  const [attendance, setAttendance] = useState<{
+    id: string
+    open: boolean
+  } | null>(null)
   const [checkingInId, setCheckingInId] = useState<string | null>(null)
   const [locationIssue, setLocationIssue] = useState<{
     assignmentId: string
@@ -93,7 +97,7 @@ export function CalendarPage() {
   const calendarAssignments = useCalendarAssignments(date, carouselDates)
   const attendanceAssignment = [...calendarAssignments.byDate.values()]
     .flat()
-    .find((assignment) => assignment.id === attendanceId)
+    .find((assignment) => assignment.id === attendance?.id)
 
   useLayoutEffect(() => {
     const calendar = calendarRef.current
@@ -129,7 +133,7 @@ export function CalendarPage() {
   )
 
   const openAttendance = useCallback(
-    (assignmentId: string) => setAttendanceId(assignmentId),
+    (assignmentId: string) => setAttendance({ id: assignmentId, open: true }),
     []
   )
 
@@ -219,17 +223,21 @@ export function CalendarPage() {
           />
         </div>
 
-        {attendanceAssignment && (
-          <AttendanceSheet
-            key={attendanceAssignment.id}
-            assignment={attendanceAssignment}
-            now={nowMs}
-            offline={offline}
-            checkingIn={checkingInId === attendanceAssignment.id}
-            onCheckIn={(assignmentId) => void checkIn(assignmentId)}
-            onClose={() => setAttendanceId(null)}
-          />
-        )}
+        {/* Always mounted, like the chat drawer, so it slides in. */}
+        <AttendanceSheet
+          open={attendance?.open === true && !!attendanceAssignment}
+          assignment={attendanceAssignment ?? null}
+          now={nowMs}
+          offline={offline}
+          checkingIn={
+            !!attendanceAssignment && checkingInId === attendanceAssignment.id
+          }
+          onCheckIn={(assignmentId) => void checkIn(assignmentId)}
+          onClose={() =>
+            setAttendance((current) => current && { ...current, open: false })
+          }
+          onClosed={() => setAttendance(null)}
+        />
         {locationIssue && (
           <ConfirmDialog
             title="このまま出勤しますか"

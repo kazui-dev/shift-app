@@ -165,8 +165,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 className="pointer-events-none absolute inset-y-1.5 left-1.5 w-1 rounded-full"
                 style={{ backgroundColor: assignment.color }}
               />
-              {/* The label shares the title block's center line, and sits as far
-                  from the right edge as the block does from the top. */}
+              {/* The label shares the title block's center line. */}
               <div
                 className={cn(
                   "pointer-events-none relative flex min-w-0 items-center gap-2 pr-3 pl-[22px]",
