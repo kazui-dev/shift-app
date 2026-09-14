@@ -52,9 +52,11 @@ export function applyChatEvent(
     client,
     id,
     event.message,
-    event.type === "message" && event.message.memberId === memberId
+    // An own message is read whichever way it arrives.
+    event.message.memberId === memberId
   )
-  if (!continuous || event.type === "message_changed")
+  // The event carries the whole message; only a gap needs the history again.
+  if (!continuous)
     void client.invalidateQueries({ queryKey: keys.chatMessages(id) })
   if (event.type === "message_changed")
     void client.invalidateQueries({ queryKey: keys.chatImageMessage(id) })

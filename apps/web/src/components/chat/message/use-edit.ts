@@ -33,7 +33,6 @@ export function useMessageEdit(roomId: string) {
       const result = await editChatMessage(roomId, editing.id, content)
       receiveMessage(client, roomId, result.message)
       setEditing(null)
-      void client.invalidateQueries({ queryKey: keys.chatMessages(roomId) })
       void client.invalidateQueries({
         queryKey: keys.chatImageMessage(roomId),
       })

@@ -31,6 +31,7 @@ const message = {
   createdAt: "2026-09-13T02:00:00Z",
   attachments: [],
   linkPreview: null,
+  version: 1,
 }
 it("updates order in unopened rooms and atomically keeps visible own posts read on the same event stream", () => {
   const client = new QueryClient()
@@ -151,5 +152,47 @@ it("removes an exited chat and its cached history on the same event stream", () 
   ])
   expect(client.getQueryData(messagesQuery("left").queryKey)).toBeUndefined()
   expect(client.getQueryData(["chat-room", "left"])).toBeUndefined()
+  client.clear()
+})
+
+it("never counts an own post as unread, even when its card arrives before the post itself", () => {
+  const client = new QueryClient()
+  const key = roomsQuery(2026).queryKey
+  client.setQueryData(key, { rooms: [room("room", "2026-09-13T00:00:00Z")] })
+  client.setQueryData(messagesQuery("room").queryKey, {
+    pages: [
+      {
+        messages: [{ ...message, sequence: 1, id: "earlier" }],
+        hasMore: false,
+      },
+    ],
+    pageParams: [null],
+  })
+  const unread: number[] = []
+  const unsubscribe = client.getQueryCache().subscribe(() => {
+    const count = client.getQueryData(key)?.rooms[0]?.unreadCount
+    if (count !== undefined) unread.push(count)
+  })
+  const invalidate = vi.spyOn(client, "invalidateQueries")
+  applyChatEvent(
+    client,
+    {
+      type: "message_changed",
+      roomId: "room",
+      message: { ...message, version: 2 },
+    },
+    "me"
+  )
+  applyChatEvent(client, { type: "message", roomId: "room", message }, "me")
+  expect(unread.every((count) => count === 0)).toBe(true)
+  expect(
+    client
+      .getQueryData(messagesQuery("room").queryKey)
+      ?.pages[0]?.messages.at(-1)?.version
+  ).toBe(2)
+  expect(invalidate).not.toHaveBeenCalledWith({
+    queryKey: keys.chatMessages("room"),
+  })
+  unsubscribe()
   client.clear()
 })

@@ -41,6 +41,7 @@ export function messageRows(
         createdAt: message.createdAt,
         attachments: [],
         linkPreview: null,
+        version: 0,
         files: message.files,
         status: message.status,
       })),

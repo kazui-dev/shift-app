@@ -39,7 +39,7 @@ declare module "@tanstack/react-router" {
 const persistOptions = {
   queryClient,
   persister,
-  buster: "shift-app-cache-2026-09-chat-v7",
+  buster: "shift-app-cache-2026-09-chat-v8",
   dehydrateOptions: {
     shouldDehydrateMutation: () => false,
     shouldDehydrateQuery: (

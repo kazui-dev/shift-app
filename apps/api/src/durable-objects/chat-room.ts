@@ -34,6 +34,8 @@ type ChatMessage = {
   attachments: ChatAttachment[]
   /** The first link's card once it is made, or `null`. */
   linkPreview: LinkPreview | null
+  /** Rises with every change, so an older copy never replaces a newer one. */
+  version: number
 }
 
 type StoredMessage = {
@@ -47,12 +49,13 @@ type StoredMessage = {
   editedAt: number | null
   deleted: number
   linkPreview: string | null
+  version: number
 }
 
 /** Every column of a stored message, named as `StoredMessage`. */
 const messageColumns = `sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
   content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted,
-  link_preview AS linkPreview`
+  link_preview AS linkPreview,version`
 
 function storedPreview(value: string | null) {
   if (value === null) return null
@@ -113,6 +116,11 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       // A message keeps its first link's card, so the card is known before it renders.
       () => sql.exec("ALTER TABLE messages ADD COLUMN link_preview TEXT;"),
       () => this.cards.createTables(),
+      // Every change raises a message's version, so clients keep its newest copy.
+      () =>
+        sql.exec(
+          "ALTER TABLE messages ADD COLUMN version INTEGER NOT NULL DEFAULT 1;"
+        ),
     ]
     sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,
@@ -180,7 +188,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     const due = this.ctx.storage.transactionSync(() => {
       if (deleting) {
         this.ctx.storage.sql.exec(
-          "UPDATE messages SET content='',deleted=1 WHERE id=?",
+          "UPDATE messages SET content='',deleted=1,version=version+1 WHERE id=?",
           row.id
         )
         this.attachments.deleteMessage(row.id)
@@ -188,7 +196,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       }
       const content = input.content ?? ""
       this.ctx.storage.sql.exec(
-        "UPDATE messages SET content=?,edited_at=? WHERE id=?",
+        "UPDATE messages SET content=?,edited_at=?,version=version+1 WHERE id=?",
         content,
         now,
         row.id
@@ -431,6 +439,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         : {}),
       attachments: related.attachments.get(row.id) ?? [],
       linkPreview: storedPreview(row.linkPreview),
+      version: row.version,
     }
   }
 }
