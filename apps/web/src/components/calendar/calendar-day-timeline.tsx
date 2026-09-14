@@ -169,7 +169,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                   from the right edge as the block does from the top. */}
               <div
                 className={cn(
-                  "pointer-events-none relative flex min-w-0 items-center gap-2 pr-1.5 pl-[22px]",
+                  "pointer-events-none relative flex min-w-0 items-center gap-2 pr-3 pl-[22px]",
                   height >= 44 ? "py-1.5" : "h-full"
                 )}
               >
