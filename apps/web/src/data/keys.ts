@@ -23,7 +23,6 @@ export const keys = {
   availabilitySubmissions: key("availability-submissions"),
   shiftAttendance: key("shift-attendance"),
   attendanceEvents: key("attendance-events"),
-  reportEvents: key("report-events"),
   chatRooms: key("chat-rooms"),
   chatRoom: key("chat-room"),
   chatMessages: key("chat-messages"),

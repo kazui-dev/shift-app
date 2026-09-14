@@ -406,48 +406,24 @@ export const shiftAssignments = sqliteTable(
   ]
 )
 
-export const attendanceRecords = sqliteTable(
-  "attendance_records",
+/**
+ * An assignment's attendance: late or absent with the expected arrival and
+ * reason, or present with the check-in. Taking back late or absent removes it.
+ */
+export const assignmentAttendance = sqliteTable(
+  "assignment_attendance",
   {
-    id: text("id").primaryKey(),
     assignmentId: text("assignment_id")
-      .notNull()
+      .primaryKey()
       .references(() => shiftAssignments.id, { onDelete: "cascade" }),
     memberId: text("member_id")
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
-    status: text("status", { enum: ["pending", "confirmed"] })
-      .notNull()
-      .default("confirmed"),
-    checkedInAt: integer("checked_in_at", { mode: "timestamp_ms" }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-  },
-  (table) => [
-    uniqueIndex("attendance_records_assignment_uidx").on(table.assignmentId),
-    index("attendance_records_member_checkedInAt_idx").on(
-      table.memberId,
-      table.checkedInAt
-    ),
-  ]
-)
-
-export const assignmentReports = sqliteTable(
-  "assignment_reports",
-  {
-    id: text("id").primaryKey(),
-    assignmentId: text("assignment_id")
-      .notNull()
-      .references(() => shiftAssignments.id, { onDelete: "cascade" }),
-    memberId: text("member_id")
-      .notNull()
-      .references(() => appUsers.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["late", "absence"] }).notNull(),
-    eta: integer("eta", { mode: "timestamp_ms" }),
-    message: text("message").notNull(),
-    status: text("status", { enum: ["open", "resolved", "withdrawn"] })
-      .notNull()
-      .default("open"),
+    state: text("state", { enum: ["late", "absent", "present"] }).notNull(),
+    expectedAt: integer("expected_at", { mode: "timestamp_ms" }),
+    reason: text("reason").notNull().default(""),
+    checkedInAt: integer("checked_in_at", { mode: "timestamp_ms" }),
+    checkInStatus: text("check_in_status", { enum: ["pending", "confirmed"] }),
     resolvedBy: text("resolved_by").references(() => appUsers.id, {
       onDelete: "set null",
     }),
@@ -456,10 +432,9 @@ export const assignmentReports = sqliteTable(
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
-    uniqueIndex("assignment_reports_assignment_uidx").on(table.assignmentId),
-    index("assignment_reports_status_createdAt_idx").on(
-      table.status,
-      table.createdAt
+    index("assignment_attendance_member_state_idx").on(
+      table.memberId,
+      table.state
     ),
   ]
 )
@@ -644,31 +619,42 @@ export const chatMessageIndex = sqliteTable(
   (table) => [primaryKey({ columns: [table.roomId, table.sequence] })]
 )
 
-export const reportEvents = sqliteTable("report_events", {
-  id: text("id").primaryKey(),
-  reportId: text("report_id")
-    .notNull()
-    .references(() => assignmentReports.id, { onDelete: "cascade" }),
-  actorId: text("actor_id")
-    .notNull()
-    .references(() => appUsers.id, { onDelete: "restrict" }),
-  action: text("action").notNull(),
-  details: text("details").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-})
-export const attendanceEvents = sqliteTable("attendance_events", {
-  id: text("id").primaryKey(),
-  assignmentId: text("assignment_id")
-    .notNull()
-    .references(() => shiftAssignments.id, { onDelete: "cascade" }),
-  actorId: text("actor_id")
-    .notNull()
-    .references(() => appUsers.id, { onDelete: "restrict" }),
-  before: integer("before", { mode: "timestamp_ms" }),
-  after: integer("after", { mode: "timestamp_ms" }).notNull(),
-  reason: text("reason").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-})
+/** Every change to an assignment's attendance, by the member or a responsible. */
+export const assignmentAttendanceEvents = sqliteTable(
+  "assignment_attendance_events",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => shiftAssignments.id, { onDelete: "cascade" }),
+    actorId: text("actor_id")
+      .notNull()
+      .references(() => appUsers.id, { onDelete: "restrict" }),
+    action: text("action", {
+      enum: [
+        "late",
+        "absent",
+        "withdrawn",
+        "checked_in",
+        "corrected",
+        "resolved",
+      ],
+    }).notNull(),
+    expectedAt: integer("expected_at", { mode: "timestamp_ms" }),
+    checkedInAt: integer("checked_in_at", { mode: "timestamp_ms" }),
+    previousCheckedInAt: integer("previous_checked_in_at", {
+      mode: "timestamp_ms",
+    }),
+    reason: text("reason").notNull().default(""),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("assignment_attendance_events_assignment_idx").on(
+      table.assignmentId,
+      table.createdAt
+    ),
+  ]
+)
 
 export const activityCandidateRoles = sqliteTable(
   "activity_candidate_roles",

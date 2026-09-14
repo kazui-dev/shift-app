@@ -232,6 +232,13 @@
       "when": 1789360051131,
       "tag": "0032_chat_message_index",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "6",
+      "when": 1789419482298,
+      "tag": "0033_nasty_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

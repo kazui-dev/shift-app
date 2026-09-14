@@ -29,12 +29,11 @@ function assignment(
     startsAt,
     endsAt,
     notes: null,
-    checkedInAt: null,
     activityName: "受付",
     place: "正門",
     activityType: "shift",
     color: "#2563eb",
-    report: null,
+    attendance: null,
   }
 }
 

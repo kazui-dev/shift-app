@@ -3,12 +3,13 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   activitiesResponseSchema,
-  createAssignmentReportInputSchema,
   createOperatingYearInputSchema,
   instantSchema,
+  manageAttendanceInputSchema,
   operatingYearSchema,
   replaceAvailabilityInputSchema,
   replaceYearSettingsInputSchema,
+  submitAttendanceInputSchema,
   timeWindowSchema,
   yearsResponseSchema,
 } from "./shifts"
@@ -118,19 +119,27 @@ describe("shift API schemas", () => {
     expect(result.success).toBe(false)
   })
 
-  it("requires a reason for late or absence reports", () => {
+  it("takes late or absent with an optional reason, and check-in with where it was confirmed", () => {
     expect(
-      v.safeParse(createAssignmentReportInputSchema, {
-        kind: "late",
-        message: "   ",
+      v.parse(submitAttendanceInputSchema, { state: "late", reason: "   " })
+    ).toEqual({ state: "late", expectedAt: null, reason: "" })
+    expect(v.parse(submitAttendanceInputSchema, { state: "absent" })).toEqual({
+      state: "absent",
+      reason: "",
+    })
+    expect(
+      v.safeParse(submitAttendanceInputSchema, {
+        state: "present",
+        reason: "extra",
       }).success
     ).toBe(false)
     expect(
-      v.parse(createAssignmentReportInputSchema, {
-        kind: "absence",
-        message: "体調不良のため欠勤します",
-      })
-    ).toMatchObject({ kind: "absence" })
+      v.safeParse(manageAttendanceInputSchema, {
+        action: "correct",
+        checkedInAt: "2026-09-11T01:00:00.000Z",
+        reason: " ",
+      }).success
+    ).toBe(false)
   })
 
   it("coerces years and rejects removed status fields", () => {

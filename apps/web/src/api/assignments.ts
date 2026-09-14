@@ -1,16 +1,17 @@
-import { attendanceEventsResponseSchema } from "@workspace/shared/shifts"
+import type * as v from "valibot"
 import { keys } from "@/data/keys"
 import {
   attendanceEnvelopeSchema,
-  assignmentReportEnvelopeSchema,
-  shiftAttendanceResponseSchema,
-  reportEventsResponseSchema,
+  attendanceEventsResponseSchema,
+  manageAttendanceInputSchema,
   myAssignmentsResponseSchema,
+  shiftAttendanceResponseSchema,
+  submitAttendanceInputSchema,
 } from "@workspace/shared/shifts"
 import { queryOptions, skipToken } from "@tanstack/react-query"
 
 import { japanDateStart, japanMonthRange } from "@workspace/shared/japan-time"
-import { apiJson } from "./client"
+import { apiJson, apiVoid } from "./client"
 
 const assignmentMonthStaleTime = 5 * 60 * 1000
 
@@ -93,52 +94,38 @@ export function assignmentsByDate(
   return result
 }
 
-export const checkIn = (assignmentId: string, locationConfirmed: boolean) =>
+/** Checks in, or says the member is late or absent, for their own shift. */
+export const submitAttendance = (
+  assignmentId: string,
+  input: v.InferInput<typeof submitAttendanceInputSchema>
+) =>
   apiJson(
     `/api/assignments/${encodeURIComponent(assignmentId)}/attendance`,
     attendanceEnvelopeSchema,
-    { method: "PUT", body: JSON.stringify({ locationConfirmed }) }
+    { method: "PUT", body: JSON.stringify(input) }
   )
 
-export const submitAssignmentReport = (
+/** Takes back being late or absent. */
+export const withdrawAttendance = (assignmentId: string) =>
+  apiVoid(`/api/assignments/${encodeURIComponent(assignmentId)}/attendance`, {
+    method: "DELETE",
+  })
+
+/** A responsible corrects a check-in, or marks late or absent as handled. */
+export const manageAttendance = (
   assignmentId: string,
-  input: { kind: "late" | "absence"; message: string; eta?: string | null }
+  input: v.InferInput<typeof manageAttendanceInputSchema>
 ) =>
   apiJson(
-    `/api/assignments/${encodeURIComponent(assignmentId)}/report`,
-    assignmentReportEnvelopeSchema,
-    { method: "PUT", body: JSON.stringify(input) }
+    `/api/assignments/${encodeURIComponent(assignmentId)}/attendance`,
+    attendanceEnvelopeSchema,
+    { method: "PATCH", body: JSON.stringify(input) }
   )
 
 export const getShiftAttendance = (activityId: string) =>
   apiJson(
     `/api/activities/${encodeURIComponent(activityId)}/attendance`,
     shiftAttendanceResponseSchema
-  )
-export const getReportEvents = (reportId: string) =>
-  apiJson(
-    `/api/reports/${encodeURIComponent(reportId)}/events`,
-    reportEventsResponseSchema
-  )
-export const updateReportState = (
-  reportId: string,
-  status: "resolved" | "withdrawn",
-  updatedAt: string
-) =>
-  apiJson(
-    `/api/reports/${encodeURIComponent(reportId)}`,
-    assignmentReportEnvelopeSchema,
-    { method: "PATCH", body: JSON.stringify({ status, updatedAt }) }
-  )
-export const correctAttendance = (
-  assignmentId: string,
-  checkedInAt: string,
-  reason: string
-) =>
-  apiJson(
-    `/api/assignments/${encodeURIComponent(assignmentId)}/attendance`,
-    attendanceEnvelopeSchema,
-    { method: "PATCH", body: JSON.stringify({ checkedInAt, reason }) }
   )
 
 export const getAttendanceEvents = (id: string) =>

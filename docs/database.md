@@ -184,13 +184,13 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 割当は activity 内の時間に限定し、member の active な割当同士の重複を API の条件付き insert で防ぐ。取消は監査情報を残すため物理削除せず `cancelled` に更新する。希望時間外の割当は業務上必要になり得るため拒否せず、API が警告を返す。
 
-### `attendance_records`
+### `assignment_attendance`
 
-assignmentごとに本人の出勤時刻を一件保持する。`assignment_id` をuniqueにして二重出勤を防ぎ、APIはactiveな割当の本人であり、現在時刻が割当時間内の場合だけ作成する。退勤と管理者による修正履歴は未実装で、要件確定後に同じrecordへ安易に上書きせず監査可能な形で追加する。
+割当ごとの勤怠を一件保持する。`state` は `late`（到着見込み `expected_at` と理由）、`absent`（理由）、`present`（出勤時刻 `checked_in_at` と、位置を確認できたか責任者の確認待ちかを表す `check_in_status`）のいずれか。遅刻・欠勤の取り消しは行を削除し、出勤済は本人から変更できない。遅刻から出勤した場合は到着見込みと理由を残す。責任者は遅刻・欠勤を対応済み（`resolved_by`・`resolved_at`）にでき、出勤時刻を修正すると確認済みになる。
 
-### `assignment_reports`
+### `assignment_attendance_events`
 
-割当本人による遅刻・欠勤連絡をassignmentごとに一件保持する。同じassignmentから再送した場合は内容を更新して`open`へ戻す。年度の`shift.manage`保有者は一覧を確認し、`resolved`へ変更できる。通常のチャットと分離することで未対応連絡を見失わないようにする。
+勤怠の変更を一件ずつ保持する。`action` は `late`・`absent`・`withdrawn`・`checked_in`・`corrected`・`resolved` で、到着見込み、出勤時刻、修正前の出勤時刻、理由を必要に応じて記録する。
 
 ## Chat Management
 
@@ -283,10 +283,9 @@ erDiagram
     availability_dates ||--o{ availability_windows : permits
     activities ||--o{ shift_assignments : has
     members ||--o{ shift_assignments : assigned_to
-    shift_assignments ||--o| attendance_records : records
-    members ||--o{ attendance_records : checks_in
-    shift_assignments ||--o| assignment_reports : receives
-    members ||--o{ assignment_reports : submits
+    shift_assignments ||--o| assignment_attendance : has
+    members ||--o{ assignment_attendance : attends
+    shift_assignments ||--o{ assignment_attendance_events : logs
     operating_years ||--o{ chat_rooms : contains
     members ||--o{ chat_rooms : creates
     chat_rooms ||--o{ chat_room_targets : targets

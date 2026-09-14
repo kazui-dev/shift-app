@@ -1,61 +1,31 @@
 import { useQuery } from "@tanstack/react-query"
 import { LoadingState } from "@/components/page-layout"
 import { japanMonthDayTime, japanTime } from "@workspace/shared/japan-time"
-import { getAttendanceEvents, getReportEvents } from "@/api/assignments"
+import { getAttendanceEvents } from "@/api/assignments"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { keys } from "@/data/keys"
 
-export function ReportHistory({
-  id,
-  onClose,
-}: {
-  id: string
-  onClose: () => void
-}) {
-  const query = useQuery({
-    queryKey: keys.reportEvents(id),
-    queryFn: () => getReportEvents(id),
-  })
-  return (
-    <ResponsiveDialog
-      open
-      title="連絡の履歴"
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-    >
-      <ul className="space-y-4">
-        {query.data?.events.map((e) => (
-          <li key={e.id} className="text-sm">
-            <p>
-              {e.actor} ·{" "}
-              {e.action === "submitted"
-                ? "送信・修正"
-                : e.action === "resolved"
-                  ? "確認"
-                  : "取り消し"}{" "}
-              · {japanTime(e.createdAt)}
-            </p>
-            <HistoryDetails details={e.details} />
-          </li>
-        ))}
-      </ul>
-    </ResponsiveDialog>
-  )
-}
-function HistoryDetails({ details }: { details: string }) {
-  try {
-    const value: unknown = JSON.parse(details)
-    return typeof value === "object" &&
-      value !== null &&
-      "message" in value &&
-      typeof value.message === "string" ? (
-      <p className="mt-1 whitespace-pre-wrap text-muted-foreground">
-        {value.message}
-      </p>
-    ) : null
-  } catch {
-    return null
+type AttendanceEvent = Awaited<
+  ReturnType<typeof getAttendanceEvents>
+>["events"][number]
+
+/** What one change did, as a line of the history. */
+function eventSummary(event: AttendanceEvent) {
+  switch (event.action) {
+    case "late":
+      return event.expectedAt
+        ? `遅刻（${japanTime(event.expectedAt)}ごろ到着予定）`
+        : "遅刻（到着時刻は未定）"
+    case "absent":
+      return "欠勤"
+    case "withdrawn":
+      return "遅刻・欠勤を取り消し"
+    case "checked_in":
+      return event.checkedInAt ? `${japanTime(event.checkedInAt)} 出勤` : "出勤"
+    case "corrected":
+      return `出勤時刻を修正 ${event.previousCheckedInAt ? japanTime(event.previousCheckedInAt) : "記録なし"} → ${event.checkedInAt ? japanTime(event.checkedInAt) : ""}`
+    default:
+      return "対応済み"
   }
 }
 
@@ -73,23 +43,24 @@ export function AttendanceHistory({
   return (
     <ResponsiveDialog
       open
-      title="出勤の修正履歴"
+      title="勤怠の履歴"
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
     >
       {query.isPending && <LoadingState />}
       {query.data?.events.length === 0 && (
-        <p className="text-sm text-muted-foreground">修正履歴はありません。</p>
+        <p className="text-sm text-muted-foreground">履歴はありません。</p>
       )}
       <ul className="divide-y">
         {query.data?.events.map((event) => (
           <li key={event.id} className="space-y-1 py-3 text-sm">
-            <p>
-              {event.before ? japanTime(event.before) : "記録なし"} →{" "}
-              {japanTime(event.after)}
-            </p>
-            <p>{event.reason}</p>
+            <p>{eventSummary(event)}</p>
+            {event.reason && (
+              <p className="whitespace-pre-wrap text-muted-foreground">
+                {event.reason}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               {event.actor} · {japanMonthDayTime(event.createdAt)}
             </p>

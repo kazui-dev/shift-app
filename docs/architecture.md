@@ -111,9 +111,7 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/years/:year/availability-dates`               | 希望を入力できる日付の管理                       |
 | `/api/years/:year/activities`                       | 年度内 activity                                  |
 | `/api/activities/:activityId`                       | activity と割当                                  |
-| `/api/assignments/:assignmentId/attendance`         | 本人の出勤記録                                   |
-| `/api/assignments/:assignmentId/report`             | 本人の遅刻・欠勤連絡                             |
-| `/api/reports/:reportId`                            | 連絡状態の更新                                   |
+| `/api/assignments/:assignmentId/attendance`         | 本人の勤怠、責任者の修正・対応済み               |
 | `/api/chat/rooms`                                   | 閲覧可能ルームの一覧・作成                       |
 | `/api/chat/targets`                                 | 年度内のチャット対象候補                         |
 | `/api/chat/rooms/:roomId`                           | 直接リンク用のルーム情報                         |

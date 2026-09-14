@@ -45,7 +45,7 @@ export function RoutedImage({
   const close = useCloseOverlay("image", {
     to: "/chat/$roomId",
     params: { roomId },
-    search: { report: search.report },
+    search: {},
   })
   const navigate = useNavigate()
   if (!image || !message?.attachments.some((item) => item.id === image))
@@ -63,7 +63,7 @@ export function RoutedImage({
         void navigate({
           to: "/chat/$roomId",
           params: { roomId },
-          search: { report: search.report, image: target, message: sequence },
+          search: { image: target, message: sequence },
           state: { chatOverlay: "image" },
           replace: true,
           resetScroll: false,

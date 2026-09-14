@@ -1,44 +1,43 @@
 import type { CalendarAssignment } from "@/api/assignments"
-import { japanTime } from "@workspace/shared/japan-time"
 
-/** How long before a shift starts its card offers check-in. */
-const checkInLead = 30 * 60 * 1000
+/** How long before a shift starts its card offers attendance. */
+const attendanceLead = 30 * 60 * 1000
 
-/** The card height from which actions sit on a row under the name and time. */
-export const stackedCardHeight = 80
-
-/** Whether a shift's card offers check-in and a late or absence report now. */
-export function cardActionsOpen(
-  assignment: Pick<CalendarAssignment, "startsAt" | "endsAt" | "checkedInAt">,
+/**
+ * Whether a shift's card shows its attendance button: from 30 minutes before
+ * it starts until it ends, and whenever attendance has been set.
+ */
+export function attendanceButtonShown(
+  assignment: Pick<CalendarAssignment, "startsAt" | "endsAt" | "attendance">,
   now: number
 ) {
   return (
-    !assignment.checkedInAt &&
-    now >= Date.parse(assignment.startsAt) - checkInLead &&
-    now < Date.parse(assignment.endsAt)
+    !!assignment.attendance ||
+    (now >= Date.parse(assignment.startsAt) - attendanceLead &&
+      now < Date.parse(assignment.endsAt))
   )
 }
 
-/** Whether a late or absence report can still be sent for a shift. */
-export const reportOpen = (
-  assignment: Pick<CalendarAssignment, "endsAt">,
+/** Whether attendance can still be set for a shift. */
+export const attendanceOpen = (
+  assignment: Pick<CalendarAssignment, "endsAt" | "attendance">,
   now: number
-) => now < Date.parse(assignment.endsAt)
-
-/** A standing report, or null once it has been taken back. */
-export const standingReport = (
-  assignment: Pick<CalendarAssignment, "report">
 ) =>
-  assignment.report && assignment.report.status !== "withdrawn"
-    ? assignment.report
-    : null
+  assignment.attendance?.state !== "present" &&
+  now < Date.parse(assignment.endsAt)
 
-/** How a standing report reads on its shift, as the report button's label. */
-export function reportLabel(assignment: Pick<CalendarAssignment, "report">) {
-  const report = standingReport(assignment)
-  if (!report) return "遅刻・欠勤"
-  if (report.kind === "absence") return "欠勤連絡済み"
-  return report.eta
-    ? `遅刻連絡済み・${japanTime(report.eta)}到着`
-    : "遅刻連絡済み"
+/** The attendance button's label: what has been set, or 勤怠 before anything is. */
+export function attendanceLabel(
+  assignment: Pick<CalendarAssignment, "attendance">
+) {
+  switch (assignment.attendance?.state) {
+    case "present":
+      return "出勤済"
+    case "late":
+      return "遅刻"
+    case "absent":
+      return "欠勤"
+    default:
+      return "勤怠"
+  }
 }

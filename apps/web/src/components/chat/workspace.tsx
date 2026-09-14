@@ -10,8 +10,8 @@ import { errorMessage } from "@/api/client"
 import { changeRoomMute } from "@/data/preferences"
 import { membersQuery, settingsQuery } from "@/data/chat"
 import { attendanceQuery } from "@/data/attendance"
+import { ShiftAttendance } from "@/components/shifts/shift-attendance"
 import { useMediaQuery } from "@/hooks/use-media-query"
-import { ShiftAttendance } from "../shifts/shift-attendance"
 import { ChatPanels } from "@/components/chat/panels"
 import { ChatMessages } from "@/components/chat/message/history"
 import { RoomHeader, MembersHeader } from "@/components/chat/room/header"
@@ -23,7 +23,6 @@ export function ChatWorkspace({
   name,
   showingRoom,
   offline,
-  report,
   list,
   navigation,
   error,
@@ -36,7 +35,6 @@ export function ChatWorkspace({
   name: string
   showingRoom: boolean
   offline: boolean
-  report: string | undefined
   list: ReactNode
   navigation: ReactNode
   error: boolean
@@ -58,19 +56,6 @@ export function ChatWorkspace({
     void client.prefetchQuery(membersQuery(room.id))
     if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
   }, [client, room, showingRoom, offline])
-  useEffect(() => {
-    if (!report || !room?.activityId) return undefined
-    let active = true
-    void client
-      .ensureQueryData(attendanceQuery(room.activityId))
-      .then(() => {
-        if (active) setAttendanceFor(room.id)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [client, report, room?.activityId, room?.id])
   const mute = () => {
     if (room)
       void changeRoomMute(client, room.id, !room.muted).catch((failure) =>
@@ -167,15 +152,7 @@ export function ChatWorkspace({
       {room?.activityId && showingRoom && attendanceFor === room.id && (
         <ShiftAttendance
           activityId={room.activityId}
-          onClose={() => {
-            setAttendanceFor(undefined)
-            void navigate({
-              to: "/chat/$roomId",
-              params: { roomId: room.id },
-              search: {},
-              replace: true,
-            })
-          }}
+          onClose={() => setAttendanceFor(undefined)}
         />
       )}
     </>

@@ -13,7 +13,6 @@ import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat/index"
 import { meApp } from "./me/index"
 import { pushApp, notificationDevicesApp } from "./push"
-import { reportsApp } from "./reports"
 import { rolesApp } from "./roles"
 import { yearSettingsApp } from "./year-settings"
 import { yearsApp } from "./years/index"
@@ -33,7 +32,6 @@ apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
 apiApp.route("/assignments", assignmentsApp)
 apiApp.route("/chat", chatApp)
-apiApp.route("/reports", reportsApp)
 
 apiApp.notFound((c) => apiError(c, errors.routeNotFound))
 

@@ -203,12 +203,50 @@ export const replaceAvailabilityInputSchema = v.pipe(
   )
 )
 
-export const createAssignmentReportInputSchema = v.object({
-  eta: v.optional(v.nullable(instantSchema), null),
-  kind: v.picklist(["late", "absence"]),
-  /** The reason, which may be left out when there is no time to write one. */
-  message: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(1000)), ""),
+/** A reason, which may be left out when there is no time to write one. */
+const attendanceReasonSchema = v.optional(
+  v.pipe(v.string(), v.trim(), v.maxLength(1000)),
+  ""
+)
+
+/** What a member sets for their own shift: checked in, late or absent. */
+export const submitAttendanceInputSchema = v.variant("state", [
+  v.strictObject({
+    state: v.literal("present"),
+    locationConfirmed: v.boolean(),
+  }),
+  v.strictObject({
+    state: v.literal("late"),
+    expectedAt: v.optional(v.nullable(instantSchema), null),
+    reason: attendanceReasonSchema,
+  }),
+  v.strictObject({
+    state: v.literal("absent"),
+    reason: attendanceReasonSchema,
+  }),
+])
+
+/** What a responsible does: correct a check-in, or mark late or absent as handled. */
+export const manageAttendanceInputSchema = v.variant("action", [
+  v.strictObject({
+    action: v.literal("correct"),
+    checkedInAt: instantSchema,
+    reason: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(1000)),
+  }),
+  v.strictObject({ action: v.literal("resolve") }),
+])
+
+/** An assignment's attendance as members and responsibles see it. */
+export const attendanceSchema = v.object({
+  state: v.picklist(["late", "absent", "present"]),
+  expectedAt: v.nullable(instantSchema),
+  reason: v.string(),
+  checkedInAt: v.nullable(instantSchema),
+  checkInStatus: v.nullable(v.picklist(["pending", "confirmed"])),
+  resolvedAt: v.nullable(instantSchema),
+  updatedAt: instantSchema,
 })
+export type Attendance = v.InferOutput<typeof attendanceSchema>
 
 export const operatingYearResponseSchema = v.object({
   year: operatingYearSchema,
@@ -238,44 +276,7 @@ export const assignmentResponseSchema = v.object({
   startsAt: instantSchema,
   endsAt: instantSchema,
   notes: v.nullable(v.string()),
-  checkedInAt: v.optional(v.nullable(instantSchema)),
-  attendanceStatus: v.optional(
-    v.nullable(v.picklist(["pending", "confirmed"]))
-  ),
-})
-
-export const checkInInputSchema = v.strictObject({
-  locationConfirmed: v.boolean(),
-})
-
-export const correctAttendanceInputSchema = v.strictObject({
-  checkedInAt: instantSchema,
-  reason: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(1000)),
-})
-
-export const attendanceResponseSchema = v.object({
-  status: v.picklist(["pending", "confirmed"]),
-  id: v.pipe(v.string(), v.uuid()),
-  assignmentId: v.pipe(v.string(), v.uuid()),
-  checkedInAt: instantSchema,
-})
-
-export const assignmentReportResponseSchema = v.object({
-  id: v.pipe(v.string(), v.uuid()),
-  assignmentId: v.pipe(v.string(), v.uuid()),
-  memberId: v.pipe(v.string(), v.uuid()),
-  memberDisplayName: v.string(),
-  kind: v.picklist(["late", "absence"]),
-  message: v.string(),
-  status: v.picklist(["open", "resolved", "withdrawn"]),
-  eta: v.nullable(instantSchema),
-  updatedAt: instantSchema,
-  activityId: v.pipe(v.string(), v.uuid()),
-  activityName: v.string(),
-  startsAt: instantSchema,
-  endsAt: instantSchema,
-  createdAt: instantSchema,
-  resolvedAt: v.nullable(instantSchema),
+  attendance: v.optional(v.nullable(attendanceSchema)),
 })
 
 export const yearRoleResponseSchema = v.object({
@@ -341,15 +342,6 @@ export const myAssignmentResponseSchema = v.object({
   place: v.string(),
   activityType: v.string(),
   color: v.string(),
-  /** The member's own late or absence report for the shift, if any. */
-  report: v.nullable(
-    v.object({
-      kind: v.picklist(["late", "absence"]),
-      message: v.string(),
-      eta: v.nullable(instantSchema),
-      status: v.picklist(["open", "resolved", "withdrawn"]),
-    })
-  ),
 })
 
 export const yearsResponseSchema = v.object({
@@ -425,15 +417,7 @@ export const roleMembershipResponseSchema = v.object({
 })
 
 export const attendanceEnvelopeSchema = v.object({
-  attendance: attendanceResponseSchema,
-})
-
-export const assignmentReportEnvelopeSchema = v.object({
-  report: assignmentReportResponseSchema,
-})
-
-export const assignmentReportsResponseSchema = v.object({
-  reports: v.array(assignmentReportResponseSchema),
+  attendance: v.nullable(attendanceSchema),
 })
 
 export const availabilityEnvelopeSchema = v.object({
@@ -566,10 +550,6 @@ export type ActivityEditorInput = v.InferOutput<
   typeof activityEditorInputSchema
 >
 
-export const reportStateInputSchema = v.strictObject({
-  status: v.picklist(["resolved", "withdrawn"]),
-  updatedAt: instantSchema,
-})
 export const shiftAttendanceResponseSchema = v.object({
   canManage: v.boolean(),
   assignments: v.array(
@@ -581,20 +561,7 @@ export const shiftAttendanceResponseSchema = v.object({
       startsAt: instantSchema,
       endsAt: instantSchema,
       active: v.boolean(),
-      checkedInAt: v.nullable(instantSchema),
-      attendanceStatus: v.nullable(v.picklist(["pending", "confirmed"])),
-    })
-  ),
-  reports: v.array(assignmentReportResponseSchema),
-})
-export const reportEventsResponseSchema = v.object({
-  events: v.array(
-    v.object({
-      id: v.string(),
-      actor: v.string(),
-      action: v.string(),
-      details: v.string(),
-      createdAt: instantSchema,
+      attendance: v.nullable(attendanceSchema),
     })
   ),
 })
@@ -603,11 +570,20 @@ export const attendanceEventsResponseSchema = v.object({
   events: v.array(
     v.object({
       id: v.string(),
-      before: v.nullable(instantSchema),
-      after: instantSchema,
+      actor: v.string(),
+      action: v.picklist([
+        "late",
+        "absent",
+        "withdrawn",
+        "checked_in",
+        "corrected",
+        "resolved",
+      ]),
+      expectedAt: v.nullable(instantSchema),
+      checkedInAt: v.nullable(instantSchema),
+      previousCheckedInAt: v.nullable(instantSchema),
       reason: v.string(),
       createdAt: instantSchema,
-      actor: v.string(),
     })
   ),
 })
