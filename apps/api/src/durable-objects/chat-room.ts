@@ -121,6 +121,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         sql.exec(
           "ALTER TABLE messages ADD COLUMN version INTEGER NOT NULL DEFAULT 1;"
         ),
+      () => this.attachments.countReservations(),
     ]
     sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,

@@ -27,13 +27,14 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
   }
 }
 
-async function responseError(response: Response): Promise<ApiError> {
+/** The API error a failed response describes, or one for its status. */
+function bodyError(status: number, body: string): ApiError {
   try {
-    const value: unknown = await response.json()
+    const value: unknown = JSON.parse(body)
     if (typeof value === "object" && value !== null && "error" in value) {
       const error = value.error
       if (typeof error === "string") {
-        return new ApiError(error, response.status, "REQUEST_FAILED")
+        return new ApiError(error, status, "REQUEST_FAILED")
       }
       if (
         typeof error === "object" &&
@@ -43,17 +44,76 @@ async function responseError(response: Response): Promise<ApiError> {
         typeof error.code === "string" &&
         typeof error.message === "string"
       ) {
-        return new ApiError(error.message, response.status, error.code)
+        return new ApiError(error.message, status, error.code)
       }
     }
   } catch {
     // Use the status fallback when the body is not JSON.
   }
   return new ApiError(
-    `操作に失敗しました（${response.status}）`,
-    response.status,
+    `操作に失敗しました（${status}）`,
+    status,
     "REQUEST_FAILED"
   )
+}
+
+async function responseError(response: Response): Promise<ApiError> {
+  return bodyError(response.status, await response.text().catch(() => ""))
+}
+
+/**
+ * Posts a file and reports how much of it has been sent, which fetch cannot,
+ * resolving with the parsed response like `apiJson`.
+ */
+export function apiUpload<TSchema extends v.GenericSchema>(
+  url: string,
+  schema: TSchema,
+  body: Blob,
+  options: {
+    signal?: AbortSignal | undefined
+    onProgress?: ((sent: number, total: number) => void) | undefined
+  } = {}
+): Promise<v.InferOutput<TSchema>> {
+  const { signal, onProgress } = options
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason)
+      return
+    }
+    const request = new XMLHttpRequest()
+    const abort = () => request.abort()
+    signal?.addEventListener("abort", abort, { once: true })
+    const settle = () => signal?.removeEventListener("abort", abort)
+    request.open("POST", url)
+    request.setRequestHeader(
+      "Content-Type",
+      body.type || "application/octet-stream"
+    )
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded, event.total)
+    })
+    request.addEventListener("load", () => {
+      settle()
+      if (request.status < 200 || request.status >= 300) {
+        reject(bodyError(request.status, request.responseText))
+        return
+      }
+      try {
+        resolve(v.parse(schema, JSON.parse(request.responseText)))
+      } catch (error) {
+        reject(error)
+      }
+    })
+    request.addEventListener("error", () => {
+      settle()
+      reject(new ApiNetworkError(new Error("Upload failed")))
+    })
+    request.addEventListener("abort", () => {
+      settle()
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"))
+    })
+    request.send(body)
+  })
 }
 
 export async function apiJson<TSchema extends v.GenericSchema>(

@@ -54,6 +54,12 @@ export class ChatAttachments {
       ALTER TABLE attachments ADD COLUMN type TEXT NOT NULL DEFAULT 'image/webp';
       ALTER TABLE image_upload_limits ADD COLUMN bytes INTEGER NOT NULL DEFAULT 0;`)
   }
+  /** A reservation keeps the bytes it counted, so removing it gives them back. */
+  countReservations() {
+    this.storage.sql.exec(
+      "ALTER TABLE attachments ADD COLUMN reserved_bytes INTEGER NOT NULL DEFAULT 0;"
+    )
+  }
   /** Images keep the order they were sent in, whichever upload finished first. */
   keepSentOrder() {
     this.storage.sql.exec(
@@ -87,11 +93,12 @@ export class ChatAttachments {
     const id = crypto.randomUUID(),
       objectKey = chatImageKey(roomId, id)
     this.storage.sql.exec(
-      "INSERT INTO attachments(id,object_key,member_id,created_at) VALUES(?,?,?,?)",
+      "INSERT INTO attachments(id,object_key,member_id,created_at,reserved_bytes) VALUES(?,?,?,?,?)",
       id,
       objectKey,
       memberId,
-      now
+      now,
+      bytes
     )
     const alarm = await this.storage.getAlarm()
     if (alarm === null || alarm > now + expiry)
@@ -183,13 +190,20 @@ export class ChatAttachments {
   }
   async remove(id: string, memberId: string) {
     const row = this.storage.sql
-      .exec<{ objectKey: string }>(
-        "UPDATE attachments SET ready=-1 WHERE id=? AND member_id=? AND message_id IS NULL RETURNING object_key AS objectKey",
+      .exec<{ objectKey: string; createdAt: number; reservedBytes: number }>(
+        "UPDATE attachments SET ready=-1 WHERE id=? AND member_id=? AND message_id IS NULL RETURNING object_key AS objectKey,created_at AS createdAt,reserved_bytes AS reservedBytes",
         id,
         memberId
       )
       .toArray()[0]
     if (!row) return false
+    // An unsent upload no longer counts against the day it was reserved in.
+    this.storage.sql.exec(
+      "UPDATE image_upload_limits SET count=MAX(count-1,0),bytes=MAX(bytes-?,0) WHERE member_id=? AND started_at<=?",
+      row.reservedBytes,
+      memberId,
+      row.createdAt
+    )
     await this.bucket.delete(row.objectKey)
     await this.purge([chatImageTag(id)])
     this.storage.sql.exec("DELETE FROM attachments WHERE id=? AND ready=-1", id)
