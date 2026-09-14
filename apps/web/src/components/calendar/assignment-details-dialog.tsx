@@ -1,23 +1,28 @@
-import { Link } from "@tanstack/react-router"
 import { japanTime } from "@workspace/shared/japan-time"
 import { LoaderCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { CalendarAssignment } from "@/api/assignments"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
+import { reportLabel, reportOpen, standingReport } from "./assignment-actions"
 
 export function AssignmentDetailsDialog({
   assignment,
+  now,
   offline,
-  pending,
+  checkingIn,
   onCheckIn,
+  onReport,
   onClose,
 }: {
   assignment: CalendarAssignment
+  now: number
   offline: boolean
-  pending: boolean
-  onCheckIn: (id: string) => Promise<void>
+  checkingIn: boolean
+  onCheckIn: (id: string) => void
+  onReport: (id: string) => void
   onClose: () => void
 }) {
+  const absent = standingReport(assignment)?.kind === "absence"
   return (
     <ResponsiveDialog
       open
@@ -38,22 +43,23 @@ export function AssignmentDetailsDialog({
                 : "記録済み"}
             </p>
           ) : (
-            <Button
-              disabled={offline || pending}
-              onClick={() => void onCheckIn(assignment.id)}
-            >
-              {pending && <LoaderCircle className="animate-spin" />}出勤
-            </Button>
+            !absent && (
+              <Button
+                disabled={offline || checkingIn}
+                onClick={() => onCheckIn(assignment.id)}
+              >
+                {checkingIn && <LoaderCircle className="animate-spin" />}出勤
+              </Button>
+            )
           )}
-          {!offline && assignment.roomId && (
-            <Link
-              className="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted"
-              to="/chat/$roomId"
-              params={{ roomId: assignment.roomId }}
-              search={{ report: assignment.id }}
+          {!assignment.checkedInAt && reportOpen(assignment, now) && (
+            <Button
+              variant="outline"
+              disabled={offline}
+              onClick={() => onReport(assignment.id)}
             >
-              遅刻・欠勤連絡
-            </Link>
+              {reportLabel(assignment)}
+            </Button>
           )}
         </div>
       </div>

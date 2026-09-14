@@ -12,16 +12,26 @@ export function CalendarCarousel({
   date,
   assignmentsByDate,
   now,
+  nowMs,
+  offline,
+  checkingInId,
   onDateChange,
   onProgress,
   onSelectAssignment,
+  onCheckIn,
+  onReport,
 }: {
   date: string
   assignmentsByDate: Map<string, CalendarAssignment[]>
   now: JapanDateTime
+  nowMs: number
+  offline: boolean
+  checkingInId: string | null
   onDateChange: (date: string) => void
   onProgress: (date: string, offset: number) => void
   onSelectAssignment: (date: string, assignmentId: string) => void
+  onCheckIn: (assignmentId: string) => void
+  onReport: (assignmentId: string) => void
 }) {
   const { values: dates, viewportRef } = useLoopCarousel({
     onProgress,
@@ -54,7 +64,12 @@ export function CalendarCarousel({
                 date={slideDate}
                 assignments={assignmentsByDate.get(slideDate) ?? noAssignments}
                 now={now}
+                nowMs={nowMs}
+                offline={offline}
+                checkingInId={checkingInId}
                 onSelectAssignment={onSelectAssignment}
+                onCheckIn={onCheckIn}
+                onReport={onReport}
               />
             </section>
           )

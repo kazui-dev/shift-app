@@ -65,10 +65,9 @@ export function ReportForm({
         </label>
       )}
       <label htmlFor="report-message" className="block space-y-2 text-sm">
-        理由
+        理由（任意）
         <Textarea
           id="report-message"
-          required
           maxLength={1000}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -78,7 +77,7 @@ export function ReportForm({
         <Button type="button" variant="ghost" onClick={onCancel}>
           戻る
         </Button>
-        <Button disabled={pending || !message.trim()}>送信</Button>
+        <Button disabled={pending}>送信</Button>
       </div>
     </form>
   )

@@ -1,9 +1,10 @@
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -11,13 +12,19 @@ import {
 
 export function ConfirmDialog({
   title,
+  description,
   confirmLabel,
+  tone = "destructive",
   onCancel,
   onConfirm,
   onClosed,
 }: {
   title: string
+  /** What happens either way, when the title alone does not say it. */
+  description?: ReactNode
   confirmLabel: string
+  /** `default` for a choice that removes nothing. */
+  tone?: "destructive" | "default"
   onCancel: () => void
   onConfirm: () => void
   onClosed?: () => void
@@ -39,17 +46,20 @@ export function ConfirmDialog({
       <AlertDialogContent
         size="sm"
         finalFocus={false}
-        aria-describedby={undefined}
+        {...(description ? {} : { "aria-describedby": undefined })}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>
             {title.replace(/[？?。]+$/, "")}？
           </AlertDialogTitle>
+          {description && (
+            <AlertDialogDescription>{description}</AlertDialogDescription>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel variant="ghost">キャンセル</AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
+            variant={tone}
             disabled={!open}
             onClick={() => {
               confirmed.current = true

@@ -34,6 +34,7 @@ function assignment(
     place: "正門",
     activityType: "shift",
     color: "#2563eb",
+    report: null,
   }
 }
 
