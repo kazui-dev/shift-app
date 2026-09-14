@@ -5,6 +5,7 @@ import {
   chatImageKey,
   chatImageTag,
   chatRoomTag,
+  type UploadLimit,
 } from "../domain/chat-attachment"
 import type { StoredImageType } from "../domain/stored-image"
 
@@ -25,8 +26,6 @@ const selection =
 const sent =
   "SELECT a.id,a.message_id AS messageId,a.width,a.height,a.bytes,a.name,a.type,m.created_at AS sentAt FROM attachments a JOIN messages m ON m.id=a.message_id"
 const expiry = 24 * 60 * 60 * 1000
-/** What one member may upload to a room per day, counted as uploads start. */
-export const dailyUploads = { count: 1000, bytes: 5 * 1024 * 1024 * 1024 }
 /** Tags per purge, kept small since the purge limits are not documented. */
 const purgeBatch = 30
 
@@ -66,7 +65,13 @@ export class ChatAttachments {
       "ALTER TABLE attachments ADD COLUMN position INTEGER NOT NULL DEFAULT 0;"
     )
   }
-  async reserve(roomId: string, memberId: string, bytes: number) {
+  /** Counts an upload against the member's day as it starts, within `limit`. */
+  async reserve(
+    roomId: string,
+    memberId: string,
+    bytes: number,
+    limit: UploadLimit
+  ) {
     const now = Date.now(),
       since = now - expiry
     // A pending reservation also counts against the limit during conversion.
@@ -85,8 +90,8 @@ export class ChatAttachments {
         since,
         since,
         since,
-        dailyUploads.count,
-        dailyUploads.bytes
+        limit.count,
+        limit.bytes
       )
       .toArray()[0]
     if (!rate) return null

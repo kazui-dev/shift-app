@@ -67,3 +67,22 @@ export function attachmentFileName(
     .replace("T", "-")
   return `${stamp}.${storedImageExtensions[type]}`
 }
+
+export type UploadLimit = { count: number; bytes: number }
+const gigabyte = 1024 * 1024 * 1024
+
+/**
+ * What one member may upload to one room in a day. Most members post a few
+ * photos; leaders and a room's managers share a day's photos in bulk; system
+ * admins post for the whole event. The higher of a member's two roles applies.
+ */
+export function dailyUploadLimit(
+  accessLevel: "system_admin" | "leader" | "member",
+  managesRoom: boolean
+): UploadLimit {
+  if (accessLevel === "system_admin")
+    return { count: 1000, bytes: 5 * gigabyte }
+  if (accessLevel === "leader" || managesRoom)
+    return { count: 300, bytes: 3 * gigabyte }
+  return { count: 100, bytes: gigabyte }
+}

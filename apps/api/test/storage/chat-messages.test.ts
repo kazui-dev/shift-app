@@ -1,6 +1,5 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
-import { dailyUploads } from "../../src/durable-objects/chat-attachments"
 import { ChatRoom } from "../../src/durable-objects/chat-room"
 import { findAccessibleRoom } from "../../src/services/chat-access"
 import { roomRecipients } from "../../src/services/chat-permissions"
@@ -300,7 +299,12 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
 })
 it("names sent images, denies reads after deletion and removes their objects and cached sizes", async () => {
   const { value, bucket } = fixture()
-  const reserved = await value.reserveAttachment("room", "author", 50)
+  const reserved = await value.reserveAttachment(
+    "room",
+    "author",
+    50,
+    dailyUploads
+  )
   if (!reserved) throw Error("No reservation")
   expect(reserved.objectKey).toBe(`room/${reserved.id}`)
   value.finishAttachment(reserved.id, "author", {
@@ -336,7 +340,12 @@ it("names sent images, denies reads after deletion and removes their objects and
 it("keeps images in the order they were sent, not the order they were uploaded", async () => {
   const { value } = fixture()
   const upload = async (name: string) => {
-    const reserved = await value.reserveAttachment("room", "author", 1)
+    const reserved = await value.reserveAttachment(
+      "room",
+      "author",
+      1,
+      dailyUploads
+    )
     if (!reserved) throw Error("No reservation")
     value.finishAttachment(reserved.id, "author", {
       width: 1,
@@ -359,6 +368,8 @@ it("keeps images in the order they were sent, not the order they were uploaded",
     "later.png",
   ])
 })
+/** A day's limit small enough to reach in a test. */
+const dailyUploads = { count: 100, bytes: 500 * 1024 * 1024 }
 /** An upload leaving less of the day's bytes than `overflow`. */
 const overflow = 101 * 1024 * 1024
 const nearlyDaily = dailyUploads.bytes - 100 * 1024 * 1024
@@ -366,25 +377,29 @@ const nearlyDaily = dailyUploads.bytes - 100 * 1024 * 1024
 it("limits each member's daily uploads by count and by bytes", async () => {
   const { value } = fixture()
   expect(
-    await value.reserveAttachment("room", "author", nearlyDaily)
+    await value.reserveAttachment("room", "author", nearlyDaily, dailyUploads)
   ).not.toBeNull()
-  expect(await value.reserveAttachment("room", "author", overflow)).toBeNull()
   expect(
-    await value.reserveAttachment("room", "other", overflow)
+    await value.reserveAttachment("room", "author", overflow, dailyUploads)
+  ).toBeNull()
+  expect(
+    await value.reserveAttachment("room", "other", overflow, dailyUploads)
   ).not.toBeNull()
   const uploads = await Promise.all(
     Array.from({ length: dailyUploads.count - 1 }, () =>
-      value.reserveAttachment("room", "other", 1)
+      value.reserveAttachment("room", "other", 1, dailyUploads)
     )
   )
   expect(uploads).not.toContain(null)
-  expect(await value.reserveAttachment("room", "other", 1)).toBeNull()
+  expect(
+    await value.reserveAttachment("room", "other", 1, dailyUploads)
+  ).toBeNull()
 })
 it("drops every cached size of a deleted room", async () => {
   const { value } = fixture()
   await Promise.all(
     ["author", "other"].map((member) =>
-      value.reserveAttachment("room", member, 1)
+      value.reserveAttachment("room", member, 1, dailyUploads)
     )
   )
   // A card still waiting to be made goes with the room.
@@ -512,23 +527,34 @@ it("raises a message's version with every change, and only then", async () => {
 
 it("gives back an unsent upload's share of the day when it is removed", async () => {
   const { value } = fixture()
-  const large = await value.reserveAttachment("room", "author", nearlyDaily)
+  const large = await value.reserveAttachment(
+    "room",
+    "author",
+    nearlyDaily,
+    dailyUploads
+  )
   if (!large) throw Error("No reservation")
-  expect(await value.reserveAttachment("room", "author", overflow)).toBeNull()
+  expect(
+    await value.reserveAttachment("room", "author", overflow, dailyUploads)
+  ).toBeNull()
   expect(await value.deleteAttachment(large.id, "author")).toBe(true)
   expect(
-    await value.reserveAttachment("room", "author", overflow)
+    await value.reserveAttachment("room", "author", overflow, dailyUploads)
   ).not.toBeNull()
   const uploads = await Promise.all(
     Array.from({ length: dailyUploads.count - 1 }, () =>
-      value.reserveAttachment("room", "author", 1)
+      value.reserveAttachment("room", "author", 1, dailyUploads)
     )
   )
-  expect(await value.reserveAttachment("room", "author", 1)).toBeNull()
+  expect(
+    await value.reserveAttachment("room", "author", 1, dailyUploads)
+  ).toBeNull()
   const first = uploads[0]
   if (!first) throw Error("No reservation")
   await value.deleteAttachment(first.id, "author")
-  expect(await value.reserveAttachment("room", "author", 1)).not.toBeNull()
+  expect(
+    await value.reserveAttachment("room", "author", 1, dailyUploads)
+  ).not.toBeNull()
   // Removing twice gives nothing more back.
   expect(await value.deleteAttachment(first.id, "author")).toBe(false)
 })

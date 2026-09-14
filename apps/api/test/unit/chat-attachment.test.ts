@@ -5,6 +5,7 @@ import {
   chatImageKey,
   chatImageTag,
   chatRoomTag,
+  dailyUploadLimit,
 } from "../../src/domain/chat-attachment"
 
 it("names storage and cache tags by room and attachment", () => {
@@ -40,4 +41,16 @@ describe("attachment names", () => {
       "photo.png"
     )
   })
+})
+
+it("gives each member the daily upload limit of their highest role", () => {
+  const gigabyte = 1024 * 1024 * 1024
+  const member = { count: 100, bytes: gigabyte }
+  const manager = { count: 300, bytes: 3 * gigabyte }
+  const admin = { count: 1000, bytes: 5 * gigabyte }
+  expect(dailyUploadLimit("member", false)).toEqual(member)
+  expect(dailyUploadLimit("member", true)).toEqual(manager)
+  expect(dailyUploadLimit("leader", false)).toEqual(manager)
+  expect(dailyUploadLimit("system_admin", false)).toEqual(admin)
+  expect(dailyUploadLimit("system_admin", true)).toEqual(admin)
 })

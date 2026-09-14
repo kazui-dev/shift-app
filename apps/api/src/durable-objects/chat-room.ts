@@ -10,6 +10,7 @@ import { purgeShared } from "../lib/shared-cache"
 import { publishChatEvent } from "../services/chat-directory"
 import { withMemberImages } from "../services/chat-profiles"
 import { makeLinkCard } from "../services/link-card"
+import type { UploadLimit } from "../domain/chat-attachment"
 import { ChatAttachments, type StoredAttachment } from "./chat-attachments"
 import { cardLink, ChatLinkCards } from "./chat-link-cards"
 import { DurableObject } from "cloudflare:workers"
@@ -214,9 +215,14 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     return { message: this.toMessage(updated), changed: true }
   }
 
-  async reserveAttachment(roomId: string, memberId: string, bytes: number) {
+  async reserveAttachment(
+    roomId: string,
+    memberId: string,
+    bytes: number,
+    limit: UploadLimit
+  ) {
     if (this.deleted) return null
-    return this.attachments.reserve(roomId, memberId, bytes)
+    return this.attachments.reserve(roomId, memberId, bytes, limit)
   }
   finishAttachment(id: string, memberId: string, image: StoredAttachment) {
     return !this.deleted && this.attachments.finish(id, memberId, image)

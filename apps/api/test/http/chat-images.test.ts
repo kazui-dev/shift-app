@@ -1,5 +1,9 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
+import {
+  dailyUploadLimit,
+  type UploadLimit,
+} from "../../src/domain/chat-attachment"
 import type { ApiEnv } from "../../src/lib/http"
 import { sharedResource, warmShared } from "../../src/lib/shared-cache"
 import { chatApp } from "../../src/routes/chat/index"
@@ -27,7 +31,8 @@ const reserveAttachment =
     (
       roomId: string,
       memberId: string,
-      bytes: number
+      bytes: number,
+      limit: UploadLimit
     ) => Promise<{ id: string; objectKey: string } | null>
   >()
 const finishAttachment = vi.fn<() => Promise<boolean>>()
@@ -113,10 +118,16 @@ it("rejects empty and oversized uploads before allocating storage", async () => 
   expect(reserveAttachment).not.toHaveBeenCalled()
 })
 
-it("counts an upload's bytes against the daily limit", async () => {
+it("counts an upload's bytes against the daily limit of the member's role in the room", async () => {
   reserveAttachment.mockResolvedValue(null)
   expect((await upload()).status).toBe(429)
-  expect(reserveAttachment).toHaveBeenCalledWith(roomId, "m", 5)
+  // A member who manages the room gets the managers' limit.
+  expect(reserveAttachment).toHaveBeenCalledWith(
+    roomId,
+    "m",
+    5,
+    dailyUploadLimit("member", true)
+  )
   expect(storableImage).not.toHaveBeenCalled()
 })
 

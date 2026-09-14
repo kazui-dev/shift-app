@@ -7,7 +7,7 @@ import {
   type ChatImageSize,
 } from "@workspace/shared/communications"
 
-import { attachmentName } from "../../domain/chat-attachment"
+import { attachmentName, dailyUploadLimit } from "../../domain/chat-attachment"
 import { apiError, errors } from "../../lib/errors"
 import { privateResponse } from "../../lib/http"
 import {
@@ -37,13 +37,19 @@ export const imagesApp = new Hono<RoomEnv>()
 
 imagesApp.post("/attachments", async (c) => {
   const room = c.get("room"),
-    memberId = c.get("member").id
+    member = c.get("member"),
+    memberId = member.id
   if (!room.canPost) return apiError(c, errors.chatReadOnly)
   const blob = await c.req.raw.blob()
   if (!blob.size || blob.size > chatImageLimits.bytes)
     return apiError(c, errors.imageTooLarge)
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
-  const reserved = await stub.reserveAttachment(room.id, memberId, blob.size)
+  const reserved = await stub.reserveAttachment(
+    room.id,
+    memberId,
+    blob.size,
+    dailyUploadLimit(member.accessLevel, room.canManage === 1)
+  )
   if (!reserved) return apiError(c, errors.imageLimit)
   try {
     const image = await storableImage(c.env.IMAGES, blob)
