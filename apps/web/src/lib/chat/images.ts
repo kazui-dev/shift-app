@@ -1,7 +1,7 @@
 import type { ChatImageSize } from "@workspace/shared/communications"
 import { getChatImage, getChatLinkImage, getChatOriginal } from "@/api/chat"
 import { readCachedImage, storeCachedImage } from "@/lib/chat/image-cache"
-import { imagePreview } from "@/lib/chat/preview"
+import { displayCopy } from "@/lib/chat/copy"
 
 type Loaded<T> = { value: T; bytes: number }
 type Entry<T> = {
@@ -219,7 +219,7 @@ export function sentChatImage(user: string, room: string, id: string) {
   return sent.cached(keyOf(user, room, id))
 }
 
-/** Keeps the preview of a just-uploaded image to show once its send is confirmed. */
+/** Keeps the display copy of a just-uploaded image to show once its send is confirmed. */
 export async function keepSentImage(
   user: string,
   room: string,
@@ -227,8 +227,8 @@ export async function keepSentImage(
   blob: Blob
 ) {
   try {
-    const preview = await imagePreview(blob)
-    if (preview) sent.keep(keyOf(user, room, id), await decoded(preview.blob))
+    const copy = await displayCopy(blob)
+    if (copy) sent.keep(keyOf(user, room, id), await decoded(copy.blob))
   } catch {
     // Without a preview the sent image loads like any other.
   }

@@ -17,14 +17,14 @@ type AttachmentRow = {
   ready: number
   createdAt: number
 }
-/** What an upload records once its original is stored. */
-export type StoredAttachment = Omit<ChatAttachment, "id"> & {
+/** What an upload records once its image is stored. */
+export type StoredAttachment = Omit<ChatAttachment, "id" | "original"> & {
   type: StoredImageType
 }
 const selection =
   "SELECT id,object_key AS objectKey,member_id AS memberId,message_id AS messageId,ready,created_at AS createdAt FROM attachments"
 const sent =
-  "SELECT a.id,a.message_id AS messageId,a.width,a.height,a.bytes,a.name,a.type,m.created_at AS sentAt FROM attachments a JOIN messages m ON m.id=a.message_id"
+  "SELECT a.id,a.message_id AS messageId,a.width,a.height,a.bytes,a.name,a.type,a.original,m.created_at AS sentAt FROM attachments a JOIN messages m ON m.id=a.message_id"
 const expiry = 24 * 60 * 60 * 1000
 /** Tags per purge, kept small since the purge limits are not documented. */
 const purgeBatch = 30
@@ -59,6 +59,12 @@ export class ChatAttachments {
       "ALTER TABLE attachments ADD COLUMN reserved_bytes INTEGER NOT NULL DEFAULT 0;"
     )
   }
+  /** An image sent first as a display copy waits for its original. */
+  trackOriginals() {
+    this.storage.sql.exec(
+      "ALTER TABLE attachments ADD COLUMN original INTEGER NOT NULL DEFAULT 1;"
+    )
+  }
   /** Images keep the order they were sent in, whichever upload finished first. */
   keepSentOrder() {
     this.storage.sql.exec(
@@ -66,11 +72,13 @@ export class ChatAttachments {
     )
   }
   /** Counts an upload against the member's day as it starts, within `limit`. */
+  /** Counts an upload against the member's day as it starts; `copy` marks a display copy whose original follows. */
   async reserve(
     roomId: string,
     memberId: string,
     bytes: number,
-    limit: UploadLimit
+    limit: UploadLimit,
+    copy: boolean
   ) {
     const now = Date.now(),
       since = now - expiry
@@ -98,12 +106,13 @@ export class ChatAttachments {
     const id = crypto.randomUUID(),
       objectKey = chatImageKey(roomId, id)
     this.storage.sql.exec(
-      "INSERT INTO attachments(id,object_key,member_id,created_at,reserved_bytes) VALUES(?,?,?,?,?)",
+      "INSERT INTO attachments(id,object_key,member_id,created_at,reserved_bytes,original) VALUES(?,?,?,?,?,?)",
       id,
       objectKey,
       memberId,
       now,
-      bytes
+      bytes,
+      copy ? 0 : 1
     )
     const alarm = await this.storage.getAlarm()
     if (alarm === null || alarm > now + expiry)
@@ -125,6 +134,73 @@ export class ChatAttachments {
         )
         .toArray().length === 1
     )
+  }
+  /**
+   * Where a display copy's original goes, counting its bytes against the
+   * member's day; `missing` once the image is gone or its original arrived.
+   */
+  reserveOriginal(
+    id: string,
+    memberId: string,
+    bytes: number,
+    limit: UploadLimit
+  ): { objectKey: string } | "missing" | "limit" {
+    const row = this.storage.sql
+      .exec<{ objectKey: string }>(
+        "SELECT object_key AS objectKey FROM attachments WHERE id=? AND member_id=? AND ready=1 AND original=0",
+        id,
+        memberId
+      )
+      .toArray()[0]
+    if (!row) return "missing"
+    const now = Date.now(),
+      since = now - expiry
+    const counted = this.storage.sql
+      .exec(
+        `INSERT INTO image_upload_limits(member_id,started_at,count,bytes) VALUES(?,?,0,?)
+       ON CONFLICT(member_id) DO UPDATE SET
+       started_at=CASE WHEN started_at<=? THEN excluded.started_at ELSE started_at END,
+       count=CASE WHEN started_at<=? THEN 0 ELSE count END,
+       bytes=CASE WHEN started_at<=? THEN excluded.bytes ELSE bytes+excluded.bytes END
+       WHERE started_at<=? OR bytes+excluded.bytes<=? RETURNING bytes`,
+        memberId,
+        now,
+        bytes,
+        since,
+        since,
+        since,
+        since,
+        limit.bytes
+      )
+      .toArray()
+    return counted.length ? { objectKey: row.objectKey } : "limit"
+  }
+  /** Records that a display copy's original arrived; the message it is in, if any. */
+  finishOriginal(id: string, memberId: string, image: StoredAttachment) {
+    const row = this.storage.sql
+      .exec<{ messageId: string | null }>(
+        "UPDATE attachments SET original=1,width=?,height=?,bytes=?,name=?,type=? WHERE id=? AND member_id=? AND ready=1 AND original=0 RETURNING message_id AS messageId",
+        image.width,
+        image.height,
+        image.bytes,
+        image.name,
+        image.type,
+        id,
+        memberId
+      )
+      .toArray()[0]
+    return row ?? null
+  }
+  /** Lets a display copy stand as the original, as when the original is lost. */
+  keepCopy(id: string, memberId: string) {
+    const row = this.storage.sql
+      .exec<{ messageId: string | null }>(
+        "UPDATE attachments SET original=1 WHERE id=? AND member_id=? AND ready=1 AND original=0 RETURNING message_id AS messageId",
+        id,
+        memberId
+      )
+      .toArray()[0]
+    return row ?? null
   }
   claim(ids: string[], memberId: string, messageId: string) {
     if (new Set(ids).size !== ids.length)
@@ -155,16 +231,22 @@ export class ChatAttachments {
     if (!messageIds.length) return grouped
     const rows = this.storage.sql
       .exec<
-        StoredAttachment & { id: string; messageId: string; sentAt: number }
+        StoredAttachment & {
+          id: string
+          messageId: string
+          sentAt: number
+          original: number
+        }
       >(
         `${sent} WHERE a.message_id IN (SELECT value FROM json_each(?)) AND a.ready=1 ORDER BY a.position`,
         JSON.stringify(messageIds)
       )
       .toArray()
-    for (const { messageId, type, sentAt, ...image } of rows) {
+    for (const { messageId, type, sentAt, original, ...image } of rows) {
       const attachment = {
         ...image,
         name: attachmentFileName(image.name, type, sentAt),
+        original: original === 1,
       }
       const list = grouped.get(messageId)
       if (list) list.push(attachment)

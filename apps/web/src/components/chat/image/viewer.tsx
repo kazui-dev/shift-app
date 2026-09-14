@@ -37,6 +37,7 @@ export function ImageViewer({
   images,
   initialIndex,
   onIndexChange,
+  canSave,
   onSave,
   onClose,
   caption,
@@ -44,6 +45,8 @@ export function ImageViewer({
   images: ViewerImage[]
   initialIndex: number
   onIndexChange: (index: number) => void
+  /** Whether the image in view can be saved: only once its original has arrived. */
+  canSave: boolean
   onSave: () => void
   onClose: () => void
   caption: {
@@ -149,15 +152,17 @@ export function ImageViewer({
             >
               <Plus />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="画像を保存"
-              className="text-white hover:bg-white/20"
-              onClick={onSave}
-            >
-              <Download />
-            </Button>
+            {canSave && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="画像を保存"
+                className="text-white hover:bg-white/20"
+                onClick={onSave}
+              >
+                <Download />
+              </Button>
+            )}
           </div>
         </div>
         {count > 1 && (

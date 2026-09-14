@@ -4,8 +4,10 @@ import type { ChatAttachment } from "@workspace/shared/communications"
 import {
   deleteChatAttachment,
   deleteChatMessage,
+  keepChatImageCopy,
   sendChatMessage,
   uploadChatImage,
+  uploadChatOriginal,
 } from "@/api/chat"
 import { ApiError, errorMessage } from "@/api/client"
 
@@ -18,7 +20,7 @@ import {
 } from "@/lib/chat/state"
 import { loadChat, saveChat, clearChat } from "@/lib/chat/storage"
 import { keepSentImage } from "@/lib/chat/images"
-import { imagePreview } from "@/lib/chat/preview"
+import { displayCopy } from "@/lib/chat/copy"
 export type { ChatFile, ChatDraft, QueuedMessage } from "@/lib/chat/state"
 
 /** How far an image's upload has gone, or that it stopped; absent once uploaded. */
@@ -33,9 +35,10 @@ const concurrentUploads = 3
 const stores = new Map<string, ChatStore>()
 export class ChatStore {
   private state: State = {
-    version: 4,
+    version: 5,
     drafts: {},
     queue: [],
+    originals: [],
     ready: false,
     uploads: {},
   }
@@ -65,6 +68,8 @@ export class ChatStore {
         takenBack: boolean
       }
     | undefined
+  /** Whether an original is on its way, so originals go one at a time. */
+  private sendingOriginal = false
   /** Messages whose expired uploads were already sent again once. */
   private reuploaded = new Set<string>()
   constructor(userId: string) {
@@ -92,7 +97,7 @@ export class ChatStore {
         this.publish({
           ...(parsed.success
             ? parsed.output
-            : { version: 4, drafts: {}, queue: [] }),
+            : { version: 5, drafts: {}, queue: [], originals: [] }),
           ready: true,
           uploads: {},
         })
@@ -222,8 +227,26 @@ export class ChatStore {
       ...this.state,
       drafts,
       queue: this.state.queue.filter((item) => item.roomId !== roomId),
+      originals: this.state.originals.filter(
+        (original) => original.roomId !== roomId
+      ),
     })
     await this.persist()
+  }
+  /**
+   * Lets display copies stand as their originals before this device forgets
+   * the originals, as at sign-out. Best effort, and never longer than 3s.
+   */
+  async giveUpOriginals() {
+    await this.loading
+    await Promise.race([
+      Promise.allSettled(
+        this.state.originals.map((original) =>
+          keepChatImageCopy(original.roomId, original.attachmentId)
+        )
+      ),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ])
   }
   stop() {
     this.active = false
@@ -304,9 +327,20 @@ export class ChatStore {
         }
         if (!this.active) return
         onSent?.(message.roomId, result.message)
+        // Originals of display copies follow once the message is posted.
+        const originals = files
+          .filter((file) => !file.uploaded.original)
+          .map((file) => ({
+            fileId: file.id,
+            roomId: message.roomId,
+            attachmentId: file.uploaded.id,
+            name: file.name,
+            blob: file.blob,
+          }))
         this.publish({
           ...this.state,
           queue: this.state.queue.filter((item) => item.id !== message.id),
+          originals: [...this.state.originals, ...originals],
         })
         await this.persist()
       } catch (error) {
@@ -341,6 +375,7 @@ export class ChatStore {
     } finally {
       this.sending = undefined
       this.running = false
+      this.sendOriginals()
     }
     if (
       this.active &&
@@ -348,6 +383,47 @@ export class ChatStore {
       this.state.queue.some((item) => item.status === "waiting")
     )
       void this.flush(onSent)
+  }
+  /**
+   * Sends originals of display copies one at a time, only while no image is
+   * uploading and no message waits to send, so they never slow what is visible.
+   */
+  private sendOriginals() {
+    if (
+      this.sendingOriginal ||
+      this.running ||
+      this.uploading.size ||
+      this.state.queue.some((item) => item.status !== "failed") ||
+      !this.active ||
+      !this.state.ready ||
+      !navigator.onLine
+    )
+      return
+    const next = this.state.originals[0]
+    if (!next) return
+    this.sendingOriginal = true
+    void uploadChatOriginal(next.roomId, next.attachmentId, next)
+      .then(
+        () => true,
+        // Refused for good, as when the image is gone, it is not sent again;
+        // a lost connection, the day's limit or a server failure waits.
+        (error: unknown) =>
+          error instanceof ApiError &&
+          error.status !== 429 &&
+          error.status < 500
+      )
+      .then((done) => {
+        this.sendingOriginal = false
+        if (!done || !this.active) return
+        this.publish({
+          ...this.state,
+          originals: this.state.originals.filter(
+            (original) => original.fileId !== next.fileId
+          ),
+        })
+        void this.persist().catch(() => undefined)
+        this.sendOriginals()
+      })
   }
   /** Every drafted and queued image, with the room it goes to. */
   private files() {
@@ -374,6 +450,7 @@ export class ChatStore {
       )
         void this.upload(roomId, file).catch(() => undefined)
     }
+    this.sendOriginals()
   }
   /** An image's upload, joining the one already running for it. */
   private upload(roomId: string, file: ChatFile): Promise<ChatAttachment> {
@@ -384,38 +461,50 @@ export class ChatStore {
     if (running) return running.promise
     const controller = new AbortController()
     let reported = -1
-    const promise = uploadChatImage(roomId, current, {
-      signal: controller.signal,
-      onProgress: (sent, total) => {
-        // Whole percents only, so progress never floods the chat with renders.
-        const percent = Math.floor((sent / total) * 100)
-        if (percent === reported || !this.uploading.has(file.id)) return
-        reported = percent
-        this.setUpload(file.id, { sent, total })
-      },
-    }).then(
-      ({ attachment }) => {
-        this.uploading.delete(file.id)
-        if (controller.signal.aborted) {
-          // Taken out just as the server kept it, so it is given back.
-          void deleteChatAttachment(roomId, attachment.id).catch(
-            () => undefined
-          )
+    // A display copy goes first when it is much smaller; its original follows the message.
+    const promise = displayCopy(current.blob)
+      .then((made) => {
+        if (controller.signal.aborted)
           throw new DOMException("Aborted", "AbortError")
+        const copy = made?.copied ? made.blob : null
+        return uploadChatImage(
+          roomId,
+          { name: current.name, blob: copy ?? current.blob, copy: !!copy },
+          {
+            signal: controller.signal,
+            onProgress: (sent, total) => {
+              // Whole percents only, so progress never floods the chat with renders.
+              const percent = Math.floor((sent / total) * 100)
+              if (percent === reported || !this.uploading.has(file.id)) return
+              reported = percent
+              this.setUpload(file.id, { sent, total })
+            },
+          }
+        )
+      })
+      .then(
+        ({ attachment }) => {
+          this.uploading.delete(file.id)
+          if (controller.signal.aborted) {
+            // Taken out just as the server kept it, so it is given back.
+            void deleteChatAttachment(roomId, attachment.id).catch(
+              () => undefined
+            )
+            throw new DOMException("Aborted", "AbortError")
+          }
+          this.setUpload(file.id, undefined)
+          this.updateFile(file.id, { uploaded: attachment })
+          void this.persist().catch(() => undefined)
+          this.prepareFiles()
+          return attachment
+        },
+        (error: unknown) => {
+          this.uploading.delete(file.id)
+          if (!controller.signal.aborted) this.setUpload(file.id, "failed")
+          this.prepareFiles()
+          throw error
         }
-        this.setUpload(file.id, undefined)
-        this.updateFile(file.id, { uploaded: attachment })
-        void this.persist().catch(() => undefined)
-        this.prepareFiles()
-        return attachment
-      },
-      (error: unknown) => {
-        this.uploading.delete(file.id)
-        if (!controller.signal.aborted) this.setUpload(file.id, "failed")
-        this.prepareFiles()
-        throw error
-      }
-    )
+      )
     this.uploading.set(file.id, { controller, promise })
     this.setUpload(file.id, { sent: 0, total: current.blob.size })
     return promise
@@ -432,7 +521,7 @@ export class ChatStore {
         )
     }
   }
-  /** Reads attached images' sizes one at a time, for the frames they are sent in. */
+  /** Makes attached images' display copies one at a time, reading their sizes for the frames they are sent in. */
   private measure() {
     if (this.measuring || !this.active) return
     const next = this.files().find(
@@ -442,11 +531,11 @@ export class ChatStore {
     if (!next) return
     this.measuring = true
     this.measured.add(next.file.id)
-    void imagePreview(next.file.blob)
-      .then((preview) => {
-        if (preview)
+    void displayCopy(next.file.blob)
+      .then((copy) => {
+        if (copy)
           this.updateFile(next.file.id, {
-            dimensions: { width: preview.width, height: preview.height },
+            dimensions: { width: copy.width, height: copy.height },
           })
       })
       .finally(() => {
@@ -500,6 +589,9 @@ export function chatStore(userId: string) {
   return store
 }
 export async function clearChatStorage() {
+  await Promise.all(
+    [...stores.values()].map((store) => store.giveUpOriginals())
+  )
   for (const store of stores.values()) store.stop()
   stores.clear()
   await clearChat()
