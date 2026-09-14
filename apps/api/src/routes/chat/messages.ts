@@ -1,4 +1,4 @@
-import { Hono, type Context } from "hono"
+import { Hono } from "hono"
 import * as v from "valibot"
 
 import {
@@ -8,9 +8,7 @@ import {
 
 import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
-import { messageLinks } from "@workspace/shared/messages"
 import { publishChatEvent } from "../../services/chat-directory"
-import { linkPreview, sharedRoutes, warmShared } from "../../lib/shared-cache"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
 import type { RoomEnv } from "./room"
@@ -39,23 +37,6 @@ const rejectedSend = [
   "MESSAGE_ID_CONFLICT",
   "INVALID_CHAT_REPLY",
 ]
-
-/** The first link's preview, stored with the message so its card is sized before it renders. */
-async function firstLinkPreview(content: string) {
-  const link = messageLinks(content).find((part) => part.href)?.href
-  return link ? linkPreview(link) : null
-}
-
-/** Makes a stored message's card image ahead of its first reader. */
-function warmCardImage(
-  c: Context<RoomEnv>,
-  message: { linkPreview: { url: string; image: string | null } | null }
-) {
-  if (message.linkPreview?.image)
-    c.executionCtx.waitUntil(
-      warmShared(sharedRoutes.linkImages, { url: message.linkPreview.url })
-    )
-}
 
 export const messagesApp = new Hono<RoomEnv>()
 
@@ -87,7 +68,6 @@ messagesApp.post("/messages", async (c) => {
     member = c.get("member")
   if (!room.canPost) return apiError(c, errors.chatReadOnly)
   const stub = c.env.CHAT_ROOMS.getByName(room.id)
-  const preview = await firstLinkPreview(input.output.content)
   const message = await stub
     .sendMessage({
       roomId: room.id,
@@ -98,7 +78,6 @@ messagesApp.post("/messages", async (c) => {
       createdAt: Date.now(),
       attachmentIds: input.output.attachmentIds,
       ...(input.output.replyToId ? { replyToId: input.output.replyToId } : {}),
-      linkPreview: preview,
     })
     .catch((error: unknown) => {
       if (!(error instanceof Error)) throw error
@@ -145,7 +124,6 @@ messagesApp.post("/messages", async (c) => {
         message: enriched,
       })
     )
-  warmCardImage(c, message)
   return c.json({ message: enriched }, 201)
 })
 
@@ -167,9 +145,7 @@ for (const method of ["patch", "delete"] as const) {
       roomId,
       id: id.output,
       memberId: c.get("member").id,
-      ...(content === undefined
-        ? {}
-        : { content, linkPreview: await firstLinkPreview(content) }),
+      ...(content === undefined ? {} : { content }),
     })
     if ("error" in result) {
       if (result.error === "not_found")
@@ -187,7 +163,6 @@ for (const method of ["patch", "delete"] as const) {
           message,
         })
       )
-    if (result.changed) warmCardImage(c, result.message)
     return c.json({ message })
   })
 }

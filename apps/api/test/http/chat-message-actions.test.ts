@@ -3,23 +3,10 @@ import { beforeEach, expect, it, vi } from "vite-plus/test"
 import { chatApp } from "../../src/routes/chat/index"
 import type { ApiEnv } from "../../src/lib/http"
 import { findAccessibleRoom } from "../../src/services/chat-access"
-import { linkPreview, warmShared } from "../../src/lib/shared-cache"
 import { chatRoom } from "../support/chat"
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
-vi.mock("../../src/lib/shared-cache", async (original) => ({
-  ...(await original<typeof import("../../src/lib/shared-cache")>()),
-  linkPreview: vi.fn<typeof linkPreview>(),
-  warmShared: vi.fn<typeof warmShared>(),
-}))
-const preview = {
-  url: "https://example.com/a",
-  title: "A",
-  description: "",
-  site: "example.com",
-  image: "https://example.com/a.png",
-}
 const roomId = "10000000-0000-4000-8000-000000000001",
   messageId = "20000000-0000-4000-8000-000000000001"
 const change = vi.fn<() => Promise<{ error: "forbidden" }>>(),
@@ -69,32 +56,6 @@ it("validates edits before the room call and returns server permission failures"
     id: messageId,
     memberId: "trusted",
   })
-})
-
-it("stores an edit with its first link's preview, making the card image only once the edit lands", async () => {
-  vi.mocked(linkPreview).mockResolvedValue(preview)
-  const url = `/chat/rooms/${roomId}/messages/${messageId}`
-  const content = "see https://example.com/a and https://example.com/b"
-  const edit = () =>
-    app.request(
-      url,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      },
-      env
-    )
-  expect((await edit()).status).toBe(403)
-  expect(linkPreview).toHaveBeenCalledWith("https://example.com/a")
-  expect(change).toHaveBeenCalledWith({
-    roomId,
-    id: messageId,
-    memberId: "trusted",
-    content,
-    linkPreview: preview,
-  })
-  expect(warmShared).not.toHaveBeenCalled()
 })
 
 it("never reaches the room when the member cannot read it", async () => {

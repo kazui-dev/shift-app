@@ -1,7 +1,7 @@
 import * as v from "valibot"
 import { chatLinkPreviewSchema } from "@workspace/shared/communications"
 import { previewText } from "../domain/link-preview"
-import { fetchLink, limitedBody, publicLink } from "./link-fetch"
+import { fetchLink, limitedBody, publicLink, type OwnSite } from "./link-fetch"
 type Preview = v.InferOutput<typeof chatLinkPreviewSchema>["preview"]
 const imageTypes = [
   "image/jpeg",
@@ -11,13 +11,17 @@ const imageTypes = [
   "image/gif",
 ]
 /** What a public page says about itself, or `null` when it cannot be read. */
-export async function loadLinkPreview(value: string): Promise<Preview> {
+export async function loadLinkPreview(
+  value: string,
+  site?: OwnSite
+): Promise<Preview> {
   try {
     const { response, url } = await fetchLink(
       value,
       "text/html",
-      // A message waits for its preview before it is stored.
-      AbortSignal.timeout(3000)
+      // Cards are made after sending, so a slow page may take its time.
+      AbortSignal.timeout(10_000),
+      site
     )
     if (!response.headers.get("content-type")?.includes("text/html")) {
       await response.body?.cancel()
@@ -70,13 +74,15 @@ export async function loadLinkPreview(value: string): Promise<Preview> {
  */
 export async function loadLinkImage(
   images: Pick<ImagesBinding, "info" | "input">,
-  value: string
+  value: string,
+  site?: OwnSite
 ) {
   try {
     const { response } = await fetchLink(
       value,
       "image/avif,image/webp,image/png,image/jpeg,image/gif",
-      AbortSignal.timeout(10_000)
+      AbortSignal.timeout(10_000),
+      site
     )
     const bytes = await limitedBody(response, 20 * 1024 * 1024)
     const info = await images.info(new Blob([bytes]).stream())

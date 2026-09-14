@@ -11,7 +11,8 @@ vi.mock("../../src/services/link-preview", () => ({
   loadLinkPreview: vi.fn<typeof loadLinkPreview>(),
   loadLinkImage: vi.fn<typeof loadLinkImage>(),
 }))
-const env = { IMAGES: {} }
+const env = { IMAGES: {}, ASSETS: {}, BETTER_AUTH_URL: "https://app.example" }
+const site = { host: "app.example", assets: env.ASSETS }
 const page = "https://example.com/path"
 const preview = {
   url: page,
@@ -30,7 +31,7 @@ it("caches a page's preview for a day and a failed read briefly", async () => {
   const found = await request("/v1/link-previews")
   expect(await found.json()).toEqual({ preview })
   expect(found.headers.get("Cache-Control")).toBe("public, max-age=86400")
-  expect(loadLinkPreview).toHaveBeenCalledWith(page)
+  expect(loadLinkPreview).toHaveBeenCalledWith(page, site)
 
   vi.mocked(loadLinkPreview).mockResolvedValue(null)
   const missing = await request("/v1/link-previews")
@@ -47,7 +48,7 @@ it("builds a card image from the cached preview and keeps it for a week", async 
   expect(found.headers.get("Content-Type")).toBe("image/webp")
   expect(found.headers.get("Cache-Control")).toBe("public, max-age=604800")
   expect(linkPreview).toHaveBeenCalledWith(page)
-  expect(loadLinkImage).toHaveBeenCalledWith(env.IMAGES, preview.image)
+  expect(loadLinkImage).toHaveBeenCalledWith(env.IMAGES, preview.image, site)
 })
 describe("chat images", () => {
   type Stored = {
