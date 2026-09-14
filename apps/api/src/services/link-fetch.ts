@@ -72,22 +72,34 @@ async function checkDns(host: string, signal: AbortSignal) {
   )
     throw new Error("Non-public address")
 }
+/** The app's own site, whose pages a Worker reads from its assets. */
+export type OwnSite = {
+  host: string
+  assets: { fetch: (input: URL, init: RequestInit) => Promise<Response> }
+}
+
 export async function fetchLink(
   value: string,
   accept: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  site?: OwnSite
 ) {
   async function visit(
     url: URL,
     remaining: number
   ): Promise<{ response: Response; url: URL }> {
     if (!remaining) throw new Error("Too many redirects")
-    await checkDns(url.hostname, signal)
-    const response = await fetch(url, {
+    const init: RequestInit = {
       redirect: "manual",
       signal,
       headers: { Accept: accept, "User-Agent": "ShiftApp-LinkPreview/1.0" },
-    })
+    }
+    // A Worker cannot fetch its own domain over the network.
+    const own = site !== undefined && url.host === site.host
+    if (!own) await checkDns(url.hostname, signal)
+    const response = own
+      ? await site.assets.fetch(url, init)
+      : await fetch(url, init)
     if (response.status >= 300 && response.status < 400) {
       await response.body?.cancel()
       const next = response.headers.get("location")

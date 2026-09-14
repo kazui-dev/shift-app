@@ -7,7 +7,11 @@ import {
   type LinkPreview,
 } from "@workspace/shared/communications"
 import { purgeShared } from "../lib/shared-cache"
+import { publishChatEvent } from "../services/chat-directory"
+import { withMemberImages } from "../services/chat-profiles"
+import { makeLinkCard } from "../services/link-card"
 import { ChatAttachments, type StoredAttachment } from "./chat-attachments"
+import { cardLink, ChatLinkCards } from "./chat-link-cards"
 import { DurableObject } from "cloudflare:workers"
 
 type ChatMessage = {
@@ -28,7 +32,7 @@ type ChatMessage = {
   editedAt?: string
   deleted?: boolean
   attachments: ChatAttachment[]
-  /** The first link's card, or `null` when the message has none. */
+  /** The first link's card once it is made, or `null`. */
   linkPreview: LinkPreview | null
 }
 
@@ -59,6 +63,7 @@ function storedPreview(value: string | null) {
 export class ChatRoom extends DurableObject<CloudflareBindings> {
   private deleted = false
   private attachments: ChatAttachments
+  private cards: ChatLinkCards
 
   async deleteMessages(roomId: string) {
     const room = await this.env.shift_app
@@ -70,6 +75,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     for (const socket of this.ctx.getWebSockets())
       socket.close(1000, "Room deleted")
     await this.attachments.clean(true)
+    this.cards.clear()
     this.ctx.storage.sql.exec("DELETE FROM messages")
   }
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {
@@ -79,6 +85,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       env.CHAT_IMAGES,
       purgeShared
     )
+    this.cards = new ChatLinkCards(ctx.storage, makeLinkCard)
     void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
   }
 
@@ -103,8 +110,9 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0;`),
       () => this.attachments.storeOriginals(),
       () => this.attachments.keepSentOrder(),
-      // A message keeps its first link's preview, so its card is known before it renders.
+      // A message keeps its first link's card, so the card is known before it renders.
       () => sql.exec("ALTER TABLE messages ADD COLUMN link_preview TEXT;"),
+      () => this.cards.createTables(),
     ]
     sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,
@@ -138,8 +146,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     memberId: string
     id: string
     content?: string
-    /** The new content's first link preview, resolved before the change. */
-    linkPreview?: LinkPreview | null
   }) {
     const room = await findAccessibleRoom(
       this.env,
@@ -170,22 +176,30 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     if (!deleting && input.content === row.content)
       return { message: this.toMessage(row), changed: false }
     if (deleting) await this.ctx.storage.setAlarm(Date.now() + 1000)
-    this.ctx.storage.transactionSync(() => {
+    const now = Date.now()
+    const due = this.ctx.storage.transactionSync(() => {
       if (deleting) {
         this.ctx.storage.sql.exec(
-          "UPDATE messages SET content='',deleted=1,link_preview=NULL WHERE id=?",
+          "UPDATE messages SET content='',deleted=1 WHERE id=?",
           row.id
         )
         this.attachments.deleteMessage(row.id)
-      } else
-        this.ctx.storage.sql.exec(
-          "UPDATE messages SET content=?,edited_at=?,link_preview=? WHERE id=?",
-          input.content ?? "",
-          Date.now(),
-          input.linkPreview ? JSON.stringify(input.linkPreview) : null,
-          row.id
-        )
+        return this.cards.request(input.roomId, row.id, null, now)
+      }
+      const content = input.content ?? ""
+      this.ctx.storage.sql.exec(
+        "UPDATE messages SET content=?,edited_at=? WHERE id=?",
+        content,
+        now,
+        row.id
+      )
+      // The card stays while the first link does.
+      const link = cardLink(content)
+      return link === cardLink(row.content)
+        ? null
+        : this.cards.request(input.roomId, row.id, link, now)
     })
+    if (due !== null) await this.schedule(due)
     const updated = this.findMessage(row.id)
     if (!updated) throw new Error("Message disappeared")
     return { message: this.toMessage(updated), changed: true }
@@ -207,10 +221,35 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   override async alarm() {
     try {
       await this.attachments.clean()
+      const { stored, next } = await this.cards.run(Date.now())
+      // A card is stored whether or not its members hear of it now.
+      await Promise.allSettled(
+        stored.map((job) => this.publishCard(job.roomId, job.messageId))
+      )
+      if (next !== null) await this.schedule(next)
     } catch (error) {
       await this.ctx.storage.setAlarm(Date.now() + 300_000)
       throw error
     }
+  }
+
+  /** Sets the alarm for `at`, unless an earlier one is already set. */
+  private async schedule(at: number) {
+    const current = await this.ctx.storage.getAlarm()
+    if (current === null || at < current) await this.ctx.storage.setAlarm(at)
+  }
+
+  /** Tells the room a message now shows its card. */
+  private async publishCard(roomId: string, messageId: string) {
+    const row = this.findMessage(messageId)
+    if (!row) return
+    const [message] = await withMemberImages(this.env, [this.toMessage(row)])
+    if (message)
+      await publishChatEvent(this.env, {
+        type: "message_changed",
+        roomId,
+        message,
+      })
   }
 
   getMessages(
@@ -266,7 +305,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
-  /** The stored preview of a message's first link, while the message stands. */
+  /** The stored card of a message's first link, while the message stands. */
   linkPreview(id: string) {
     const row = this.findMessage(id)
     return row && !row.deleted ? storedPreview(row.linkPreview) : null
@@ -281,8 +320,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     createdAt: number
     replyToId?: string
     attachmentIds: string[]
-    /** The content's first link preview, resolved before sending. */
-    linkPreview: LinkPreview | null
   }): Promise<ChatMessage> {
     const permission = await findAccessibleRoom(
       this.env,
@@ -301,25 +338,33 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       const target = this.findMessage(input.replyToId)
       if (!target || target.deleted) throw new Error("INVALID_CHAT_REPLY")
     }
-    const row = this.ctx.storage.transactionSync(() => {
+    const { row, due } = this.ctx.storage.transactionSync(() => {
       const inserted = this.ctx.storage.sql
         .exec<StoredMessage>(
           `INSERT INTO messages
-          (id, member_id, member_display_name, content, created_at, reply_to_id, link_preview)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+          (id, member_id, member_display_name, content, created_at, reply_to_id)
+         VALUES (?, ?, ?, ?, ?, ?)
          RETURNING ${messageColumns}`,
           input.id,
           input.memberId,
           input.memberDisplayName,
           input.content,
           input.createdAt,
-          input.replyToId ?? null,
-          input.linkPreview ? JSON.stringify(input.linkPreview) : null
+          input.replyToId ?? null
         )
         .one()
       this.attachments.claim(input.attachmentIds, input.memberId, input.id)
-      return inserted
+      return {
+        row: inserted,
+        due: this.cards.request(
+          input.roomId,
+          input.id,
+          cardLink(input.content),
+          Date.now()
+        ),
+      }
     })
+    if (due !== null) await this.schedule(due)
     return this.toMessage(row)
   }
 

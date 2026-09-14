@@ -49,8 +49,8 @@ export function MessageLinkPreview({
           </span>
         )}
       </div>
+      {/* A stored image was made once, so its place stays while it loads or fails to. */}
       {preview.image &&
-        !image.failed &&
         (image.src ? (
           <img
             src={image.src}
@@ -59,7 +59,6 @@ export function MessageLinkPreview({
             onError={image.retry}
           />
         ) : (
-          // The card's own ground, so an image that never loads changes no colour.
           <span aria-hidden className="h-28 w-28 shrink-0" />
         ))}
     </a>

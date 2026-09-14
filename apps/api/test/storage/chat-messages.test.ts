@@ -4,9 +4,20 @@ import { ChatRoom } from "../../src/durable-objects/chat-room"
 import { findAccessibleRoom } from "../../src/services/chat-access"
 import { roomRecipients } from "../../src/services/chat-permissions"
 import { purgeShared } from "../../src/lib/shared-cache"
+import { publishChatEvent } from "../../src/services/chat-directory"
+import { makeLinkCard } from "../../src/services/link-card"
 import { chatRoom } from "../support/chat"
 vi.mock("../../src/lib/shared-cache", () => ({
   purgeShared: vi.fn<typeof purgeShared>().mockResolvedValue(undefined),
+}))
+vi.mock("../../src/services/link-card", () => ({
+  makeLinkCard: vi.fn<typeof makeLinkCard>(),
+}))
+vi.mock("../../src/services/chat-directory", () => ({
+  publishChatEvent: vi.fn<typeof publishChatEvent>(),
+}))
+vi.mock("../../src/services/chat-profiles", () => ({
+  withMemberImages: async (_env: unknown, messages: unknown) => messages,
 }))
 vi.mock("../../src/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
@@ -87,45 +98,108 @@ const input = (id: string) => ({
   content: "original",
   createdAt: 100,
   attachmentIds: [],
-  linkPreview: null,
 })
-const preview = (path: string) => ({
+const card = (path: string) => ({
   url: `https://example.com/${path}`,
   title: path,
   description: "",
   site: "example.com",
   image: `https://example.com/${path}.png`,
 })
-it("keeps the first link's preview with the message, replaced on edit and dropped on delete", async () => {
-  const { value, db } = fixture()
+const editFirst = (content?: string) => ({
+  roomId: "room",
+  memberId: "author",
+  id: "first",
+  ...(content === undefined ? {} : { content }),
+})
+it("sends without waiting on the link, then stores its card and tells the room", async () => {
+  const { value, storage } = fixture()
+  vi.mocked(makeLinkCard).mockResolvedValue(card("a"))
   const sent = await value.sendMessage({
     ...input("first"),
-    linkPreview: preview("a"),
+    content: "see https://example.com/a and https://example.com/b",
   })
-  expect(sent.linkPreview).toEqual(preview("a"))
+  expect(sent.linkPreview).toBeNull()
+  expect(makeLinkCard).not.toHaveBeenCalled()
+  expect(storage.setAlarm).toHaveBeenCalled()
+  await value.alarm()
+  expect(makeLinkCard).toHaveBeenCalledWith("https://example.com/a")
   expect(value.getMessages(null, 100).messages[0]?.linkPreview).toEqual(
-    preview("a")
+    card("a")
   )
-  expect(
-    await value.changeMessage({
-      roomId: "room",
-      memberId: "author",
-      id: "first",
-      content: "no link now",
-    })
-  ).toMatchObject({ message: { linkPreview: null } })
-  await value.changeMessage({
+  expect(publishChatEvent).toHaveBeenCalledWith(expect.anything(), {
+    type: "message_changed",
     roomId: "room",
-    memberId: "author",
-    id: "first",
-    content: "https://example.com/b",
-    linkPreview: preview("b"),
+    message: expect.objectContaining({ id: "first", linkPreview: card("a") }),
   })
-  expect(value.linkPreview("first")).toEqual(preview("b"))
-  // A stored preview that no longer reads as one shows no card.
+})
+it("tries a failed card twice more, later each time, then leaves the message without one", async () => {
+  vi.useFakeTimers({ now: 1_000_000 })
+  try {
+    const { value, storage } = fixture()
+    vi.mocked(makeLinkCard).mockResolvedValue(null)
+    await value.sendMessage({
+      ...input("first"),
+      content: "https://example.com/a",
+    })
+    await value.alarm()
+    expect(storage.setAlarm).toHaveBeenLastCalledWith(1_000_000 + 360_000)
+    vi.setSystemTime(1_360_000)
+    await value.alarm()
+    expect(storage.setAlarm).toHaveBeenLastCalledWith(1_360_000 + 1_800_000)
+    const scheduled = storage.setAlarm.mock.calls.length
+    vi.setSystemTime(3_160_000)
+    await value.alarm()
+    expect(makeLinkCard).toHaveBeenCalledTimes(3)
+    expect(storage.setAlarm).toHaveBeenCalledTimes(scheduled)
+    expect(value.linkPreview("first")).toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+it("never stores a card for a link the message no longer has", async () => {
+  const { value } = fixture()
+  let finish: (made: ReturnType<typeof card>) => void = () => {}
+  vi.mocked(makeLinkCard)
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      })
+    )
+    .mockResolvedValue(card("b"))
+  await value.sendMessage({
+    ...input("first"),
+    content: "https://example.com/a",
+  })
+  const running = value.alarm()
+  await vi.waitFor(() => expect(makeLinkCard).toHaveBeenCalledOnce())
+  await value.changeMessage(editFirst("https://example.com/b"))
+  finish(card("a"))
+  await running
+  expect(value.linkPreview("first")).toBeNull()
+  await value.alarm()
+  expect(value.linkPreview("first")).toEqual(card("b"))
+})
+it("keeps a card while the first link stays, and drops it when the link changes or the message goes", async () => {
+  const { value, db } = fixture()
+  vi.mocked(makeLinkCard).mockResolvedValue(card("a"))
+  await value.sendMessage({
+    ...input("first"),
+    content: "https://example.com/a",
+  })
+  await value.alarm()
+  await value.changeMessage(editFirst("https://example.com/a again"))
+  expect(value.linkPreview("first")).toEqual(card("a"))
+  expect(makeLinkCard).toHaveBeenCalledOnce()
+  await value.changeMessage(editFirst("no link now"))
+  expect(value.linkPreview("first")).toBeNull()
+  await value.changeMessage(editFirst("https://example.com/a"))
+  await value.alarm()
+  expect(value.linkPreview("first")).toEqual(card("a"))
+  // A stored card that no longer reads as one shows none.
   db.exec("UPDATE messages SET link_preview='{}' WHERE id='first'")
   expect(value.linkPreview("first")).toBeNull()
-  await value.changeMessage({ roomId: "room", memberId: "author", id: "first" })
+  await value.changeMessage(editFirst())
   expect(value.linkPreview("first")).toBeNull()
   expect(value.linkPreview("missing")).toBeNull()
 })
@@ -310,6 +384,11 @@ it("drops every cached size of a deleted room", async () => {
       value.reserveAttachment("room", member, 1)
     )
   )
+  // A card still waiting to be made goes with the room.
+  await value.sendMessage({
+    ...input("first"),
+    content: "https://example.com/a",
+  })
   await value.deleteMessages("room")
   expect(purgeShared).toHaveBeenCalledWith(["chat-room:room"])
 })
