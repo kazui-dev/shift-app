@@ -1,6 +1,5 @@
 import { expect, it } from "vite-plus/test"
 import {
-  attendanceButtonShown,
   attendanceLabel,
   attendanceOpen,
 } from "@/components/calendar/assignment-actions"
@@ -19,24 +18,6 @@ const attendance = (state: "late" | "absent" | "present") => ({
   checkInStatus: null,
   resolvedAt: null,
   updatedAt: "2026-09-15T00:00:00.000Z",
-})
-
-it("shows the attendance button from 30 minutes before a shift until it ends, or once set", () => {
-  expect(attendanceButtonShown(shift, at("2026-09-15T00:29:59.999Z"))).toBe(
-    false
-  )
-  expect(attendanceButtonShown(shift, at("2026-09-15T00:30:00.000Z"))).toBe(
-    true
-  )
-  expect(attendanceButtonShown(shift, at("2026-09-15T02:00:00.000Z"))).toBe(
-    false
-  )
-  expect(
-    attendanceButtonShown(
-      { ...shift, attendance: attendance("absent") },
-      at("2026-09-14T00:00:00.000Z")
-    )
-  ).toBe(true)
 })
 
 it("takes attendance until a shift ends, and never after checking in", () => {

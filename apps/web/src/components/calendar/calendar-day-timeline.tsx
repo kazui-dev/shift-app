@@ -1,4 +1,4 @@
-import { memo } from "react"
+import { memo, useRef } from "react"
 import { Clock } from "lucide-react"
 
 import type { CalendarAssignment } from "@/api/assignments"
@@ -15,25 +15,35 @@ import {
   calendarInset,
   calendarTimelineHeight,
 } from "./calendar-layout"
-import { attendanceButtonShown, attendanceLabel } from "./assignment-actions"
+import { attendanceLabel } from "./assignment-actions"
 
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
+/** How long a card is held before it opens its attendance. */
+const holdMs = 450
 
 export const CalendarDayTimeline = memo(function CalendarDayTimeline({
   date,
   assignments,
   now,
-  nowMs,
   onAttendance,
 }: {
   date: string
   assignments: CalendarAssignment[]
   now: JapanDateTime
-  nowMs: number
   onAttendance: (assignmentId: string) => void
 }) {
   const nowMinute = now.hour * 60 + now.minute
   const showNow = date === now.date
+  const hold = useRef<{
+    timer: ReturnType<typeof setTimeout>
+    x: number
+    y: number
+  } | null>(null)
+  const held = useRef(false)
+  const release = () => {
+    if (hold.current) clearTimeout(hold.current.timer)
+    hold.current = null
+  }
 
   return (
     <section
@@ -97,7 +107,6 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
             30,
             ((endMinute - startMinute) / 60) * calendarHourHeight
           )
-          const badge = attendanceButtonShown(assignment, nowMs)
           return (
             <div
               key={assignment.id}
@@ -111,8 +120,46 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
               <button
                 type="button"
                 aria-label={`${assignment.activityName}の勤怠`}
-                className="absolute inset-0 hover:bg-foreground/5"
-                onClick={() => onAttendance(assignment.id)}
+                className="absolute inset-0 select-none [-webkit-touch-callout:none] hover:bg-foreground/5"
+                onPointerDown={(event) => {
+                  held.current = false
+                  release()
+                  if (!event.isPrimary || event.button !== 0) return
+                  hold.current = {
+                    x: event.clientX,
+                    y: event.clientY,
+                    timer: setTimeout(() => {
+                      held.current = true
+                      hold.current = null
+                      onAttendance(assignment.id)
+                    }, holdMs),
+                  }
+                }}
+                onPointerMove={(event) => {
+                  if (
+                    hold.current &&
+                    Math.hypot(
+                      event.clientX - hold.current.x,
+                      event.clientY - hold.current.y
+                    ) > 10
+                  )
+                    release()
+                }}
+                onPointerUp={release}
+                onPointerCancel={release}
+                onContextMenu={(event) => {
+                  event.preventDefault()
+                  release()
+                  onAttendance(assignment.id)
+                }}
+                onClick={() => {
+                  // A hold has already opened it.
+                  if (held.current) {
+                    held.current = false
+                    return
+                  }
+                  onAttendance(assignment.id)
+                }}
               />
               <span
                 aria-hidden="true"
@@ -134,16 +181,14 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                     </span>
                   )}
                 </div>
-                {badge && (
-                  <span
-                    className={cn(
-                      buttonVariants({ variant: "outline", size: "xs" }),
-                      "shrink-0 bg-clip-padding"
-                    )}
-                  >
-                    {attendanceLabel(assignment)}
-                  </span>
-                )}
+                <span
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "xs" }),
+                    "shrink-0 bg-clip-padding"
+                  )}
+                >
+                  {attendanceLabel(assignment)}
+                </span>
               </div>
             </div>
           )

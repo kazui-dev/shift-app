@@ -12,7 +12,6 @@ export function CalendarCarousel({
   date,
   assignmentsByDate,
   now,
-  nowMs,
   onDateChange,
   onProgress,
   onAttendance,
@@ -20,7 +19,6 @@ export function CalendarCarousel({
   date: string
   assignmentsByDate: Map<string, CalendarAssignment[]>
   now: JapanDateTime
-  nowMs: number
   onDateChange: (date: string) => void
   onProgress: (date: string, offset: number) => void
   onAttendance: (assignmentId: string) => void
@@ -56,7 +54,6 @@ export function CalendarCarousel({
                 date={slideDate}
                 assignments={assignmentsByDate.get(slideDate) ?? noAssignments}
                 now={now}
-                nowMs={nowMs}
                 onAttendance={onAttendance}
               />
             </section>

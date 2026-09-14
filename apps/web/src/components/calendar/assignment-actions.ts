@@ -1,23 +1,5 @@
 import type { CalendarAssignment } from "@/api/assignments"
 
-/** How long before a shift starts its card offers attendance. */
-const attendanceLead = 30 * 60 * 1000
-
-/**
- * Whether a shift's card shows its attendance button: from 30 minutes before
- * it starts until it ends, and whenever attendance has been set.
- */
-export function attendanceButtonShown(
-  assignment: Pick<CalendarAssignment, "startsAt" | "endsAt" | "attendance">,
-  now: number
-) {
-  return (
-    !!assignment.attendance ||
-    (now >= Date.parse(assignment.startsAt) - attendanceLead &&
-      now < Date.parse(assignment.endsAt))
-  )
-}
-
 /** Whether attendance can still be set for a shift. */
 export const attendanceOpen = (
   assignment: Pick<CalendarAssignment, "endsAt" | "attendance">,

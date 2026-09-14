@@ -213,7 +213,6 @@ export function CalendarPage() {
             date={date}
             assignmentsByDate={calendarAssignments.byDate}
             now={now}
-            nowMs={nowMs}
             onDateChange={changeDate}
             onProgress={updateWeekHeader}
             onAttendance={openAttendance}
