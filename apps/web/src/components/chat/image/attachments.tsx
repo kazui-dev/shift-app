@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type ReactNode } from "react"
+import { useLayoutEffect, useState } from "react"
 import { ImageIcon } from "lucide-react"
 import type {
   ChatAttachment,
@@ -129,14 +129,7 @@ function FrameContent({
  * One image keeps its own proportions; several share one rounded frame,
  * arranged by the mosaic rule. Sent and still-sending images use the same frame.
  */
-function ImageFrame({
-  images,
-  badge,
-}: {
-  images: FrameImage[]
-  /** A mark over the frame's corner, as on an image that failed to send. */
-  badge?: ReactNode
-}) {
+function ImageFrame({ images }: { images: FrameImage[] }) {
   const [first] = images
   if (!first) return null
   if (images.length === 1)
@@ -147,7 +140,6 @@ function ImageFrame({
         style={singleImageSize(first.dimensions)}
       >
         <FrameContent image={first} fit="contain" />
-        {badge}
       </div>
     )
   const tile = (image: FrameImage, className = "") => (
@@ -174,7 +166,6 @@ function ImageFrame({
         {images.map((image, index) =>
           tile(image, index === 0 ? "row-span-2" : "")
         )}
-        {badge}
       </div>
     )
   let offset = 0
@@ -201,7 +192,6 @@ function ImageFrame({
           </div>
         )
       })}
-      {badge}
     </div>
   )
 }
@@ -236,15 +226,12 @@ export function MessageImages({
 export function PendingImages({
   files,
   uploads,
-  badge,
 }: {
   files: ChatFile[]
   uploads: Record<string, UploadProgress>
-  badge?: ReactNode
 }) {
   return (
     <ImageFrame
-      badge={badge}
       images={files.map((file) => ({
         kind: "pending" as const,
         key: file.id,

@@ -211,11 +211,6 @@ export function ChatMessages({
                           state: { chatOverlay: "image" },
                           resetScroll: false,
                         }),
-                      onRetry: () => {
-                        if (offline || !navigator.onLine) setBlockedSend(true)
-                        else store.retry(message.id)
-                      },
-                      onCancel: () => store.cancel(message.id),
                     }}
                     uploads={uploads}
                   />
@@ -291,7 +286,11 @@ export function ChatMessages({
         message={selectedMessage ?? menu?.message ?? null}
         room={room}
         memberId={member.id}
-        open={menu?.open === true && !!selectedMessage && !offline}
+        open={
+          menu?.open === true &&
+          !!selectedMessage &&
+          (!offline || selectedMessage.status !== "sent")
+        }
         disabled={!selectedMessage || offline}
         onOpenChange={(open) =>
           setMenu((current) => (current ? { ...current, open } : null))
@@ -308,6 +307,14 @@ export function ChatMessages({
         }}
         onDelete={() => {
           if (selectedMessage) removeMessage(selectedMessage)
+        }}
+        onRetry={() => {
+          if (!selectedMessage) return
+          if (offline || !navigator.onLine) setBlockedSend(true)
+          else store.retry(selectedMessage.id)
+        }}
+        onCancel={() => {
+          if (selectedMessage) store.cancel(selectedMessage.id)
         }}
       />
       {deleting && (

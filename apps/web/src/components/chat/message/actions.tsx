@@ -54,8 +54,10 @@ export function MessageActions({
   const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const consumed = useRef(false)
   const [opened, setOpened] = useState(false)
+  // A message not yet sent is only sent again or taken back, in the drawer.
+  const pending = message.status !== "sent"
   const openActions = useEffectEvent(() => {
-    if (mobile) onMenu()
+    if (mobile || pending) onMenu()
     else setOpened(true)
   })
   const permission = messagePermissions({
@@ -66,9 +68,8 @@ export function MessageActions({
     deleted: !!message.deleted,
   })
   const available =
-    !offline &&
-    message.status === "sent" &&
-    (permission.reply || permission.edit || permission.delete)
+    pending ||
+    (!offline && (permission.reply || permission.edit || permission.delete))
   function cancelPress() {
     if (press.current?.timer) clearTimeout(press.current.timer)
     if (releaseTimer.current) clearTimeout(releaseTimer.current)
@@ -197,7 +198,7 @@ export function MessageActions({
           type="button"
           className="sr-only"
           onClick={() => {
-            if (mobile) onMenu()
+            if (mobile || pending) onMenu()
             else setOpened(true)
           }}
         >
@@ -205,7 +206,7 @@ export function MessageActions({
         </button>
       )}
       {children}
-      {available && !editing && !mobile && (
+      {available && !pending && !editing && !mobile && (
         <div
           role="toolbar"
           aria-label="メッセージの操作"

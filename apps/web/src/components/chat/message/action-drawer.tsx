@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react"
-import { Copy, CornerUpLeft, Pencil, Trash2 } from "lucide-react"
+import { Copy, CornerUpLeft, Pencil, RotateCw, Trash2, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import {
   Drawer,
@@ -23,6 +23,8 @@ export function MessageActionDrawer({
   onEdit,
   onCopy,
   onDelete,
+  onRetry,
+  onCancel,
 }: {
   message: MessageRow | null
   room: ChatRoom
@@ -35,6 +37,8 @@ export function MessageActionDrawer({
   onEdit: () => void
   onCopy: () => void
   onDelete: () => void
+  onRetry: () => void
+  onCancel: () => void
 }) {
   const openingGesture = useRef(true)
   useEffect(() => {
@@ -46,15 +50,17 @@ export function MessageActionDrawer({
     document.addEventListener("pointerdown", started, true)
     return () => document.removeEventListener("pointerdown", started, true)
   }, [open])
+  const pending = !!message && message.status !== "sent"
   const permission =
-    message &&
-    messagePermissions({
-      memberId,
-      authorId: message.memberId,
-      canPost: room.canPost,
-      canManage: room.canManage,
-      deleted: !!message.deleted,
-    })
+    message && !pending
+      ? messagePermissions({
+          memberId,
+          authorId: message.memberId,
+          canPost: room.canPost,
+          canManage: room.canManage,
+          deleted: !!message.deleted,
+        })
+      : null
   return (
     <Drawer
       open={open}
@@ -79,6 +85,29 @@ export function MessageActionDrawer({
       >
         <DrawerTitle className="sr-only">メッセージの操作</DrawerTitle>
         <div className="flex flex-col gap-1 p-3">
+          {message?.status === "failed" && (
+            <DrawerClose
+              render={<Button variant="ghost" className="h-12 justify-start" />}
+              onClick={onRetry}
+            >
+              <RotateCw />
+              再送
+            </DrawerClose>
+          )}
+          {pending && (
+            <DrawerClose
+              render={
+                <Button
+                  variant="ghost"
+                  className="h-12 justify-start text-destructive"
+                />
+              }
+              onClick={onCancel}
+            >
+              <X />
+              取り消し
+            </DrawerClose>
+          )}
           {permission?.reply && (
             <DrawerClose
               disabled={disabled}
@@ -99,7 +128,7 @@ export function MessageActionDrawer({
               編集
             </DrawerClose>
           )}
-          {message?.content && !message.deleted && (
+          {!pending && message?.content && !message.deleted && (
             <DrawerClose
               render={<Button variant="ghost" className="h-12 justify-start" />}
               onClick={onCopy}

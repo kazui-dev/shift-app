@@ -1,12 +1,6 @@
 import { CircleAlert } from "lucide-react"
 import { japanDateWeekday, japanTime } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
 import type { UploadProgress } from "@/lib/chat/store"
 import type { ChatRoom } from "@/api/chat"
 import { MemberAvatar } from "@/components/member-avatar"
@@ -29,44 +23,6 @@ export type MessageRowActions = {
   onDelete: () => void
   onOpenReply: (id: string | null) => void
   onOpenImage: (image: string, sequence: number) => void
-  onRetry: () => void
-  onCancel: () => void
-}
-
-/**
- * A message that could not be sent, marked where it ends so nothing below it
- * moves and nothing beside it is covered; its menu sends it again or takes it back.
- */
-function DeliveryFailed({
-  onRetry,
-  onCancel,
-  className,
-}: {
-  onRetry: () => void
-  onCancel: () => void
-  className?: string
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon-xs"
-            aria-label="送信できませんでした。操作を選ぶ"
-            className={`size-5 rounded-full ${className ?? ""}`}
-          />
-        }
-      >
-        <CircleAlert className="size-3" aria-hidden />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="pointer-events-auto">
-        <DropdownMenuItem onClick={onRetry}>再送</DropdownMenuItem>
-        <DropdownMenuItem onClick={onCancel}>取り消す</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
 }
 
 export function ChatMessageRow({
@@ -92,8 +48,14 @@ export function ChatMessageRow({
   uploads: Record<string, UploadProgress>
   actions: MessageRowActions
 }) {
-  const { newDay, grouped } = groupedWithPrevious(message, previous, unread)
+  const { newDay, grouped: follows } = groupedWithPrevious(
+    message,
+    previous,
+    unread
+  )
   const failed = message.status === "failed"
+  // A failed message shows its name and time, which its mark sits beside.
+  const grouped = follows && !failed
   return (
     <li
       data-message-id={message.id}
@@ -191,12 +153,27 @@ export function ChatMessageRow({
                 <span className="text-sm font-semibold">
                   {message.memberDisplayName}
                 </span>
-                <time
-                  dateTime={message.createdAt}
-                  className="text-[11px] text-muted-foreground"
-                >
-                  {japanTime(message.createdAt)}
-                </time>
+                <span className="inline-flex items-center gap-1.5">
+                  <time
+                    dateTime={message.createdAt}
+                    className="text-[11px] text-muted-foreground"
+                  >
+                    {japanTime(message.createdAt)}
+                  </time>
+                  {failed && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-xs"
+                      aria-label="送信できませんでした。操作を表示"
+                      className="size-5 rounded-full"
+                      onPointerDown={(event) => event.preventDefault()}
+                      onClick={actions.onMenu}
+                    >
+                      <CircleAlert className="size-3" aria-hidden />
+                    </Button>
+                  )}
+                </span>
               </p>
             )}
             {(message.content || message.editedAt) && (
@@ -208,14 +185,6 @@ export function ChatMessageRow({
                 {message.editedAt && (
                   <span className="ml-2 inline-flex h-lh items-center align-top text-muted-foreground">
                     <span className="text-[10px]">(編集済)</span>
-                  </span>
-                )}
-                {failed && message.content && (
-                  <span className="ml-1.5 inline-flex h-lh items-center align-top">
-                    <DeliveryFailed
-                      onRetry={actions.onRetry}
-                      onCancel={actions.onCancel}
-                    />
                   </span>
                 )}
               </p>
@@ -236,19 +205,7 @@ export function ChatMessageRow({
                   actions.onOpenImage(image, message.sequence)
               }}
             />
-            <PendingImages
-              files={message.files}
-              uploads={uploads}
-              badge={
-                failed && !message.content ? (
-                  <DeliveryFailed
-                    onRetry={actions.onRetry}
-                    onCancel={actions.onCancel}
-                    className="absolute right-1.5 bottom-1.5"
-                  />
-                ) : undefined
-              }
-            />
+            <PendingImages files={message.files} uploads={uploads} />
           </div>
         </div>
       </MessageActions>
