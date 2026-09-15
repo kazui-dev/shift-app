@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { SquarePen } from "lucide-react"
 
@@ -25,6 +25,8 @@ import { submitAttendance } from "@/api/assignments"
 import { errorMessage } from "@/api/client"
 import { useCalendarViewState } from "@/components/calendar-view-context"
 import { useOfflineMode } from "@/components/offline-mode-context"
+import { useDisplayYear } from "@/components/use-display-year"
+import { availabilityQuery } from "@/data/availability"
 import { CalendarCarousel } from "@/components/calendar/calendar-carousel"
 import {
   calendarHourHeight,
@@ -70,6 +72,11 @@ function useCurrentTime(): Date {
 export function CalendarPage() {
   const queryClient = useQueryClient()
   const offline = useOfflineMode()
+  // The form is worth opening only once a year has dates to answer; submitted
+  // answers stay readable after the dates stop accepting.
+  const year = useDisplayYear().year
+  const availability = useQuery(availabilityQuery(year))
+  const hasAvailability = (availability.data?.dates.length ?? 0) > 0
   const { date, selectDate, selectMonth, readScrollTop, saveScrollTop } =
     useCalendarViewState()
   // Kept after closing until the drawer has slid away.
@@ -183,7 +190,7 @@ export function CalendarPage() {
           onMonthChange={changeMonth}
         />
         <DisplayYearNotice />
-        {!offline && (
+        {!offline && hasAvailability && (
           <div className="flex items-center gap-1">
             <Button
               render={<Link to="/calendar/availability" />}
