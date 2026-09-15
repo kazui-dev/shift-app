@@ -1,6 +1,6 @@
 import { UserManager } from "@/components/system/user-manager"
 import { useManagementYear } from "@/components/use-management-year"
-import { getRouteApi, Link, Outlet, useNavigate } from "@tanstack/react-router"
+import { getRouteApi, Link, useNavigate } from "@tanstack/react-router"
 import {
   CalendarClock,
   ChevronRight,
@@ -225,7 +225,6 @@ export function ManagePage({ view }: { view: ManageView }) {
             {view === "audit" && <AuditLogManager />}
           </div>
         </ResponsivePageBody>
-        <Outlet />
       </RoutePage>
     </div>
   )

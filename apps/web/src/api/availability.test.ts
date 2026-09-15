@@ -13,6 +13,7 @@ it("loads manager submissions containing a full day through 24:00", async () => 
             memberId: "10000000-0000-4000-8000-000000000001",
             displayName: "テスト",
             studentId: "26AJ001",
+            image: "https://cdn.example/aoi.png",
             complete: true,
           },
         ],

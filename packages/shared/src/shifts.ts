@@ -430,6 +430,7 @@ export const availabilitySubmissionsResponseSchema = v.object({
       memberId: v.string(),
       displayName: v.string(),
       studentId: v.string(),
+      image: v.nullable(v.string()),
       complete: v.boolean(),
     })
   ),

@@ -14,7 +14,7 @@ const boundary = vi.hoisted(() => {
   return { state, proceed: vi.fn<() => void>(), reset: vi.fn<() => void>() }
 })
 vi.mock("@tanstack/react-router", () => ({
-  useMatch: () => "/manage/shifts/availability",
+  useMatch: () => "/chat/room",
   useBlocker: (options: { shouldBlockFn: (value: Navigation) => boolean }) => {
     boundary.state.guard = options.shouldBlockFn
     return {
@@ -75,30 +75,30 @@ describe("route page navigation", () => {
   })
 
   it("leaves parent pages open for child routes and lets the child handle its own exit", () => {
-    renderToStaticMarkup(<RoutePage onClose={() => {}}>日程一覧</RoutePage>)
+    renderToStaticMarkup(<RoutePage onClose={() => {}}>チャット</RoutePage>)
     const guard = boundary.state.guard
     expect(
       guard?.({
-        current: { pathname: "/manage/shifts/availability" },
-        next: { pathname: "/manage" },
+        current: { pathname: "/chat/room" },
+        next: { pathname: "/chat" },
       })
     ).toBe(true)
     expect(
       guard?.({
-        current: { pathname: "/manage/shifts/availability" },
-        next: { pathname: "/manage/shifts/availability/new" },
+        current: { pathname: "/chat/room" },
+        next: { pathname: "/chat/room/info" },
       })
     ).toBe(false)
     expect(
       guard?.({
-        current: { pathname: "/manage/shifts/availability/new" },
-        next: { pathname: "/manage/shifts/availability" },
+        current: { pathname: "/chat/room/info" },
+        next: { pathname: "/chat/room" },
       })
     ).toBe(false)
     expect(
       guard?.({
-        current: { pathname: "/manage/shifts/availability" },
-        next: { pathname: "/manage/shifts/availability" },
+        current: { pathname: "/chat/room" },
+        next: { pathname: "/chat/room" },
       })
     ).toBe(false)
   })

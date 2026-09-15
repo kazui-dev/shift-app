@@ -53,16 +53,18 @@ availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
 
 async function readProgress(db: D1Database, year: number) {
   const result = await db
-    .prepare(`SELECT m.id AS memberId,m.display_name AS displayName,m.student_id AS studentId,
+    .prepare(`SELECT m.id AS memberId,m.display_name AS displayName,m.student_id AS studentId,identity.image AS image,
     NOT EXISTS(SELECT 1 FROM availability_dates d WHERE d.year=ym.year AND d.deleted=0 AND d.accepting=1 AND NOT EXISTS(
       SELECT 1 FROM availability_submissions s JOIN availability_day_answers answer ON answer.submission_id=s.id
       WHERE s.year=ym.year AND s.member_id=ym.member_id AND s.status='submitted' AND answer.date_id=d.id AND answer.date_version=d.version)) AS complete
-    FROM year_memberships ym JOIN app_users m ON m.id=ym.member_id WHERE ym.year=? AND ym.status='active' ORDER BY m.student_id`)
+    FROM year_memberships ym JOIN app_users m ON m.id=ym.member_id
+    LEFT JOIN user identity ON identity.id=m.user_id WHERE ym.year=? AND ym.status='active' ORDER BY m.student_id`)
     .bind(year)
     .all<{
       memberId: string
       displayName: string
       studentId: string
+      image: string | null
       complete: number
     }>()
   return result.results

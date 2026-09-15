@@ -34,8 +34,6 @@ import { Route as AppChatRoomIdSearchRouteImport } from './routes/_app.chat.$roo
 import { Route as AppManageShiftsAvailabilityRouteImport } from './routes/_app.manage.shifts.availability'
 import { Route as AppManageShiftsShiftIdRouteImport } from './routes/_app.manage.shifts_.$shiftId'
 import { Route as AppChatRoomIdInfoSettingsRouteImport } from './routes/_app.chat.$roomId.info.settings'
-import { Route as AppManageShiftsAvailabilityDateRouteImport } from './routes/_app.manage.shifts.availability.$date'
-import { Route as AppManageShiftsAvailabilityNewRouteImport } from './routes/_app.manage.shifts.availability.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -164,18 +162,6 @@ const AppChatRoomIdInfoSettingsRoute =
     path: '/settings',
     getParentRoute: () => AppChatRoomIdInfoRoute,
   } as any)
-const AppManageShiftsAvailabilityDateRoute =
-  AppManageShiftsAvailabilityDateRouteImport.update({
-    id: '/$date',
-    path: '/$date',
-    getParentRoute: () => AppManageShiftsAvailabilityRoute,
-  } as any)
-const AppManageShiftsAvailabilityNewRoute =
-  AppManageShiftsAvailabilityNewRouteImport.update({
-    id: '/new',
-    path: '/new',
-    getParentRoute: () => AppManageShiftsAvailabilityRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -198,11 +184,9 @@ export interface FileRoutesByFullPath {
   '/calendar/availability': typeof AppCalendarCalendarAvailabilityRoute
   '/chat/$roomId/info': typeof AppChatRoomIdInfoRouteWithChildren
   '/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
-  '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRouteWithChildren
+  '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRoute
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
-  '/manage/shifts/availability/$date': typeof AppManageShiftsAvailabilityDateRoute
-  '/manage/shifts/availability/new': typeof AppManageShiftsAvailabilityNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -223,11 +207,9 @@ export interface FileRoutesByTo {
   '/calendar/availability': typeof AppCalendarCalendarAvailabilityRoute
   '/chat/$roomId/info': typeof AppChatRoomIdInfoRouteWithChildren
   '/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
-  '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRouteWithChildren
+  '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRoute
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
-  '/manage/shifts/availability/$date': typeof AppManageShiftsAvailabilityDateRoute
-  '/manage/shifts/availability/new': typeof AppManageShiftsAvailabilityNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -253,11 +235,9 @@ export interface FileRoutesById {
   '/_app/_calendar/calendar/availability': typeof AppCalendarCalendarAvailabilityRoute
   '/_app/chat/$roomId/info': typeof AppChatRoomIdInfoRouteWithChildren
   '/_app/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
-  '/_app/manage/shifts/availability': typeof AppManageShiftsAvailabilityRouteWithChildren
+  '/_app/manage/shifts/availability': typeof AppManageShiftsAvailabilityRoute
   '/_app/manage/shifts_/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/_app/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
-  '/_app/manage/shifts/availability/$date': typeof AppManageShiftsAvailabilityDateRoute
-  '/_app/manage/shifts/availability/new': typeof AppManageShiftsAvailabilityNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -285,8 +265,6 @@ export interface FileRouteTypes {
     | '/manage/shifts/availability'
     | '/manage/shifts/$shiftId'
     | '/chat/$roomId/info/settings'
-    | '/manage/shifts/availability/$date'
-    | '/manage/shifts/availability/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -310,8 +288,6 @@ export interface FileRouteTypes {
     | '/manage/shifts/availability'
     | '/manage/shifts/$shiftId'
     | '/chat/$roomId/info/settings'
-    | '/manage/shifts/availability/$date'
-    | '/manage/shifts/availability/new'
   id:
     | '__root__'
     | '/'
@@ -339,8 +315,6 @@ export interface FileRouteTypes {
     | '/_app/manage/shifts/availability'
     | '/_app/manage/shifts_/$shiftId'
     | '/_app/chat/$roomId/info/settings'
-    | '/_app/manage/shifts/availability/$date'
-    | '/_app/manage/shifts/availability/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -525,20 +499,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChatRoomIdInfoSettingsRouteImport
       parentRoute: typeof AppChatRoomIdInfoRoute
     }
-    '/_app/manage/shifts/availability/$date': {
-      id: '/_app/manage/shifts/availability/$date'
-      path: '/$date'
-      fullPath: '/manage/shifts/availability/$date'
-      preLoaderRoute: typeof AppManageShiftsAvailabilityDateRouteImport
-      parentRoute: typeof AppManageShiftsAvailabilityRoute
-    }
-    '/_app/manage/shifts/availability/new': {
-      id: '/_app/manage/shifts/availability/new'
-      path: '/new'
-      fullPath: '/manage/shifts/availability/new'
-      preLoaderRoute: typeof AppManageShiftsAvailabilityNewRouteImport
-      parentRoute: typeof AppManageShiftsAvailabilityRoute
-    }
   }
 }
 
@@ -605,29 +565,12 @@ const AppChatRouteChildren: AppChatRouteChildren = {
 const AppChatRouteWithChildren =
   AppChatRoute._addFileChildren(AppChatRouteChildren)
 
-interface AppManageShiftsAvailabilityRouteChildren {
-  AppManageShiftsAvailabilityDateRoute: typeof AppManageShiftsAvailabilityDateRoute
-  AppManageShiftsAvailabilityNewRoute: typeof AppManageShiftsAvailabilityNewRoute
-}
-
-const AppManageShiftsAvailabilityRouteChildren: AppManageShiftsAvailabilityRouteChildren =
-  {
-    AppManageShiftsAvailabilityDateRoute: AppManageShiftsAvailabilityDateRoute,
-    AppManageShiftsAvailabilityNewRoute: AppManageShiftsAvailabilityNewRoute,
-  }
-
-const AppManageShiftsAvailabilityRouteWithChildren =
-  AppManageShiftsAvailabilityRoute._addFileChildren(
-    AppManageShiftsAvailabilityRouteChildren,
-  )
-
 interface AppManageShiftsRouteChildren {
-  AppManageShiftsAvailabilityRoute: typeof AppManageShiftsAvailabilityRouteWithChildren
+  AppManageShiftsAvailabilityRoute: typeof AppManageShiftsAvailabilityRoute
 }
 
 const AppManageShiftsRouteChildren: AppManageShiftsRouteChildren = {
-  AppManageShiftsAvailabilityRoute:
-    AppManageShiftsAvailabilityRouteWithChildren,
+  AppManageShiftsAvailabilityRoute: AppManageShiftsAvailabilityRoute,
 }
 
 const AppManageShiftsRouteWithChildren = AppManageShiftsRoute._addFileChildren(

@@ -2,10 +2,15 @@ import { useState } from "react"
 import { keys } from "@/data/keys"
 import { japanFullDate } from "@workspace/shared/japan-time"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { Bell, ChevronRight, Plus, Trash2 } from "lucide-react"
+import { Bell, Plus, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Checkbox } from "@workspace/ui/components/checkbox"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@workspace/ui/components/accordion"
 import { toast } from "@workspace/ui/lib/toast"
 import type { FormDate } from "@workspace/shared/availability"
 import {
@@ -20,6 +25,9 @@ import {
 import { errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { MemberAvatar } from "@/components/member-avatar"
+import { AvailabilityDateForm } from "@/components/manage/availability-date-form"
+
+const newDate = "new"
 
 function clock(minute: number) {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`
@@ -29,8 +37,10 @@ export function AvailabilitySummary({ year }: { year: number }) {
   const dates = useQuery(availabilityDatesQuery(year))
   const submissions = useQuery(availabilitySubmissionsQuery(year))
   const [selected, setSelected] = useState<string[]>([])
+  const [expanded, setExpanded] = useState<string[]>([])
   const [removing, setRemoving] = useState<FormDate | null>(null)
   const [pending, setPending] = useState(false)
+  const adding = expanded.includes(newDate)
   async function run(action: () => Promise<unknown>) {
     if (pending) return
     setPending(true)
@@ -75,8 +85,8 @@ export function AvailabilitySummary({ year }: { year: number }) {
             </Button>
             <Button
               size="sm"
-              render={<Link to="/manage/shifts/availability/new" />}
-              nativeButton={false}
+              disabled={adding}
+              onClick={() => setExpanded([newDate])}
             >
               <Plus />
               日程を追加
@@ -88,61 +98,84 @@ export function AvailabilitySummary({ year }: { year: number }) {
             日程を再読み込み
           </Button>
         ) : (
-          <ul className="divide-y border-y">
+          <Accordion
+            className="border-y"
+            value={expanded}
+            onValueChange={(value) => setExpanded(value.map(String))}
+          >
+            {adding && (
+              <AccordionItem value={newDate}>
+                <AccordionTrigger className="px-1">新しい日程</AccordionTrigger>
+                <AccordionContent className="px-1">
+                  <AvailabilityDateForm
+                    year={year}
+                    onSaved={() => setExpanded([])}
+                    onCancel={() => setExpanded([])}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            )}
             {dates.data?.dates.map((date) => (
-              <li key={date.date} className="flex items-center gap-3 py-4">
-                <Checkbox
-                  aria-label={`${date.date}を選択`}
-                  disabled={pending}
-                  checked={selected.includes(date.date)}
-                  onCheckedChange={(checked) =>
-                    setSelected((values) =>
-                      checked
-                        ? [...values, date.date]
-                        : values.filter((value) => value !== date.date)
-                    )
-                  }
-                />
-                <Link
-                  to="/manage/shifts/availability/$date"
-                  params={{ date: date.date }}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <span className="block text-sm font-medium">
-                      {japanFullDate(date.date)}
-                    </span>
-                    <span className="block text-xs text-muted-foreground tabular-nums">
-                      {clock(date.startsMinute)}–{clock(date.endsMinute)}{" "}
-                      <span className="ml-2">
-                        {date.accepting ? "受付中" : "受付終了"}
+              <AccordionItem key={date.date} value={date.date}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    aria-label={`${date.date}を選択`}
+                    disabled={pending}
+                    checked={selected.includes(date.date)}
+                    onCheckedChange={(checked) =>
+                      setSelected((values) =>
+                        checked
+                          ? [...values, date.date]
+                          : values.filter((value) => value !== date.date)
+                      )
+                    }
+                  />
+                  <div className="min-w-0 flex-1">
+                    <AccordionTrigger className="w-full items-center gap-3 px-1 hover:no-underline">
+                      <span className="block min-w-0 flex-1 space-y-1">
+                        <span className="block text-sm font-medium">
+                          {japanFullDate(date.date)}
+                        </span>
+                        <span className="block text-xs font-normal text-muted-foreground tabular-nums">
+                          {clock(date.startsMinute)}–{clock(date.endsMinute)}{" "}
+                          <span className="ml-2">
+                            {date.accepting ? "受付中" : "受付終了"}
+                          </span>
+                        </span>
                       </span>
-                    </span>
+                    </AccordionTrigger>
                   </div>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`${date.date}を削除`}
-                  disabled={pending}
-                  onClick={() => setRemoving(date)}
-                >
-                  <Trash2 />
-                </Button>
-              </li>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`${date.date}を削除`}
+                    disabled={pending}
+                    onClick={() => setRemoving(date)}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+                <AccordionContent className="px-1">
+                  <AvailabilityDateForm
+                    year={year}
+                    initial={date}
+                    onSaved={() => setExpanded([])}
+                    onCancel={() => setExpanded([])}
+                  />
+                </AccordionContent>
+              </AccordionItem>
             ))}
-            {dates.data?.dates.length === 0 && (
-              <li className="py-8 text-center text-sm text-muted-foreground">
+            {dates.data?.dates.length === 0 && !adding && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
                 日程がありません
-              </li>
+              </p>
             )}
             {dates.isPending && (
-              <li className="py-8 text-center text-sm text-muted-foreground">
+              <p className="py-8 text-center text-sm text-muted-foreground">
                 読み込み中…
-              </li>
+              </p>
             )}
-          </ul>
+          </Accordion>
         )}
         <div className="flex min-h-9 flex-wrap items-center gap-2">
           <span className="mr-auto text-xs text-muted-foreground">
@@ -205,7 +238,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
           <ul className="divide-y border-y">
             {submissions.data?.progress.map((item) => (
               <li key={item.memberId} className="flex items-center gap-3 py-3">
-                <MemberAvatar name={item.displayName} image={null} />
+                <MemberAvatar name={item.displayName} image={item.image} />
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {item.displayName}
                 </span>
