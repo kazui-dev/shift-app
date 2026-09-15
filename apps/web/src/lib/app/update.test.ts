@@ -64,8 +64,65 @@ it("bounds registration lookup as well as activation", async () => {
   )
   await Promise.all([
     expect(task).rejects.toThrow("更新を完了できませんでした"),
-    vi.advanceTimersByTimeAsync(15_000),
+    vi.advanceTimersByTimeAsync(20_000),
   ])
+})
+
+it("keeps waiting while a slow install keeps reporting progress", async () => {
+  vi.useFakeTimers()
+  const container = new Container(),
+    registration = container.registration
+  registration.waiting = null
+  const installing = new Worker()
+  installing.state = "installing"
+  registration.installing = installing
+  const task = activateAppUpdate(
+    container,
+    container.controller,
+    new AbortController().signal
+  )
+  let failed = false
+  void task.catch(() => {
+    failed = true
+  })
+  // Three quiet stretches, each shorter than the idle limit, keep it alive.
+  await [1, 2, 3].reduce(
+    (waited) =>
+      waited.then(async () => {
+        await vi.advanceTimersByTimeAsync(15_000)
+        installing.dispatchEvent(new Event("statechange"))
+      }),
+    Promise.resolve()
+  )
+  expect(failed).toBe(false)
+  registration.installing = null
+  registration.waiting = installing
+  installing.state = "installed"
+  installing.dispatchEvent(new Event("statechange"))
+  await Promise.resolve()
+  expect(installing.postMessage).toHaveBeenCalledWith({ type: "SKIP_WAITING" })
+  container.controller = {}
+  container.dispatchEvent(new Event("controllerchange"))
+  await task
+})
+
+it("stops when an install is dropped for a newer deployment", async () => {
+  const container = new Container(),
+    registration = container.registration
+  registration.waiting = null
+  const installing = new Worker()
+  installing.state = "installing"
+  registration.installing = installing
+  const task = activateAppUpdate(
+    container,
+    container.controller,
+    new AbortController().signal
+  )
+  await Promise.resolve()
+  registration.installing = null
+  installing.state = "redundant"
+  installing.dispatchEvent(new Event("statechange"))
+  await expect(task).rejects.toThrow("新しいバージョンを取得できませんでした")
 })
 it("stops observing when the caller leaves", async () => {
   const container = new Container(),

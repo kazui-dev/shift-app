@@ -2,6 +2,11 @@ type Worker = EventTarget & {
   state: string
   postMessage: (message: { type: string }) => void
 }
+
+/** How long the update may make no progress before it counts as lost. */
+const idleLimit = 20_000
+/** A ceiling for an install that keeps reporting progress but never lands. */
+const totalLimit = 120_000
 type Registration = EventTarget & {
   waiting: Worker | null
   installing: Worker | null
@@ -22,7 +27,17 @@ export function activateAppUpdate(
     let registration: Registration | undefined
     let installing: Worker | null = null
     let finished = false
+    let idle: ReturnType<typeof setTimeout>
+    const lost = () =>
+      done(new Error("更新を完了できませんでした。もう一度お試しください。"))
+    // A phone on a slow link installs for a while; only a silent stretch, or a
+    // wait long past any install, means the update is not coming.
+    const progressed = () => {
+      clearTimeout(idle)
+      idle = setTimeout(lost, idleLimit)
+    }
     const cleanup = () => {
+      clearTimeout(idle)
       clearTimeout(timer)
       container.removeEventListener("controllerchange", changed)
       signal.removeEventListener("abort", aborted)
@@ -43,8 +58,23 @@ export function activateAppUpdate(
     const aborted = () => done(new Error("更新を中断しました。"))
     const inspect = () => {
       if (finished || !registration) return
+      progressed()
       changed()
       if (finished) return
+      // An install that goes redundant with nothing to take its place failed,
+      // usually because a newer deployment replaced the files mid-install.
+      if (
+        installing?.state === "redundant" &&
+        !registration.waiting &&
+        !registration.installing
+      ) {
+        done(
+          new Error(
+            "新しいバージョンを取得できませんでした。もう一度お試しください。"
+          )
+        )
+        return
+      }
       if (registration.waiting)
         registration.waiting.postMessage({ type: "SKIP_WAITING" })
       if (registration.installing !== installing) {
@@ -53,11 +83,8 @@ export function activateAppUpdate(
         installing?.addEventListener("statechange", inspect)
       }
     }
-    const timer = setTimeout(
-      () =>
-        done(new Error("更新を完了できませんでした。もう一度お試しください。")),
-      15_000
-    )
+    const timer = setTimeout(lost, totalLimit)
+    idle = setTimeout(lost, idleLimit)
     container.addEventListener("controllerchange", changed)
     signal.addEventListener("abort", aborted, { once: true })
     if (signal.aborted) {

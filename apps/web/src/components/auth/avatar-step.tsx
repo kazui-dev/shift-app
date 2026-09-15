@@ -42,27 +42,28 @@ export function AvatarStep({ onDone }: { onDone: () => void }) {
   return (
     <AuthShell>
       <h1 className="text-center text-xl font-medium">アイコンを設定する</h1>
-      <div className="flex flex-col items-center gap-3">
-        <span className="size-32 overflow-hidden rounded-full bg-muted">
-          {preview && (
-            <img src={preview} alt="" className="size-full object-cover" />
-          )}
-        </span>
+      <div className="flex justify-center">
         {picker.input}
         <button
           type="button"
           disabled={pending}
           onClick={picker.open}
-          className="flex items-center gap-2 text-sm text-muted-foreground"
+          className="flex size-32 items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground"
         >
-          <ImagePlus className="size-4" />
-          {file ? "画像を変更" : "画像を追加"}
+          {preview ? (
+            <img src={preview} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="flex flex-col items-center gap-1 text-xs">
+              <ImagePlus className="size-5" />
+              画像を追加
+            </span>
+          )}
         </button>
       </div>
       <div className="flex flex-col gap-2">
         <Button className="h-11" size="lg" disabled={pending} onClick={confirm}>
           {pending && <LoaderCircle className="animate-spin" />}
-          確定
+          設定
         </Button>
         <Button
           className="h-11"
