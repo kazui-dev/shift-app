@@ -1,9 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 
-import {
-  getDiscordUserInfo,
-  normalizeProfileImage,
-} from "../../../src/auth/providers"
+import { getDiscordUserInfo } from "../../../src/auth/discord"
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -65,29 +62,4 @@ it("returns the current Discord avatar and explicitly clears a removed avatar", 
   expect(
     (await getDiscordUserInfo({ accessToken: "token" }, "guild"))?.user.image
   ).toBe("")
-})
-
-it("clears an empty OAuth image at persistence without changing other profile fields", () => {
-  expect(normalizeProfileImage({ name: "Member", image: "" })).toEqual({
-    name: "Member",
-    image: null,
-  })
-  expect(
-    normalizeProfileImage({
-      image: "https://cdn.discordapp.com/avatars/123/hash.webp?size=128",
-    })
-  ).toEqual({
-    image: "https://cdn.discordapp.com/avatars/123/hash.webp?size=128",
-  })
-  expect(normalizeProfileImage({ name: "Member", image: undefined })).toEqual({
-    name: "Member",
-    image: undefined,
-  })
-})
-
-it.each([
-  "https://cdn.discordapp.com/embed/avatars/0.png",
-  "https://example.com/avatar.png",
-])("does not persist a default or external avatar: %s", (image) => {
-  expect(normalizeProfileImage({ image })).toEqual({ image: null })
 })

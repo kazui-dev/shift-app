@@ -55,6 +55,22 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 `(provider_id, provider_account_id)` を unique とする。access/refresh token 自体はこの table に重複保存しない。
 
+### `student_directory`
+
+年度ごとの委員会名簿。Discord OAuth を無効にした期間のサインイン確認と、年度参加・年度 role の付与に使う。アカウント情報は持たない。
+
+| Column         | Type    | Note                             |
+| -------------- | ------- | -------------------------------- |
+| `id`           | text    | PK                               |
+| `year`         | integer | FK, `operating_years.year`       |
+| `student_id`   | text    | 年度内で case-insensitive に一意 |
+| `display_name` | text    | 名簿上の氏名                     |
+| `bureau`       | text    | 局                               |
+| `duty`         | text    | 担当                             |
+| `created_at`   | integer | UNIX time milliseconds           |
+
+`(year, lower(student_id))` を unique とする。氏名の照合は NFKC 正規化のうえ空白を除いて行うため、SQL では学籍番号だけで引き、氏名は API 側で比較する。局と担当は任意で、値があれば同名の `year_roles` へ対応づけ、サインイン時に付与する。Discord OAuth が有効なときは参照しない。
+
 ### `identity_link_requests`
 
 学籍番号が既存だった場合の管理者復旧に使う。申請だけで identity を移動せず、承認処理は監査ログ、旧Discord identityの解除、新しい検証済みidentityの移動、申請者と対象memberの全session失効を1つのD1 batchで行う。対象member本人による自己承認は禁止する。

@@ -163,6 +163,26 @@ Better Auth の通常の social sign-up は OAuth callback 中に `user` を作�
 
 email や学籍番号の一致による暗黙 linking は無効にする。学籍番号衝突時の管理者申請は別 workflow とし、自動で Better Auth の `account.user_id` を付け替えない。Better Auth の account schema は、将来 Notion などを明示的 linking で追加できる形を維持する。
 
+### Directory Sign-in
+
+`DISCORD_OAUTH_ENABLED` が `"false"` のとき、Discord OAuth の代わりに名簿サインインを構成する。`apps/api/src/auth` は composition (`index.ts`)、Discord provider と所属確認 (`discord.ts`)、名簿サインイン plugin (`roster.ts`)、保存してよいプロフィール画像の判定 (`profile-image.ts`) に分かれ、provider は常にどちらか一方だけを構成する。名簿の照会と配置は `services/student-directory.ts` が持つ。
+
+```mermaid
+flowchart TD
+    A["学籍番号・氏名を送信"] --> B{"既定年度の名簿と一致するか"}
+    B -->|No| C["403 DIRECTORY_MISMATCH"]
+    B -->|Yes| D{"その学籍番号の member があるか"}
+    D -->|Yes| E["その user へ identity を連携してログイン"]
+    D -->|No| F["user と member を作成"]
+    E --> G["年度参加と、あれば局・担当の role を付与"]
+    F --> G
+    G --> H["初回だけアイコン設定、その後カレンダーへ"]
+```
+
+名簿 identity は provider `roster`、`account_id` は正規化済み学籍番号とする。名簿 session は再 OAuth に相当する再確認を持たないため、Discord の 7 日ではなく cookie の上限である 400 日とする。氏名は名簿の表記で member と認証 user を更新する。所属確認は名簿で代用し、`affiliation_verifications` は Discord のみが書き込む。member 作成以降の権限、年度参加、API 認可の判定は通常経路と同じものを使う。
+
+プロフィール画像は Discord CDN の 128px WebP に加え、自分の deployment へアップロードした画像を許可する。アップロードは `PUT /api/me/avatar` が Images binding で 128px の正方 WebP に整えて R2 の `avatars/` へ置き、`GET /api/members/:memberId/avatar` が onboarding 済み member にだけ返す。
+
 ### Administrative Authorization
 
 `/api/admin/*` は各 request で Better Auth session と `members.access_level` をD1から再確認し、`system_admin` だけに許可する。frontend の表示状態やOAuth profileの値を認可根拠にしない。cookieを使う変更系requestは同一originを必須とし、body size、共有Valibot schema、D1 constraintで入力と競合を検証する。
@@ -187,7 +207,7 @@ WebとAPIを同一originにすることでCORSと認証cookieの構成を単純�
 | `packages/db`                  | Drizzle schema。DB client は Worker の D1 binding から作る       |
 | `apps/api/src/app.ts`          | Hono applicationとHTTP routeの合成                               |
 | `apps/api/src/index.ts`        | Workerのfetch・scheduled・Durable Object export                  |
-| `apps/api/src/auth`            | D1 bindingを使うBetter Auth設定、provider所属確認                |
+| `apps/api/src/auth`            | D1 bindingを使うBetter Auth設定、provider所属確認、名簿sign-in   |
 | `apps/api/src/routes`          | HTTP resourceごとのroute                                         |
 | `apps/api/src/routes/admin`    | 管理APIの共通認証、read query、監査付きcommand                   |
 | `apps/api/src/routes/years`    | 年度をcanonical parentとするresource collection                  |

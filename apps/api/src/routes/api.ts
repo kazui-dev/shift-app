@@ -12,6 +12,7 @@ import { activitiesApp } from "./activities"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat/index"
 import { meApp } from "./me/index"
+import { membersApp } from "./members"
 import { pushApp, notificationDevicesApp } from "./push"
 import { rolesApp } from "./roles"
 import { yearSettingsApp } from "./year-settings"
@@ -24,6 +25,7 @@ apiApp.use("*", requireMember)
 apiApp.use("*", requireSameOriginForMutation)
 
 apiApp.route("/me", meApp)
+apiApp.route("/members", membersApp)
 apiApp.route("/push", pushApp)
 apiApp.route("/me/notification-devices", notificationDevicesApp)
 apiApp.route("/years", yearsApp)

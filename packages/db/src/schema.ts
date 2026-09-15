@@ -117,6 +117,33 @@ export const operatingYears = sqliteTable("operating_years", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 })
 
+/**
+ * The committee's list of students for a year: the student ID and name a member
+ * signs in with while Discord OAuth is off, plus the bureau and duty that year
+ * when they are known. It holds no account data, only what the sign-in must
+ * match and grant.
+ */
+export const studentDirectory = sqliteTable(
+  "student_directory",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    studentId: text("student_id").notNull(),
+    displayName: text("display_name").notNull(),
+    bureau: text("bureau"),
+    duty: text("duty"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("student_directory_year_studentId_nocase_uidx").on(
+      table.year,
+      sql`lower(${table.studentId})`
+    ),
+  ]
+)
+
 export const yearSettings = sqliteTable(
   "year_settings",
   {

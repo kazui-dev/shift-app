@@ -23,7 +23,7 @@ const activeAccount = (studentId: string): ActiveAccountState => ({
     studentId,
     accessLevel: "member",
   },
-  providers: { discord: true },
+  providers: { discord: true, roster: false },
   linkedProviders: ["discord"],
 })
 
@@ -140,7 +140,7 @@ describe("offline account resolution", () => {
   it("clears cached user data for a signed-out response", async () => {
     const anonymous: AuthState = {
       status: "anonymous",
-      providers: { discord: true },
+      providers: { discord: true, roster: false },
     }
     const dependencies = services({ current: anonymous })
 
@@ -192,7 +192,10 @@ describe("offline account snapshot", () => {
     expect(
       parseOfflineAccountSnapshot(
         {
-          state: { status: "anonymous", providers: { discord: true } },
+          state: {
+            status: "anonymous",
+            providers: { discord: true, roster: false },
+          },
           verifiedAt: now,
         },
         now

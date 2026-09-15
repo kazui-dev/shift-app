@@ -23,6 +23,31 @@ export const displayNameSchema = v.pipe(
   v.maxLength(80)
 )
 
+/**
+ * The form of a name used only to compare with the student directory. Spacing
+ * differs between the directory and what a member types, and it never
+ * distinguishes two people, so every space is dropped before comparing.
+ */
+export function normalizeNameForMatch(value: string): string {
+  return value.normalize("NFKC").replace(/\s+/gu, "")
+}
+
+/** Whether a typed name matches the directory's, ignoring spacing. */
+export function matchesDirectoryName(typed: string, listed: string): boolean {
+  const normalized = normalizeNameForMatch(typed)
+  return normalized.length > 0 && normalized === normalizeNameForMatch(listed)
+}
+
+/**
+ * What an uploaded profile image may weigh, and the square it is stored at.
+ * The edge matches the size Discord avatars are kept at, so both look alike.
+ */
+export const avatarLimits = {
+  bytes: 8 * 1024 * 1024,
+  pixels: 50_000_000,
+  edge: 128,
+} as const
+
 export const onboardingInputSchema = v.object({
   studentId: studentIdSchema,
   displayName: displayNameSchema,
@@ -49,16 +74,24 @@ export const identityLinkDecisionInputSchema = v.object({
   reason: adminReasonSchema,
 })
 
-const linkedProvidersSchema = v.array(v.literal("discord"))
+/** The sign-in a deployment offers: Discord OAuth, or the student directory. */
+export const providerSchema = v.picklist(["discord", "roster"])
+
+const availableProvidersSchema = v.object({
+  discord: v.boolean(),
+  roster: v.boolean(),
+})
+
+const linkedProvidersSchema = v.array(providerSchema)
 
 export const authStateSchema = v.variant("status", [
   v.object({
     status: v.literal("anonymous"),
-    providers: v.object({ discord: v.boolean() }),
+    providers: availableProvidersSchema,
   }),
   v.object({
     status: v.literal("onboarding"),
-    providers: v.object({ discord: v.boolean() }),
+    providers: availableProvidersSchema,
     linkedProviders: linkedProvidersSchema,
   }),
   v.object({
@@ -70,7 +103,7 @@ export const authStateSchema = v.variant("status", [
       studentId: studentIdSchema,
       accessLevel: accessLevelSchema,
     }),
-    providers: v.object({ discord: v.boolean() }),
+    providers: availableProvidersSchema,
     linkedProviders: linkedProvidersSchema,
   }),
 ])
@@ -129,6 +162,7 @@ export const revokeSessionsResponseSchema = v.object({
   revokedSessions: v.pipe(v.number(), v.integer(), v.minValue(0)),
 })
 
+export type Provider = v.InferOutput<typeof providerSchema>
 export type AuthState = v.InferOutput<typeof authStateSchema>
 export type OnboardingInput = v.InferOutput<typeof onboardingInputSchema>
 export type AdminUser = v.InferOutput<typeof adminUserSchema>

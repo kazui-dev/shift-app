@@ -25,7 +25,7 @@
 
 ## UI
 
-- 未ログイン時の初期画面は「Discord で続ける」だけにする
+- 未ログイン時の初期画面は「Discord で続ける」だけにする。Discord OAuth を無効にした期間は代わりに学籍番号と氏名の入力だけを表示する
 - 認証と onboarding の完了後に表示するホーム画面はカレンダーにする
 - 1日に複数のタスク、ブース、イベントに入る前提で縦型の時間軸を使う
 - 旭祭期間中に素早く確認できる画面を優先する
@@ -57,7 +57,7 @@
 
 ### Authentication Sources
 
-メール OTP のホワイトリスト方式は採用しない。初期リリースのログイン画面には次だけを表示する。
+メール OTP のホワイトリスト方式は採用しない。初期リリースのログイン画面には次だけを表示する（Discord OAuth を無効にした期間は Directory Sign-in を参照）。
 
 - Discord で続ける
 
@@ -78,6 +78,22 @@ OAuth provider は外部 identity の本人確認と所属確認に使う。学�
 server ID は機密情報ではないため非 secret 設定として管理し、client secret、session secret、OAuth token は secret として扱う。
 
 Notion OAuth は初期リリースに含めない。将来追加する場合は、対象 workspace への public OAuth connection の authorization を所属確認として扱う案を再検討する。Notion workspace ID `27865ff8-ac56-47e9-9aac-0ed6f3c4d0c5` は候補として docs に保持するが、credential、binding、UI、provider 実装は現時点で持たない。
+
+### Directory Sign-in
+
+`DISCORD_OAUTH_ENABLED` が `"false"` の間は Discord OAuth を構成せず、`student_directory`（名簿）で利用者を確認する。デモ公開のように、Discord への参加を前提にできない期間のための経路とする。
+
+- 入口画面は学籍番号と氏名の入力だけを表示し、送信ボタンは「送信」とする。「ログイン」「アカウント」という語は表示しない。
+- 既定年度の名簿に対し、学籍番号と氏名の**両方**が一致した場合だけ通す。氏名は NFKC 正規化のうえ空白をすべて除いて比較する。不一致は「名簿に登録されている学籍番号および氏名と一致しません」とだけ伝え、どちらが違うかは示さない。
+- 一致したら、その学籍番号の member がなければ作成し、あればその member へログインする。氏名は名簿の表記を正とし、member の表示名を更新する。
+- 名簿に局と担当があれば、同じ名前の年度 role を付与する。局と担当は任意で、空でもよい。いずれの場合もその年度へ `active` で参加させる。管理者が付けた role は取り消さない。
+- 初回作成の直後だけ、アイコン画像の任意アップロードを表示する。未設定なら氏名の先頭文字を表示する。
+- 学籍番号 1 件につき名簿 identity 1 件を `account` の provider `roster` として持つ。Discord で作られた member が既にある学籍番号では、新しい member を作らずその user へ identity を連携する。
+- 名簿サインインは所属確認を名簿で代用するだけで、onboarding 後の認可（権限、年度参加、same-origin、Valibot 検証）は通常経路と同じくサーバー側で確認する。
+- 名簿サインインの session は再確認する相手がいないため期限で切らず、cookie が保持できる上限の 400 日とする。ログアウトの導線は設けない。
+- 名簿は本人確認を伴わない。学籍番号と氏名を知る他人が先に枠を使う可能性を許容する運用とし、本人確認が必要になったら Discord OAuth を有効へ戻す。
+
+名簿は Discord OAuth が有効なときも残すが、参照しない。名簿の登録は CSV から SQL を生成する script で行い、同じ学籍番号は氏名・局・担当を更新する。
 
 ### Sign-in And Onboarding
 

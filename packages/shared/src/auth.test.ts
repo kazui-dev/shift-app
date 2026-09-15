@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import {
   identityLinkDecisionInputSchema,
+  matchesDirectoryName,
   onboardingInputSchema,
   updateAccessLevelInputSchema,
 } from "./auth"
@@ -58,5 +59,23 @@ describe("admin mutation schemas", () => {
         reason: "未判断",
       })
     ).toThrow()
+  })
+})
+
+describe("matchesDirectoryName", () => {
+  it.each([
+    ["旭祭 太郎", "旭祭太郎"],
+    ["旭祭太郎", "旭祭　太郎"],
+    ["ｱｻﾋ ﾀﾛｳ", "アサヒタロウ"],
+  ])("ignores spacing and width: %s", (typed, listed) => {
+    expect(matchesDirectoryName(typed, listed)).toBe(true)
+  })
+
+  it.each([
+    ["旭祭 次郎", "旭祭太郎"],
+    ["", "旭祭太郎"],
+    ["   ", "旭祭太郎"],
+  ])("rejects a different or empty name: %s", (typed, listed) => {
+    expect(matchesDirectoryName(typed, listed)).toBe(false)
   })
 })

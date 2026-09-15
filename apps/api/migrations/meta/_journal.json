@@ -239,6 +239,13 @@
       "when": 1789419482298,
       "tag": "0033_nasty_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1789451188425,
+      "tag": "0034_student_directory",
+      "breakpoints": true
     }
   ]
 }

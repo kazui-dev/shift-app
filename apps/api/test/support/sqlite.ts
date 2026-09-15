@@ -44,6 +44,14 @@ export function d1Binding(
           },
         })
       },
+      // Drizzle reads rows positionally; D1 answers `raw` with value arrays.
+      raw: () =>
+        Promise.resolve(
+          db
+            .prepare(sql)
+            .all(...params)
+            .map((row) => Object.values(row))
+        ),
       run: () => {
         const result = db.prepare(sql).run(...params)
         return Promise.resolve({

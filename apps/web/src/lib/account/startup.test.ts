@@ -28,7 +28,7 @@ const account: AuthState = {
     studentId: "26AJ001",
     accessLevel: "member",
   },
-  providers: { discord: true },
+  providers: { discord: true, roster: false },
   linkedProviders: ["discord"],
 }
 /** A client restored with the member's startup data. */

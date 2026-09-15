@@ -124,7 +124,22 @@ Discord は bot を server へ追加せず、OAuth した本人の `identify` �
 ```text
 BETTER_AUTH_URL=https://shift.kazui.dev
 DISCORD_GUILD_ID=1047724512873041941
+DISCORD_OAUTH_ENABLED=false
 ```
+
+`DISCORD_OAUTH_ENABLED=false` の間は Discord OAuth を構成せず、`student_directory`（名簿）の学籍番号と氏名が一致した利用者だけが利用を開始できる。Discord OAuth へ戻すときは値を `true` に変えるだけでよく、key は残す。値を変えたら `vp -C apps/api run cf-typegen` を実行する。
+
+名簿は `学籍番号,氏名,局,担当` の CSV から SQL を生成して適用する。局と担当は任意で、列を省略しても空でもよい。先頭行が `学籍番号` で始まる場合は見出しとして読み飛ばす。
+
+```bash
+vp -C apps/api run directory:seed 2026 ./directory.csv ./directory.sql
+```
+
+```bash
+vp -C apps/api exec wrangler d1 execute shift-app --local --file ./directory.sql
+```
+
+remote へ適用するときは `--local` を `--remote` に替える。学籍番号は大文字小文字を区別せず、氏名は空白を除いて照合する。同じ学籍番号を再度流すと氏名・局・担当を更新する。局と担当は同名の年度 role があればサインイン時に付与されるため、CSV の表記は `year_roles` の名前に合わせる。
 
 環境 binding として注入する値:
 

@@ -13,6 +13,9 @@
   "vars": {
     "BETTER_AUTH_URL": "https://shift.kazui.dev",
     "DISCORD_GUILD_ID": "1047724512873041941",
+    // "false" turns Discord OAuth off and lets the student directory sign
+    // members in instead. Set "true" to restore it; keep the key either way.
+    "DISCORD_OAUTH_ENABLED": "false",
   },
   "secrets": {
     "required": [

@@ -5,7 +5,11 @@ import { bodyLimit } from "hono/body-limit"
 import * as v from "valibot"
 
 import { identityLinkRequests, appUsers } from "@workspace/db/schema"
-import { onboardingInputSchema } from "@workspace/shared/auth"
+import {
+  onboardingInputSchema,
+  providerSchema,
+  type Provider,
+} from "@workspace/shared/auth"
 
 import { createAuth, getConfiguredProviders } from "../auth"
 import { apiError, errorBody, errors } from "../lib/errors"
@@ -31,7 +35,7 @@ accountApp.get("/account", async (c) => {
   })
   const linkedProviders = accounts
     .map((account) => account.providerId)
-    .filter((provider): provider is "discord" => provider === "discord")
+    .filter((provider): provider is Provider => v.is(providerSchema, provider))
 
   const db = drizzle(c.env.shift_app)
   const [member] = await db
