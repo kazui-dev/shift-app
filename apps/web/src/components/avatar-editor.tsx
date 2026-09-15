@@ -7,14 +7,9 @@ import {
   DialogContent,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
-import {
-  Drawer,
-  DrawerContent,
-  DrawerTitle,
-} from "@workspace/ui/components/drawer"
 
-import { useMediaQuery } from "@/hooks/use-media-query"
 import {
+  circleSide,
   clampFrame,
   cropRect,
   initialFrame,
@@ -26,13 +21,21 @@ import {
   type Size,
 } from "@/lib/account/avatar-crop"
 
-/** The circle the member frames the image in, and the square that is kept. */
-const viewport = 256
+/** The side of the square that is uploaded; the server keeps a smaller one. */
 const output = 512
 
+/** The screen the circle is measured against, read before the first paint. */
+function screen(): Size {
+  return { width: window.innerWidth, height: window.innerHeight }
+}
+
 /** The visible square of the source, drawn at the size the server keeps. */
-async function cropped(image: HTMLImageElement, frame: Frame): Promise<Blob> {
-  const rect = cropRect(frame, viewport)
+async function cropped(
+  image: HTMLImageElement,
+  frame: Frame,
+  circle: number
+): Promise<Blob> {
+  const rect = cropRect(frame, circle)
   const canvas = document.createElement("canvas")
   canvas.width = output
   canvas.height = output
@@ -57,9 +60,9 @@ async function cropped(image: HTMLImageElement, frame: Frame): Promise<Blob> {
 }
 
 /**
- * Framing the picked image. The circle shows exactly what the icon becomes:
- * dragging moves the image behind it, pinching or scrolling sizes it, and the
- * two controls are the only thing to read.
+ * Framing the picked image over the whole screen: the ring marks what the icon
+ * becomes, everything outside it is dimmed, and the image is dragged and
+ * pinched directly. Nothing is written on it but the two controls.
  */
 export function AvatarEditor({
   file,
@@ -72,7 +75,8 @@ export function AvatarEditor({
   onCancel: () => void
   onDone: (image: Blob) => void
 }) {
-  const desktop = useMediaQuery("(min-width: 768px)")
+  // Measured before the first paint so the image is placed once, without a jump.
+  const [area, setArea] = useState(screen)
   const [source, setSource] = useState<string | null>(null)
   const [size, setSize] = useState<Size | null>(null)
   const [frame, setFrame] = useState<Frame | null>(null)
@@ -80,6 +84,11 @@ export function AvatarEditor({
   const image = useRef<HTMLImageElement>(null)
   const pointers = useRef(new Map<number, Point>())
   const gesture = useRef<{ spread: number; scale: number } | null>(null)
+  const circle = circleSide(area.width, area.height)
+  const origin = {
+    x: (area.width - circle) / 2,
+    y: (area.height - circle) / 2,
+  }
 
   useEffect(() => {
     const url = URL.createObjectURL(file)
@@ -89,8 +98,34 @@ export function AvatarEditor({
     return () => URL.revokeObjectURL(url)
   }, [file])
 
+  useEffect(() => {
+    const measure = () => {
+      const next = screen()
+      setArea((previous) => {
+        if (previous.width === next.width && previous.height === next.height)
+          return previous
+        const side = circleSide(next.width, next.height)
+        const ratio = side / circleSide(previous.width, previous.height)
+        // Keep the same part of the image framed as the screen changes.
+        if (Number.isFinite(ratio) && ratio > 0)
+          setFrame((current) =>
+            current
+              ? {
+                  scale: current.scale * ratio,
+                  x: current.x * ratio,
+                  y: current.y * ratio,
+                }
+              : current
+          )
+        return next
+      })
+    }
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [])
+
   const place = (next: Frame) => {
-    if (size) setFrame(clampFrame(next, size, viewport))
+    if (size && circle > 0) setFrame(clampFrame(next, size, circle))
   }
   const positions = () => [...pointers.current.values()]
 
@@ -116,17 +151,16 @@ export function AvatarEditor({
       const distance = spread(first, second)
       const start = gesture.current ?? { spread: distance, scale: frame.scale }
       gesture.current = start
-      const box = event.currentTarget.getBoundingClientRect()
       const centre = midpoint(first, second)
       place(
         zoomFrame(
           frame,
           size,
-          viewport,
+          circle,
           (start.scale * distance) / start.spread,
           {
-            x: centre.x - box.left,
-            y: centre.y - box.top,
+            x: centre.x - origin.x,
+            y: centre.y - origin.y,
           }
         )
       )
@@ -151,114 +185,109 @@ export function AvatarEditor({
     if (!frame || !image.current || working) return
     setWorking(true)
     try {
-      onDone(await cropped(image.current, frame))
+      onDone(await cropped(image.current, frame, circle))
     } finally {
       setWorking(false)
     }
   }
 
   const busy = working || pending
-  const body = (
-    <div className="flex flex-col items-center gap-6 px-5 pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-      <div
-        // The drawer must not read framing the image as a swipe to dismiss.
-        data-base-ui-swipe-ignore=""
-        className="relative touch-none overflow-hidden rounded-full bg-muted select-none"
-        style={{ width: viewport, height: viewport }}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={up}
-        onPointerCancel={up}
-        onWheel={(event) => {
-          if (!frame || !size) return
-          const box = event.currentTarget.getBoundingClientRect()
-          place(
-            zoomFrame(
-              frame,
-              size,
-              viewport,
-              frame.scale * (event.deltaY < 0 ? 1.1 : 1 / 1.1),
-              { x: event.clientX - box.left, y: event.clientY - box.top }
-            )
-          )
-        }}
-      >
-        {source && (
-          <img
-            ref={image}
-            src={source}
-            alt=""
-            draggable={false}
-            className="absolute top-0 left-0 max-w-none origin-top-left"
-            style={
-              frame
-                ? {
-                    transform: `translate(${frame.x}px, ${frame.y}px) scale(${frame.scale})`,
-                  }
-                : { visibility: "hidden" }
-            }
-            onLoad={(event) => {
-              const measured = {
-                width: event.currentTarget.naturalWidth,
-                height: event.currentTarget.naturalHeight,
-              }
-              setSize(measured)
-              setFrame(initialFrame(measured, viewport))
-            }}
-          />
-        )}
-      </div>
-      <div className="flex items-center gap-4">
-        <Button
-          variant="outline"
-          size="icon"
-          className="size-12 rounded-full"
-          aria-label="やめる"
-          disabled={busy}
-          onClick={onCancel}
-        >
-          <X className="size-5" />
-        </Button>
-        <Button
-          size="icon"
-          className="size-12 rounded-full"
-          aria-label="この位置で決定"
-          disabled={!frame || busy}
-          onClick={() => void confirm()}
-        >
-          {busy ? (
-            <LoaderCircle className="size-5 animate-spin" />
-          ) : (
-            <Check className="size-5" />
-          )}
-        </Button>
-      </div>
-    </div>
-  )
-  const title = "アイコンの位置と大きさ"
-  const dismiss = (next: boolean) => {
-    if (!next && !busy) onCancel()
-  }
-
-  if (desktop) {
-    return (
-      <Dialog open onOpenChange={dismiss}>
-        <DialogContent
-          showCloseButton={false}
-          className="gap-0 p-0 sm:max-w-sm"
-        >
-          <DialogTitle className="sr-only">{title}</DialogTitle>
-          {body}
-        </DialogContent>
-      </Dialog>
-    )
-  }
   return (
-    <Drawer open onOpenChange={dismiss}>
-      <DrawerContent finalFocus={false}>
-        <DrawerTitle className="sr-only">{title}</DrawerTitle>
-        {body}
-      </DrawerContent>
-    </Drawer>
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next && !busy) onCancel()
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        // The viewer's fullscreen shell: no animation, so nothing flashes.
+        className="inset-0 top-0 left-0 h-dvh w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-none bg-black/95 p-0 text-white ring-0 duration-0 sm:max-w-none data-open:animate-none data-closed:animate-none"
+      >
+        <DialogTitle className="sr-only">アイコンの位置と大きさ</DialogTitle>
+        <div
+          className="absolute inset-0 touch-none select-none"
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={up}
+          onWheel={(event) => {
+            if (!frame || !size) return
+            place(
+              zoomFrame(
+                frame,
+                size,
+                circle,
+                frame.scale * (event.deltaY < 0 ? 1.1 : 1 / 1.1),
+                { x: event.clientX - origin.x, y: event.clientY - origin.y }
+              )
+            )
+          }}
+        >
+          {source && (
+            <img
+              ref={image}
+              src={source}
+              alt=""
+              draggable={false}
+              className="absolute top-0 left-0 max-w-none origin-top-left"
+              style={
+                frame
+                  ? {
+                      transform: `translate(${origin.x + frame.x}px, ${origin.y + frame.y}px) scale(${frame.scale})`,
+                    }
+                  : { visibility: "hidden" }
+              }
+              onLoad={(event) => {
+                const measured = {
+                  width: event.currentTarget.naturalWidth,
+                  height: event.currentTarget.naturalHeight,
+                }
+                setSize(measured)
+                setFrame(initialFrame(measured, circle))
+              }}
+            />
+          )}
+          {circle > 0 && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute rounded-full ring-2 ring-white/80"
+              style={{
+                left: origin.x,
+                top: origin.y,
+                width: circle,
+                height: circle,
+                boxShadow: "0 0 0 9999px rgba(0, 0, 0, 0.62)",
+              }}
+            />
+          )}
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-8 px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="pointer-events-auto size-14 rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="やめる"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            <X className="size-6" />
+          </Button>
+          <Button
+            size="icon"
+            className="pointer-events-auto size-14 rounded-full"
+            aria-label="この位置で決定"
+            disabled={!frame || busy}
+            onClick={() => void confirm()}
+          >
+            {busy ? (
+              <LoaderCircle className="size-6 animate-spin" />
+            ) : (
+              <Check className="size-6" />
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }

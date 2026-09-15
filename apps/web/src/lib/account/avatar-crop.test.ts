@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
 
 import {
+  circleSide,
   clampFrame,
   coveringScale,
   cropRect,
@@ -52,6 +53,14 @@ describe("avatar framing", () => {
     const after = cropRect(zoomed, viewport)
     expect(after.x + after.size / 2).toBeCloseTo(before.x + before.size / 2)
     expect(after.y + after.size / 2).toBeCloseTo(before.y + before.size / 2)
+  })
+
+  it("sizes the circle to the screen, leaving room for the controls", () => {
+    expect(circleSide(390, 844)).toBe(342)
+    expect(circleSide(1440, 900)).toBe(420)
+    expect(circleSide(320, 480)).toBe(272)
+    // A window too small for any circle asks for none rather than a negative.
+    expect(circleSide(320, 100)).toBe(0)
   })
 
   it("measures the gesture between two pointers", () => {

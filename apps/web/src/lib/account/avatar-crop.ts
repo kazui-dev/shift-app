@@ -66,6 +66,14 @@ export function cropRect(frame: Frame, viewport: number) {
   }
 }
 
+/**
+ * The circle to frame in, on a screen of this size: as large as fits between
+ * the edges and the controls, and never wider than a comfortable reach.
+ */
+export function circleSide(width: number, height: number): number {
+  return Math.max(Math.round(Math.min(width - 48, height - 200, 420)), 0)
+}
+
 /** The distance between two pointers, for pinch zooming. */
 export function spread(first: Point, second: Point): number {
   return Math.hypot(first.x - second.x, first.y - second.y)
