@@ -7,31 +7,33 @@ import { toast } from "@workspace/ui/lib/toast"
 import { uploadAvatar } from "@/api/account"
 import { errorMessage } from "@/api/client"
 import { AuthShell } from "@/components/auth-shell"
+import { AvatarEditor } from "@/components/avatar-editor"
 import { useAvatarPicker } from "@/components/avatar-picker"
 
 /** The optional profile image, offered once the member has been created. */
 export function AvatarStep({ onDone }: { onDone: () => void }) {
-  const [file, setFile] = useState<File | null>(null)
+  const [picked, setPicked] = useState<File | null>(null)
+  const [image, setImage] = useState<Blob | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const picker = useAvatarPicker(setFile)
+  const picker = useAvatarPicker(setPicked)
 
   useEffect(() => {
-    const url = file ? URL.createObjectURL(file) : null
+    const url = image ? URL.createObjectURL(image) : null
     setPreview(url)
     return () => {
       if (url) URL.revokeObjectURL(url)
     }
-  }, [file])
+  }, [image])
 
   async function confirm() {
-    if (!file) {
+    if (!image) {
       onDone()
       return
     }
     setPending(true)
     try {
-      await uploadAvatar(file)
+      await uploadAvatar(image)
       onDone()
     } catch (caught) {
       toast.error(errorMessage(caught))
@@ -60,6 +62,17 @@ export function AvatarStep({ onDone }: { onDone: () => void }) {
           )}
         </button>
       </div>
+      {picked && (
+        <AvatarEditor
+          file={picked}
+          pending={pending}
+          onCancel={() => setPicked(null)}
+          onDone={(cropped) => {
+            setImage(cropped)
+            setPicked(null)
+          }}
+        />
+      )}
       <div className="flex flex-col gap-2">
         <Button className="h-11" size="lg" disabled={pending} onClick={confirm}>
           {pending && <LoaderCircle className="animate-spin" />}

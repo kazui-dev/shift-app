@@ -15,6 +15,7 @@ import { removeAvatar, uploadAvatar } from "@/api/account"
 import { errorMessage } from "@/api/client"
 import { keys } from "@/data/keys"
 import { accountStateQueryOptions } from "@/lib/account/state"
+import { AvatarEditor } from "@/components/avatar-editor"
 import { useAvatarPicker } from "@/components/avatar-picker"
 import { useOfflineMode } from "@/components/offline-mode-context"
 
@@ -24,6 +25,7 @@ export function AccountSettings() {
   const client = useQueryClient()
   const account = useQuery(accountStateQueryOptions)
   const [open, setOpen] = useState(false)
+  const [picked, setPicked] = useState<File | null>(null)
   const [pending, setPending] = useState(false)
   const member =
     account.data?.status === "active" ? account.data.member : undefined
@@ -41,7 +43,7 @@ export function AccountSettings() {
     }
   }
 
-  const picker = useAvatarPicker((file) => void run(() => uploadAvatar(file)))
+  const picker = useAvatarPicker(setPicked)
   if (!member) return null
   return (
     <div className="flex items-center gap-4 border-y px-4 py-4 sm:px-6">
@@ -67,6 +69,17 @@ export function AccountSettings() {
         <dt className="text-muted-foreground">学籍番号</dt>
         <dd className="font-mono">{member.studentId}</dd>
       </dl>
+      {picked && (
+        <AvatarEditor
+          file={picked}
+          pending={pending}
+          onCancel={() => setPicked(null)}
+          onDone={(cropped) => {
+            setPicked(null)
+            void run(() => uploadAvatar(cropped))
+          }}
+        />
+      )}
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent
           finalFocus={false}
