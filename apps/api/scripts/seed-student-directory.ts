@@ -64,12 +64,13 @@ for (const entry of entries) {
   seen.add(entry.studentId)
 }
 
+/** Rows are keyed like the app's own: dashed UUIDs, not bare hex. */
 const quote = (value: string | null) =>
   value === null ? "NULL" : `'${value.replaceAll("'", "''")}'`
 const statements = entries.map(
   (entry) =>
     `INSERT INTO student_directory (id, year, student_id, display_name, bureau, duty, created_at)
- VALUES (lower(hex(randomblob(16))), ${operatingYear}, ${quote(entry.studentId)}, ${quote(entry.displayName)}, ${quote(entry.bureau)}, ${quote(entry.duty)}, unixepoch() * 1000)
+ VALUES (lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(6))), ${operatingYear}, ${quote(entry.studentId)}, ${quote(entry.displayName)}, ${quote(entry.bureau)}, ${quote(entry.duty)}, unixepoch() * 1000)
  ON CONFLICT (year, lower(student_id)) DO UPDATE SET
    display_name = excluded.display_name, bureau = excluded.bureau, duty = excluded.duty;`
 )

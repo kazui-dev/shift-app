@@ -141,6 +141,12 @@ vp -C apps/api exec wrangler d1 execute shift-app --local --file ./directory.sql
 
 remote へ適用するときは `--local` を `--remote` に替える。学籍番号は大文字小文字を区別せず、氏名は空白を除いて照合する。同じ学籍番号を再度流すと氏名・局・担当を更新する。局と担当は同名の年度 role があればサインイン時に付与されるため、CSV の表記は `year_roles` の名前に合わせる。
 
+名簿の局と担当から不足している年度 role を作る場合も、id は dashed UUID で入れる。web は role の id を UUID として検証するため、`hex(randomblob(16))` のような形では一覧やチャット宛先の読み込みが失敗する。
+
+```bash
+vp -C apps/api exec wrangler d1 execute shift-app --remote --command "INSERT INTO year_roles (id, year, position, name, color, created_at, updated_at) SELECT lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-'||lower(hex(randomblob(2)))||'-'||lower(hex(randomblob(2)))||'-'||lower(hex(randomblob(6))), 2026, 10, name, '#64748B', unixepoch()*1000, unixepoch()*1000 FROM (SELECT DISTINCT bureau AS name FROM student_directory WHERE year=2026 AND bureau IS NOT NULL UNION SELECT DISTINCT duty FROM student_directory WHERE year=2026 AND duty IS NOT NULL) ON CONFLICT (year, lower(name)) DO NOTHING"
+```
+
 環境 binding として注入する値:
 
 ```text
