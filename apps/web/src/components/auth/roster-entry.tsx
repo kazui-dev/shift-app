@@ -2,10 +2,7 @@ import { useState, type FormEvent } from "react"
 import { LoaderCircle } from "lucide-react"
 import * as v from "valibot"
 
-import {
-  onboardingInputSchema,
-  type OnboardingInput,
-} from "@workspace/shared/auth"
+import { onboardingInputSchema } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
 import { Field, FieldGroup, FieldLabel } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
@@ -23,7 +20,7 @@ import { AuthHeading } from "@/components/auth/auth-heading"
 export function RosterEntry({
   onEntered,
 }: {
-  onEntered: (input: OnboardingInput, created: boolean) => void
+  onEntered: (created: boolean) => void
 }) {
   const [studentId, setStudentId] = useState("")
   const [displayName, setDisplayName] = useState("")
@@ -42,8 +39,7 @@ export function RosterEntry({
 
     setPending(true)
     try {
-      const created = await signInFromDirectory(parsed.output)
-      onEntered(parsed.output, created)
+      onEntered(await signInFromDirectory(parsed.output))
     } catch (caught) {
       toast.error(
         caught instanceof ApiError && caught.status < 500

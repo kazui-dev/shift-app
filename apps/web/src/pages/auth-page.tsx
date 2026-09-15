@@ -3,7 +3,6 @@ import { useNavigate } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { LoaderCircle } from "lucide-react"
 
-import type { OnboardingInput } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
 
 import { createAccount } from "@/api/account"
@@ -21,7 +20,7 @@ export function AuthPage() {
   const queryClient = useQueryClient()
   // A member the directory has just created is offered a profile image before
   // the app opens; the account query is refreshed once that step is done.
-  const [entered, setEntered] = useState<OnboardingInput | null>(null)
+  const [entered, setEntered] = useState(false)
 
   async function open() {
     await queryClient.invalidateQueries({ queryKey: keys.account() })
@@ -29,7 +28,7 @@ export function AuthPage() {
   }
 
   if (entered) {
-    return <AvatarStep name={entered.displayName} onDone={open} />
+    return <AvatarStep onDone={open} />
   }
   if (authState.isPending) {
     return (
@@ -52,8 +51,8 @@ export function AuthPage() {
     }
     return (
       <RosterEntry
-        onEntered={(input, created) => {
-          if (created) setEntered(input)
+        onEntered={(created) => {
+          if (created) setEntered(true)
           else void open()
         }}
       />
