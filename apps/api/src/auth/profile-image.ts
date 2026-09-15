@@ -15,7 +15,7 @@ export function normalizeProfileImage<
 const discordAvatar =
   /^https:\/\/cdn\.discordapp\.com\/avatars\/\d+\/[a-zA-Z0-9_]+\.webp\?size=128$/
 const ownAvatar =
-  /^\/api\/members\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/avatar$/
+  /^\/api\/members\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/avatar(?:\?v=\d+)?$/
 
 function isAllowedImage(image: string, baseUrl: string): boolean {
   if (discordAvatar.test(image)) return true

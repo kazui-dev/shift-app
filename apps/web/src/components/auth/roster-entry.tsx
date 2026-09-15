@@ -83,7 +83,12 @@ export function RosterEntry({
             />
           </Field>
         </FieldGroup>
-        <Button className="h-11" size="lg" type="submit" disabled={pending}>
+        <Button
+          className="mt-2 h-11"
+          size="lg"
+          type="submit"
+          disabled={pending}
+        >
           {pending && <LoaderCircle className="animate-spin" />}
           送信
         </Button>

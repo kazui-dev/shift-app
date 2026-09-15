@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ArrowLeft, Bell, BellOff, Settings, Search } from "lucide-react"
+import { ArrowLeft, BellOff, Settings, Search } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { ChatRoom } from "@/api/chat"
 
@@ -22,36 +22,33 @@ function HeaderRow({
 function RoomControls({
   room,
   offline,
-  onMute,
   onSettings,
 }: {
   room: ChatRoom
   offline: boolean
-  onMute: () => void
   onSettings: () => void
 }) {
   return (
     <div className="flex items-center gap-1">
+      {/* Muting is a switch in the room's settings; here it only shows. */}
+      {room.muted && (
+        <span
+          title="通知オフ"
+          className="flex size-8 items-center justify-center text-muted-foreground"
+        >
+          <BellOff className="size-4" />
+          <span className="sr-only">通知オフ</span>
+        </span>
+      )}
       <Button
         variant="ghost"
         size="icon-sm"
         disabled={offline}
-        aria-label={room.muted ? "通知をオンにする" : "ミュートする"}
-        onClick={onMute}
+        aria-label="チャット設定"
+        onClick={onSettings}
       >
-        {room.muted ? <BellOff /> : <Bell />}
+        <Settings />
       </Button>
-      {(room.canManage || room.allowExit) && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          disabled={offline}
-          aria-label="チャット設定"
-          onClick={onSettings}
-        >
-          <Settings />
-        </Button>
-      )}
     </div>
   )
 }
@@ -62,7 +59,6 @@ export function RoomHeader({
   offline,
   onBack,
   onMembers,
-  onMute,
   onSettings,
   onAttendance,
   onSearch,
@@ -72,7 +68,6 @@ export function RoomHeader({
   offline: boolean
   onBack: () => void
   onMembers: () => void
-  onMute: () => void
   onSettings: () => void
   onAttendance: () => void
   onSearch: () => void
@@ -117,12 +112,7 @@ export function RoomHeader({
       </Button>
       {room && (
         <div className="hidden md:block">
-          <RoomControls
-            room={room}
-            offline={offline}
-            onMute={onMute}
-            onSettings={onSettings}
-          />
+          <RoomControls room={room} offline={offline} onSettings={onSettings} />
         </div>
       )}
     </HeaderRow>
@@ -133,13 +123,11 @@ export function MembersHeader({
   room,
   offline,
   onBack,
-  onMute,
   onSettings,
 }: {
   room: ChatRoom
   offline: boolean
   onBack: () => void
-  onMute: () => void
   onSettings: () => void
 }) {
   return (
@@ -161,12 +149,7 @@ export function MembersHeader({
         {room.name}
       </h2>
       <div className="flex w-17 shrink-0 justify-end">
-        <RoomControls
-          room={room}
-          offline={offline}
-          onMute={onMute}
-          onSettings={onSettings}
-        />
+        <RoomControls room={room} offline={offline} onSettings={onSettings} />
       </div>
     </HeaderRow>
   )

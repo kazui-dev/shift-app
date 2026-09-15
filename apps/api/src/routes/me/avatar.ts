@@ -22,11 +22,23 @@ meAvatarApp.put("/", async (c) => {
   await c.env.CHAT_IMAGES.put(avatarKey(member.id), bytes, {
     httpMetadata: { contentType: "image/webp" },
   })
-  const image = `${c.env.BETTER_AUTH_URL}${avatarPath(member.id)}`
+  const image = `${c.env.BETTER_AUTH_URL}${avatarPath(member.id, Date.now())}`
   await drizzle(c.env.shift_app)
     .update(user)
     .set({ image, updatedAt: new Date() })
     .where(eq(user.id, member.userId))
 
   return c.json({ image })
+})
+
+/** Clears the member's profile image; their initial is shown again. */
+meAvatarApp.delete("/", async (c) => {
+  const member = c.get("member")
+  await c.env.CHAT_IMAGES.delete(avatarKey(member.id))
+  await drizzle(c.env.shift_app)
+    .update(user)
+    .set({ image: null, updatedAt: new Date() })
+    .where(eq(user.id, member.userId))
+
+  return c.body(null, 204)
 })

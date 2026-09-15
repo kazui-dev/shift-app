@@ -2,7 +2,13 @@ import * as v from "valibot"
 
 import { authStateSchema, type OnboardingInput } from "@workspace/shared/auth"
 
-import { ApiError, ApiNetworkError, apiJson, apiUpload } from "./client"
+import {
+  ApiError,
+  ApiNetworkError,
+  apiJson,
+  apiUpload,
+  apiVoid,
+} from "./client"
 
 export const getAccountState = () => apiJson("/api/account", authStateSchema)
 
@@ -58,3 +64,7 @@ const avatarSchema = v.object({ image: v.pipe(v.string(), v.url()) })
 /** Replaces the member's profile image; the server stores a square WebP. */
 export const uploadAvatar = (image: Blob) =>
   apiUpload("/api/me/avatar", avatarSchema, image, { method: "PUT" })
+
+/** Clears the member's profile image, leaving their initial. */
+export const removeAvatar = () =>
+  apiVoid("/api/me/avatar", { method: "DELETE" })

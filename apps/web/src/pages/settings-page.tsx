@@ -7,6 +7,7 @@ import { errorMessage } from "@/api/client"
 import { useDisplayYear } from "@/components/use-display-year"
 import { SelectField } from "@/components/select-field"
 import { PushControl } from "@/components/push-control"
+import { AccountSettings } from "@/components/account-settings"
 import { PageHeader } from "@/components/page-layout"
 import { useTheme } from "@/components/theme-context"
 export function SettingsPage() {
@@ -34,6 +35,12 @@ export function SettingsPage() {
   return (
     <section className="w-full min-w-0 space-y-8 py-6">
       <PageHeader title="設定" className="min-h-0 px-4 sm:px-6" />
+      <div>
+        <h2 className="mb-3 px-4 text-xs font-medium text-muted-foreground sm:px-6">
+          アカウント
+        </h2>
+        <AccountSettings />
+      </div>
       <div className="flex min-h-18 items-center justify-between gap-4 border-y px-4 py-3 sm:px-6">
         <label htmlFor="display-year" className="font-medium">
           表示年度

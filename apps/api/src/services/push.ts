@@ -1,4 +1,4 @@
-import { roomRecipients } from "./chat-permissions"
+import { roomPermissions } from "./chat-permissions"
 import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import webpush from "web-push"
 import { clearPushTransport } from "./notification-devices"
@@ -36,6 +36,10 @@ async function deliver(
       payload,
       {
         TTL: 60 * 60,
+        // Shifts and messages are read while they still matter, so the push
+        // service must wake the device rather than hold the message for its
+        // next batch.
+        urgency: "high",
         vapidDetails: {
           subject: env.VAPID_SUBJECT,
           publicKey: env.VAPID_PUBLIC_KEY,
@@ -156,6 +160,35 @@ export async function sendMemberNotification(
   return results.every(Boolean)
 }
 
+/**
+ * Every device to notify about a room, in one query. A room can hold the whole
+ * committee, so the sender waits for one round trip rather than one per member.
+ */
+async function roomSubscriptions(
+  env: CloudflareBindings,
+  roomId: string,
+  senderId: string
+): Promise<SubscriptionRow[]> {
+  const result = await env.shift_app
+    .prepare(
+      `${roomPermissions}
+       SELECT device.id, device.endpoint, device.expiration_time AS expirationTime,
+              device.p256dh, device.auth
+       FROM chat_permissions access
+       JOIN notification_devices device ON device.member_id = access.member_id
+       LEFT JOIN chat_room_preferences preference
+         ON preference.room_id = access.room_id
+        AND preference.member_id = access.member_id
+       WHERE access.member_id != ?
+         AND COALESCE(preference.muted, 0) = 0
+         AND device.enabled = 1 AND device.endpoint IS NOT NULL
+         AND device.p256dh IS NOT NULL AND device.auth IS NOT NULL`
+    )
+    .bind(roomId, senderId)
+    .all<SubscriptionRow>()
+  return result.results
+}
+
 export async function notifyRoomMessage(
   env: CloudflareBindings,
   roomId: string,
@@ -163,20 +196,23 @@ export async function notifyRoomMessage(
   name: string,
   content: string
 ) {
-  const recipients = (await roomRecipients(env, roomId)).filter(
-    (member) => member.id !== senderId && member.muted === 0
-  )
+  const subscriptions = await roomSubscriptions(env, roomId, senderId)
+  const payload = JSON.stringify({
+    title: name,
+    body: content,
+    tag: `chat-${roomId}`,
+    data: { url: `/chat/${roomId}` },
+  })
   await Promise.all(
-    recipients.map((item) =>
-      sendMemberNotification(
-        env,
-        item.id,
-        name,
-        content,
-        `/chat/${roomId}`,
-        `chat-${roomId}`
-      )
-    )
+    subscriptions.map(async (subscription) => {
+      if ((await deliver(env, subscription, payload)) === "dead") {
+        await clearPushTransport(
+          env.shift_app,
+          subscription.id,
+          subscription.endpoint
+        )
+      }
+    })
   )
 }
 

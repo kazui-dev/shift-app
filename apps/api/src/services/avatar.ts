@@ -5,9 +5,13 @@ export function avatarKey(memberId: string): string {
   return `avatars/${memberId}`
 }
 
-/** The path a stored profile image is served from. */
-export function avatarPath(memberId: string): string {
-  return `/api/members/${memberId}/avatar`
+/**
+ * The path a stored profile image is served from. A new upload replaces the
+ * object at the same key, so the saved URL carries the version that made it;
+ * without it browsers and caches would keep showing the previous image.
+ */
+export function avatarPath(memberId: string, version: number): string {
+  return `/api/members/${memberId}/avatar?v=${version}`
 }
 
 /**

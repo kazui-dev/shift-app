@@ -18,6 +18,7 @@ import {
   type ChatRoom,
 } from "@/api/chat"
 import { errorMessage } from "@/api/client"
+import { changeRoomMute } from "@/data/preferences"
 import { settingsQuery, targetsQuery } from "@/data/chat"
 import { RoomGrants } from "@/components/chat/room/grants"
 
@@ -62,11 +63,33 @@ export function RoomSettings({
                 再試行
               </Button>
             )}
+            <NotificationSetting room={room} />
             <RoomActions room={room} onLeave={onLeave} onDelete={onDelete} />
           </ResponsivePageBody>
         </>
       )}
     </>
+  )
+}
+
+/** The member's own notifications for this room, shown to everyone. */
+function NotificationSetting({ room }: { room: ChatRoom }) {
+  const client = useQueryClient()
+  return (
+    <div className="flex min-h-14 items-center justify-between gap-4 border-b py-3">
+      <label htmlFor="room-notifications" className="font-medium">
+        通知
+      </label>
+      <Switch
+        id="room-notifications"
+        checked={!room.muted}
+        onCheckedChange={(checked) =>
+          void changeRoomMute(client, room.id, !checked).catch((failure) =>
+            toast.error(errorMessage(failure))
+          )
+        }
+      />
+    </div>
   )
 }
 
@@ -171,6 +194,7 @@ function SettingsEditor({
                 targets={targets}
                 onChange={(grants) => setValue({ ...value, targets: grants })}
               />
+              <NotificationSetting room={room} />
               <RoomActions room={room} onLeave={onLeave} onDelete={onDelete} />
             </fieldset>
           </ResponsivePageBody>

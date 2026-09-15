@@ -7,7 +7,6 @@ import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import { type ChatRoom } from "@/api/chat"
 import { errorMessage } from "@/api/client"
-import { changeRoomMute } from "@/data/preferences"
 import { membersQuery, settingsQuery } from "@/data/chat"
 import { attendanceQuery } from "@/data/attendance"
 import { ShiftAttendance } from "@/components/shifts/shift-attendance"
@@ -56,12 +55,6 @@ export function ChatWorkspace({
     void client.prefetchQuery(membersQuery(room.id))
     if (room.canManage) void client.prefetchQuery(settingsQuery(room.id))
   }, [client, room, showingRoom, offline])
-  const mute = () => {
-    if (room)
-      void changeRoomMute(client, room.id, !room.muted).catch((failure) =>
-        toast.error(errorMessage(failure))
-      )
-  }
   const openSettings = () => {
     if (room)
       void navigate({
@@ -96,7 +89,6 @@ export function ChatWorkspace({
             offline={offline}
             onBack={onBack}
             onMembers={showInfo}
-            onMute={mute}
             onSettings={openSettings}
             onAttendance={openAttendance}
             onSearch={() => {
@@ -116,7 +108,6 @@ export function ChatWorkspace({
                 room={room}
                 offline={offline}
                 onBack={closeInfo}
-                onMute={mute}
                 onSettings={openSettings}
               />
               <RoomMembers
