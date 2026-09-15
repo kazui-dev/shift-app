@@ -34,9 +34,7 @@ export function AvatarStep({
 
   return (
     <AuthShell>
-      <p className="text-center text-sm text-muted-foreground">
-        アイコンを設定できます。あとからでも変更できます。
-      </p>
+      <h1 className="text-center text-xl font-medium">アイコンを設定する</h1>
       <AvatarField
         name={name}
         image={null}
