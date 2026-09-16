@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
 import * as v from "valibot"
 
 import {
@@ -15,6 +15,7 @@ import {
   notifyAttendance,
   type AttendanceColumns,
 } from "../services/attendance"
+import { broadcastChange } from "../services/live-events"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 
@@ -44,6 +45,21 @@ function findShift(env: CloudflareBindings, assignmentId: string) {
     WHERE a.id = ?`)
     .bind(assignmentId)
     .first<ShiftRow>()
+}
+
+/** Answers with the attendance now recorded, and tells whoever watches the shift. */
+async function changedAttendance(
+  c: Context<ApiEnv>,
+  shift: ShiftRow,
+  assignmentId: string
+) {
+  c.executionCtx.waitUntil(
+    broadcastChange(c.env, {
+      type: "attendance_changed",
+      activityId: shift.activityId,
+    })
+  )
+  return c.json({ attendance: await readAttendance(c.env, assignmentId) })
 }
 
 async function readAttendance(env: CloudflareBindings, assignmentId: string) {
@@ -90,7 +106,7 @@ assignmentsApp.put("/:assignmentId/attendance", async (c) => {
         .bind(crypto.randomUUID(), id.output, member.id, now, now),
     ])
     if (!result) return apiError(c, errors.attendanceChanged)
-    return c.json({ attendance: await readAttendance(c.env, id.output) })
+    return changedAttendance(c, shift, id.output)
   }
   if (shift.attendanceState === "present")
     return apiError(c, errors.attendanceFinal)
@@ -132,7 +148,7 @@ assignmentsApp.put("/:assignmentId/attendance", async (c) => {
   if (!result || result.meta.changes === 0)
     return apiError(c, errors.attendanceFinal)
   c.executionCtx.waitUntil(notifyAttendance(c.env, shift, input.output.state))
-  return c.json({ attendance: await readAttendance(c.env, id.output) })
+  return changedAttendance(c, shift, id.output)
 })
 
 /** A member takes back being late or absent; a check-in cannot be taken back. */
@@ -160,7 +176,15 @@ assignmentsApp.delete("/:assignmentId/attendance", async (c) => {
   ])
   if (!result || result.meta.changes === 0)
     return apiError(c, errors.attendanceNotFound)
-  c.executionCtx.waitUntil(notifyAttendance(c.env, shift, "withdrawn"))
+  c.executionCtx.waitUntil(
+    Promise.all([
+      notifyAttendance(c.env, shift, "withdrawn"),
+      broadcastChange(c.env, {
+        type: "attendance_changed",
+        activityId: shift.activityId,
+      }),
+    ])
+  )
   return c.body(null, 204)
 })
 
@@ -193,7 +217,7 @@ assignmentsApp.patch("/:assignmentId/attendance", async (c) => {
     ])
     if (!result || result.meta.changes === 0)
       return apiError(c, errors.attendanceChanged)
-    return c.json({ attendance: await readAttendance(c.env, id.output) })
+    return changedAttendance(c, shift, id.output)
   }
   const at = Date.parse(input.output.checkedInAt)
   await db.batch([
@@ -217,7 +241,7 @@ assignmentsApp.patch("/:assignmentId/attendance", async (c) => {
       check_in_status = 'confirmed', updated_at = MAX(excluded.updated_at, assignment_attendance.updated_at + 1)`)
       .bind(id.output, shift.memberId, at, now, now),
   ])
-  return c.json({ attendance: await readAttendance(c.env, id.output) })
+  return changedAttendance(c, shift, id.output)
 })
 
 /** Every change to an assignment's attendance, for its member and responsibles. */

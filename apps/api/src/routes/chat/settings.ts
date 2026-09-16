@@ -10,6 +10,7 @@ import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
 import { findAccessibleRoom } from "../../services/chat-access"
 import { publishRoomChange } from "../../services/chat-directory"
+import { liveDirectory } from "../../services/live-events"
 import {
   roomPermissions,
   roomRecipients,
@@ -47,7 +48,7 @@ settingsApp.patch("/preferences", async (c) => {
   const current = await findAccessibleRoom(c.env, room.id, memberId)
   if (current)
     c.executionCtx.waitUntil(
-      c.env.CHAT_DIRECTORY.getByName("rooms").publish([memberId], {
+      liveDirectory(c.env).publish([memberId], {
         type: "preferences_changed",
         roomId: room.id,
         lastRead: current.lastRead,

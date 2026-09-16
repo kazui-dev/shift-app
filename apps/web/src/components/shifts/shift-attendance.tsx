@@ -40,10 +40,7 @@ export function ShiftAttendance({
   onClose: () => void
 }) {
   const client = useQueryClient()
-  const query = useQuery({
-    ...attendanceQuery(activityId),
-    refetchInterval: 30000,
-  })
+  const query = useQuery(attendanceQuery(activityId))
   const [correcting, setCorrecting] = useState<Assignment | null>(null)
   const [history, setHistory] = useState<string | null>(null)
   const [pending, setPending] = useState(false)

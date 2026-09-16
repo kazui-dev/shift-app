@@ -7,6 +7,7 @@ import { type ApiEnv, parseYear, readJson } from "../../lib/http"
 import { hasActiveYearMembership } from "../../services/membership"
 import { readAvailabilityForm } from "../../services/availability-form"
 import { validateFormAnswers } from "../../domain/availability-form"
+import { broadcastChange } from "../../services/live-events"
 export const meAvailabilityApp = new Hono<ApiEnv>()
 meAvailabilityApp.use("/:year", async (c, next) => {
   const year = parseYear(c.req.param("year"))
@@ -126,5 +127,10 @@ meAvailabilityApp.put("/:year", async (c) => {
       return apiError(c, errors.availabilityFormChanged)
     throw error
   }
+  // Drafts save as members type; only a submission changes the progress others see.
+  if (input.output.submit)
+    c.executionCtx.waitUntil(
+      broadcastChange(c.env, { type: "availability_submitted", year })
+    )
   return c.json(await readAvailabilityForm(db, year, memberId))
 })

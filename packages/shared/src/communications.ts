@@ -178,7 +178,6 @@ export const chatMessageEnvelopeSchema = v.object({
 })
 
 export const chatEventSchema = v.variant("type", [
-  v.object({ type: v.literal("access_changed") }),
   v.object({
     type: v.literal("room_removed"),
     roomId: v.pipe(v.string(), v.uuid()),

@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vite-plus/test"
 import { ChatDirectory } from "../../src/durable-objects/chat-directory"
-it("notifies every connected device of participants and no other member", () => {
+it("delivers chat events to participants only and changes to every device", () => {
   const socket = (id: string) => ({
     deserializeAttachment: () => id,
     send: vi.fn<(message: string) => void>(),
@@ -22,7 +22,7 @@ it("notifies every connected device of participants and no other member", () => 
     '{"type":"room_changed","roomId":"room"}'
   )
   expect(other.send).not.toHaveBeenCalled()
-  result.accessChanged()
-  expect(other.send).toHaveBeenCalledWith('{"type":"access_changed"}')
-  expect(one.send).toHaveBeenLastCalledWith('{"type":"access_changed"}')
+  result.broadcast({ type: "shifts_changed" })
+  expect(other.send).toHaveBeenCalledWith('{"type":"shifts_changed"}')
+  expect(one.send).toHaveBeenLastCalledWith('{"type":"shifts_changed"}')
 })

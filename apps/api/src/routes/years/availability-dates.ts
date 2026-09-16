@@ -4,6 +4,7 @@ import { formDateInputSchema } from "@workspace/shared/availability"
 import { apiError, errors } from "../../lib/errors"
 import { type ApiEnv, parseYear, readJson } from "../../lib/http"
 import { canManageShifts } from "../../services/membership"
+import { announce } from "../announce"
 export const availabilityDatesApp = new Hono<ApiEnv>()
 availabilityDatesApp.use("/:year/availability-dates/*", (c, next) =>
   authorize(c, next)
@@ -41,35 +42,48 @@ availabilityDatesApp.get("/:year/availability-dates", async (c) => {
     })),
   })
 })
-availabilityDatesApp.put("/:year/availability-dates/:date", async (c) => {
-  const input = v.safeParse(formDateInputSchema, await readJson(c.req.raw))
-  if (!input.success || input.output.date !== c.req.param("date"))
-    return apiError(c, errors.invalidAvailabilityDate)
-  const date = input.output,
-    now = Date.now()
-  await c.env.shift_app
-    .prepare(`INSERT INTO availability_dates (id,year,date,starts_minute,ends_minute,accepting,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)
+/** Members asked about these dates see the change, from each route's year. */
+const datesChanged = announce((c) => {
+  const year = parseYear(c.req.param("year") ?? "")
+  return year === null ? null : { type: "availability_changed", year }
+})
+availabilityDatesApp.put(
+  "/:year/availability-dates/:date",
+  datesChanged,
+  async (c) => {
+    const input = v.safeParse(formDateInputSchema, await readJson(c.req.raw))
+    if (!input.success || input.output.date !== c.req.param("date"))
+      return apiError(c, errors.invalidAvailabilityDate)
+    const date = input.output,
+      now = Date.now()
+    await c.env.shift_app
+      .prepare(`INSERT INTO availability_dates (id,year,date,starts_minute,ends_minute,accepting,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)
     ON CONFLICT(year,date) DO UPDATE SET starts_minute=excluded.starts_minute,ends_minute=excluded.ends_minute,accepting=excluded.accepting,deleted=0,updated_at=excluded.updated_at,
     version=CASE WHEN availability_dates.starts_minute<>excluded.starts_minute OR availability_dates.ends_minute<>excluded.ends_minute OR availability_dates.deleted=1 THEN availability_dates.version+1 ELSE availability_dates.version END`)
-    .bind(
-      crypto.randomUUID(),
-      Number(c.req.param("year")),
-      date.date,
-      date.startsMinute,
-      date.endsMinute,
-      date.accepting ? 1 : 0,
-      now,
-      now
-    )
-    .run()
-  return c.body(null, 204)
-})
-availabilityDatesApp.delete("/:year/availability-dates/:date", async (c) => {
-  await c.env.shift_app
-    .prepare(
-      "UPDATE availability_dates SET deleted=1,accepting=0,updated_at=? WHERE year=? AND date=?"
-    )
-    .bind(Date.now(), Number(c.req.param("year")), c.req.param("date"))
-    .run()
-  return c.body(null, 204)
-})
+      .bind(
+        crypto.randomUUID(),
+        Number(c.req.param("year")),
+        date.date,
+        date.startsMinute,
+        date.endsMinute,
+        date.accepting ? 1 : 0,
+        now,
+        now
+      )
+      .run()
+    return c.body(null, 204)
+  }
+)
+availabilityDatesApp.delete(
+  "/:year/availability-dates/:date",
+  datesChanged,
+  async (c) => {
+    await c.env.shift_app
+      .prepare(
+        "UPDATE availability_dates SET deleted=1,accepting=0,updated_at=? WHERE year=? AND date=?"
+      )
+      .bind(Date.now(), Number(c.req.param("year")), c.req.param("date"))
+      .run()
+    return c.body(null, 204)
+  }
+)

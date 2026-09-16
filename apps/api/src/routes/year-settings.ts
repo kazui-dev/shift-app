@@ -5,10 +5,11 @@ import { replaceYearSettingsInputSchema } from "@workspace/shared/shifts"
 
 import { apiError, errors } from "../lib/errors"
 import { type ApiEnv, readJson, requireSystemAdmin } from "../lib/http"
+import { announce } from "./announce"
 
 export const yearSettingsApp = new Hono<ApiEnv>()
 
-yearSettingsApp.put("/", async (c) => {
+yearSettingsApp.put("/", announce({ type: "access_changed" }), async (c) => {
   const denied = requireSystemAdmin(c)
   if (denied) return denied
 

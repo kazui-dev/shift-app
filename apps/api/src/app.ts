@@ -1,4 +1,3 @@
-import { chatAccessEvents } from "./lib/chat-access-events"
 import { Hono } from "hono"
 
 import { createAuth } from "./auth"
@@ -59,8 +58,6 @@ app.get("/api/health", async (c) => {
     timestamp: new Date().toISOString(),
   })
 })
-
-app.use("/api/*", chatAccessEvents)
 
 app.route("/api", accountApp)
 app.route("/api/admin", adminApp)

@@ -1,12 +1,13 @@
 import type { ChatEvent } from "@workspace/shared/communications"
 import { roomRecipients } from "./chat-permissions"
+import { liveDirectory } from "./live-events"
 
 export async function publishChatEvent(
   env: CloudflareBindings,
-  event: Exclude<ChatEvent, { type: "access_changed" }>
+  event: ChatEvent
 ) {
   const members = await roomRecipients(env, event.roomId)
-  await env.CHAT_DIRECTORY.getByName("rooms").publish(
+  await liveDirectory(env).publish(
     members.map((member) => member.id),
     event
   )
@@ -26,7 +27,7 @@ export async function publishRoomChange(
 ) {
   const recipients = await roomChangeRecipients(env, roomId)
   const removed = previous.filter((id) => !recipients.includes(id))
-  const directory = env.CHAT_DIRECTORY.getByName("rooms")
+  const directory = liveDirectory(env)
   await Promise.all([
     directory.publish(recipients, { type: "room_changed", roomId }),
     ...(removed.length

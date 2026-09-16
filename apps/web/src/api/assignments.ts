@@ -13,8 +13,6 @@ import { queryOptions, skipToken } from "@tanstack/react-query"
 import { japanDateStart, japanMonthRange } from "@workspace/shared/japan-time"
 import { apiJson, apiVoid } from "./client"
 
-const assignmentMonthStaleTime = 5 * 60 * 1000
-
 export type CalendarAssignment = Awaited<
   ReturnType<typeof getMyAssignments>
 >["assignments"][number]
@@ -56,7 +54,6 @@ export function assignmentMonthQuery(
       year === null
         ? skipToken
         : ({ signal }) => getMyAssignments(year, range.from, range.to, signal),
-    staleTime: assignmentMonthStaleTime,
     refetchInterval: (query) =>
       online && query.state.status === "error" ? 30_000 : false,
   })

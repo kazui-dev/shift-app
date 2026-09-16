@@ -69,7 +69,9 @@ function fixture() {
   const tasks: Promise<unknown>[] = []
   const env = {
     CHAT_ROOMS: { getByName: () => ({ sendMessage: async () => delivered }) },
-    CHAT_DIRECTORY: { getByName: () => ({ publish: published }) },
+    CHAT_DIRECTORY: {
+      getByName: () => ({ publish: published, broadcast: async () => {} }),
+    },
     shift_app: binding,
   }
   const app = new Hono<ApiEnv>()

@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router"
 import { useChatViewport } from "@/hooks/use-chat-viewport"
 import { ChatDelivery } from "./chat/delivery"
+import { LiveEvents } from "./live-events"
 import { AppNavigation } from "./app-navigation"
 
 import { OfflineModeContext } from "./offline-mode-context"
@@ -121,6 +122,7 @@ export function AppShell({
         {offline ? "オフラインです" : ""}
       </output>
       <OfflineModeContext value={offline}>
+        <LiveEvents />
         <ChatDelivery />
         <main className="row-start-1 flex min-h-0 min-w-0 flex-col md:col-start-2">
           {unsafeOfflineRoute ? null : <Outlet />}

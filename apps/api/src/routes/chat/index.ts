@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 
 import type { ApiEnv } from "../../lib/http"
-import { eventsApp } from "./events"
+import { openLiveEvents } from "../events"
 import { imagesApp } from "./images"
 import { linksApp } from "./links"
 import { messagesApp } from "./messages"
@@ -21,6 +21,8 @@ conversationApp.route("/", linksApp)
 
 export const chatApp = new Hono<ApiEnv>()
 chatApp.route("/", chatTargetsApp)
-chatApp.route("/", eventsApp)
+// Temporary: clients from before /api/events still connect here.
+// Listed in docs/compatibility.md.
+chatApp.get("/events", openLiveEvents)
 chatApp.route("/", roomsApp)
 chatApp.route("/rooms/:roomId", conversationApp)

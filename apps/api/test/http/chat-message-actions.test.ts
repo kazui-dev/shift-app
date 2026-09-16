@@ -83,12 +83,10 @@ it("rejects cross-origin directory connections and replaces caller-supplied iden
       headers: {
         Upgrade: "websocket",
         Origin: "https://app.example",
-        "X-Chat-Member-Id": "forged",
+        "X-Member-Id": "forged",
       },
     },
     env
   )
-  expect(connect.mock.calls[0]?.[0].headers.get("X-Chat-Member-Id")).toBe(
-    "trusted"
-  )
+  expect(connect.mock.calls[0]?.[0].headers.get("X-Member-Id")).toBe("trusted")
 })

@@ -7,6 +7,7 @@ import { user } from "@workspace/db"
 import { apiError, errors } from "../../lib/errors"
 import type { ApiEnv } from "../../lib/http"
 import { avatarKey, avatarPath, storableAvatar } from "../../services/avatar"
+import { broadcastChange } from "../../services/live-events"
 
 export const meAvatarApp = new Hono<ApiEnv>()
 
@@ -28,6 +29,13 @@ meAvatarApp.put("/", async (c) => {
     .set({ image, updatedAt: new Date() })
     .where(eq(user.id, member.userId))
 
+  c.executionCtx.waitUntil(
+    broadcastChange(c.env, {
+      type: "profile_changed",
+      memberId: member.id,
+      image,
+    })
+  )
   return c.json({ image })
 })
 
@@ -40,5 +48,12 @@ meAvatarApp.delete("/", async (c) => {
     .set({ image: null, updatedAt: new Date() })
     .where(eq(user.id, member.userId))
 
+  c.executionCtx.waitUntil(
+    broadcastChange(c.env, {
+      type: "profile_changed",
+      memberId: member.id,
+      image: null,
+    })
+  )
   return c.body(null, 204)
 })

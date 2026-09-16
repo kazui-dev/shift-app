@@ -6,6 +6,7 @@ import { createOperatingYearInputSchema } from "@workspace/shared/shifts"
 
 import { apiError, errors } from "../../lib/errors"
 import { type ApiEnv, readJson, requireSystemAdmin } from "../../lib/http"
+import { announce } from "../announce"
 
 type YearRow = {
   year: number
@@ -60,7 +61,7 @@ yearLifecycleApp.get("/", async (c) => {
   })
 })
 
-yearLifecycleApp.post("/", async (c) => {
+yearLifecycleApp.post("/", announce({ type: "access_changed" }), async (c) => {
   const denied = requireSystemAdmin(c)
   if (denied) return denied
 

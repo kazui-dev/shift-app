@@ -8,6 +8,7 @@ import { canEditActivity } from "../services/activity-access"
 import { canManageYear } from "../services/role-authority"
 import { readActivityEditor } from "../services/activity-editor"
 import { sendMemberNotification } from "../services/push"
+import { announce } from "./announce"
 export const activityActionsApp = new Hono<ApiEnv>()
 activityActionsApp.use("/:activityId/*", async (c, next) => {
   const activity = await c.env.shift_app
@@ -26,94 +27,98 @@ activityActionsApp.use("/:activityId/*", async (c, next) => {
     return apiError(c, errors.shiftResponsibilityRequired)
   return next()
 })
-activityActionsApp.post("/:activityId/copies", async (c) => {
-  const input = v.safeParse(
-    v.object({ date: v.pipe(v.string(), v.isoDate()) }),
-    await readJson(c.req.raw)
-  )
-  if (!input.success) return apiError(c, errors.dateRequired)
-  const old = await readActivityEditor(
-    c.env.shift_app,
-    c.req.param("activityId")
-  )
-  if (!old) return apiError(c, errors.activityNotFound)
-  const actor = c.get("member")
-  if (
-    !(await canManageYear(
+activityActionsApp.post(
+  "/:activityId/copies",
+  announce({ type: "shifts_changed" }),
+  async (c) => {
+    const input = v.safeParse(
+      v.object({ date: v.pipe(v.string(), v.isoDate()) }),
+      await readJson(c.req.raw)
+    )
+    if (!input.success) return apiError(c, errors.dateRequired)
+    const old = await readActivityEditor(
       c.env.shift_app,
-      actor,
-      old.activity.year,
-      "shift.create"
-    )) &&
-    !(await canManageYear(
-      c.env.shift_app,
-      actor,
-      old.activity.year,
-      "shift.manage"
-    ))
-  )
-    return apiError(c, errors.shiftCreationRequired)
-  const id = crypto.randomUUID(),
-    now = Date.now()
-  const date = new Date(Date.parse(old.activity.startsAt) + 9 * 3600000)
-    .toISOString()
-    .slice(0, 10)
-  const delta = japanDateStart(input.output.date) - japanDateStart(date)
-  await c.env.shift_app.batch([
-    c.env.shift_app
-      .prepare(`INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,notes,created_by,updated_by,created_at,updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(
-        id,
+      c.req.param("activityId")
+    )
+    if (!old) return apiError(c, errors.activityNotFound)
+    const actor = c.get("member")
+    if (
+      !(await canManageYear(
+        c.env.shift_app,
+        actor,
         old.activity.year,
-        old.activity.name,
-        old.activity.place,
-        old.activity.activityType,
-        Date.parse(old.activity.startsAt) + delta,
-        Date.parse(old.activity.endsAt) + delta,
-        old.activity.color,
-        old.activity.notes,
-        actor.id,
-        actor.id,
-        now,
+        "shift.create"
+      )) &&
+      !(await canManageYear(
+        c.env.shift_app,
+        actor,
+        old.activity.year,
+        "shift.manage"
+      ))
+    )
+      return apiError(c, errors.shiftCreationRequired)
+    const id = crypto.randomUUID(),
+      now = Date.now()
+    const date = new Date(Date.parse(old.activity.startsAt) + 9 * 3600000)
+      .toISOString()
+      .slice(0, 10)
+    const delta = japanDateStart(input.output.date) - japanDateStart(date)
+    await c.env.shift_app.batch([
+      c.env.shift_app
+        .prepare(`INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,notes,created_by,updated_by,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(
+          id,
+          old.activity.year,
+          old.activity.name,
+          old.activity.place,
+          old.activity.activityType,
+          Date.parse(old.activity.startsAt) + delta,
+          Date.parse(old.activity.endsAt) + delta,
+          old.activity.color,
+          old.activity.notes,
+          actor.id,
+          actor.id,
+          now,
+          now
+        ),
+      ...roomStatements(
+        c.env.shift_app,
+        activityRoom({
+          id,
+          year: old.activity.year,
+          name: old.activity.name,
+          createdBy: actor.id,
+        }),
         now
       ),
-    ...roomStatements(
-      c.env.shift_app,
-      activityRoom({
-        id,
-        year: old.activity.year,
-        name: old.activity.name,
-        createdBy: actor.id,
-      }),
-      now
-    ),
-    ...old.responsibles.map((r) =>
-      c.env.shift_app
-        .prepare("INSERT INTO activity_responsibles VALUES (?,?,?)")
-        .bind(id, r.targetType, r.targetId)
-    ),
-    ...old.candidateRoleIds.map((roleId) =>
-      c.env.shift_app
-        .prepare("INSERT INTO activity_candidate_roles VALUES (?,?)")
-        .bind(id, roleId)
-    ),
-    ...old.slots.map((slot) =>
-      c.env.shift_app
-        .prepare(
-          "INSERT INTO shift_slots (id,activity_id,starts_at,ends_at,capacity) VALUES (?,?,?,?,?)"
-        )
-        .bind(
-          crypto.randomUUID(),
-          id,
-          Date.parse(slot.startsAt) + delta,
-          Date.parse(slot.endsAt) + delta,
-          slot.capacity
-        )
-    ),
-  ])
-  return c.json({ id }, 201)
-})
+      ...old.responsibles.map((r) =>
+        c.env.shift_app
+          .prepare("INSERT INTO activity_responsibles VALUES (?,?,?)")
+          .bind(id, r.targetType, r.targetId)
+      ),
+      ...old.candidateRoleIds.map((roleId) =>
+        c.env.shift_app
+          .prepare("INSERT INTO activity_candidate_roles VALUES (?,?)")
+          .bind(id, roleId)
+      ),
+      ...old.slots.map((slot) =>
+        c.env.shift_app
+          .prepare(
+            "INSERT INTO shift_slots (id,activity_id,starts_at,ends_at,capacity) VALUES (?,?,?,?,?)"
+          )
+          .bind(
+            crypto.randomUUID(),
+            id,
+            Date.parse(slot.startsAt) + delta,
+            Date.parse(slot.endsAt) + delta,
+            slot.capacity
+          )
+      ),
+    ])
+    return c.json({ id }, 201)
+  }
+)
 activityActionsApp.post("/:activityId/notifications", async (c) => {
   const id = c.req.param("activityId")
   const activity = await c.env.shift_app

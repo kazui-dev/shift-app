@@ -3,19 +3,20 @@ import { errorMessage } from "@/api/client"
 import { useRouter } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { subscribeChatEvents } from "@/api/chat-events"
-import { applyChatEvent } from "@/data/chat-events"
+import { subscribeLiveEvents } from "@/api/live-events"
+import { applyLiveEvent } from "@/data/live-events"
 import { useChatStore } from "@/components/chat/use-chat-store"
 import { useOfflineMode } from "@/components/offline-mode-context"
 
-export function useChatEvents() {
+/** Keeps chat and every other shared view current while the app is open. */
+export function LiveEvents() {
   const client = useQueryClient(),
     offline = useOfflineMode()
   const { member, store } = useChatStore()
   const router = useRouter()
   useEffect(() => {
     if (offline) return undefined
-    return subscribeChatEvents((event) => {
+    return subscribeLiveEvents((event) => {
       if (event?.type === "room_removed") {
         const id = event.roomId
         void store
@@ -33,7 +34,8 @@ export function useChatEvents() {
             state: { chatList: true, chatRemoved: id },
           })
       }
-      applyChatEvent(client, event, member.id)
+      applyLiveEvent(client, event, member.id)
     })
   }, [client, offline, member.id, router, store])
+  return null
 }

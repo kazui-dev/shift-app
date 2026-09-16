@@ -11,6 +11,7 @@ import {
 import { activitiesApp } from "./activities"
 import { assignmentsApp } from "./assignments"
 import { chatApp } from "./chat/index"
+import { openLiveEvents } from "./events"
 import { meApp } from "./me/index"
 import { membersApp } from "./members"
 import { pushApp, notificationDevicesApp } from "./push"
@@ -24,6 +25,7 @@ apiApp.use("*", limitRequestBody)
 apiApp.use("*", requireMember)
 apiApp.use("*", requireSameOriginForMutation)
 
+apiApp.get("/events", openLiveEvents)
 apiApp.route("/me", meApp)
 apiApp.route("/members", membersApp)
 apiApp.route("/push", pushApp)

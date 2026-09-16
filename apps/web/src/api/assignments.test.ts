@@ -48,20 +48,6 @@ describe("assignment month queries", () => {
       to: "2026-08-31T15:00:00.000Z",
     })
   })
-
-  it("reuses a fresh cached month without another request", async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () =>
-      Response.json({ assignments: [] })
-    )
-    vi.stubGlobal("fetch", fetchMock)
-    const client = new QueryClient()
-    const query = assignmentMonthQuery("2026-08", 2026)
-
-    await client.prefetchQuery(query)
-    await client.prefetchQuery(query)
-
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-  })
 })
 
 describe("assignment day classification", () => {

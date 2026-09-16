@@ -12,6 +12,7 @@ import {
 import { apiError, errors } from "../../lib/errors"
 import { type ApiEnv, parseYear, readJson } from "../../lib/http"
 import { canAccessYear, canManageShifts } from "../../services/membership"
+import { announce } from "../announce"
 
 export const yearActivitiesApp = new Hono<ApiEnv>()
 
@@ -49,120 +50,124 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
   return c.json({ activities: result.results.map(serializeActivity) })
 })
 
-yearActivitiesApp.post("/:year/activities", async (c) => {
-  const year = parseYear(c.req.param("year"))
-  if (year === null) {
-    return apiError(c, errors.yearNotFound)
-  }
-  const member = c.get("member")
-  if (
-    !(await canManageShifts(c.env, member, year)) &&
-    !(await canManageYear(c.env.shift_app, member, year, "shift.create"))
-  ) {
-    return apiError(c, errors.shiftManagementRequired)
-  }
-  const parsed = v.safeParse(
-    createActivityInputSchema,
-    await readJson(c.req.raw)
-  )
-  if (!parsed.success) {
-    return apiError(c, errors.invalidActivity, parsed.issues[0]?.message)
-  }
+yearActivitiesApp.post(
+  "/:year/activities",
+  announce({ type: "shifts_changed" }),
+  async (c) => {
+    const year = parseYear(c.req.param("year"))
+    if (year === null) {
+      return apiError(c, errors.yearNotFound)
+    }
+    const member = c.get("member")
+    if (
+      !(await canManageShifts(c.env, member, year)) &&
+      !(await canManageYear(c.env.shift_app, member, year, "shift.create"))
+    ) {
+      return apiError(c, errors.shiftManagementRequired)
+    }
+    const parsed = v.safeParse(
+      createActivityInputSchema,
+      await readJson(c.req.raw)
+    )
+    if (!parsed.success) {
+      return apiError(c, errors.invalidActivity, parsed.issues[0]?.message)
+    }
 
-  const eligible = await c.env.shift_app
-    .prepare(
-      "SELECT member_id AS id FROM year_memberships WHERE year=? AND status='active'"
+    const eligible = await c.env.shift_app
+      .prepare(
+        "SELECT member_id AS id FROM year_memberships WHERE year=? AND status='active'"
+      )
+      .bind(year)
+      .all<{ id: string }>()
+    const roles = await c.env.shift_app
+      .prepare("SELECT id FROM year_roles WHERE year=?")
+      .bind(year)
+      .all<{ id: string }>()
+    if (
+      parsed.output.responsibles.some(
+        (target) =>
+          !(
+            target.targetType === "member" ? eligible.results : roles.results
+          ).some((item) => item.id === target.targetId)
+      ) ||
+      parsed.output.candidateRoleIds.some(
+        (roleId) => !roles.results.some((role) => role.id === roleId)
+      )
     )
-    .bind(year)
-    .all<{ id: string }>()
-  const roles = await c.env.shift_app
-    .prepare("SELECT id FROM year_roles WHERE year=?")
-    .bind(year)
-    .all<{ id: string }>()
-  if (
-    parsed.output.responsibles.some(
-      (target) =>
-        !(
-          target.targetType === "member" ? eligible.results : roles.results
-        ).some((item) => item.id === target.targetId)
-    ) ||
-    parsed.output.candidateRoleIds.some(
-      (roleId) => !roles.results.some((role) => role.id === roleId)
-    )
-  )
-    return apiError(c, errors.invalidActivityTarget)
-  const id = crypto.randomUUID()
-  const now = Date.now()
-  const statement = c.env.shift_app
-    .prepare(
-      `INSERT INTO activities
+      return apiError(c, errors.invalidActivityTarget)
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    const statement = c.env.shift_app
+      .prepare(
+        `INSERT INTO activities
         (id, year, name, place, activity_type, starts_at, ends_at, color, notes,
          created_by, updated_by, created_at, updated_at)
        SELECT ?, year, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
        FROM operating_years WHERE year = ? RETURNING id`
-    )
-    .bind(
-      id,
-      parsed.output.name,
-      parsed.output.place,
-      parsed.output.activityType,
-      Date.parse(parsed.output.startsAt),
-      Date.parse(parsed.output.endsAt),
-      parsed.output.color,
-      parsed.output.notes,
-      member.id,
-      member.id,
-      now,
-      now,
-      year
-    )
-
-  const results = await c.env.shift_app.batch([
-    statement,
-    ...roomStatements(
-      c.env.shift_app,
-      activityRoom({
+      )
+      .bind(
         id,
-        year,
-        name: parsed.output.name,
-        createdBy: member.id,
-      }),
-      now
-    ),
-    ...parsed.output.responsibles.map((target) =>
-      c.env.shift_app
-        .prepare(
-          "INSERT INTO activity_responsibles (activity_id,target_type,target_id) SELECT id,?,? FROM activities WHERE id=?"
-        )
-        .bind(target.targetType, target.targetId, id)
-    ),
-    ...parsed.output.candidateRoleIds.map((roleId) =>
-      c.env.shift_app
-        .prepare(
-          "INSERT INTO activity_candidate_roles (activity_id,role_id) SELECT id,? FROM activities WHERE id=?"
-        )
-        .bind(roleId, id)
-    ),
-  ])
-  const result = results[0]
+        parsed.output.name,
+        parsed.output.place,
+        parsed.output.activityType,
+        Date.parse(parsed.output.startsAt),
+        Date.parse(parsed.output.endsAt),
+        parsed.output.color,
+        parsed.output.notes,
+        member.id,
+        member.id,
+        now,
+        now,
+        year
+      )
 
-  if (!result?.results.length) {
-    return apiError(c, errors.yearNotFound)
+    const results = await c.env.shift_app.batch([
+      statement,
+      ...roomStatements(
+        c.env.shift_app,
+        activityRoom({
+          id,
+          year,
+          name: parsed.output.name,
+          createdBy: member.id,
+        }),
+        now
+      ),
+      ...parsed.output.responsibles.map((target) =>
+        c.env.shift_app
+          .prepare(
+            "INSERT INTO activity_responsibles (activity_id,target_type,target_id) SELECT id,?,? FROM activities WHERE id=?"
+          )
+          .bind(target.targetType, target.targetId, id)
+      ),
+      ...parsed.output.candidateRoleIds.map((roleId) =>
+        c.env.shift_app
+          .prepare(
+            "INSERT INTO activity_candidate_roles (activity_id,role_id) SELECT id,? FROM activities WHERE id=?"
+          )
+          .bind(roleId, id)
+      ),
+    ])
+    const result = results[0]
+
+    if (!result?.results.length) {
+      return apiError(c, errors.yearNotFound)
+    }
+
+    return c.json(
+      {
+        activity: serializeActivity({
+          id,
+          year,
+          ...parsed.output,
+          active: 0,
+          version: 1,
+          startsAt: Date.parse(parsed.output.startsAt),
+          endsAt: Date.parse(parsed.output.endsAt),
+          assignmentCount: 0,
+        }),
+      },
+      201
+    )
   }
-
-  return c.json(
-    {
-      activity: serializeActivity({
-        id,
-        year,
-        ...parsed.output,
-        active: 0,
-        version: 1,
-        startsAt: Date.parse(parsed.output.startsAt),
-        endsAt: Date.parse(parsed.output.endsAt),
-        assignmentCount: 0,
-      }),
-    },
-    201
-  )
-})
+)

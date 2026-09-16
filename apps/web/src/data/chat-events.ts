@@ -14,7 +14,8 @@ export function applyChatEvent(
   event: ChatEvent | null,
   memberId: string
 ) {
-  if (!event || event.type === "access_changed") {
+  // A (re)opened connection may have missed events.
+  if (!event) {
     for (const key of [keys.chatRooms, ...roomKeys])
       void client.invalidateQueries({ queryKey: key() })
     return

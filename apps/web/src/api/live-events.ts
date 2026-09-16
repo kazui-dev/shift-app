@@ -1,17 +1,16 @@
 import * as v from "valibot"
-import {
-  chatEventSchema,
-  type ChatEvent,
-} from "@workspace/shared/communications"
-export function subscribeChatEvents(
-  onChange: (event: ChatEvent | null) => void
+import { liveEventSchema, type LiveEvent } from "@workspace/shared/live"
+
+/** Delivers every live event, and `null` whenever a connection (re)opens. */
+export function subscribeLiveEvents(
+  onChange: (event: LiveEvent | null) => void
 ) {
   let socket: WebSocket | null = null,
     timer: ReturnType<typeof setTimeout> | undefined,
     disposed = false,
     attempts = 0
   const connect = () => {
-    const url = new URL("/api/chat/events", location.href)
+    const url = new URL("/api/events", location.href)
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
     socket = new WebSocket(url)
     socket.addEventListener("open", () => {
@@ -23,7 +22,7 @@ export function subscribeChatEvents(
       if (disposed) return
       try {
         const parsed = v.safeParse(
-          chatEventSchema,
+          liveEventSchema,
           JSON.parse(String(event.data))
         )
         if (parsed.success) onChange(parsed.output)
