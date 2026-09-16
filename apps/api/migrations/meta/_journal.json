@@ -246,6 +246,20 @@
       "when": 1789451188425,
       "tag": "0034_student_directory",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1789537393691,
+      "tag": "0035_committee_structure",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1789537411861,
+      "tag": "0036_directory_columns",
+      "breakpoints": true
     }
   ]
 }

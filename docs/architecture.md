@@ -174,12 +174,12 @@ flowchart TD
     B -->|Yes| D{"その学籍番号の member があるか"}
     D -->|Yes| E["その user へ identity を連携してログイン"]
     D -->|No| F["user と member を作成"]
-    E --> G["年度参加と、あれば局・担当の role を付与"]
+    E --> G["年度参加と、局・担当が指す role を付与"]
     F --> G
     G --> H["初回だけアイコン設定、その後カレンダーへ"]
 ```
 
-名簿 identity は provider `roster`、`account_id` は正規化済み学籍番号とする。名簿 session は再 OAuth に相当する再確認を持たないため、Discord の 7 日ではなく cookie の上限である 400 日とする。氏名は名簿の表記で member と認証 user を更新する。所属確認は名簿で代用し、`affiliation_verifications` は Discord のみが書き込む。member 作成以降の権限、年度参加、API 認可の判定は通常経路と同じものを使う。
+名簿は局（`bureaus`）と担当（`duties`）に正規化し、担当は局に属する。付与する role は名前一致ではなく `role_id` で指し、1人が複数の担当を兼ねられる。名簿 identity は provider `roster`、`account_id` は正規化済み学籍番号とする。名簿 session は再 OAuth に相当する再確認を持たないため、Discord の 7 日ではなく cookie の上限である 400 日とする。氏名は名簿の表記で member と認証 user を更新する。所属確認は名簿で代用し、`affiliation_verifications` は Discord のみが書き込む。member 作成以降の権限、年度参加、API 認可の判定は通常経路と同じものを使う。
 
 プロフィール画像は Discord CDN の 128px WebP に加え、自分の deployment へアップロードした画像を許可する。アップロードは `PUT /api/me/avatar` が Images binding で 128px の正方 WebP に整えて R2 の `avatars/` へ置き、`GET /api/members/:memberId/avatar` が onboarding 済み member にだけ返す。
 

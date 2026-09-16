@@ -1,12 +1,14 @@
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import type { DrizzleD1Database } from "drizzle-orm/d1"
 
 import {
   appUsers,
+  bureaus,
+  directoryDuties,
+  duties,
   memberYearRoles,
   studentDirectory,
   yearMemberships,
-  yearRoles,
   yearSettings,
 } from "@workspace/db/schema"
 
@@ -16,9 +18,8 @@ export type DirectoryEntry = {
   year: number
   studentId: string
   displayName: string
-  /** The bureau and duty are optional; a listing may name neither. */
-  bureau: string | null
-  duty: string | null
+  /** The year roles the bureau and the duties carry, in no particular order. */
+  roleIds: string[]
 }
 
 /** The year whose directory decides who may sign in. */
@@ -31,7 +32,10 @@ export async function readDirectoryYear(db: Db): Promise<number | null> {
   return settings?.year ?? null
 }
 
-/** The directory row for a student ID in a year, matched without case. */
+/**
+ * The directory row for a student ID in a year, matched without case, with
+ * every role the listing grants.
+ */
 export async function findDirectoryEntry(
   db: Db,
   year: number,
@@ -39,13 +43,14 @@ export async function findDirectoryEntry(
 ): Promise<DirectoryEntry | null> {
   const [entry] = await db
     .select({
+      id: studentDirectory.id,
       year: studentDirectory.year,
       studentId: studentDirectory.studentId,
       displayName: studentDirectory.displayName,
-      bureau: studentDirectory.bureau,
-      duty: studentDirectory.duty,
+      bureauRoleId: bureaus.roleId,
     })
     .from(studentDirectory)
+    .leftJoin(bureaus, eq(bureaus.id, studentDirectory.bureauId))
     .where(
       and(
         eq(studentDirectory.year, year),
@@ -53,7 +58,21 @@ export async function findDirectoryEntry(
       )
     )
     .limit(1)
-  return entry ?? null
+  if (!entry) return null
+
+  const held = await db
+    .select({ roleId: duties.roleId })
+    .from(directoryDuties)
+    .innerJoin(duties, eq(duties.id, directoryDuties.dutyId))
+    .where(eq(directoryDuties.entryId, entry.id))
+
+  const roleIds = [entry.bureauRoleId, ...held.map((duty) => duty.roleId)]
+  return {
+    year: entry.year,
+    studentId: entry.studentId,
+    displayName: entry.displayName,
+    roleIds: roleIds.filter((id): id is string => id !== null),
+  }
 }
 
 export type DirectoryMember = {
@@ -113,8 +132,8 @@ export async function renameMember(
 
 /**
  * Gives the member what the directory lists for the year: an active
- * participation, and the year roles named by their bureau and duty when the
- * listing names them. Roles an administrator added stay; nothing is revoked.
+ * participation, and the roles their bureau and duties carry. Roles an
+ * administrator added stay; nothing is revoked here.
  */
 export async function applyDirectoryPlacement(
   db: Db,
@@ -136,21 +155,11 @@ export async function applyDirectoryPlacement(
       set: { status: "active", updatedAt: now },
     })
 
-  const named = [entry.bureau, entry.duty].filter(
-    (name): name is string => name !== null && name.length > 0
-  )
-  if (named.length === 0) return
-
-  const roles = await db
-    .select({ id: yearRoles.id })
-    .from(yearRoles)
-    .where(and(eq(yearRoles.year, entry.year), inArray(yearRoles.name, named)))
-  if (roles.length === 0) return
-
+  if (entry.roleIds.length === 0) return
   await db
     .insert(memberYearRoles)
     .values(
-      roles.map((role) => ({ memberId, roleId: role.id, createdAt: now }))
+      entry.roleIds.map((roleId) => ({ memberId, roleId, createdAt: now }))
     )
     .onConflictDoNothing()
 }

@@ -55,7 +55,21 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 `(provider_id, provider_account_id)` を unique とする。access/refresh token 自体はこの table に重複保存しない。
 
-### `student_directory`
+### `bureaus` と `duties`
+
+委員会の局と、その局の中の担当。どちらも年度ごとに持ち、付与する年度 role を `role_id` で直接指す。名前一致ではないので、表記ゆれで付与が外れることはない。
+
+| Column       | Type    | Note                                   |
+| ------------ | ------- | -------------------------------------- |
+| `id`         | text    | PK                                     |
+| `year`       | integer | FK, `operating_years.year`             |
+| `name`       | text    | 局名。年度内で case-insensitive に一意 |
+| `role_id`    | text    | FK, `year_roles.id`、nullable          |
+| `created_at` | integer | UNIX time milliseconds                 |
+
+`duties` は `bureau_id` で局にぶら下がり、`(bureau_id, lower(name))` を unique とする。**担当名は局の中で一意**なので、別の局が同じ名前の担当を持ってよい。role が消えた場合は `role_id` が NULL になり、付与されなくなるだけで名簿は残る。
+
+### `student_directory` と `directory_duties`
 
 年度ごとの委員会名簿。Discord OAuth を無効にした期間のサインイン確認と、年度参加・年度 role の付与に使う。アカウント情報は持たない。
 
@@ -65,11 +79,13 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 | `year`         | integer | FK, `operating_years.year`       |
 | `student_id`   | text    | 年度内で case-insensitive に一意 |
 | `display_name` | text    | 名簿上の氏名                     |
-| `bureau`       | text    | 局                               |
-| `duty`         | text    | 担当                             |
+| `bureau_id`    | text    | FK, `bureaus.id`、nullable       |
+| `office`       | text    | 局長・局長補佐など、nullable     |
 | `created_at`   | integer | UNIX time milliseconds           |
 
-`(year, lower(student_id))` を unique とする。氏名の照合は NFKC 正規化のうえ空白を除いて行うため、SQL では学籍番号だけで引き、氏名は API 側で比較する。局と担当は任意で、値があれば同名の `year_roles` へ対応づけ、サインイン時に付与する。Discord OAuth が有効なときは参照しない。
+担当は `directory_duties(entry_id, duty_id)` で持ち、**1人が複数の担当を兼ねられる**。`office` は委員会の記録として持つだけで、role の付与には使わない。
+
+氏名の照合は NFKC 正規化のうえ空白を除いて行うため、SQL では学籍番号だけで引き、氏名は API 側で比較する。サインインでは局と担当の `role_id` をまとめて付与する。Discord OAuth が有効なときは参照しない。
 
 ### `identity_link_requests`
 

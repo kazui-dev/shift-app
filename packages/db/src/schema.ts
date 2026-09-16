@@ -118,10 +118,60 @@ export const operatingYears = sqliteTable("operating_years", {
 })
 
 /**
+ * A bureau of the committee in a year. The role it names is what belonging to
+ * the bureau grants on sign-in.
+ */
+export const bureaus = sqliteTable(
+  "bureaus",
+  {
+    id: text("id").primaryKey(),
+    year: integer("year")
+      .notNull()
+      .references(() => operatingYears.year, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    roleId: text("role_id").references(() => yearRoles.id, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("bureaus_year_name_nocase_uidx").on(
+      table.year,
+      sql`lower(${table.name})`
+    ),
+  ]
+)
+
+/**
+ * A duty within a bureau. Two bureaus may name a duty alike, so a name is
+ * unique to its bureau rather than to the year.
+ */
+export const duties = sqliteTable(
+  "duties",
+  {
+    id: text("id").primaryKey(),
+    bureauId: text("bureau_id")
+      .notNull()
+      .references(() => bureaus.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    roleId: text("role_id").references(() => yearRoles.id, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("duties_bureau_name_nocase_uidx").on(
+      table.bureauId,
+      sql`lower(${table.name})`
+    ),
+  ]
+)
+
+/**
  * The committee's list of students for a year: the student ID and name a member
- * signs in with while Discord OAuth is off, plus the bureau and duty that year
- * when they are known. It holds no account data, only what the sign-in must
- * match and grant.
+ * signs in with while Discord OAuth is off, the bureau they belong to, and the
+ * office they hold. It holds no account data, only what the sign-in must match
+ * and grant.
  */
 export const studentDirectory = sqliteTable(
   "student_directory",
@@ -132,8 +182,11 @@ export const studentDirectory = sqliteTable(
       .references(() => operatingYears.year, { onDelete: "cascade" }),
     studentId: text("student_id").notNull(),
     displayName: text("display_name").notNull(),
-    bureau: text("bureau"),
-    duty: text("duty"),
+    bureauId: text("bureau_id").references(() => bureaus.id, {
+      onDelete: "set null",
+    }),
+    /** 局長 and the like: the committee's own record, granted to no one. */
+    office: text("office"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
@@ -141,6 +194,24 @@ export const studentDirectory = sqliteTable(
       table.year,
       sql`lower(${table.studentId})`
     ),
+    index("student_directory_bureau_idx").on(table.bureauId),
+  ]
+)
+
+/** The duties a listing holds; a member may hold more than one. */
+export const directoryDuties = sqliteTable(
+  "directory_duties",
+  {
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => studentDirectory.id, { onDelete: "cascade" }),
+    dutyId: text("duty_id")
+      .notNull()
+      .references(() => duties.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.entryId, table.dutyId] }),
+    index("directory_duties_duty_idx").on(table.dutyId),
   ]
 )
 

@@ -129,7 +129,7 @@ DISCORD_OAUTH_ENABLED=false
 
 `DISCORD_OAUTH_ENABLED=false` の間は Discord OAuth を構成せず、`student_directory`（名簿）の学籍番号と氏名が一致した利用者だけが利用を開始できる。Discord OAuth へ戻すときは値を `true` に変えるだけでよく、key は残す。値を変えたら `vp -C apps/api run cf-typegen` を実行する。
 
-名簿は `学籍番号,氏名,局,担当` の CSV から SQL を生成して適用する。局と担当は任意で、列を省略しても空でもよい。先頭行が `学籍番号` で始まる場合は見出しとして読み飛ばす。
+名簿は `学籍番号,氏名,局,担当,役職` の CSV から SQL を生成して適用する。局・担当・役職は任意で、列を省略しても空でもよい。担当を兼ねる場合は `野外ステージ|前夜祭` のように `|` で区切る。先頭行が `学籍番号` で始まる場合は見出しとして読み飛ばす。
 
 ```bash
 vp -C apps/api run directory:seed 2026 ./directory.csv ./directory.sql
@@ -141,7 +141,7 @@ vp -C apps/api exec wrangler d1 execute shift-app --local --file ./directory.sql
 
 remote へ適用するときは `--local` を `--remote` に替える。学籍番号は大文字小文字を区別せず、氏名は空白を除いて照合する。同じ学籍番号を再度流すと氏名・局・担当を更新する。局と担当は同名の年度 role があればサインイン時に付与されるため、CSV の表記は `year_roles` の名前に合わせる。
 
-名簿の局と担当から不足している年度 role を作る場合も、id は dashed UUID で入れる。web は role の id を UUID として検証するため、`hex(randomblob(16))` のような形では一覧やチャット宛先の読み込みが失敗する。
+名簿の局と担当から不足している年度 role を作る場合も、id は dashed UUID で入れる。web は role の id を UUID として検証するため、`hex(randomblob(16))` のような形では一覧やチャット宛先の読み込みが失敗する。role は名簿より先に作る。`bureaus` と `duties` は作られた時点で同名の role を指すため、あとから role を足した場合は `role_id` を張り直す必要がある。
 
 ```bash
 vp -C apps/api exec wrangler d1 execute shift-app --remote --command "INSERT INTO year_roles (id, year, position, name, color, created_at, updated_at) SELECT lower(hex(randomblob(4)))||'-'||lower(hex(randomblob(2)))||'-'||lower(hex(randomblob(2)))||'-'||lower(hex(randomblob(2)))||'-'||lower(hex(randomblob(6))), 2026, 10, name, '#64748B', unixepoch()*1000, unixepoch()*1000 FROM (SELECT DISTINCT bureau AS name FROM student_directory WHERE year=2026 AND bureau IS NOT NULL UNION SELECT DISTINCT duty FROM student_directory WHERE year=2026 AND duty IS NOT NULL) ON CONFLICT (year, lower(name)) DO NOTHING"

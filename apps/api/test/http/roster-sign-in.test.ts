@@ -36,17 +36,30 @@ function signIn(db: DatabaseSync, body: Record<string, string>, oauth = false) {
   )
 }
 
-/** A year with its directory, and the roles a listed bureau and duty name. */
+/**
+ * A year whose directory lists one student in a bureau with a duty, each
+ * carrying a year role, beside a role the listing never names.
+ */
 function directory(db: DatabaseSync) {
   db.exec(`INSERT INTO operating_years (year, created_at, updated_at)
       VALUES (2026,0,0);
-    INSERT INTO student_directory
-        (id, year, student_id, display_name, bureau, duty, created_at)
-      VALUES ('d1',2026,'26AJ001','電大太郎','制作局','会場担当',0);
     INSERT INTO year_roles (id, year, name, color, created_at, updated_at)
       VALUES ('r-bureau',2026,'制作局','#111',0,0),
              ('r-duty',2026,'会場担当','#222',0,0),
-             ('r-other',2026,'総務局','#333',0,0);`)
+             ('r-second',2026,'記録','#444',0,0),
+             ('r-other',2026,'総務局','#333',0,0);
+    INSERT INTO bureaus (id, year, name, role_id, created_at)
+      VALUES ('b1',2026,'制作局','r-bureau',0);
+    INSERT INTO duties (id, bureau_id, name, role_id, created_at)
+      VALUES ('u1','b1','会場担当','r-duty',0),
+             ('u2','b1','記録','r-second',0),
+             ('u3','b1','名前だけの担当',NULL,0);
+    INSERT INTO student_directory
+        (id, year, student_id, display_name, bureau_id, office, created_at)
+      VALUES ('d1',2026,'26AJ001','電大太郎','b1','局長',0);
+    -- Held duties: two that name a role, and one the year has no role for.
+    INSERT INTO directory_duties (entry_id, duty_id)
+      VALUES ('d1','u1'),('d1','u2'),('d1','u3');`)
 }
 
 const taro = { studentId: "26aj001", displayName: "電大 太郎" }
@@ -85,7 +98,11 @@ describe("directory sign-in", () => {
         db
           .prepare("SELECT role_id FROM member_year_roles ORDER BY role_id")
           .all()
-      ).toEqual([{ role_id: "r-bureau" }, { role_id: "r-duty" }])
+      ).toEqual([
+        { role_id: "r-bureau" },
+        { role_id: "r-duty" },
+        { role_id: "r-second" },
+      ])
 
       const second = await signIn(db, { ...taro, studentId: "26AJ001" })
       await expect(second.json()).resolves.toEqual({ created: false })
@@ -99,12 +116,12 @@ describe("directory sign-in", () => {
     }
   })
 
-  it("joins the year without a role when no bureau or duty is listed", async () => {
+  it("joins the year without a role when the listing names none", async () => {
     const db = migrated()
     try {
       directory(db)
       db.exec(`INSERT INTO student_directory
-          (id, year, student_id, display_name, bureau, duty, created_at)
+          (id, year, student_id, display_name, bureau_id, office, created_at)
         VALUES ('d2',2026,'26AJ002','電大花子',NULL,NULL,0);`)
 
       const response = await signIn(db, {
