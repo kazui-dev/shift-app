@@ -189,7 +189,7 @@ export function ChatComposer({
             onSend()
           }
         }}
-        className={`rounded-3xl border bg-background shadow-xs ${dragging ? "border-ring" : "border-input"}`}
+        className={`rounded-3xl border shadow-xs ${canPost ? "bg-background" : "bg-muted"} ${dragging ? "border-ring" : "border-input"}`}
       >
         {mode && (
           <div className="flex items-center gap-3 px-4 pt-2 text-xs text-muted-foreground">
