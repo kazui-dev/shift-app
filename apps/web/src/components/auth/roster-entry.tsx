@@ -56,7 +56,7 @@ export function RosterEntry({
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <FieldGroup className="gap-4">
           <Field>
-            <FieldLabel htmlFor="student-id">学籍番号</FieldLabel>
+            <FieldLabel htmlFor="student-id">学籍番号（英字大文字）</FieldLabel>
             <Input
               id="student-id"
               className="h-11 font-mono"
@@ -67,7 +67,7 @@ export function RosterEntry({
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="display-name">氏名</FieldLabel>
+            <FieldLabel htmlFor="display-name">氏名（スペースなし）</FieldLabel>
             <Input
               id="display-name"
               className="h-11"

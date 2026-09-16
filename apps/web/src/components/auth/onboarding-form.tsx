@@ -79,7 +79,7 @@ export function OnboardingForm({
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <FieldGroup className="gap-4">
           <Field>
-            <FieldLabel htmlFor="student-id">学籍番号</FieldLabel>
+            <FieldLabel htmlFor="student-id">学籍番号（英字大文字）</FieldLabel>
             <Input
               id="student-id"
               className="h-11 font-mono"

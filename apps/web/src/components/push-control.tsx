@@ -27,6 +27,8 @@ export function PushControl() {
   }
   return (
     <SettingsRow
+      label="通知を有効化する"
+      htmlFor="push-notifications"
       control={
         state.enabled === null ? (
           // The state is settled before this page opens; this is the rare
