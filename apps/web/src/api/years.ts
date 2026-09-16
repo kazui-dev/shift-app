@@ -59,11 +59,6 @@ export const createYearRole = (
 
 export const getDisplayYear = () =>
   apiJson("/api/me/display-year", displayYearResponseSchema)
-export const setDisplayYear = (year: number) =>
-  apiJson("/api/me/display-year", displayYearResponseSchema, {
-    method: "PUT",
-    body: JSON.stringify({ year }),
-  })
 export const updateRole = (
   id: string,
   input: { name: string; color: string; permissions: ShiftPermission[] }

@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { getRouteApi } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ImagePlus, LoaderCircle, Trash2 } from "lucide-react"
 
@@ -20,15 +21,20 @@ import { useAvatarPicker } from "@/components/avatar-picker"
 import { useOfflineMode } from "@/components/offline-mode-context"
 
 /** The member's own account: their icon, and the details the directory fixes. */
+const route = getRouteApi("/_app")
+
 export function AccountSettings() {
   const offline = useOfflineMode()
   const client = useQueryClient()
-  const account = useQuery(accountStateQueryOptions)
+  // The account the route resolved is already in hand, so the section draws
+  // complete on the first frame and refreshes underneath.
+  const { state } = route.useRouteContext()
+  const account = useQuery({ ...accountStateQueryOptions, initialData: state })
   const [open, setOpen] = useState(false)
   const [picked, setPicked] = useState<File | null>(null)
   const [pending, setPending] = useState(false)
   const member =
-    account.data?.status === "active" ? account.data.member : undefined
+    account.data.status === "active" ? account.data.member : undefined
 
   async function run(work: () => Promise<unknown>) {
     if (pending) return
@@ -46,29 +52,31 @@ export function AccountSettings() {
   const picker = useAvatarPicker(setPicked)
   if (!member) return null
   return (
-    <div className="flex items-center gap-4 border-y px-4 py-4 sm:px-6">
-      {picker.input}
-      <button
-        type="button"
-        disabled={pending || offline}
-        aria-label="アイコンを変更"
-        onClick={() => setOpen(true)}
-        className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-xl font-medium text-muted-foreground"
-      >
-        {pending ? (
-          <LoaderCircle className="size-5 animate-spin" />
-        ) : member.image ? (
-          <img src={member.image} alt="" className="size-full object-cover" />
-        ) : (
-          member.displayName.slice(0, 1)
-        )}
-      </button>
-      <dl className="grid min-w-0 flex-1 grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">氏名</dt>
-        <dd className="min-w-0 truncate">{member.displayName}</dd>
-        <dt className="text-muted-foreground">学籍番号</dt>
-        <dd className="font-mono">{member.studentId}</dd>
-      </dl>
+    <>
+      <div className="flex items-center gap-4 px-4 py-4">
+        {picker.input}
+        <button
+          type="button"
+          disabled={pending || offline}
+          aria-label="アイコンを変更"
+          onClick={() => setOpen(true)}
+          className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted text-lg font-medium text-muted-foreground"
+        >
+          {pending ? (
+            <LoaderCircle className="size-5 animate-spin" />
+          ) : member.image ? (
+            <img src={member.image} alt="" className="size-full object-cover" />
+          ) : (
+            member.displayName.slice(0, 1)
+          )}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{member.displayName}</p>
+          <p className="font-mono text-xs text-muted-foreground">
+            {member.studentId}
+          </p>
+        </div>
+      </div>
       {picked && (
         <AvatarEditor
           file={picked}
@@ -111,6 +119,6 @@ export function AccountSettings() {
           </div>
         </DrawerContent>
       </Drawer>
-    </div>
+    </>
   )
 }
