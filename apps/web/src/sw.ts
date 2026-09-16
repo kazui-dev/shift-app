@@ -26,7 +26,16 @@ self.addEventListener("install", (event) => {
     )
     return installer.install(event)
   })
-  event.waitUntil(Promise.all(installers))
+  event.waitUntil(
+    Promise.all(installers).then(async () => {
+      // Versions share one cache, and an older one activating meanwhile deletes
+      // entries this one has just stored. Fail so the browser installs again.
+      const stored = await caches.open(cache.strategy.cacheName)
+      for (const key of cache.getURLsToCacheKeys().values())
+        if (!(await stored.match(key)))
+          throw new Error(`Precache entry missing: ${key}`)
+    })
+  )
 })
 self.addEventListener("activate", (event) => {
   event.waitUntil(cache.activate(event))
@@ -42,8 +51,13 @@ self.addEventListener("message", (event) => {
     event.waitUntil(self.skipWaiting())
 })
 registerRoute(new PrecacheRoute(cache))
+// Missing the shell, ask for the page itself: the server answers /index.html
+// with a redirect, and a navigation must never be answered by a redirected
+// response, which the browser shows as a failed connection.
 registerRoute(
-  new NavigationRoute(cache.createHandlerBoundToURL("/index.html"), {
-    denylist: [/^\/api\//],
-  })
+  new NavigationRoute(
+    async ({ request }) =>
+      (await cache.matchPrecache("/index.html")) ?? fetch(request),
+    { denylist: [/^\/api\//] }
+  )
 )
