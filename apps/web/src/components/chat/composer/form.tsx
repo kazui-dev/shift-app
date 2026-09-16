@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -23,6 +24,7 @@ export type ComposerHandle = { focus: () => void }
 export function ChatComposer({
   roomName,
   draft,
+  canPost,
   disabled,
   saving = false,
   onChange,
@@ -34,6 +36,8 @@ export function ChatComposer({
   editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
   roomName: string
   draft: ChatDraft
+  /** A read-only room keeps the box, with what it says in place of the field. */
+  canPost: boolean
   disabled: boolean
   saving?: boolean
   onChange: (draft: ChatDraft) => void
@@ -42,6 +46,7 @@ export function ChatComposer({
   /** Lets the conversation focus the input the moment a reply or edit is chosen. */
   handle: RefObject<ComposerHandle | null>
 }) {
+  const readOnlyId = useId()
   const form = useRef<HTMLFormElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [pressed, setPressed] = useState(false)
@@ -165,6 +170,7 @@ export function ChatComposer({
         data-chat-composer
         aria-label="メッセージを作成"
         data-expanded={expanded}
+        aria-describedby={canPost ? undefined : readOnlyId}
         onPointerDown={(event) => {
           if (
             disabled ||
@@ -241,10 +247,21 @@ export function ChatComposer({
           >
             <Plus />
           </Button>
+          {!canPost && (
+            // The reason is written out rather than left to a placeholder,
+            // which fades, fails contrast, and is not read out.
+            <p
+              id={readOnlyId}
+              className="px-10 py-1 text-base leading-6 text-muted-foreground md:text-sm"
+            >
+              メッセージの送信権限がありません
+            </p>
+          )}
           <Textarea
             ref={input}
             rows={1}
             maxLength={2000}
+            hidden={!canPost}
             aria-label={editing ? "メッセージを編集" : "メッセージ"}
             placeholder={`${roomName}へメッセージを送信`}
             disabled={disabled}

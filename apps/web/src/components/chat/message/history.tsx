@@ -160,11 +160,9 @@ export function ChatMessages({
     : draft
   // The history runs under the composer by exactly its fade, so the backdrop
   // can dissolve messages without any measured heights.
-  const composerSpacing = !room.canPost
-    ? "[--composer-overlap:0px]"
-    : composerDraft.files.length
-      ? "[--composer-backdrop:-1.5rem] [--composer-overlap:calc(var(--composer-backdrop)+3rem)]"
-      : "[--composer-backdrop:-1.4375rem] [--composer-overlap:calc(var(--composer-backdrop)+3rem)]"
+  const composerSpacing = composerDraft.files.length
+    ? "[--composer-backdrop:-1.5rem] [--composer-overlap:calc(var(--composer-backdrop)+3rem)]"
+    : "[--composer-backdrop:-1.4375rem] [--composer-overlap:calc(var(--composer-backdrop)+3rem)]"
   return (
     <>
       <div

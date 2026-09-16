@@ -6,6 +6,8 @@ import { ChatComposer } from "@/components/chat/composer/form"
 /**
  * The composer area below the history. Its backdrop starts partway into the
  * rail or the composer and fades to the background down to the bottom edge.
+ * A room the member may only read keeps the box, saying so instead of taking
+ * a message.
  */
 export function ComposerSeat({
   roomName,
@@ -30,7 +32,6 @@ export function ComposerSeat({
   onSend: () => void
   handle: RefObject<ComposerHandle | null>
 }) {
-  if (!canPost) return null
   return (
     <div
       data-composer-seat
@@ -40,7 +41,8 @@ export function ComposerSeat({
         roomName={roomName}
         draft={draft}
         editing={editing}
-        disabled={disabled}
+        canPost={canPost}
+        disabled={disabled || !canPost}
         saving={saving}
         onChange={onChange}
         onAddFiles={onAddFiles}
