@@ -56,6 +56,9 @@ and Durable Objects. Read `docs/architecture.md` before changing boundaries and
 - Add tests for changed behavior and boundary semantics. Pure domain logic must
   retain 100% statement, branch, function, and line coverage. Remove tests that
   duplicate the same behavior without protecting a distinct regression.
+- Production has real users on older clients. Classify a change with
+  `docs/compatibility.md` before shipping it, and record any temporary
+  compatibility there.
 - Preserve unrelated working-tree changes. Do not commit, deploy, mutate remote
   resources, or apply remote D1 migrations unless the user explicitly asks.
 
@@ -72,5 +75,6 @@ Durable Objects, D1 migrations, preview, or deployment work.
 - Flag API input used before validation or authorization enforced only by the UI.
 - Flag generated-file edits without the generating command and schema changes
   without migration review.
-- Flag compatibility aliases, duplicate configuration, dead dependencies, and
-  tests that assert implementation trivia rather than behavior.
+- Flag compatibility code not listed in `docs/compatibility.md`, duplicate
+  configuration, dead dependencies, and tests that assert implementation trivia
+  rather than behavior.

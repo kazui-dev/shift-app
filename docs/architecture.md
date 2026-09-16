@@ -54,7 +54,7 @@ sessionStorage、日本時間の今日の順で解決する。日付の実在性
 履歴を増やさない。表示日・縦スクロール位置・月末移動の基準日を同じsession adapterで
 保存し、起動時の取得対象月と画面の初期日を同じ解決関数で決める。
 
-Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。チャットの下書きと送信待ちは専用のIndexedDB storeに利用者・ルーム別で保存し、画像のBlobも保持する。送信内容を永続化してからアップロードと送信を開始し、client生成UUIDで再送を冪等化する。送信は専用outboxだけを使い、TanStack Queryのmutationは永続化しない。保存形式が異なるcacheやoutboxは破棄し、旧形式への読み替えは行わない。
+Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時間保持する。Service Worker の navigation fallback は `/api/*` を必ず除外し、OAuth callback と API response を app shell へ置き換えない。precache に app shell がなければ、`/index.html` ではなく開こうとしたページ自体をネットワークから取得する。Workers Assets は `/index.html` を `/` へリダイレクトし、リダイレクトされた応答で navigation に答えるとブラウザーが接続失敗として扱うためである。版ごとに precache を共有するので、インストールの最後に全エントリーの存在を確認し、欠けていればインストールを失敗させて再取得させる。チャットの下書きと送信待ちは専用のIndexedDB storeに利用者・ルーム別で保存し、画像のBlobも保持する。送信内容を永続化してからアップロードと送信を開始し、client生成UUIDで再送を冪等化する。送信は専用outboxだけを使い、TanStack Queryのmutationは永続化しない。保存形式が異なるcacheやoutboxは破棄し、旧形式への読み替えは行わない。
 
 オフライン起動では、24時間以内にオンライン確認したactive accountだけをローカルの閲覧主体として復元する。ネットワーク障害と401/403またはanonymous responseを区別し、後者では保存済みaccount、利用者Query、停止中mutation、チャットの下書き・送信待ち画像を破棄する。利用者識別には正規化済み学籍番号を使い、別利用者を確認した場合も同様に旧cacheを破棄する。永続化するQueryは本人のassignments、閲覧可能なchat room、message履歴のallowlistとし、管理・名簿・権限・宛先候補は含めない。オフライン状態はローカル閲覧のためだけに使い、server authorizationを代替しない。
 
@@ -91,7 +91,7 @@ D1 の read replication は初期要件ではない。必要になった場合�
 
 ### HTTP API Design
 
-API は `/api` の下にリソース単位で置く。現時点では単一の Web client と API Worker を同時に deploy するため、URL に `/v1` や `/v2` を付けない。互換性のない変更が必要になった場合も、まず additive な変更、移行期間、明示的な廃止を検討し、複数世代の外部 client を並行運用する必要が生じたときだけ versioning を導入する。
+API は `/api` の下にリソース単位で置く。現時点では単一の Web client と API Worker を同時に deploy するため、URL に `/v1` や `/v2` を付けない。互換性のない変更が必要になった場合も、まず additive な変更、移行期間、明示的な廃止を検討し、複数世代の外部 client を並行運用する必要が生じたときだけ versioning を導入する。変更の区分と一時的な互換は[互換と変更の出し方](compatibility.md)に記録する。
 
 主な route:
 
@@ -112,6 +112,7 @@ API は `/api` の下にリソース単位で置く。現時点では単一の W
 | `/api/years/:year/activities`                       | 年度内 activity                                  |
 | `/api/activities/:activityId`                       | activity と割当                                  |
 | `/api/assignments/:assignmentId/attendance`         | 本人の勤怠、責任者の修正・対応済み               |
+| `/api/events`                                       | チャットとその他の変更通知のWebSocket            |
 | `/api/chat/rooms`                                   | 閲覧可能ルームの一覧・作成                       |
 | `/api/chat/targets`                                 | 年度内のチャット対象候補                         |
 | `/api/chat/rooms/:roomId`                           | 直接リンク用のルーム情報                         |
@@ -395,6 +396,24 @@ PWAの更新はcontrollerchangeで切り替えを確認してから再読み込�
 直近のカレンダー、本人の希望、ルーム一覧を取得する。管理情報は管理可能な年度だけを対象とし、
 全利用者や操作履歴は該当画面への遷移で取得する。表示できるデータがあれば維持したまま再検証する。
 全ルームの会話履歴は起動時に取得せず、ルームを開く意図がある時だけ取得する。
+
+利用者ごとのWebSocket（`/api/events`）は起動中ずっと1本だけ張り、チャットと、それ以外の変更の通知を
+同じ接続で受ける。接続は`ChatDirectory` Durable Objectが保持する。チャット以外の変更は、書き込みのルートが
+「何が変わったか」だけを成功後に全端末へ配り、データそのものは載せない（`routes/announce.ts`・
+`services/live-events.ts`）。受け取った端末は`data/live-events.ts`の対応表で、手元にある該当キャッシュだけを
+再検証し、認可されたHTTPで取り直す。
+
+| イベント                 | 配るタイミング                       | 再検証するもの                                               |
+| ------------------------ | ------------------------------------ | ------------------------------------------------------------ |
+| `access_changed`         | ロール・参加・年度設定・管理操作     | 権限で見え方が変わるもの全体                                 |
+| `shifts_changed`         | シフトの作成・編集・複製・削除       | 活動・割当・出勤状況・ルーム（編集中のシフトは除く）         |
+| `attendance_changed`     | 出勤・遅刻欠勤・取り消し・修正       | そのシフトの出勤状況と履歴                                   |
+| `availability_changed`   | 希望の受付日程の変更                 | その年度の希望・日程・提出状況                               |
+| `availability_submitted` | 希望の提出（下書き保存では配らない） | その年度の提出状況                                           |
+| `profile_changed`        | アイコンの変更・削除                 | 取り直さず、キャッシュ済みの投稿とメンバーの画像を置き換える |
+
+接続が開き直したときは取りこぼしがありうるため、チャットと上記のシフト・出勤・希望を再検証する。
+ポーリングは使わず、配信が届かない間は各queryの鮮度（既定30秒）で補う。
 
 チャットの送信応答とWebSocketは同じキャッシュ更新を使用し、UUIDで重複を除く。
 連続した新着は直接反映し、シーケンス欠落・未知の投稿者のプロフィール・接続再開時はHTTPで補完する。
