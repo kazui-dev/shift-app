@@ -19,7 +19,7 @@
     "./availability": "./src/availability.ts"
   },
   "dependencies": {
-    "valibot": "1.4.2"
+    "valibot": "1.5.0"
   },
   "devDependencies": {
     "typescript": "catalog:",
