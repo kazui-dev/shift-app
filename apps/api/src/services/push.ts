@@ -1,4 +1,4 @@
-import { roomPermissions } from "./chat-permissions"
+import type { RoomDevice } from "./chat-permissions"
 import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import webpush from "web-push"
 import { clearPushTransport } from "./notification-devices"
@@ -160,43 +160,16 @@ export async function sendMemberNotification(
   return results.every(Boolean)
 }
 
-/**
- * Every device to notify about a room, in one query. A room can hold the whole
- * committee, so the sender waits for one round trip rather than one per member.
- */
-async function roomSubscriptions(
-  env: CloudflareBindings,
-  roomId: string,
-  senderId: string
-): Promise<SubscriptionRow[]> {
-  const result = await env.shift_app
-    .prepare(
-      `${roomPermissions}
-       SELECT device.id, device.endpoint, device.expiration_time AS expirationTime,
-              device.p256dh, device.auth
-       FROM chat_permissions access
-       JOIN notification_devices device ON device.member_id = access.member_id
-       LEFT JOIN chat_room_preferences preference
-         ON preference.room_id = access.room_id
-        AND preference.member_id = access.member_id
-       WHERE access.member_id != ?
-         AND COALESCE(preference.muted, 0) = 0
-         AND device.enabled = 1 AND device.endpoint IS NOT NULL
-         AND device.p256dh IS NOT NULL AND device.auth IS NOT NULL`
-    )
-    .bind(roomId, senderId)
-    .all<SubscriptionRow>()
-  return result.results
-}
-
+/** Notifies a room's devices, except the sender's own, about a new message. */
 export async function notifyRoomMessage(
   env: CloudflareBindings,
+  devices: RoomDevice[],
   roomId: string,
   senderId: string,
   name: string,
   content: string
 ) {
-  const subscriptions = await roomSubscriptions(env, roomId, senderId)
+  const subscriptions = devices.filter((device) => device.memberId !== senderId)
   const payload = JSON.stringify({
     title: name,
     body: content,

@@ -19,17 +19,21 @@ vi.mock("web-push", () => ({
 }))
 
 const { notifyRoomMessage } = await import("../../src/services/push")
+const { roomAudience } = await import("../../src/services/chat-permissions")
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 app.post("/rooms/:roomId/messages", async (c) => {
+  const roomId = c.req.param("roomId")
+  const audience = await roomAudience(c.env, roomId)
   await notifyRoomMessage(
     c.env,
-    c.req.param("roomId"),
+    audience.devices,
+    roomId,
     "m1",
     "全体連絡",
     "こんにちは"
   )
-  return c.body(null, 204)
+  return c.json({ members: audience.members.toSorted() })
 })
 
 /**
@@ -63,7 +67,7 @@ function room() {
   return db
 }
 
-it("notifies every device of the room's unmuted members, and no one else", async () => {
+it("resolves the room once, notifying every device of its unmuted members and no one else", async () => {
   const db = room()
   try {
     const response = await app.request(
@@ -71,7 +75,9 @@ it("notifies every device of the room's unmuted members, and no one else", async
       { method: "POST" },
       { shift_app: d1Binding(db) }
     )
-    expect(response.status).toBe(204)
+    expect(response.status).toBe(200)
+    // Live delivery reads the same pass, muted members included.
+    expect(await response.json()).toEqual({ members: ["m1", "m2", "m3"] })
     expect(sent.map((item) => item.endpoint).sort()).toEqual([
       "https://push.test/laptop",
       "https://push.test/phone",

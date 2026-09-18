@@ -5,7 +5,7 @@ import { usersQuery, auditQuery, linksQuery } from "./admin"
 import { assignmentMonthQuery } from "@/api/assignments"
 import { calendarViewKey, resolveCalendarView } from "@/lib/calendar/view"
 import { displayYearQuery, yearsQuery, rolesQuery, rosterQuery } from "./years"
-import { roomsQuery, targetsQuery, prepareConversation } from "./chat"
+import { roomsQuery, prepareConversation } from "./chat"
 import { warmConversation } from "./chat-warm"
 import { activitiesQuery, activityQuery } from "./activities"
 import {
@@ -38,7 +38,6 @@ export async function prepareApp(
     const calendar = client.prefetchQuery(assignmentMonthQuery(month, year))
     const rooms = client.prefetchQuery(roomsQuery(year))
     const availability = client.prefetchQuery(availabilityQuery(year))
-    void client.prefetchQuery(targetsQuery(year))
     if (pathname === "/calendar")
       wait(assignmentMonthQuery(month, year).queryKey, calendar)
     if (pathname.startsWith("/chat")) wait(roomsQuery(year).queryKey, rooms)
@@ -59,13 +58,19 @@ export async function prepareApp(
     manageable[0]?.year
   if (managementYear !== undefined) {
     const activities = client.prefetchQuery(activitiesQuery(managementYear))
-    const roles = client.prefetchQuery(rolesQuery(managementYear))
-    const roster = client.prefetchQuery(rosterQuery(managementYear))
     if (pathname === "/manage/shifts")
       wait(activitiesQuery(managementYear).queryKey, activities)
+    // Roles and the roster read the whole year, so only the screens that show
+    // them ask for them, not every launch of a member who can manage.
     if (pathname === "/manage/roles" || pathname === "/manage/members") {
-      wait(rolesQuery(managementYear).queryKey, roles)
-      wait(rosterQuery(managementYear).queryKey, roster)
+      wait(
+        rolesQuery(managementYear).queryKey,
+        client.prefetchQuery(rolesQuery(managementYear))
+      )
+      wait(
+        rosterQuery(managementYear).queryKey,
+        client.prefetchQuery(rosterQuery(managementYear))
+      )
     }
     if (pathname === "/manage/shifts/availability") {
       wait(

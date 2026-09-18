@@ -54,6 +54,58 @@ export const memberPermissions = chatPermissions("member")
 /** Every member's permissions in one room; binds the room's id first. */
 export const roomPermissions = chatPermissions("room")
 
+/** A device to notify, with the member it belongs to. */
+export type RoomDevice = {
+  memberId: string
+  id: string
+  endpoint: string
+  expirationTime: number | null
+  p256dh: string
+  auth: string
+}
+
+/**
+ * Who a new message reaches, in one permission pass. Live delivery and push
+ * notifications share it, so sending resolves the room's members once.
+ */
+export async function roomAudience(env: CloudflareBindings, roomId: string) {
+  const result = await env.shift_app
+    .prepare(`${roomPermissions}
+    SELECT e.member_id AS memberId,COALESCE(p.muted,0) AS muted,
+    device.id,device.endpoint,device.expiration_time AS expirationTime,device.p256dh,device.auth
+    FROM chat_permissions e
+    LEFT JOIN chat_room_preferences p ON p.room_id=e.room_id AND p.member_id=e.member_id
+    LEFT JOIN notification_devices device ON device.member_id=e.member_id
+     AND device.enabled=1 AND device.endpoint IS NOT NULL
+     AND device.p256dh IS NOT NULL AND device.auth IS NOT NULL`)
+    .bind(roomId)
+    .all<{
+      memberId: string
+      muted: number
+      id: string | null
+      endpoint: string | null
+      expirationTime: number | null
+      p256dh: string | null
+      auth: string | null
+    }>()
+  const members = [...new Set(result.results.map((row) => row.memberId))]
+  const devices = result.results.flatMap((row) =>
+    row.muted === 0 && row.id && row.endpoint && row.p256dh && row.auth
+      ? [
+          {
+            memberId: row.memberId,
+            id: row.id,
+            endpoint: row.endpoint,
+            expirationTime: row.expirationTime,
+            p256dh: row.p256dh,
+            auth: row.auth,
+          } satisfies RoomDevice,
+        ]
+      : []
+  )
+  return { members, devices }
+}
+
 export async function roomRecipients(env: CloudflareBindings, roomId: string) {
   const result = await env.shift_app
     .prepare(`${roomPermissions}

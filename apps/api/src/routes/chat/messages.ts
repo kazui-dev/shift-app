@@ -9,6 +9,8 @@ import {
 import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
 import { publishChatEvent } from "../../services/chat-directory"
+import { roomAudience } from "../../services/chat-permissions"
+import { liveDirectory } from "../../services/live-events"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
 import type { RoomEnv } from "./room"
@@ -107,10 +109,14 @@ messagesApp.post("/messages", async (c) => {
       )
       .bind(room.id, message.sequence, member.id),
   ])
+  // Live delivery and push notifications reach the same room, so its members
+  // are resolved once here instead of once for each.
+  const audience = await roomAudience(c.env, room.id)
   if (updated && updated.meta.changes > 0)
     c.executionCtx.waitUntil(
       notifyRoomMessage(
         c.env,
+        audience.devices,
         room.id,
         member.id,
         room.name,
@@ -120,7 +126,7 @@ messagesApp.post("/messages", async (c) => {
   const [enriched] = await withMemberImages(c.env, [message])
   if (enriched)
     c.executionCtx.waitUntil(
-      publishChatEvent(c.env, {
+      liveDirectory(c.env).publish(audience.members, {
         type: "message",
         roomId: room.id,
         message: enriched,
