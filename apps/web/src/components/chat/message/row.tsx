@@ -4,6 +4,7 @@ import { Button } from "@workspace/ui/components/button"
 import type { UploadProgress } from "@/lib/chat/store"
 import type { ChatRoom } from "@/api/chat"
 import { MemberAvatar } from "@/components/member-avatar"
+import { senderImage } from "@/lib/chat/bot"
 import {
   MessageImages,
   PendingImages,
@@ -127,7 +128,7 @@ export function ChatMessageRow({
                   <>
                     <MemberAvatar
                       name={message.reply.memberDisplayName}
-                      image={message.reply.memberImage ?? null}
+                      image={senderImage(message.reply)}
                       className="size-4 text-[8px]"
                     />
                     <span className="max-w-32 shrink-0 truncate">
@@ -154,7 +155,7 @@ export function ChatMessageRow({
             ) : (
               <MemberAvatar
                 name={message.memberDisplayName}
-                image={message.memberImage}
+                image={senderImage(message)}
                 className="mt-0.5"
               />
             )}
@@ -216,6 +217,12 @@ export function ChatMessageRow({
               uploads={uploads}
               mark={grouped && !message.content ? mark : null}
             />
+            {message.privateTo && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {message.privateTo.displayName}
+                さんと責任者だけに表示されています
+              </p>
+            )}
           </div>
         </div>
       </MessageActions>

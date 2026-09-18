@@ -67,7 +67,10 @@ it("validates search terms and scopes search to an accessible chat", async () =>
   expect(
     (await app.request(`${url}?q=集合&before=80&limit=30`, {}, env)).status
   ).toBe(200)
-  expect(search).toHaveBeenCalledWith("集合", 80, 30)
+  expect(search).toHaveBeenCalledWith("集合", 80, 30, {
+    memberId: "trusted",
+    readsPrivate: false,
+  })
   vi.mocked(findAccessibleRoom).mockResolvedValue(null)
   expect((await app.request(`${url}?q=集合`, {}, env)).status).toBe(404)
   expect(search).toHaveBeenCalledTimes(1)
@@ -87,7 +90,10 @@ it("hands out the stored card's shared image only as a private response", async 
     "x-content-type-options": "nosniff",
     "cross-origin-resource-policy": "same-origin",
   })
-  expect(stored).toHaveBeenCalledWith(messageId)
+  expect(stored).toHaveBeenCalledWith(messageId, {
+    memberId: "trusted",
+    readsPrivate: false,
+  })
   expect(sharedResource).toHaveBeenCalledWith("/v1/link-images", {
     url: "https://example.com/path",
   })

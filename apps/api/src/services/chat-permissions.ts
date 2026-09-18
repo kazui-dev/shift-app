@@ -57,6 +57,8 @@ export const roomPermissions = chatPermissions("room")
 /** A device to notify, with the member it belongs to. */
 export type RoomDevice = {
   memberId: string
+  /** The member muted the room; only notices that must ring reach it. */
+  muted: boolean
   id: string
   endpoint: string
   expirationTime: number | null
@@ -90,10 +92,11 @@ export async function roomAudience(env: CloudflareBindings, roomId: string) {
     }>()
   const members = [...new Set(result.results.map((row) => row.memberId))]
   const devices = result.results.flatMap((row) =>
-    row.muted === 0 && row.id && row.endpoint && row.p256dh && row.auth
+    row.id && row.endpoint && row.p256dh && row.auth
       ? [
           {
             memberId: row.memberId,
+            muted: row.muted === 1,
             id: row.id,
             endpoint: row.endpoint,
             expirationTime: row.expirationTime,

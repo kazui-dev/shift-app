@@ -260,16 +260,17 @@ export class ChatAttachments {
       messageId
     )
   }
-  /** A sent image anyone who can read the room may see, as it saves. */
+  /** A sent image as it saves, with its message for the room to check. */
   readable(id: string) {
     const row = this.storage.sql
-      .exec<StoredAttachment & { sentAt: number }>(
+      .exec<StoredAttachment & { messageId: string; sentAt: number }>(
         `${sent} WHERE a.id=? AND a.ready=1`,
         id
       )
       .toArray()[0]
     return row
       ? {
+          messageId: row.messageId,
           name: attachmentFileName(row.name, row.type, row.sentAt),
           type: row.type,
         }

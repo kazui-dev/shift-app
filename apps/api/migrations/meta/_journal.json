@@ -260,6 +260,20 @@
       "when": 1789537411861,
       "tag": "0036_directory_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1789709259182,
+      "tag": "0037_attendance_bot",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1789713679877,
+      "tag": "0038_private_messages",
+      "breakpoints": true
     }
   ]
 }

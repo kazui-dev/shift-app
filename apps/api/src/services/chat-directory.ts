@@ -1,16 +1,22 @@
 import type { ChatEvent } from "@workspace/shared/communications"
 import { roomRecipients } from "./chat-permissions"
 import { liveDirectory } from "./live-events"
+import { privateReaders } from "./private-messages"
 
 export async function publishChatEvent(
   env: CloudflareBindings,
   event: ChatEvent
 ) {
-  const members = await roomRecipients(env, event.roomId)
-  await liveDirectory(env).publish(
-    members.map((member) => member.id),
-    event
+  const members = (await roomRecipients(env, event.roomId)).map(
+    (member) => member.id
   )
+  // A change to a private message reaches only those who may read it.
+  const privateTo =
+    "message" in event ? (event.message.privateTo?.memberId ?? null) : null
+  const recipients = privateTo
+    ? (await privateReaders(env, event.roomId, privateTo, members)).members
+    : members
+  await liveDirectory(env).publish(recipients, event)
 }
 export async function roomChangeRecipients(
   env: CloudflareBindings,
