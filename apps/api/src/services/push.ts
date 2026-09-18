@@ -176,15 +176,31 @@ export async function notifyRoomMessage(
     tag: `chat-${roomId}`,
     data: { url: `/chat/${roomId}` },
   })
-  await Promise.all(
+  const started = Date.now()
+  const results = await Promise.all(
     subscriptions.map(async (subscription) => {
-      if ((await deliver(env, subscription, payload)) === "dead") {
+      const result = await deliver(env, subscription, payload)
+      if (result === "dead")
         await clearPushTransport(
           env.shift_app,
           subscription.id,
           subscription.endpoint
         )
-      }
+      return result
+    })
+  )
+  // One line a message: how many devices it went to, how the push services
+  // answered, and how long they took, to tell a slow or lost push from ours.
+  console.info(
+    JSON.stringify({
+      message: "Room push sent",
+      roomId,
+      devices: results.length,
+      sent: results.filter((result) => result === "sent").length,
+      dead: results.filter((result) => result === "dead").length,
+      retry: results.filter((result) => result === "retry").length,
+      startedAt: new Date(started).toISOString(),
+      durationMs: Date.now() - started,
     })
   )
 }

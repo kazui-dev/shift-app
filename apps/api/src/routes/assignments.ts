@@ -12,7 +12,6 @@ import { canManageActivity } from "../services/activity-access"
 import {
   attendanceColumns,
   attendanceJson,
-  notifyAttendance,
   type AttendanceColumns,
 } from "../services/attendance"
 import {
@@ -183,20 +182,13 @@ assignmentsApp.put("/:assignmentId/attendance", async (c) => {
   if (!result || result.meta.changes === 0)
     return apiError(c, errors.attendanceFinal)
   c.executionCtx.waitUntil(
-    Promise.all([
-      notifyAttendance(c.env, shift, input.output.state),
-      announceAttendance(
-        c.env,
-        shift,
-        input.output.state === "late"
-          ? {
-              state: "late",
-              expectedAt,
-              reason: input.output.reason,
-            }
-          : { state: "absent", reason: input.output.reason }
-      ),
-    ])
+    announceAttendance(
+      c.env,
+      shift,
+      input.output.state === "late"
+        ? { state: "late", expectedAt, reason: input.output.reason }
+        : { state: "absent", reason: input.output.reason }
+    )
   )
   return changedAttendance(c, shift, id.output)
 })
@@ -228,7 +220,6 @@ assignmentsApp.delete("/:assignmentId/attendance", async (c) => {
     return apiError(c, errors.attendanceNotFound)
   c.executionCtx.waitUntil(
     Promise.all([
-      notifyAttendance(c.env, shift, "withdrawn"),
       announceAttendance(c.env, shift, {
         state: "withdrawn",
         previous: shift.attendanceState === "absent" ? "absent" : "late",
