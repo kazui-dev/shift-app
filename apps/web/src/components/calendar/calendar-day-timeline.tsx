@@ -180,7 +180,7 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                     <span className="flex items-center gap-1 text-xs tabular-nums opacity-75">
                       <Clock aria-hidden="true" className="size-3 shrink-0" />
                       <span>
-                        {japanTime(assignment.startsAt)}–
+                        {japanTime(assignment.startsAt)}〜
                         {japanTime(assignment.endsAt)}
                       </span>
                     </span>

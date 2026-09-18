@@ -237,9 +237,9 @@ export function TimeGrid({
                       key={window.startsAt}
                       className="absolute top-2.5 z-[2] h-[30px] truncate rounded-[5px] bg-[#e7edf3] px-[9px] py-1.5 text-[13px] leading-[18px] font-medium text-[#3c4b59] tabular-nums dark:bg-slate-800 dark:text-slate-200"
                       style={position(window.startsAt, window.endsAt)}
-                      title={`参加可能 ${japanTime(window.startsAt)}–${japanTime(window.endsAt)}`}
+                      title={`参加可能 ${japanTime(window.startsAt)}〜${japanTime(window.endsAt)}`}
                     >
-                      {japanTime(window.startsAt)}–{japanTime(window.endsAt)}
+                      {japanTime(window.startsAt)}〜{japanTime(window.endsAt)}
                     </span>
                   ))}
                 {data.otherAssignments
@@ -293,7 +293,7 @@ export function TimeGrid({
                         >
                           <span className="pointer-events-none h-3 w-0.5 rounded-full bg-foreground/25" />
                         </span>
-                        {japanTime(shown.startsAt)}–{japanTime(shown.endsAt)}
+                        {japanTime(shown.startsAt)}〜{japanTime(shown.endsAt)}
                       </span>
                     )
                   })}

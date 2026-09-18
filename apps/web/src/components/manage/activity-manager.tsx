@@ -127,8 +127,8 @@ export function ActivityManager({ year }: { year: number }) {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {japanMonthDay(item.startsAt)} · {japanTime(item.startsAt)}–
-                    {japanTime(item.endsAt)} · {item.place}
+                    {japanMonthDay(item.startsAt)} · {japanTime(item.startsAt)}
+                    〜{japanTime(item.endsAt)} · {item.place}
                   </p>
                 </div>
                 {!item.active && (
