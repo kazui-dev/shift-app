@@ -18,12 +18,17 @@ import { DurableObject } from "cloudflare:workers"
 type ChatMessage = {
   sequence: number
   id: string
+  /** Set when a bot posted the message; no member sent it. */
+  bot?: true
+  /** Set when only this member and the shift's keepers may read it. */
+  privateTo?: { memberId: string; displayName: string }
   memberId: string
   memberDisplayName: string
   content: string
   createdAt: string
   reply?: {
     id: string
+    bot?: true
     memberId: string
     sequence: number
     memberDisplayName: string
@@ -42,6 +47,9 @@ type ChatMessage = {
 type StoredMessage = {
   sequence: number
   id: string
+  bot: number
+  privateTo: string | null
+  privateName: string | null
   memberId: string
   memberDisplayName: string
   content: string
@@ -54,9 +62,28 @@ type StoredMessage = {
 }
 
 /** Every column of a stored message, named as `StoredMessage`. */
-const messageColumns = `sequence,id,member_id AS memberId,member_display_name AS memberDisplayName,
+const messageColumns = `sequence,id,bot,private_to AS privateTo,private_name AS privateName,member_id AS memberId,member_display_name AS memberDisplayName,
   content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted,
   link_preview AS linkPreview,version`
+
+/**
+ * Who reads, as far as private messages go: the member, and whether they look
+ * after the room's shift. Routes resolve it; the room only applies it.
+ */
+export type Reader = { memberId: string; readsPrivate: boolean }
+
+/** Rows a reader may see; binds the member's id, then 1 if they read all. */
+const readable = "(private_to IS NULL OR private_to=? OR ?=1)"
+const readableParams = (reader: Reader) =>
+  [reader.memberId, reader.readsPrivate ? 1 : 0] as const
+
+function readableBy(row: StoredMessage, reader: Reader) {
+  return (
+    row.privateTo === null ||
+    row.privateTo === reader.memberId ||
+    reader.readsPrivate
+  )
+}
 
 function storedPreview(value: string | null) {
   if (value === null) return null
@@ -124,6 +151,15 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ),
       () => this.attachments.countReservations(),
       () => this.attachments.trackOriginals(),
+      // A bot posts as itself, and its messages belong to no member.
+      () =>
+        sql.exec(
+          "ALTER TABLE messages ADD COLUMN bot INTEGER NOT NULL DEFAULT 0;"
+        ),
+      // A message may be for one member and the shift's keepers alone.
+      () =>
+        sql.exec(`ALTER TABLE messages ADD COLUMN private_to TEXT;
+        ALTER TABLE messages ADD COLUMN private_name TEXT;`),
     ]
     sql.exec(`CREATE TABLE IF NOT EXISTS _sql_schema_migrations (
         id INTEGER PRIMARY KEY,
@@ -155,6 +191,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   async changeMessage(input: {
     roomId: string
     memberId: string
+    readsPrivate: boolean
     id: string
     content?: string
   }) {
@@ -165,11 +202,12 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     )
     if (this.deleted || !room) return { error: "not_found" } as const
     const row = this.findMessage(input.id)
-    if (!row) return { error: "not_found" } as const
+    if (!row || !readableBy(row, input)) return { error: "not_found" } as const
     const deleting = input.content === undefined
     const permission = messagePermissions({
       memberId: input.memberId,
       authorId: row.memberId,
+      bot: row.bot === 1,
       canPost: room.canPost === 1,
       canManage: room.canManage === 1,
       deleted: !deleting && row.deleted === 1,
@@ -257,8 +295,14 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   finishAttachment(id: string, memberId: string, image: StoredAttachment) {
     return !this.deleted && this.attachments.finish(id, memberId, image)
   }
-  getAttachment(id: string) {
-    return this.attachments.readable(id)
+  /** A sent image, if its message is one the reader may see. */
+  getAttachment(id: string, reader: Reader) {
+    const attachment = this.attachments.readable(id)
+    if (!attachment) return null
+    const row = this.findMessage(attachment.messageId)
+    return row && readableBy(row, reader)
+      ? { name: attachment.name, type: attachment.type }
+      : null
   }
   deleteAttachment(id: string, memberId: string) {
     return this.attachments.remove(id, memberId)
@@ -308,18 +352,20 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
 
   getMessages(
     beforeSequence: number | null,
-    limit: number
+    limit: number,
+    reader: Reader
   ): { messages: ChatMessage[]; hasMore: boolean } {
     const boundedLimit = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
       .exec<StoredMessage>(
         `SELECT ${messageColumns}
          FROM messages
-         WHERE (? IS NULL OR sequence < ?)
+         WHERE (? IS NULL OR sequence < ?) AND ${readable}
          ORDER BY sequence DESC
          LIMIT ?`,
         beforeSequence,
         beforeSequence,
+        ...readableParams(reader),
         boundedLimit
       )
       .toArray()
@@ -330,8 +376,9 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ? []
         : this.ctx.storage.sql
             .exec<{ sequence: number }>(
-              "SELECT sequence FROM messages WHERE sequence < ? AND deleted = 0 LIMIT 1",
-              oldest
+              `SELECT sequence FROM messages WHERE sequence < ? AND deleted = 0 AND ${readable} LIMIT 1`,
+              oldest,
+              ...readableParams(reader)
             )
             .toArray()
     return {
@@ -340,16 +387,22 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     }
   }
 
-  searchMessages(query: string, before: number | null, limit: number) {
+  searchMessages(
+    query: string,
+    before: number | null,
+    limit: number,
+    reader: Reader
+  ) {
     const size = Math.max(1, Math.min(limit, 100))
     const rows = this.ctx.storage.sql
       .exec<StoredMessage>(
         `SELECT ${messageColumns}
        FROM messages WHERE deleted=0 AND instr(lower(content),lower(?))>0
-       AND (? IS NULL OR sequence<?) ORDER BY sequence DESC LIMIT ?`,
+       AND (? IS NULL OR sequence<?) AND ${readable} ORDER BY sequence DESC LIMIT ?`,
         query,
         before,
         before,
+        ...readableParams(reader),
         size + 1
       )
       .toArray()
@@ -360,9 +413,44 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   }
 
   /** The stored card of a message's first link, while the message stands. */
-  linkPreview(id: string) {
+  linkPreview(id: string, reader: Reader) {
     const row = this.findMessage(id)
-    return row && !row.deleted ? storedPreview(row.linkPreview) : null
+    return row && !row.deleted && readableBy(row, reader)
+      ? storedPreview(row.linkPreview)
+      : null
+  }
+
+  /**
+   * Posts as a bot. Only the server calls this, so there is no permission to
+   * check: the bot writes where the code puts it, with no attachments or reply.
+   */
+  postBotMessage(input: {
+    id: string
+    botId: string
+    botName: string
+    content: string
+    createdAt: number
+    privateTo: { memberId: string; displayName: string } | null
+  }): ChatMessage | null {
+    if (this.deleted) return null
+    const existing = this.findMessage(input.id)
+    if (existing) return this.toMessage(existing)
+    const row = this.ctx.storage.sql
+      .exec<StoredMessage>(
+        `INSERT INTO messages
+        (id, bot, member_id, member_display_name, content, created_at, private_to, private_name)
+        VALUES (?, 1, ?, ?, ?, ?, ?, ?)
+        RETURNING ${messageColumns}`,
+        input.id,
+        input.botId,
+        input.botName,
+        input.content,
+        input.createdAt,
+        input.privateTo?.memberId ?? null,
+        input.privateTo?.displayName ?? null
+      )
+      .one()
+    return this.toMessage(row)
   }
 
   async sendMessage(input: {
@@ -370,6 +458,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     id: string
     memberId: string
     memberDisplayName: string
+    readsPrivate: boolean
     content: string
     createdAt: number
     replyToId?: string
@@ -388,23 +477,28 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         throw new Error("MESSAGE_ID_CONFLICT")
       return this.toMessage(existing)
     }
-    if (input.replyToId) {
-      const target = this.findMessage(input.replyToId)
-      if (!target || target.deleted) throw new Error("INVALID_CHAT_REPLY")
-    }
+    // A reply to a private message stays among the people who could read it.
+    const target = input.replyToId ? this.findMessage(input.replyToId) : null
+    if (
+      input.replyToId &&
+      (!target || target.deleted || !readableBy(target, input))
+    )
+      throw new Error("INVALID_CHAT_REPLY")
     const { row, due } = this.ctx.storage.transactionSync(() => {
       const inserted = this.ctx.storage.sql
         .exec<StoredMessage>(
           `INSERT INTO messages
-          (id, member_id, member_display_name, content, created_at, reply_to_id)
-         VALUES (?, ?, ?, ?, ?, ?)
+          (id, member_id, member_display_name, content, created_at, reply_to_id, private_to, private_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING ${messageColumns}`,
           input.id,
           input.memberId,
           input.memberDisplayName,
           input.content,
           input.createdAt,
-          input.replyToId ?? null
+          input.replyToId ?? null,
+          target?.privateTo ?? null,
+          target?.privateName ?? null
         )
         .one()
       this.attachments.claim(input.attachmentIds, input.memberId, input.id)
@@ -463,6 +557,15 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     return {
       sequence: row.sequence,
       id: row.id,
+      ...(row.bot ? { bot: true as const } : {}),
+      ...(row.privateTo === null
+        ? {}
+        : {
+            privateTo: {
+              memberId: row.privateTo,
+              displayName: row.privateName ?? "",
+            },
+          }),
       memberId: row.memberId,
       memberDisplayName: row.memberDisplayName,
       content: row.content,
@@ -475,6 +578,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         ? {
             reply: {
               id: target.id,
+              ...(target.bot ? { bot: true as const } : {}),
               memberId: target.memberId,
               sequence: target.sequence,
               memberDisplayName: target.memberDisplayName,

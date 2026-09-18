@@ -83,7 +83,7 @@ export function ShiftAttendance({
                 <div>
                   <p className="text-sm">{a.memberDisplayName}</p>
                   <p className="text-xs text-muted-foreground">
-                    {japanTime(a.startsAt)}–{japanTime(a.endsAt)} ·{" "}
+                    {japanTime(a.startsAt)}〜{japanTime(a.endsAt)} ·{" "}
                     {attendanceSummary(a)}
                   </p>
                   {standing && a.attendance?.reason && (

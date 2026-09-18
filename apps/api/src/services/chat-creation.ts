@@ -119,6 +119,13 @@ export function roomCommands(
             sql: "INSERT INTO activity_chat_rooms(activity_id,room_id) SELECT ?,? WHERE EXISTS(SELECT 1 FROM chat_rooms WHERE id=?)",
             params: [room.activityId, room.id, room.id],
           },
+          // Late and absence notices are posted here, so the bot joins with the room.
+          {
+            sql: `INSERT INTO chat_room_bots(room_id,bot_id,created_at)
+      SELECT ?,bot.id,? FROM bots bot WHERE bot.key='attendance'
+      AND EXISTS(SELECT 1 FROM chat_rooms WHERE id=?)`,
+            params: [room.id, now, room.id],
+          },
         ]),
     ...room.targets.map((target) => ({
       sql: `INSERT INTO chat_room_targets(room_id,target_type,target_id,can_read,can_post,can_manage,created_at)

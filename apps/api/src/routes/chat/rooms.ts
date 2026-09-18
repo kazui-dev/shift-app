@@ -75,11 +75,23 @@ roomApp.delete("/", async (c) => {
 })
 
 roomApp.get("/members", async (c) => {
-  const members = await roomRecipients(c.env, c.get("room").id)
+  const roomId = c.get("room").id
+  const [members, bots] = await Promise.all([
+    roomRecipients(c.env, roomId),
+    c.env.shift_app
+      .prepare(
+        `SELECT bot.id, bot.display_name AS displayName FROM bots bot
+       JOIN chat_room_bots member ON member.bot_id = bot.id AND member.room_id = ?
+       ORDER BY bot.display_name`
+      )
+      .bind(roomId)
+      .all<{ id: string; displayName: string }>(),
+  ])
   return c.json({
     members: members.map(({ muted: _muted, ...member }) => ({
       ...member,
       canManage: member.canManage === 1,
     })),
+    bots: bots.results,
   })
 })

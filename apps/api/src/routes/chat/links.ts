@@ -4,7 +4,7 @@ import * as v from "valibot"
 import { apiError, errors } from "../../lib/errors"
 import { privateResponse } from "../../lib/http"
 import { sharedResource, sharedRoutes } from "../../lib/shared-cache"
-import type { RoomEnv } from "./room"
+import { roomReader, type RoomEnv } from "./room"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 
@@ -16,7 +16,7 @@ linksApp.get("/messages/:messageId/link-preview/image", async (c) => {
   if (!id.success) return apiError(c, errors.invalidChatLink)
   const preview = await c.env.CHAT_ROOMS.getByName(
     c.get("room").id
-  ).linkPreview(id.output)
+  ).linkPreview(id.output, await roomReader(c))
   if (!preview?.image) return c.body(null, 404)
   const image = await sharedResource(sharedRoutes.linkImages, {
     url: preview.url,

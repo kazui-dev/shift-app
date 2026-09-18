@@ -15,6 +15,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 import { EmptyState } from "@/components/page-layout"
 import { RoutePage } from "@/components/route-page"
 import { MemberAvatar } from "@/components/member-avatar"
+import { senderImage } from "@/lib/chat/bot"
 import { getChatRoom, searchChatMessages } from "@/api/chat"
 import { useMessageTarget } from "@/components/chat/message/use-target"
 
@@ -116,7 +117,7 @@ function ChatSearch({ roomId }: { roomId: string }) {
                   >
                     <MemberAvatar
                       name={message.memberDisplayName}
-                      image={message.memberImage}
+                      image={senderImage(message)}
                       className="size-8 shrink-0"
                     />
                     <div className="min-w-0 flex-1">

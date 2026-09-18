@@ -51,10 +51,12 @@ it("validates edits before the room call and returns server permission failures"
   ).toBe(422)
   expect(change).not.toHaveBeenCalled()
   expect((await app.request(url, { method: "DELETE" }, env)).status).toBe(403)
+  // Outside a shift room nobody reads private messages, so no lookup is made.
   expect(change).toHaveBeenCalledWith({
     roomId,
     id: messageId,
     memberId: "trusted",
+    readsPrivate: false,
   })
 })
 

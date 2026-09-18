@@ -103,7 +103,7 @@ export function ShiftSelectionPanel({
             .filter((item) => item.memberId === selection.memberId)
             .map((item) => (
               <p key={item.startsAt}>
-                {japanInputValue(item.startsAt)}–{japanInputValue(item.endsAt)}
+                {japanInputValue(item.startsAt)}〜{japanInputValue(item.endsAt)}
               </p>
             ))}
           {!data.submittedMemberIds.includes(selection.memberId) && (
@@ -279,7 +279,7 @@ function ShiftTimeRow({
           size="icon-sm"
           aria-label={
             value.slotId
-              ? `${japanInputValue(value.startsAt)}–${japanInputValue(value.endsAt)}のシフトを削除`
+              ? `${japanInputValue(value.startsAt)}〜${japanInputValue(value.endsAt)}のシフトを削除`
               : "追加を取り消す"
           }
           disabled={pending}

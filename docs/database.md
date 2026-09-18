@@ -248,18 +248,31 @@ Better Auth `user` が存在しても `members` がなければ onboarding 中�
 
 polymorphic targetの存在は作成APIで検証する。閲覧・送信時は現在のmember、年度role、active assignmentと照合するため、対象から外れた利用者の権限は即時に失効する。
 
+### `bots` と `chat_room_bots`
+
+人ではない送り主。`bots`は`id`、コードから参照する一意の`key`、`display_name`を持ち、行はマイグレーションで投入する（実行時には作らない）。現在は勤怠通知bot（`key = attendance`）だけがある。`chat_room_bots`はbotが属するルームで、シフトのルームを作るとき勤怠通知botを加える。botはメッセージを読まず、投稿だけを行う。
+
+### `chat_message_index`
+
+未読数のための索引。ルーム・sequence・投稿者・削除済みかに加え、`private_to`を持つ。`private_to`が入ったメッセージは、そのmemberとシフトの見守り役（下記）以外の未読に数えない。勤怠通知botの投稿は、連絡した本人の未読にならないよう本人を投稿者として記録する。
+
 ### `ChatRoom` Durable Object SQLite
 
 ルームIDをDurable Object名として1ルームを1インスタンスへ割り当てる。各object内の`messages` tableは次を持つ。
 
-| Column                | Type    | Note                     |
-| --------------------- | ------- | ------------------------ |
-| `sequence`            | integer | PK、自動増分、表示順     |
-| `id`                  | text    | unique、client生成UUID   |
-| `member_id`           | text    | 送信時点の`members.id`   |
-| `member_display_name` | text    | 送信時点の表示名snapshot |
-| `content`             | text    | 本文                     |
-| `created_at`          | integer | UNIX time milliseconds   |
+| Column                | Type    | Note                                           |
+| --------------------- | ------- | ---------------------------------------------- |
+| `sequence`            | integer | PK、自動増分、表示順                           |
+| `id`                  | text    | unique、client生成UUID                         |
+| `member_id`           | text    | 送信時点の`members.id`                         |
+| `member_display_name` | text    | 送信時点の表示名snapshot                       |
+| `content`             | text    | 本文                                           |
+| `created_at`          | integer | UNIX time milliseconds                         |
+| `bot`                 | integer | botの投稿なら1。誰も編集・削除できない         |
+| `private_to`          | text    | 非公開の対象member。NULLならルーム全員が読める |
+| `private_name`        | text    | 非公開の対象memberの表示名snapshot             |
+
+非公開メッセージは、`private_to`のmemberと、ルームのシフトの見守り役（現在の責任者、その年度で`shift.manage`を持つmember、`system_admin`）だけが読める。判定はD1の`services/private-messages.ts`に1か所だけ置き、履歴・検索・画像・リンクカード・編集削除・返信・リアルタイム配信・Push・未読数のすべてで同じ判定を使う。責任者は読むときに判定するため、新しい責任者は過去の連絡も読め、外れた人は読めなくなる。非公開メッセージへの返信は同じ非公開を引き継ぎ、読めない人は返信できない。
 
 D1との分散transactionは作らない。WorkerがD1でアクセスを検証してからDurable Object RPCを呼び、メッセージを先に永続化する。client生成IDにより、応答喪失後の同一送信を安全に再試行できる。
 
@@ -321,6 +334,8 @@ erDiagram
     operating_years ||--o{ chat_rooms : contains
     members ||--o{ chat_rooms : creates
     chat_rooms ||--o{ chat_room_targets : targets
+    chat_rooms ||--o{ chat_room_bots : includes
+    bots ||--o{ chat_room_bots : joins
     members ||--o{ notification_devices : subscribes
     notification_devices ||--o{ notification_deliveries : receives
     shift_assignments ||--o{ notification_deliveries : notifies

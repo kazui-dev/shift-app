@@ -59,6 +59,7 @@ export function MessageActionDrawer({
           canPost: room.canPost,
           canManage: room.canManage,
           deleted: !!message.deleted,
+          bot: !!message.bot,
         })
       : null
   return (

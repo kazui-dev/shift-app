@@ -19,12 +19,12 @@ vi.mock("web-push", () => ({
 }))
 
 const { notifyRoomMessage } = await import("../../src/services/push")
-const { roomAudience } = await import("../../src/services/chat-permissions")
+const { messageAudience } = await import("../../src/services/private-messages")
 
 const app = new Hono<{ Bindings: CloudflareBindings }>()
 app.post("/rooms/:roomId/messages", async (c) => {
   const roomId = c.req.param("roomId")
-  const audience = await roomAudience(c.env, roomId)
+  const audience = await messageAudience(c.env, roomId, null)
   await notifyRoomMessage(
     c.env,
     audience.devices,

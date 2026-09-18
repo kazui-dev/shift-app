@@ -573,6 +573,36 @@ export const activityChatRooms = sqliteTable(
   (table) => [uniqueIndex("activity_chat_rooms_room_uidx").on(table.roomId)]
 )
 
+/**
+ * A sender that is not a person. Rows are seeded, not created at runtime, and
+ * a bot's key is how the code asks for it.
+ */
+export const bots = sqliteTable(
+  "bots",
+  {
+    id: text("id").primaryKey(),
+    key: text("key").notNull(),
+    displayName: text("display_name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [uniqueIndex("bots_key_uidx").on(table.key)]
+)
+
+/** The rooms a bot belongs to; it reads nothing and only posts. */
+export const chatRoomBots = sqliteTable(
+  "chat_room_bots",
+  {
+    roomId: text("room_id")
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: "cascade" }),
+    botId: text("bot_id")
+      .notNull()
+      .references(() => bots.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.roomId, table.botId] })]
+)
+
 export const chatRoomTargets = sqliteTable(
   "chat_room_targets",
   {
@@ -713,6 +743,11 @@ export const chatMessageIndex = sqliteTable(
     sequence: integer("sequence").notNull(),
     memberId: text("member_id").notNull(),
     deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Set on a message only the named member and the shift's responsibles may
+     * read, so nobody else counts it as unread.
+     */
+    privateTo: text("private_to"),
   },
   (table) => [primaryKey({ columns: [table.roomId, table.sequence] })]
 )

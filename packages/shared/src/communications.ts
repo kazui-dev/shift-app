@@ -126,6 +126,7 @@ export const chatRoomEnvelopeSchema = v.object({
 
 export const chatReplySchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
+  bot: v.optional(v.literal(true)),
   sequence: v.number(),
   memberDisplayName: v.string(),
   memberImage: v.optional(v.nullable(v.pipe(v.string(), v.url()))),
@@ -147,6 +148,15 @@ export const linkPreviewSchema = v.object({
 export type LinkPreview = v.InferOutput<typeof linkPreviewSchema>
 
 const storedChatMessageSchema = v.object({
+  /** Set when a bot posted the message, which no member may change. */
+  bot: v.optional(v.literal(true)),
+  /** Set when only this member and the shift's keepers may read the message. */
+  privateTo: v.optional(
+    v.object({
+      memberId: v.pipe(v.string(), v.uuid()),
+      displayName: v.string(),
+    })
+  ),
   /** The first link's card, stored when the message is sent or edited. */
   linkPreview: v.nullable(linkPreviewSchema),
   reply: v.optional(chatReplySchema),
@@ -241,6 +251,11 @@ export const chatMembersResponseSchema = v.object({
       canManage: v.boolean(),
       image: v.nullable(v.pipe(v.string(), v.url())),
     })
+  ),
+  /** Senders that are not people; they are counted apart from the members. */
+  bots: v.optional(
+    v.array(v.object({ id: v.string(), displayName: v.string() })),
+    []
   ),
 })
 

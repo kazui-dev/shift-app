@@ -21,7 +21,7 @@ import {
   warmShared,
 } from "../../lib/shared-cache"
 import { storableImage } from "../../services/chat-image"
-import type { RoomEnv } from "./room"
+import { roomReader, type RoomEnv } from "./room"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 const sizeSchema = v.optional(
@@ -187,7 +187,8 @@ imagesApp.get("/attachments/:attachmentId", async (c) => {
   if (!id.success || !size.success) return apiError(c, errors.imageNotFound)
   const room = c.get("room")
   const attachment = await c.env.CHAT_ROOMS.getByName(room.id).getAttachment(
-    id.output
+    id.output,
+    await roomReader(c)
   )
   if (!attachment) return apiError(c, errors.imageNotFound)
   const image = await sharedResource(

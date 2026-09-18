@@ -72,6 +72,7 @@ export function MessageActions({
     canPost: room.canPost,
     canManage: room.canManage,
     deleted: !!message.deleted,
+    bot: !!message.bot,
   })
   const available =
     pending ||

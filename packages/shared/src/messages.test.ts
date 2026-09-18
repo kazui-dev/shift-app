@@ -34,6 +34,10 @@ it("limits editing to the author and permits room managers to delete", () => {
       deleted: true,
     })
   ).toEqual({ reply: false, edit: false, delete: false })
+  // A bot's notice is the record of what happened; it may be answered only.
+  expect(
+    messagePermissions({ ...base, authorId: "bot", canManage: true, bot: true })
+  ).toEqual({ reply: true, edit: false, delete: false })
 })
 it("links http URLs without swallowing surrounding punctuation or Japanese delimiters", () => {
   const text =

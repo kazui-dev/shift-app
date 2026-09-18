@@ -98,7 +98,7 @@ export function AvailabilityEditor({
                       {japanDateWeekday(japanDateStart(date.date))}
                     </h2>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {time(date.startsMinute)}–{time(date.endsMinute)}
+                      {time(date.startsMinute)}〜{time(date.endsMinute)}
                     </p>
                   </div>
                   {(status === "受付終了" || status === "再回答が必要") && (
@@ -149,7 +149,7 @@ export function AvailabilityEditor({
                             )
                           }
                         />
-                        <span className="text-muted-foreground">–</span>
+                        <span className="text-muted-foreground">〜</span>
                         <MinuteInput
                           label={`${date.date} 終了 ${index + 1}`}
                           value={range.to}

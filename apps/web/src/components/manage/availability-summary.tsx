@@ -137,7 +137,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
                           {japanFullDate(date.date)}
                         </span>
                         <span className="block text-xs font-normal text-muted-foreground tabular-nums">
-                          {clock(date.startsMinute)}–{clock(date.endsMinute)}{" "}
+                          {clock(date.startsMinute)}〜{clock(date.endsMinute)}{" "}
                           <span className="ml-2">
                             {date.accepting ? "受付中" : "受付終了"}
                           </span>

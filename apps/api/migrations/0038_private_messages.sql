@@ -1,0 +1,1 @@
+ALTER TABLE `chat_message_index` ADD `private_to` text;

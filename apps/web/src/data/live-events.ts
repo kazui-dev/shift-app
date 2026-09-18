@@ -64,6 +64,7 @@ function changeProfile(
     { queryKey: keys.chatMembers() },
     (current) =>
       current && {
+        ...current,
         members: current.members.map((member) =>
           member.id === memberId ? { ...member, image } : member
         ),

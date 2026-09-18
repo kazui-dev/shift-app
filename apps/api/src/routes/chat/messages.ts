@@ -9,11 +9,11 @@ import {
 import { apiError, errors } from "../../lib/errors"
 import { readJson } from "../../lib/http"
 import { publishChatEvent } from "../../services/chat-directory"
-import { roomAudience } from "../../services/chat-permissions"
 import { liveDirectory } from "../../services/live-events"
+import { messageAudience } from "../../services/private-messages"
 import { withMemberImages } from "../../services/chat-profiles"
 import { notifyRoomMessage } from "../../services/push"
-import type { RoomEnv } from "./room"
+import { roomReader, type RoomEnv } from "./room"
 
 const idSchema = v.pipe(v.string(), v.uuid())
 const historyQuerySchema = v.object({
@@ -46,13 +46,19 @@ messagesApp.get("/messages", async (c) => {
   const query = v.safeParse(historyQuerySchema, c.req.query())
   if (!query.success) return apiError(c, errors.invalidChatRequest)
   const stub = c.env.CHAT_ROOMS.getByName(c.get("room").id)
+  const reader = await roomReader(c)
   const history = query.output.q
     ? await stub.searchMessages(
         query.output.q,
         query.output.before ?? null,
-        query.output.limit
+        query.output.limit,
+        reader
       )
-    : await stub.getMessages(query.output.before ?? null, query.output.limit)
+    : await stub.getMessages(
+        query.output.before ?? null,
+        query.output.limit,
+        reader
+      )
   return c.json({
     ...history,
     messages: await withMemberImages(c.env, history.messages),
@@ -76,6 +82,9 @@ messagesApp.post("/messages", async (c) => {
       id: input.output.id,
       memberId: member.id,
       memberDisplayName: member.displayName,
+      // Only a reply to a private message needs to know; others skip the lookup.
+      readsPrivate:
+        !!input.output.replyToId && (await roomReader(c)).readsPrivate,
       content: input.output.content,
       createdAt: Date.now(),
       attachmentIds: input.output.attachmentIds,
@@ -91,12 +100,15 @@ messagesApp.post("/messages", async (c) => {
     return apiError(c, errors.chatPostingRevoked)
   if (!message) return apiError(c, errors.invalidChatAttachments)
   const db = c.env.shift_app
+  const privateTo = message.privateTo?.memberId ?? null
   const [updated] = await db.batch([
+    // A private reply leaves the room's place in everyone's list alone.
     db
       .prepare(
-        "UPDATE chat_rooms SET updated_at = ?, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
+        "UPDATE chat_rooms SET updated_at = CASE WHEN ? IS NULL THEN ? ELSE updated_at END, last_sequence = MAX(last_sequence,?) WHERE id = ? AND last_sequence < ?"
       )
       .bind(
+        privateTo,
         Date.parse(message.createdAt),
         message.sequence,
         room.id,
@@ -105,13 +117,13 @@ messagesApp.post("/messages", async (c) => {
     // Unread counts come from this index, so sending never moves a read position.
     db
       .prepare(
-        "INSERT OR IGNORE INTO chat_message_index(room_id,sequence,member_id) VALUES(?,?,?)"
+        "INSERT OR IGNORE INTO chat_message_index(room_id,sequence,member_id,private_to) VALUES(?,?,?,?)"
       )
-      .bind(room.id, message.sequence, member.id),
+      .bind(room.id, message.sequence, member.id, privateTo),
   ])
-  // Live delivery and push notifications reach the same room, so its members
-  // are resolved once here instead of once for each.
-  const audience = await roomAudience(c.env, room.id)
+  // Live delivery and push notifications reach the same people, so they are
+  // resolved once here instead of once for each.
+  const audience = await messageAudience(c.env, room.id, privateTo)
   if (updated && updated.meta.changes > 0)
     c.executionCtx.waitUntil(
       notifyRoomMessage(
@@ -149,10 +161,11 @@ for (const method of ["patch", "delete"] as const) {
       content = input.output.content
     }
     const roomId = c.get("room").id
+    const reader = await roomReader(c)
     const result = await c.env.CHAT_ROOMS.getByName(roomId).changeMessage({
       roomId,
       id: id.output,
-      memberId: c.get("member").id,
+      ...reader,
       ...(content === undefined ? {} : { content }),
     })
     if ("error" in result) {

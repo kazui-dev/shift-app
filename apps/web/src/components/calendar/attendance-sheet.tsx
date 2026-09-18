@@ -161,7 +161,7 @@ function AttendanceForm({
             backgroundColor: `color-mix(in oklab, ${assignment.color} 14%, var(--background))`,
           }}
         >
-          {assignment.activityName} {japanTime(assignment.startsAt)}–
+          {assignment.activityName} {japanTime(assignment.startsAt)}〜
           {japanTime(assignment.endsAt)}
         </span>
       </p>

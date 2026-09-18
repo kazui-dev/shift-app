@@ -204,7 +204,10 @@ it("delivers a size as a private WebP from the shared cache", async () => {
     "x-content-type-options": "nosniff",
     "cross-origin-resource-policy": "same-origin",
   })
-  expect(getAttachment).toHaveBeenCalledWith(imageId)
+  expect(getAttachment).toHaveBeenCalledWith(imageId, {
+    memberId: "m",
+    readsPrivate: false,
+  })
   expect(sharedResource).toHaveBeenCalledWith(
     `/v1/chat-images/${roomId}/${imageId}/640`
   )

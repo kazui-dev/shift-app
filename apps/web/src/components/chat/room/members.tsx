@@ -3,6 +3,7 @@ import { Crown } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { membersQuery } from "@/data/chat"
 import { MemberAvatar } from "@/components/member-avatar"
+import { senderImage } from "@/lib/chat/bot"
 
 export function RoomMembers({
   roomId,
@@ -41,6 +42,26 @@ export function RoomMembers({
           </li>
         ))}
       </ul>
+      {!!query.data?.bots.length && (
+        <>
+          <h3 className="mt-6 mb-4 text-xs font-medium text-muted-foreground">
+            bot · {query.data.bots.length}
+          </h3>
+          <ul className="space-y-4">
+            {query.data.bots.map((bot) => (
+              <li key={bot.id} className="flex items-center gap-3">
+                <MemberAvatar
+                  name={bot.displayName}
+                  image={senderImage({ bot: true })}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  {bot.displayName}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   )
 }

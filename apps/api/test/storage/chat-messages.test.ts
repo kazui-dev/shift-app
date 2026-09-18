@@ -90,10 +90,12 @@ function fixture() {
   if (!(value instanceof ChatRoom)) throw Error("Invalid room")
   return { value, db, bucket, storage }
 }
+/** The author, who looks after no shift. */
+const author = { memberId: "author", readsPrivate: false }
 const input = (id: string) => ({
   roomId: "room",
   id,
-  memberId: "author",
+  ...author,
   memberDisplayName: "Author",
   content: "original",
   createdAt: 100,
@@ -108,7 +110,7 @@ const card = (path: string) => ({
 })
 const editFirst = (content?: string) => ({
   roomId: "room",
-  memberId: "author",
+  ...author,
   id: "first",
   ...(content === undefined ? {} : { content }),
 })
@@ -124,7 +126,7 @@ it("sends without waiting on the link, then stores its card and tells the room",
   expect(storage.setAlarm).toHaveBeenCalled()
   await value.alarm()
   expect(makeLinkCard).toHaveBeenCalledWith("https://example.com/a")
-  expect(value.getMessages(null, 100).messages[0]?.linkPreview).toEqual(
+  expect(value.getMessages(null, 100, author).messages[0]?.linkPreview).toEqual(
     card("a")
   )
   expect(publishChatEvent).toHaveBeenCalledWith(expect.anything(), {
@@ -152,7 +154,7 @@ it("tries a failed card twice more, later each time, then leaves the message wit
     await value.alarm()
     expect(makeLinkCard).toHaveBeenCalledTimes(3)
     expect(storage.setAlarm).toHaveBeenCalledTimes(scheduled)
-    expect(value.linkPreview("first")).toBeNull()
+    expect(value.linkPreview("first", author)).toBeNull()
   } finally {
     vi.useRealTimers()
   }
@@ -176,9 +178,9 @@ it("never stores a card for a link the message no longer has", async () => {
   await value.changeMessage(editFirst("https://example.com/b"))
   finish(card("a"))
   await running
-  expect(value.linkPreview("first")).toBeNull()
+  expect(value.linkPreview("first", author)).toBeNull()
   await value.alarm()
-  expect(value.linkPreview("first")).toEqual(card("b"))
+  expect(value.linkPreview("first", author)).toEqual(card("b"))
 })
 it("keeps a card while the first link stays, and drops it when the link changes or the message goes", async () => {
   const { value, db } = fixture()
@@ -189,19 +191,19 @@ it("keeps a card while the first link stays, and drops it when the link changes 
   })
   await value.alarm()
   await value.changeMessage(editFirst("https://example.com/a again"))
-  expect(value.linkPreview("first")).toEqual(card("a"))
+  expect(value.linkPreview("first", author)).toEqual(card("a"))
   expect(makeLinkCard).toHaveBeenCalledOnce()
   await value.changeMessage(editFirst("no link now"))
-  expect(value.linkPreview("first")).toBeNull()
+  expect(value.linkPreview("first", author)).toBeNull()
   await value.changeMessage(editFirst("https://example.com/a"))
   await value.alarm()
-  expect(value.linkPreview("first")).toEqual(card("a"))
+  expect(value.linkPreview("first", author)).toEqual(card("a"))
   // A stored card that no longer reads as one shows none.
   db.exec("UPDATE messages SET link_preview='{}' WHERE id='first'")
-  expect(value.linkPreview("first")).toBeNull()
+  expect(value.linkPreview("first", author)).toBeNull()
   await value.changeMessage(editFirst())
-  expect(value.linkPreview("first")).toBeNull()
-  expect(value.linkPreview("missing")).toBeNull()
+  expect(value.linkPreview("first", author)).toBeNull()
+  expect(value.linkPreview("missing", author)).toBeNull()
 })
 it("persists replies and edits and removes deleted reply text without changing sequence numbers", async () => {
   const { value } = fixture()
@@ -216,6 +218,7 @@ it("persists replies and edits and removes deleted reply text without changing s
     await value.changeMessage({
       roomId: "room",
       memberId: "author",
+      readsPrivate: false,
       id: "first",
       content: "edited",
     })
@@ -226,13 +229,14 @@ it("persists replies and edits and removes deleted reply text without changing s
       editedAt: expect.any(String),
     },
   })
-  expect(value.getMessages(null, 100).messages[1]?.reply?.content).toBe(
+  expect(value.getMessages(null, 100, author).messages[1]?.reply?.content).toBe(
     "edited"
   )
   expect(
     await value.changeMessage({
       roomId: "room",
       memberId: "author",
+      readsPrivate: false,
       id: "first",
     })
   ).toMatchObject({ message: { deleted: true, content: "", attachments: [] } })
@@ -240,10 +244,11 @@ it("persists replies and edits and removes deleted reply text without changing s
     await value.changeMessage({
       roomId: "room",
       memberId: "author",
+      readsPrivate: false,
       id: "first",
     })
   ).toMatchObject({ message: { deleted: true, content: "" } })
-  const messages = value.getMessages(null, 100).messages
+  const messages = value.getMessages(null, 100, author).messages
   expect(messages.map((m) => m.sequence)).toEqual([1, 2])
   expect(messages[1]?.reply).toMatchObject({ deleted: true, content: "" })
   await expect(
@@ -260,6 +265,7 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
     await value.changeMessage({
       roomId: "room",
       memberId: "other",
+      readsPrivate: false,
       id: "first",
       content: "bad",
     })
@@ -268,6 +274,7 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
     await value.changeMessage({
       roomId: "room",
       memberId: "other",
+      readsPrivate: false,
       id: "first",
     })
   ).toEqual({ error: "forbidden" })
@@ -276,6 +283,7 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
     await value.changeMessage({
       roomId: "room",
       memberId: "other",
+      readsPrivate: false,
       id: "first",
       content: "bad",
     })
@@ -285,6 +293,7 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
     await value.changeMessage({
       roomId: "room",
       memberId: "author",
+      readsPrivate: false,
       id: "first",
     })
   ).toEqual({ error: "not_found" })
@@ -293,6 +302,7 @@ it("enforces authorship, manager deletion, revoked access inside the room", asyn
     await value.changeMessage({
       roomId: "room",
       memberId: "other",
+      readsPrivate: false,
       id: "first",
     })
   ).toMatchObject({ message: { deleted: true } })
@@ -323,17 +333,26 @@ it("names sent images, denies reads after deletion and removes their objects and
   expect(sent.attachments).toEqual([
     { id: reserved.id, width: 10, height: 10, bytes: 50, name, original: true },
   ])
-  expect(value.getAttachment(reserved.id)).toEqual({ name, type: "image/png" })
+  expect(value.getAttachment(reserved.id, author)).toEqual({
+    name,
+    type: "image/png",
+  })
   expect(
     await value.changeMessage({
       roomId: "room",
       memberId: "author",
+      readsPrivate: false,
       id: "first",
       content: "",
     })
   ).toMatchObject({ message: { content: "" } })
-  await value.changeMessage({ roomId: "room", memberId: "author", id: "first" })
-  expect(value.getAttachment(reserved.id)).toBeNull()
+  await value.changeMessage({
+    roomId: "room",
+    memberId: "author",
+    readsPrivate: false,
+    id: "first",
+  })
+  expect(value.getAttachment(reserved.id, author)).toBeNull()
   await value.alarm()
   expect(bucket.delete).toHaveBeenCalledWith(reserved.objectKey)
   expect(purgeShared).toHaveBeenCalledWith([`chat-image:${reserved.id}`])
@@ -438,6 +457,7 @@ it("rejects empty text-only edits and preserves idempotent sending", async () =>
     await value.changeMessage({
       roomId: "room",
       memberId: "author",
+      readsPrivate: false,
       id: "first",
       content: "",
     })
@@ -449,7 +469,7 @@ it("does not create or advance an edit timestamp when content is unchanged", asy
   const original = await value.sendMessage(input("first"))
   const edit = {
     roomId: "room",
-    memberId: "author",
+    ...author,
     id: "first",
     content: "original",
   }
@@ -480,24 +500,32 @@ it("searches Japanese and literal punctuation across history, newest first, excl
   await value.sendMessage({ ...input("one"), content: "集合場所 100%" })
   await value.sendMessage({ ...input("two"), content: "集合場所 100%" })
   await value.sendMessage({ ...input("three"), content: "OTHER" })
-  const first = value.searchMessages("集合", null, 1)
+  const first = value.searchMessages("集合", null, 1, author)
   expect(first.messages.map((message) => message.id)).toEqual(["two"])
   expect(first.hasMore).toBe(true)
   expect(
     value
-      .searchMessages("集合", first.messages[0]?.sequence ?? 0, 1)
+      .searchMessages("集合", first.messages[0]?.sequence ?? 0, 1, author)
       .messages.map((message) => message.id)
   ).toEqual(["one"])
-  expect(value.searchMessages("%", null, 30).messages).toHaveLength(2)
-  expect(value.searchMessages("other", null, 30).messages[0]?.id).toBe("three")
-  await value.changeMessage({ roomId: "room", memberId: "author", id: "two" })
+  expect(value.searchMessages("%", null, 30, author).messages).toHaveLength(2)
+  expect(value.searchMessages("other", null, 30, author).messages[0]?.id).toBe(
+    "three"
+  )
   await value.changeMessage({
     roomId: "room",
     memberId: "author",
+    readsPrivate: false,
+    id: "two",
+  })
+  await value.changeMessage({
+    roomId: "room",
+    memberId: "author",
+    readsPrivate: false,
     id: "one",
     content: "移動",
   })
-  expect(value.searchMessages("集合", null, 30).messages).toEqual([])
+  expect(value.searchMessages("集合", null, 30, author).messages).toEqual([])
 })
 
 it("pages history newest first and offers older pages only while visible messages remain", async () => {
@@ -506,16 +534,29 @@ it("pages history newest first and offers older pages only while visible message
   await value.sendMessage({ ...input("two"), content: "two" })
   await value.sendMessage({ ...input("three"), content: "three" })
   await value.sendMessage({ ...input("four"), content: "four" })
-  const first = value.getMessages(null, 2)
+  const first = value.getMessages(null, 2, author)
   expect(first.messages.map((message) => message.id)).toEqual(["three", "four"])
   expect(first.hasMore).toBe(true)
-  await value.changeMessage({ roomId: "room", memberId: "author", id: "one" })
-  await value.changeMessage({ roomId: "room", memberId: "author", id: "two" })
-  expect(value.getMessages(null, 2).hasMore).toBe(false)
-  const rest = value.getMessages(first.messages[0]?.sequence ?? 0, 2)
+  await value.changeMessage({
+    roomId: "room",
+    memberId: "author",
+    readsPrivate: false,
+    id: "one",
+  })
+  await value.changeMessage({
+    roomId: "room",
+    memberId: "author",
+    readsPrivate: false,
+    id: "two",
+  })
+  expect(value.getMessages(null, 2, author).hasMore).toBe(false)
+  const rest = value.getMessages(first.messages[0]?.sequence ?? 0, 2, author)
   expect(rest.messages.map((message) => message.id)).toEqual(["one", "two"])
   expect(rest.hasMore).toBe(false)
-  expect(value.getMessages(1, 2)).toEqual({ messages: [], hasMore: false })
+  expect(value.getMessages(1, 2, author)).toEqual({
+    messages: [],
+    hasMore: false,
+  })
 })
 
 it("raises a message's version with every change, and only then", async () => {
@@ -533,7 +574,7 @@ it("raises a message's version with every change, and only then", async () => {
     })
   ).toMatchObject({ version: 1 })
   await value.alarm()
-  expect(value.getMessages(null, 100).messages[0]?.version).toBe(2)
+  expect(value.getMessages(null, 100, author).messages[0]?.version).toBe(2)
   expect(
     await value.changeMessage(editFirst("https://example.com/a"))
   ).toMatchObject({ changed: false, message: { version: 2 } })
@@ -638,7 +679,7 @@ it("waits for a display copy's original, counting its bytes, then tells the room
       type: "image/jpeg",
     })
   ).toBe(true)
-  const [message] = value.getMessages(null, 10).messages
+  const [message] = value.getMessages(null, 10, author).messages
   expect(message?.attachments[0]).toMatchObject({
     original: true,
     width: 30,
@@ -676,7 +717,76 @@ it("lets a display copy stand as its original when the original is lost", async 
   expect(await value.keepCopy("room", reserved.id, "other")).toBe(false)
   expect(await value.keepCopy("room", reserved.id, "author")).toBe(true)
   expect(
-    value.getMessages(null, 10).messages[0]?.attachments[0]?.original
+    value.getMessages(null, 10, author).messages[0]?.attachments[0]?.original
   ).toBe(true)
   expect(await value.keepCopy("room", reserved.id, "author")).toBe(false)
+})
+
+const notice = {
+  id: "10000000-0000-4000-8000-00000000000a",
+  botId: "bot",
+  botName: "勤怠通知",
+  content: "【遅刻】 本人",
+  createdAt: 50,
+  privateTo: { memberId: "reporter", displayName: "本人" },
+}
+const reporter = { memberId: "reporter", readsPrivate: false }
+const keeper = { memberId: "keeper", readsPrivate: true }
+const participant = { memberId: "participant", readsPrivate: false }
+
+it("shows a private notice to its member and the shift's keepers only, in history and search", async () => {
+  const { value } = fixture()
+  await value.sendMessage({ ...input("first"), content: "集合は正門" })
+  value.postBotMessage({ ...notice, content: "【遅刻】 本人 集合" })
+  const ids = (reader: typeof author) =>
+    value.getMessages(null, 10, reader).messages.map((message) => message.id)
+  expect(ids(reporter)).toEqual(["first", notice.id])
+  expect(ids(keeper)).toEqual(["first", notice.id])
+  expect(ids(participant)).toEqual(["first"])
+  expect(
+    value.searchMessages("集合", null, 10, participant).messages
+  ).toHaveLength(1)
+  expect(value.searchMessages("集合", null, 10, keeper).messages).toHaveLength(
+    2
+  )
+  expect(value.getMessages(null, 10, keeper).messages[1]).toMatchObject({
+    bot: true,
+    privateTo: notice.privateTo,
+  })
+  // Older history is worth loading only when the reader can see some of it.
+  expect(value.getMessages(2, 1, participant)).toEqual({
+    messages: [expect.objectContaining({ id: "first" })],
+    hasMore: false,
+  })
+})
+
+it("keeps a reply to a private notice among its readers, and refuses anyone else", async () => {
+  const { value } = fixture()
+  value.postBotMessage(notice)
+  const reply = await value.sendMessage({
+    ...input("reply"),
+    ...keeper,
+    replyToId: notice.id,
+  })
+  expect(reply.privateTo).toEqual(notice.privateTo)
+  expect(
+    value.getMessages(null, 10, participant).messages.map((item) => item.id)
+  ).toEqual([])
+  expect(
+    value.getMessages(null, 10, reporter).messages.map((item) => item.id)
+  ).toEqual([notice.id, "reply"])
+  await expect(
+    value.sendMessage({
+      ...input("peek"),
+      ...participant,
+      replyToId: notice.id,
+    })
+  ).rejects.toThrow("INVALID_CHAT_REPLY")
+  // Someone who cannot read it cannot change it either, even as a manager.
+  expect(
+    await value.changeMessage({ roomId: "room", ...participant, id: "reply" })
+  ).toEqual({ error: "not_found" })
+  expect(
+    await value.changeMessage({ roomId: "room", ...keeper, id: notice.id })
+  ).toEqual({ error: "forbidden" })
 })

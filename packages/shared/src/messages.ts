@@ -6,11 +6,13 @@ export function messagePermissions(input: {
   canPost: boolean
   canManage: boolean
   deleted: boolean
+  /** A bot's message stands as the record of what happened; nobody may change it. */
+  bot?: boolean
 }) {
-  const active = !input.deleted
+  const active = !input.deleted && !input.bot
   const own = input.memberId === input.authorId
   return {
-    reply: active && input.canPost,
+    reply: !input.deleted && input.canPost,
     edit: active && own && input.canPost,
     delete: active && (own || input.canManage),
   }
