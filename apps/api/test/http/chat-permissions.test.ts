@@ -631,3 +631,25 @@ it("commits room order and the message index before publishing a post, leaving t
   })
   expect(await rooms()).toBe(1)
 })
+
+it("keeps a shift's room until the shift itself is deleted, even for its managers", async () => {
+  const f = fixture()
+  f.db
+    .prepare(
+      `INSERT INTO activities(id,year,name,place,activity_type,starts_at,ends_at,color,created_by,updated_by,created_at,updated_at) VALUES(?,2026,'受付','入口','勤務',100,500,'#888888',?,?,0,0)`
+    )
+    .run(activity, admin, admin)
+  const id = f.create(
+    activityRoom({ id: activity, year: 2026, name: "受付", createdBy: admin })
+  )
+  f.as(admin)
+  const response = await f.request(`/chat/rooms/${id}`, "DELETE")
+  expect(response.status).toBe(409)
+  expect(await response.json()).toMatchObject({
+    error: { code: "SHIFT_ROOM_KEPT" },
+  })
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(200)
+  expect(
+    f.db.prepare("SELECT 1 FROM chat_room_deletions WHERE room_id=?").get(id)
+  ).toBeUndefined()
+})
