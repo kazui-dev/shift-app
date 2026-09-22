@@ -227,6 +227,11 @@ export const errors = {
     "INVALID_ROOM_SETTINGS",
     "チャット設定を確認してください。"
   ),
+  shiftRoomKept: define(
+    409,
+    "SHIFT_ROOM_KEPT",
+    "シフトのチャットは削除できません。シフトを削除すると一緒に削除されます。"
+  ),
   chatSettingsChanged: define(
     409,
     "CHAT_SETTINGS_CHANGED",

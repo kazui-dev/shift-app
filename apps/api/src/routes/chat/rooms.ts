@@ -67,6 +67,7 @@ roomApp.get("/", (c) => c.json({ room: roomJson(c.get("room")) }))
 roomApp.delete("/", async (c) => {
   const room = c.get("room")
   if (!room.canManage) return apiError(c, errors.chatManagementRequired)
+  if (room.activityId !== null) return apiError(c, errors.shiftRoomKept)
   const previous = await roomChangeRecipients(c.env, room.id)
   const deleted = await deleteRoom(c.env.shift_app, room.id, c.get("member").id)
   if (!deleted) return apiError(c, errors.chatSettingsChanged)

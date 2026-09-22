@@ -107,7 +107,8 @@ function RoomActions({ room, onLeave, onDelete }: Actions) {
           退出する
         </Button>
       )}
-      {room.canManage && (
+      {/* A shift's room goes only with the shift. */}
+      {room.canManage && room.activityId === null && (
         <Button
           type="button"
           variant="ghost"
