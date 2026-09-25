@@ -18,7 +18,10 @@ import { ChatMessageRow } from "@/features/chat/components/message/row"
 import { OfflineSendDialog } from "@/features/chat/components/message/offline-send-dialog"
 import { useChatStore } from "@/features/chat/hooks/use-chat-store"
 import { useMessageEdit } from "@/features/chat/components/message/use-edit"
-import { useMessageScroll } from "@/features/chat/components/message/use-scroll"
+import {
+  useMessageScroll,
+  useOlderMessages,
+} from "@/features/chat/components/message/use-scroll"
 import { useMessageTarget } from "@/features/chat/components/message/use-target"
 import { useMessages } from "@/features/chat/components/message/use-history"
 import { useReplyTarget } from "@/features/chat/components/message/use-reply-target"
@@ -52,8 +55,7 @@ export function ChatMessages({
   const composerEdit = edit.editing
   const { store, member, ready, queue, uploads } = useChatStore(),
     draft = store.draft(room.id)
-  const history = useMessages(room, offline, active),
-    older = useRef<HTMLDivElement>(null)
+  const history = useMessages(room, offline, active)
   // Keep the row until confirmation finishes closing, even if its acknowledgement arrives first.
   const rows = useMemo(
     () =>
@@ -90,29 +92,14 @@ export function ChatMessages({
     }
   }, [target, room.id, pathname, setReplyTarget, setTarget])
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = history.query
-  useEffect(() => {
-    const list = scroll.viewport.current,
-      sentinel = older.current
-    if (!list || !sentinel || !active || offline || !hasNextPage)
-      return undefined
-    if (isFetchingNextPage) return undefined
-    // Start loading about a screen before the top, so reading back never stalls.
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage()
-      },
-      { root: list, rootMargin: "100% 0px 0px 0px" }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [
-    scroll.viewport,
+  const older = useOlderMessages({
+    viewport: scroll.viewport,
     active,
     offline,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  ])
+  })
   function copyMessage(message: MessageRow) {
     void navigator.clipboard.writeText(message.content).then(
       () => toast.success("コピーしました。"),

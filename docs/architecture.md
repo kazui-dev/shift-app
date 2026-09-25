@@ -31,7 +31,7 @@ Web の `routes` は URL に固有の処理と機能の合成を担当する。�
 
 管理画面の `management` は画面の組み立てと選択年度を所有する。シフト一覧・編集とその表示状態は `shifts`、希望の受付日程と提出状況は `availability` が所有する。カレンダーはこれらの機能が公開する query と操作を使って本人の画面を組み立てる。
 
-チャットでは `lib/store.ts` が端末に残す下書き・送信待ちと画像転送の順序を調整し、`lib/storage.ts` が IndexedDB への保存を担当する。`data` はサーバーの query・cache 更新・会話の先読みを所有し、画面の hook と component はそれらを利用する。`app` は起動と接続のライフサイクルを組み立て、チャット固有の cache 更新はチャット機能へ委ねる。
+チャットでは `lib/store.ts` が端末に残す下書き・送信待ちを調整し、`lib/image-transfers.ts` が画像の並列転送と原本の後送を担当する。`lib/storage.ts` は IndexedDB への保存を担当する。`data` はサーバーの query・cache 更新・会話の先読みを所有し、画面の hook と component はそれらを利用する。`app` は起動と接続のライフサイクルを組み立て、チャット固有の cache 更新はチャット機能へ委ねる。
 
 API は `routes/api.ts` と `routes/me`、`routes/years` が公開 URL を組み立てる。機能別 `routes` は入力、認証・認可、HTTP 応答を担当する。`routes/request-limits.ts` は各機能のアップロード上限を公開 URL に適用する。`domain` は純粋な規則、`services` は D1・Push・画像などの I/O、`durable-objects` はチャットの順序制御と接続を担当する。機能間で使う認可は `auth/authorization`、名簿サインインの実装は `features/directory/auth` が所有し、`auth/index.ts` が認証方式を組み立てる。機能に依存しない HTTP 境界は `lib` に置く。API テストは `apps/api/test` に置く。
 
