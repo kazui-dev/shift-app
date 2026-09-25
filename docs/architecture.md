@@ -35,7 +35,7 @@ Web の `routes` は URL に固有の処理と機能の合成を担当する。�
 
 API は `routes/api.ts` と `routes/me`、`routes/years` が公開 URL を組み立てる。機能別 `routes` は入力、認証・認可、HTTP 応答を担当する。`domain` は純粋な規則、`services` は D1・Push・画像などの I/O、`durable-objects` はチャットの順序制御と接続を担当する。共通境界は `auth` と `lib` が所有する。API テストは `apps/api/test` に置く。
 
-チャットの Durable Object では `ChatRoom` がアクセスの再確認、保存操作の順序、添付・カード・通知の調整を担う。`chat-messages.ts` はルーム内のメッセージ表の読み書きと返信・添付を含む公開データへの変換を所有する。Durable Object の識別子と既存の SQLite migration は変えない。
+チャットの Durable Object では `ChatRoom` がアクセスの再確認、保存操作の順序、添付・カードの調整を担う。`chat-messages.ts` はルーム内のメッセージ表の読み書きと返信・添付を含む公開データへの変換を所有する。送信後の D1 索引更新と Push・ライブ配信は `services/message-delivery.ts` が扱う。Durable Object の識別子と既存の SQLite migration は変えない。
 
 `packages/shared` の契約は Web の応答検証と API の入力検証で共有する。DB の table 定義と HTTP 契約は別の境界であり、DB table をそのまま外部へ公開しない。`packages/db/src/schema.ts` は領域別 table の公開入口、SQL migration は `apps/api/migrations` に置く。認証用 Better Auth table は `packages/db/src/auth-schema.ts` に置く。
 

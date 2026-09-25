@@ -1,6 +1,6 @@
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
-import type { Reader } from "../durable-objects/chat-messages"
+import type { Reader } from "../services/private-messages"
 import { apiError, errors } from "../../../lib/errors"
 import type { ApiEnv } from "../../../lib/http"
 import { findAccessibleRoom, type RoomRow } from "../services/chat-access"

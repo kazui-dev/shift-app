@@ -1,6 +1,8 @@
 import { roomAudience } from "./chat-permissions"
 import type { RoomDevice } from "../../notifications/domain/room-device"
 
+export type Reader = { memberId: string; readsPrivate: boolean }
+
 /**
  * Who may read a private message: the member it concerns, and whoever looks
  * after the room's shift — its current responsibles, members with shift

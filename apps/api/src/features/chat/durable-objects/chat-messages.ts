@@ -5,6 +5,7 @@ import {
   type LinkPreview,
 } from "@workspace/shared/communications"
 import type { ChatAttachments } from "./chat-attachments"
+import type { Reader } from "../services/private-messages"
 
 export type ChatMessage = {
   sequence: number
@@ -52,7 +53,6 @@ const messageColumns = `sequence,id,bot,private_to AS privateTo,private_name AS 
   content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted,
   link_preview AS linkPreview,version`
 
-export type Reader = { memberId: string; readsPrivate: boolean }
 const readable = "(private_to IS NULL OR private_to=? OR ?=1)"
 const readableParams = (reader: Reader) =>
   [reader.memberId, reader.readsPrivate ? 1 : 0] as const

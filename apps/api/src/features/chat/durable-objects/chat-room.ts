@@ -7,7 +7,8 @@ import { makeLinkCard } from "../services/link-card"
 import type { UploadLimit } from "../domain/chat-attachment"
 import { ChatAttachments, type StoredAttachment } from "./chat-attachments"
 import { cardLink, ChatLinkCards } from "./chat-link-cards"
-import { ChatMessages, type Reader, type ChatMessage } from "./chat-messages"
+import { ChatMessages, type ChatMessage } from "./chat-messages"
+import type { Reader } from "../services/private-messages"
 import { DurableObject } from "cloudflare:workers"
 
 export class ChatRoom extends DurableObject<CloudflareBindings> {
