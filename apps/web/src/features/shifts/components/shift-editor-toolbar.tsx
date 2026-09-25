@@ -29,9 +29,9 @@ export function ShiftEditorToolbar({
   onActions: () => void
 }) {
   return (
-    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
+    <div className="flex shrink-0 flex-col gap-2 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between">
       <ShiftNavigation activity={activity} disabled={pending} />
-      <div className="hidden items-center gap-1 md:flex">
+      <div className="flex items-center justify-end gap-1">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -50,7 +50,12 @@ export function ShiftEditorToolbar({
         >
           <Redo2 />
         </Button>
-        <Button variant="ghost" size="sm" onClick={onAttendance}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="hidden md:inline-flex"
+          onClick={onAttendance}
+        >
           出勤・連絡
         </Button>
         <Button
@@ -58,7 +63,13 @@ export function ShiftEditorToolbar({
           disabled={pending || (!dirty && !conflicted)}
           onClick={onSave}
         >
-          {pending ? "保存中" : dirty ? "変更を保存" : "保存済み"}
+          {pending
+            ? "保存中"
+            : conflicted
+              ? "競合を確認"
+              : dirty
+                ? "変更を保存"
+                : "保存済み"}
         </Button>
         <Button
           variant="ghost"

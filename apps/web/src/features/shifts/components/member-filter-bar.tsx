@@ -31,14 +31,14 @@ export function MemberFilterBar({
       <SelectField
         aria-label="表示するロール"
         value={filters.role}
-        className="hidden w-auto md:flex"
+        className="min-w-36 flex-1 sm:w-auto sm:flex-none"
         options={[
           { value: "", label: "すべてのロール" },
           ...roles.map((role) => ({ value: role.id, label: role.name })),
         ]}
         onValueChange={(role) => onChange({ ...filters, role })}
       />
-      <label className="ml-2 hidden items-center gap-2 text-sm md:flex">
+      <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={filters.includeUnavailable}
