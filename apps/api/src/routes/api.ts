@@ -4,10 +4,10 @@ import { apiError, errors } from "../lib/errors"
 
 import {
   type ApiEnv,
-  limitRequestBody,
   requireMember,
   requireSameOriginForMutation,
 } from "../lib/http"
+import { limitRequestBody } from "./request-limits"
 import { activitiesApp } from "../features/activities/routes/activities"
 import { attendanceApp } from "../features/attendance/routes/attendance"
 import { chatApp } from "../features/chat/routes/index"

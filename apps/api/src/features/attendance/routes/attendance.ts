@@ -22,7 +22,7 @@ import {
   resolveReport,
   correctCheckIn,
 } from "../services/attendance-commands"
-import { canManageActivity } from "../../activities/services/activity-access"
+import { canManageActivity } from "../../../auth/authorization/activity"
 import { broadcastChange } from "../../live/services/live-events"
 
 const idSchema = v.pipe(v.string(), v.uuid())

@@ -10,7 +10,7 @@ import {
 } from "@tanstack/react-query-persist-client"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 
-import "@workspace/ui/globals.css"
+import "./styles.css"
 import "./app/app-layout.css"
 import { AppToaster } from "@/app/app-toaster.tsx"
 import { PwaUpdateNotice } from "@/app/pwa-update-notice.tsx"

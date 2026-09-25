@@ -18,20 +18,10 @@ import {
   readDirectoryYear,
   renameMember,
   type DirectoryEntry,
-} from "../features/directory/services/student-directory"
+} from "../services/student-directory"
 
 /** The provider id directory identities are stored under, beside `discord`. */
 const rosterProviderId = "roster"
-
-/**
- * Whether this deployment runs Discord OAuth. The Worker keeps the variable in
- * both states, so turning OAuth back on is a value change, not a config change.
- */
-export function isDiscordOAuthEnabled(env: {
-  DISCORD_OAUTH_ENABLED: string
-}): boolean {
-  return env.DISCORD_OAUTH_ENABLED !== "false"
-}
 
 const rosterSignInSchema = v.object({
   studentId: studentIdSchema,

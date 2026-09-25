@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { apiError, errors } from "../../../lib/errors"
 import { type ApiEnv, toIso } from "../../../lib/http"
-import { canManageActivity } from "../services/activity-access"
+import { canManageActivity } from "../../../auth/authorization/activity"
 import {
   attendanceColumns,
   withAttendance,

@@ -6,7 +6,7 @@
 
 Web の `routes` は URL、loader、画面の構成を担当する。`app` は起動、認証済みレイアウト、共通 cache と接続のライフサイクルを担当し、機能を組み立てる。`components` と `lib` は機能に依存しないコードだけを担当する。`packages/ui` は再利用可能な shadcn/ui とデザイントークンを担当する。汎用の `components` と `lib`、共有 package から `features` を import しない。機能間の利用は参照先の責務が明確な module に限り、循環を作らない。画面の組み立ては route、`app`、管理画面などの上位機能で行い、複数機能に共通する契約は共有パッケージへ置く。
 
-API の `routes` は HTTP と認可の構成、`domain` は純粋な判断、`services` は外部 I/O、`durable-objects` は状態を持つ調整を担当する。これらは機能ごとに近くへ置く。共通の認証と HTTP 境界は `apps/api/src/auth` と `apps/api/src/lib` に置く。DB 定義は `packages/db/src/schema`、Web/API 間の Valibot 契約は `packages/shared/src/contracts` に置く。DB 定義を HTTP 契約として流用しない。
+API の `routes` は HTTP と認可の構成、`domain` は純粋な判断、`services` は外部 I/O、`durable-objects` は状態を持つ調整を担当する。これらは機能ごとに近くへ置く。機能間で共有する認可は `apps/api/src/auth/authorization` に置き、認証方式に固有の実装は機能側に置いて `auth/index.ts` で組み立てる。複数機能の制限を URL に適用する middleware は `apps/api/src/routes` が所有し、`lib` は機能に依存しない HTTP 境界を担当する。DB 定義は `packages/db/src/schema`、Web/API 間の Valibot 契約は `packages/shared/src/contracts` に置く。DB 定義を HTTP 契約として流用しない。
 
 ## 境界と振る舞い
 

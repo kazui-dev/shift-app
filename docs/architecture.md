@@ -14,9 +14,9 @@ apps/
     lib/             機能に依存しないブラウザー処理
   api/src/
     app.ts           Hono の入口、認証、共通 middleware
-    routes/          リソースの組み立て
+    routes/          リソースと機能別 middleware の組み立て
     features/        機能別の routes, domain, services, durable-objects
-    auth/            Better Auth と所属確認
+    auth/            Better Auth と機能間で使う認可
     lib/             HTTP 境界、エラーと共通 Worker 処理
 packages/
   shared/src/contracts/  Web・API 間の Valibot 契約
@@ -33,11 +33,11 @@ Web の `routes` は URL に固有の処理と機能の合成を担当する。�
 
 チャットでは `lib/store.ts` が端末に残す下書き・送信待ちと画像転送の順序を調整し、`lib/storage.ts` が IndexedDB への保存を担当する。`data` はサーバーの query・cache 更新・会話の先読みを所有し、画面の hook と component はそれらを利用する。`app` は起動と接続のライフサイクルを組み立て、チャット固有の cache 更新はチャット機能へ委ねる。
 
-API は `routes/api.ts` と `routes/me`、`routes/years` が公開 URL を組み立てる。機能別 `routes` は入力、認証・認可、HTTP 応答を担当する。`domain` は純粋な規則、`services` は D1・Push・画像などの I/O、`durable-objects` はチャットの順序制御と接続を担当する。共通境界は `auth` と `lib` が所有する。API テストは `apps/api/test` に置く。
+API は `routes/api.ts` と `routes/me`、`routes/years` が公開 URL を組み立てる。機能別 `routes` は入力、認証・認可、HTTP 応答を担当する。`routes/request-limits.ts` は各機能のアップロード上限を公開 URL に適用する。`domain` は純粋な規則、`services` は D1・Push・画像などの I/O、`durable-objects` はチャットの順序制御と接続を担当する。機能間で使う認可は `auth/authorization`、名簿サインインの実装は `features/directory/auth` が所有し、`auth/index.ts` が認証方式を組み立てる。機能に依存しない HTTP 境界は `lib` に置く。API テストは `apps/api/test` に置く。
 
 チャットの Durable Object では `ChatRoom` がアクセスの再確認、保存操作の順序、添付・カードの調整を担う。`chat-messages.ts` はルーム内のメッセージ表の読み書きと返信・添付を含む公開データへの変換を所有する。送信後の D1 索引更新と Push・ライブ配信は `services/message-delivery.ts` が扱う。Durable Object の識別子と既存の SQLite migration は変えない。
 
-`packages/shared` の契約は Web の応答検証と API の入力検証で共有する。DB の table 定義と HTTP 契約は別の境界であり、DB table をそのまま外部へ公開しない。`packages/db/src/schema.ts` は領域別 table の公開入口、SQL migration は `apps/api/migrations` に置く。認証用 Better Auth table は `packages/db/src/auth-schema.ts` に置く。
+`packages/shared` の契約は Web の応答検証と API の入力検証で共有する。DB の table 定義と HTTP 契約は別の境界であり、DB table をそのまま外部へ公開しない。`packages/db/src/schema.ts` は領域別 table の公開入口、SQL migration は `apps/api/migrations` に置く。認証用 Better Auth table は `packages/db/src/auth-schema.ts` に置く。`packages/ui` は共有 component とトークンの CSS を所有し、Web 自身の Tailwind source は `apps/web/src/styles.css` で指定する。
 
 ```mermaid
 flowchart LR
