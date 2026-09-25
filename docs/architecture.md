@@ -68,6 +68,27 @@ Query cache は `PersistQueryClientProvider` と IndexedDB persister で 24 時�
 
 それ以外のoptimistic updateは、操作ごとにrollback、server responseとの再同期、競合時の表示を定義してから導入する。出勤や遅刻欠勤など時間・状態に依存するmutationは、安全な競合仕様を決めるまでoffline queueへ入れない。
 
+### 管理画面の構成と状態
+
+`ManagementLayout` が管理画面の共通枠と `ManagementProvider` を所有する。
+管理年度はこの provider で一度だけ解決し、ホームと子画面が同じ選択を参照する。
+年度別の検索条件とシフト表のスクロール位置も provider の生存期間に限定し、
+モジュール変数に利用者の画面状態を残さない。未保存のロール編集がある間は年度を変更できない。
+
+ホーム、シフト一覧、シフト作成、ロール一覧、ロール編集は別の構成部品とし、
+`ManagePage` は子画面の選択と閉じる操作を担当する。
+シフト一覧は編集画面への往復中も保持し、日付移動では次のデータが揃ってから画面を切り替える。
+待機中の旧シフト表では編集を受け付けない。
+
+ヘッダーの基本寸法と配置は `packages/ui` の `PageHeader` に集約する。
+各画面は見出し、戻る操作、検索などの内容を構成する。
+カレンダーの可変高さやチャット固有の内容は各画面が所有する。
+`ResponsivePage` のデスクトップ表示は `standard`、`workspace`、`compact` の用途別とし、
+サイズ・高さ・アニメーションを独立した真偽値で組み合わせない。
+
+この構造整理では API・DB・保存方式を変更しない。シフト編集の現行動作は手動保存であり、
+自動保存・即時反映・共同編集時の取り消しの完成を意味しない。
+
 ## Backend
 
 `apps/api` は Hono を載せた Cloudflare Worker とする。

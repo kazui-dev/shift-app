@@ -1,12 +1,12 @@
 import { MemberAvatar } from "@/components/member-avatar"
 import { japanTime } from "@workspace/shared/japan-time"
-import { ListFilter } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
-import { useRef, useState, type MouseEvent } from "react"
+import { useRef, useState, useLayoutEffect, type MouseEvent } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { getActivity } from "@/api/activities"
 import { gridMembers, timeScale } from "./time-scale"
+
+import { useShiftView } from "@/components/manage/context"
 
 export type EditorData = Awaited<ReturnType<typeof getActivity>>
 export function TimeGrid({
@@ -19,7 +19,6 @@ export function TimeGrid({
   onSelect,
   onCommit,
   onMember,
-  onFilter,
 }: {
   data: EditorData
   plan: ActivityEditorInput
@@ -30,8 +29,22 @@ export function TimeGrid({
   onSelect: (selection: ShiftSelection) => void
   onCommit: (selection: ShiftSelection) => void
   onMember: (memberId: string) => void
-  onFilter: () => void
 }) {
+  const view = useShiftView(data.activity.year)
+  const viewport = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(() => view.scrollTop)
+  useLayoutEffect(() => {
+    if (viewport.current) viewport.current.scrollTop = view.scrollTop
+  }, [view])
+  const lastFilter = useRef(`${search}|${role}|${includeUnavailable}`)
+  useLayoutEffect(() => {
+    const key = `${search}|${role}|${includeUnavailable}`
+    if (lastFilter.current === key) return
+    lastFilter.current = key
+    if (viewport.current) viewport.current.scrollTop = 0
+    view.scrollTop = 0
+    setScrollTop(0)
+  }, [search, role, includeUnavailable, view])
   const scale = timeScale(plan.startsAt, plan.endsAt)
   const { start, end, duration, hours, labels } = scale
   const drag = useRef<{
@@ -83,10 +96,7 @@ export function TimeGrid({
       })
       return
     }
-    const rect = event.currentTarget.getBoundingClientRect()
-    const from =
-      event.detail === 0 ? 0 : minuteAt(event.clientX, rect.left, rect.width)
-    onCommit(range(memberId, from, from + 60))
+    onMember(memberId)
   }
   const members = gridMembers(
     data,
@@ -94,24 +104,32 @@ export function TimeGrid({
     { search, role, includeUnavailable },
     scale
   )
+  const first = Math.min(
+    Math.max(0, members.length - 1),
+    Math.max(0, Math.floor(scrollTop / 76) - 5)
+  )
+  const visible = members.slice(first, first + 30)
   return (
-    <div className="min-h-0 max-w-full min-w-0 flex-1 overflow-auto border-y border-border/70">
-      <div className="min-w-[720px]">
+    <div
+      ref={viewport}
+      onScroll={(event) => {
+        const top = event.currentTarget.scrollTop
+        setScrollTop(top)
+        view.scrollTop = top
+      }}
+      className="min-h-0 max-w-full min-w-0 flex-1 overflow-auto border-y border-border/70"
+    >
+      <div className="min-w-0 md:min-w-[720px]">
         <div className="sticky top-0 z-10 flex h-10 bg-background">
-          <div className="sticky left-0 z-20 flex w-32 shrink-0 items-center bg-background px-1 sm:w-40">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground"
-              aria-label="メンバーを絞り込む"
-              aria-pressed={Boolean(role || search || !includeUnavailable)}
-              onClick={onFilter}
-            >
-              <ListFilter className="size-3.5" />
-              絞り込み
-            </Button>
+          <div className="sticky left-0 z-20 flex w-48 shrink-0 items-center bg-background px-1 sm:w-56">
+            <span className="text-sm">
+              メンバー{" "}
+              <span className="ml-2 text-xs text-muted-foreground">
+                {members.length}人
+              </span>
+            </span>
           </div>
-          <div className="relative mx-6 min-w-0 flex-1 text-xs text-muted-foreground">
+          <div className="relative mx-6 hidden min-w-0 flex-1 text-xs text-muted-foreground md:block">
             {labels.map((hour) => (
               <span
                 key={hour}
@@ -128,17 +146,18 @@ export function TimeGrid({
             条件に合うメンバーがいません。
           </p>
         )}
-        {members.map((member) => {
+        <div style={{ height: first * 76 }} />
+        {visible.map((member) => {
           return (
             <div
               key={member.id}
-              className={`flex h-[84px] border-t border-border/70 ${selection?.memberId === member.id ? "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]" : "bg-background"}`}
+              className={`flex h-[76px] border-t border-border/70 ${selection?.memberId === member.id ? "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]" : "bg-background"}`}
             >
               <button
                 type="button"
                 onClick={() => onMember(member.id)}
                 aria-label={`${member.displayName}のシフトを編集`}
-                className="sticky left-0 z-10 flex w-32 shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm sm:w-40"
+                className="sticky left-0 z-10 flex w-48 shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm sm:w-56"
               >
                 <MemberAvatar
                   name={member.displayName}
@@ -165,9 +184,34 @@ export function TimeGrid({
                   )}
                 </span>
               </button>
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-2 text-right text-sm md:hidden">
+                {plan.slots
+                  .filter((slot) => slot.memberIds.includes(member.id))
+                  .map((slot) => (
+                    <p key={slot.id}>
+                      {japanTime(slot.startsAt)}〜{japanTime(slot.endsAt)}
+                    </p>
+                  ))}
+                {!plan.slots.some((slot) =>
+                  slot.memberIds.includes(member.id)
+                ) && <p className="text-muted-foreground">勤務なし</p>}
+                <p className="truncate text-xs text-muted-foreground">
+                  シフト希望：
+                  {data.availability
+                    .filter((item) => item.memberId === member.id)
+                    .map(
+                      (item) =>
+                        `${japanTime(item.startsAt)}〜${japanTime(item.endsAt)}`
+                    )
+                    .join("、") ||
+                    (data.submittedMemberIds.includes(member.id)
+                      ? "参加不可"
+                      : "未回答")}
+                </p>
+              </div>
               <button
                 type="button"
-                className="relative mx-6 min-w-0 flex-1 overflow-hidden bg-inherit text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                className="relative mx-6 hidden min-w-0 flex-1 overflow-hidden bg-inherit text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring md:block"
                 aria-label={`${member.displayName}の勤務時間を変更`}
                 onClick={(event) => click(event, member.id)}
                 onPointerDown={(event) => {
@@ -235,7 +279,7 @@ export function TimeGrid({
                   .map((window) => (
                     <span
                       key={window.startsAt}
-                      className="absolute top-2.5 z-[2] h-[30px] truncate rounded-[5px] bg-[#e7edf3] px-[9px] py-1.5 text-[13px] leading-[18px] font-medium text-[#3c4b59] tabular-nums dark:bg-slate-800 dark:text-slate-200"
+                      className="absolute top-2 z-[2] h-[25px] truncate rounded bg-muted px-2 py-1 text-xs leading-[17px] text-foreground tabular-nums"
                       style={position(window.startsAt, window.endsAt)}
                       title={`参加可能 ${japanTime(window.startsAt)}〜${japanTime(window.endsAt)}`}
                     >
@@ -252,7 +296,7 @@ export function TimeGrid({
                   .map((item) => (
                     <span
                       key={`${item.startsAt}-${item.endsAt}`}
-                      className="absolute top-[47px] z-[2] h-[25px] truncate rounded border border-border bg-background px-[9px] py-1 text-xs leading-[17px] text-muted-foreground"
+                      className="absolute top-[39px] z-[2] h-[25px] truncate rounded border border-border bg-background px-[9px] py-1 text-xs leading-[17px] text-muted-foreground"
                       style={position(item.startsAt, item.endsAt)}
                       title={item.name}
                     >
@@ -271,7 +315,7 @@ export function TimeGrid({
                       <span
                         key={slot.id}
                         data-slot-id={slot.id}
-                        className="absolute top-[47px] z-[2] h-[25px] truncate rounded py-1 pr-[14px] pl-[14px] text-xs leading-[17px] text-foreground tabular-nums"
+                        className="absolute top-[39px] z-[2] h-[25px] truncate rounded py-1 pr-[14px] pl-[14px] text-xs leading-[17px] text-foreground tabular-nums"
                         style={{
                           ...position(shown.startsAt, shown.endsAt),
                           backgroundColor: `color-mix(in oklab, ${plan.color} 22%, var(--background))`,
@@ -305,7 +349,7 @@ export function TimeGrid({
                       value && (
                         <span
                           aria-hidden="true"
-                          className="pointer-events-none absolute top-[45px] z-[3] h-[29px] rounded border border-dashed border-foreground/50 bg-foreground/5"
+                          className="pointer-events-none absolute top-[37px] z-[3] h-[29px] rounded border border-dashed border-foreground/50 bg-foreground/5"
                           style={position(value.startsAt, value.endsAt)}
                         />
                       )
@@ -315,6 +359,11 @@ export function TimeGrid({
             </div>
           )
         })}
+        <div
+          style={{
+            height: Math.max(0, members.length - first - visible.length) * 76,
+          }}
+        />
       </div>
     </div>
   )

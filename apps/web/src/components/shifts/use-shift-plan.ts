@@ -47,6 +47,10 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
   }, [pending])
   return {
     plan,
+    undo: () => setHistory((current) => undo(current)),
+    redo: () => setHistory((current) => redo(current)),
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
     base,
     version,
     dirty: JSON.stringify(plan) !== saved,

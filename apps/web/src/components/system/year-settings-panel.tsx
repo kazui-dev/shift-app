@@ -13,8 +13,16 @@ import { createYear, setDefaultYear } from "@/api/years"
 export function YearSettingsPanel() {
   const queryClient = useQueryClient()
   const years = useQuery({ ...yearsQuery })
-  const [yearNumber, setYearNumber] = useState(new Date().getFullYear())
+  const [yearNumber, setYearNumber] = useState<number | null>(null)
   const [pending, setPending] = useState(false)
+  const nextYear =
+    yearNumber ??
+    Math.max(
+      new Date().getFullYear() - 1,
+      ...(years.data?.years.map((item) => item.year) ?? [])
+    ) + 1
+  const exists =
+    years.data?.years.some((item) => item.year === nextYear) ?? false
 
   async function refreshYears() {
     await queryClient.invalidateQueries({ queryKey: keys.years() })
@@ -24,7 +32,8 @@ export function YearSettingsPanel() {
     event.preventDefault()
     setPending(true)
     try {
-      await createYear({ year: yearNumber })
+      await createYear({ year: nextYear })
+      setYearNumber(null)
       await refreshYears()
       toast.success("年度を作成しました。")
     } catch (error) {
@@ -48,45 +57,69 @@ export function YearSettingsPanel() {
   }
 
   return (
-    <section className="space-y-5">
-      <form className="flex flex-col gap-2 sm:flex-row" onSubmit={addYear}>
-        <Input
-          type="number"
-          min="2000"
-          max="2100"
-          aria-label="作成する年度"
-          className="h-11 sm:w-40"
-          value={yearNumber}
-          onChange={(event) => setYearNumber(Number(event.target.value))}
-        />
-        <Button type="submit" disabled={pending}>
+    <section className="space-y-6">
+      {years.isPending && <LoadingState />}
+      {years.isError && (
+        <p role="alert">
+          年度を読み込めませんでした。
+          <Button variant="ghost" onClick={() => void years.refetch()}>
+            再読み込み
+          </Button>
+        </p>
+      )}
+      <fieldset disabled={pending}>
+        <legend className="mb-3 text-sm font-medium">デフォルト年度</legend>
+        <div className="divide-y border-y">
+          {years.data?.years.map((item) => (
+            <label
+              key={item.year}
+              className="flex min-h-14 cursor-pointer items-center gap-3 text-sm"
+            >
+              <input
+                className="accent-foreground"
+                type="radio"
+                name="default-year"
+                value={item.year}
+                checked={item.isDefault}
+                onChange={() => void changeDefault(item.year)}
+              />
+              <span>{item.year}年度</span>
+              {item.isDefault && (
+                <span className="ml-auto text-xs text-muted-foreground">
+                  設定中
+                </span>
+              )}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <form className="flex items-end gap-3" onSubmit={addYear}>
+        <label className="flex flex-col gap-2 text-sm" htmlFor="new-year">
           年度を追加
+          <Input
+            id="new-year"
+            type="number"
+            min="2000"
+            max="2100"
+            required
+            className="w-32"
+            value={nextYear}
+            onChange={(event) => setYearNumber(Number(event.target.value))}
+          />
+        </label>
+        <Button
+          type="submit"
+          variant="outline"
+          disabled={pending || years.isPending || exists}
+        >
+          追加
         </Button>
       </form>
-
-      {years.isPending && <LoadingState />}
-      <div className="divide-y divide-border/70">
-        {years.data?.years.map((item) => (
-          <div
-            key={item.year}
-            className="flex min-h-16 items-center justify-between gap-4 py-3"
-          >
-            <span className="font-medium tabular-nums">{item.year}</span>
-            {item.isDefault ? (
-              <span className="text-sm text-muted-foreground">デフォルト</span>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={pending}
-                onClick={() => void changeDefault(item.year)}
-              >
-                デフォルトにする
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
+      {exists && (
+        <p className="text-sm text-muted-foreground">
+          この年度は追加済みです。
+        </p>
+      )}
     </section>
   )
 }

@@ -43,7 +43,7 @@ export function AppShell({
     }),
   })
   const shell = useChatViewport(isChat)
-  const fitted = isCalendar || isChat
+  const fitted = isCalendar || isChat || pathname.startsWith("/manage")
   const [browserOffline, setBrowserOffline] = useState(() => !navigator.onLine)
   const offline = accountOffline || browserOffline
   const unsafeOfflineRoute =

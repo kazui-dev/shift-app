@@ -6,31 +6,25 @@ import {
 } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { ResponsiveDialog } from "@/components/responsive-overlay"
 import type { EditorData } from "./time-grid"
 
 export function ShiftSettings({
   plan,
   data,
   onSave,
-  onClose,
 }: {
   plan: ActivityEditorInput
   data: EditorData
   onSave: (plan: ActivityEditorInput) => void
-  onClose: () => void
 }) {
   const [value, setValue] = useState(plan)
   return (
-    <ResponsiveDialog
-      open
-      title="シフトの設定"
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
+    <section
+      aria-label="シフトの基本情報"
+      className="max-h-[45vh] shrink-0 overflow-auto border-y py-4"
     >
       <form
-        className="space-y-4"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault()
           onSave(value)
@@ -48,10 +42,9 @@ export function ShiftSettings({
           />
         </label>
         <label htmlFor="shift-place" className="block space-y-2 text-sm">
-          場所
+          場所（任意）
           <Input
             id="shift-place"
-            required
             value={value.place}
             onChange={(event) =>
               setValue({ ...value, place: event.target.value })
@@ -133,12 +126,12 @@ export function ShiftSettings({
           ))}
         </fieldset>
         <label className="flex items-center justify-between text-sm">
-          有効
+          シフトを無効にする
           <input
             type="checkbox"
-            checked={value.active}
+            checked={!value.active}
             onChange={(event) =>
-              setValue({ ...value, active: event.target.checked })
+              setValue({ ...value, active: !event.target.checked })
             }
           />
         </label>
@@ -192,6 +185,6 @@ export function ShiftSettings({
         </fieldset>
         <Button type="submit">適用</Button>
       </form>
-    </ResponsiveDialog>
+    </section>
   )
 }

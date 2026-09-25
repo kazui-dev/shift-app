@@ -2,7 +2,7 @@ import { MemberAvatar } from "@/components/member-avatar"
 import { keys } from "@/data/keys"
 import { usersQuery } from "@/data/admin"
 import { yearsQuery } from "@/data/years"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AdminUser } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
@@ -25,53 +25,85 @@ export function UserManager() {
   })
   const years = useQuery({ ...yearsQuery })
   const [search, setSearch] = useState("")
+  const [detailOpen, setDetailOpen] = useState(false)
   const [id, setId] = useState<string | null>(null)
   const selected = users.data?.users.find((user) => user.id === id)
+  const filtered =
+    users.data?.users.filter((user) =>
+      `${user.displayName} ${user.studentId}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    ) ?? []
   return (
     <div className="space-y-4">
-      <Input
-        placeholder="名前・学籍番号で検索"
-        aria-label="ユーザーを検索"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-      />
+      <div className="sticky -top-6 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-3">
+        <Input
+          className="sm:max-w-80"
+          placeholder="名前・学籍番号で検索"
+          aria-label="ユーザーを検索"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <span className="text-sm text-muted-foreground">
+          {filtered.length} / {users.data?.users.length ?? 0}人
+        </span>
+      </div>
+      {users.isPending && (
+        <p className="text-sm text-muted-foreground">読み込み中…</p>
+      )}
+      {users.isError && (
+        <p role="alert" className="text-sm">
+          ユーザーを読み込めませんでした。
+          <Button variant="ghost" onClick={() => void users.refetch()}>
+            再読み込み
+          </Button>
+        </p>
+      )}
+      {!users.isPending && !users.isError && filtered.length === 0 && (
+        <p className="py-8 text-sm text-muted-foreground">
+          条件に一致するユーザーはいません。
+        </p>
+      )}
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>名前・学籍番号</span>
+        <span>参加年度 / システム権限</span>
+      </div>
       <ul className="divide-y border-y">
-        {users.data?.users
-          .filter((user) =>
-            `${user.displayName} ${user.studentId}`
-              .toLowerCase()
-              .includes(search.toLowerCase())
-          )
-          .map((user) => (
-            <li key={user.id}>
-              <button
-                className="flex min-h-16 w-full items-center gap-4 py-3 text-left"
-                aria-label={`${user.displayName}の詳細`}
-                onClick={() => setId(user.id)}
-              >
-                <MemberAvatar name={user.displayName} image={user.image} />
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{user.displayName}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {user.studentId}
-                  </span>
+        {filtered.map((user) => (
+          <li key={user.id}>
+            <button
+              className="flex min-h-16 w-full items-center gap-4 py-3 text-left"
+              aria-label={`${user.displayName}の詳細`}
+              onClick={() => {
+                setId(user.id)
+                setDetailOpen(true)
+              }}
+            >
+              <MemberAvatar name={user.displayName} image={user.image} />
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{user.displayName}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {user.studentId}
                 </span>
-                <span className="text-right text-sm text-muted-foreground">
-                  <span className="block">
-                    {user.years.join("・") || "未参加"}
-                  </span>
-                  <span className="text-xs">{labels[user.accessLevel]}</span>
+              </span>
+              <span className="text-right text-sm text-muted-foreground">
+                <span className="block">
+                  {user.years.join("・") || "未参加"}
                 </span>
-              </button>
-            </li>
-          ))}
+                <span className="text-xs">{labels[user.accessLevel]}</span>
+              </span>
+            </button>
+          </li>
+        ))}
       </ul>
       {selected && (
         <UserDetail
           key={selected.id}
           user={selected}
           years={years.data?.years.map((year) => year.year) ?? []}
-          onClose={() => setId(null)}
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          onClosed={() => setId(null)}
         />
       )}
     </div>
@@ -81,12 +113,17 @@ function UserDetail({
   user,
   years,
   onClose,
+  onClosed,
+  open,
 }: {
+  open: boolean
+  onClosed: () => void
   user: AdminUser
   years: number[]
   onClose: () => void
 }) {
   const client = useQueryClient()
+  const content = useRef<HTMLDivElement>(null)
   const [level, setLevel] = useState(user.accessLevel)
   const [reason, setReason] = useState("")
   const [pending, setPending] = useState(false)
@@ -109,24 +146,32 @@ function UserDetail({
   }
   return (
     <ResponsiveSheet
-      open
+      open={open}
+      onClosed={onClosed}
+      initialFocus={content}
+      bodyClassName="pt-5"
+      className="data-[side=right]:w-[26rem] data-[side=right]:sm:max-w-[26rem]"
       title={user.displayName}
       description={user.studentId}
-      onOpenChange={(open) => {
-        if (!open) onClose()
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && !pending) onClose()
       }}
     >
-      <div className="space-y-7">
-        <section>
+      <div ref={content} tabIndex={-1} className="space-y-6 outline-none">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Discord</span>
+          <span>{user.discordLinked ? "連携済み" : "未連携"}</span>
+        </div>
+        <section className="border-t pt-5">
           <h3 className="mb-3 text-sm font-medium">参加年度</h3>
           <div className="divide-y">
             {years.map((year) => (
               <label
                 key={year}
-                className="flex min-h-11 items-center justify-between text-sm"
+                className="flex min-h-11 items-center gap-3 text-sm"
               >
-                {year}
                 <input
+                  className="accent-foreground"
                   type="checkbox"
                   checked={user.years.includes(year)}
                   disabled={pending}
@@ -138,11 +183,12 @@ function UserDetail({
                     )
                   }
                 />
+                {year}年度
               </label>
             ))}
           </div>
         </section>
-        <section className="space-y-3">
+        <section className="space-y-3 border-t pt-5">
           <label htmlFor="user-access" className="block text-sm font-medium">
             システム権限
           </label>
@@ -182,14 +228,11 @@ function UserDetail({
                   )
                 }
               >
-                保存
+                {pending ? "保存中…" : "権限を保存"}
               </Button>
             </>
           )}
         </section>
-        <p className="text-sm text-muted-foreground">
-          Discord：{user.discordLinked ? "連携済み" : "未連携"}
-        </p>
       </div>
     </ResponsiveSheet>
   )

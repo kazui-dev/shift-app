@@ -4,6 +4,8 @@ import { japanFullDate } from "@workspace/shared/japan-time"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Bell, Plus, Trash2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { SelectField } from "@/components/select-field"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Accordion,
@@ -40,6 +42,17 @@ export function AvailabilitySummary({ year }: { year: number }) {
   const [expanded, setExpanded] = useState<string[]>([])
   const [removing, setRemoving] = useState<FormDate | null>(null)
   const [pending, setPending] = useState(false)
+  const [search, setSearch] = useState("")
+  const [status, setStatus] = useState("")
+  const progress = submissions.data?.progress ?? []
+  const filtered = progress.filter(
+    (item) =>
+      `${item.displayName} ${item.studentId}`
+        .toLowerCase()
+        .includes(search.toLowerCase()) &&
+      (status === "" ||
+        (status === "complete" ? item.complete : !item.complete))
+  )
   const adding = expanded.includes(newDate)
   async function run(action: () => Promise<unknown>) {
     if (pending) return
@@ -62,7 +75,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
     }
   }
   return (
-    <div className="space-y-8">
+    <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-12">
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-medium">受付日程</h2>
@@ -211,7 +224,13 @@ export function AvailabilitySummary({ year }: { year: number }) {
       </section>
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">提出状況</h2>
+          <h2 className="text-sm font-medium">
+            提出状況{" "}
+            <span className="ml-2 font-normal text-muted-foreground">
+              {progress.filter((item) => item.complete).length} /{" "}
+              {progress.length}人提出済み
+            </span>
+          </h2>
           <Button
             variant="ghost"
             size="sm"
@@ -230,13 +249,36 @@ export function AvailabilitySummary({ year }: { year: number }) {
             未提出者に通知
           </Button>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="min-w-40 flex-1"
+            aria-label="提出状況を検索"
+            placeholder="名前・学籍番号で検索"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <SelectField
+            aria-label="提出状況で絞り込み"
+            className="w-auto"
+            value={status}
+            onValueChange={setStatus}
+            options={[
+              { value: "", label: "全員" },
+              { value: "incomplete", label: "未提出" },
+              { value: "complete", label: "提出済み" },
+            ]}
+          />
+        </div>
+        {submissions.isPending && (
+          <p className="text-sm text-muted-foreground">読み込み中…</p>
+        )}
         {submissions.isError ? (
           <Button variant="outline" onClick={() => void submissions.refetch()}>
             提出状況を再読み込み
           </Button>
         ) : (
           <ul className="divide-y border-y">
-            {submissions.data?.progress.map((item) => (
+            {filtered.map((item) => (
               <li key={item.memberId} className="flex items-center gap-3 py-3">
                 <MemberAvatar name={item.displayName} image={item.image} />
                 <span className="min-w-0 flex-1 truncate text-sm">
@@ -247,9 +289,9 @@ export function AvailabilitySummary({ year }: { year: number }) {
                 </span>
               </li>
             ))}
-            {submissions.data?.progress.length === 0 && (
+            {!submissions.isPending && filtered.length === 0 && (
               <li className="py-6 text-center text-sm text-muted-foreground">
-                メンバーがいません
+                条件に一致するメンバーはいません
               </li>
             )}
           </ul>

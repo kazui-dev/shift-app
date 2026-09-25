@@ -1,3 +1,4 @@
+import { PageHeader } from "@workspace/ui/components/page-header"
 import { DisplayYearNotice } from "@/components/display-year-notice"
 import { keys } from "@/data/keys"
 import {
@@ -183,7 +184,7 @@ export function CalendarPage() {
 
   return (
     <section className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-      <header className="flex shrink-0 items-center justify-between gap-3 px-4 pt-3 sm:px-6 md:pt-6">
+      <PageHeader className="h-auto justify-between border-0 pt-3 sm:px-6 md:pt-6">
         <MonthSwitcher
           date={date}
           onDateChange={changeDate}
@@ -202,7 +203,7 @@ export function CalendarPage() {
             </Button>
           </div>
         )}
-      </header>
+      </PageHeader>
 
       <CalendarWeekHeader
         date={date}

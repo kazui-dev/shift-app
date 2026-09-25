@@ -1,16 +1,9 @@
 import { useState } from "react"
-import { LoadingState } from "@/components/page-layout"
 import { activityQuery } from "@/data/activities"
-import { getRouteApi, useNavigate } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-
+import { getRouteApi, useBlocker, useRouterState } from "@tanstack/react-router"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { ShiftEditor } from "@/components/shifts/shift-editor"
-import {
-  ResponsivePageHeader,
-  ResponsivePageBody,
-} from "@workspace/ui/components/responsive-page"
-import { Button } from "@workspace/ui/components/button"
-import { RoutePage } from "@/components/route-page"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 const route = getRouteApi("/_app/manage/shifts_/$shiftId")
 export function ShiftEditorPage() {
@@ -18,33 +11,38 @@ export function ShiftEditorPage() {
   return <ShiftEditorScreen key={id} id={id} />
 }
 function ShiftEditorScreen({ id }: { id: string }) {
+  const navigating = useRouterState({ select: (state) => state.isLoading })
   const [editor, setEditor] = useState({ dirty: false, pending: false })
-  const navigate = useNavigate()
-  const close = () => {
-    if (!editor.pending) void navigate({ to: "/manage/shifts", replace: true })
-  }
-  const query = useQuery({
+  const blocker = useBlocker({
+    shouldBlockFn: () => editor.dirty || editor.pending,
+    enableBeforeUnload: editor.dirty,
+    withResolver: true,
+  })
+  const query = useSuspenseQuery({
     ...activityQuery(id),
     refetchOnWindowFocus: false,
   })
   return (
-    <div className="fixed inset-0 z-40 md:contents">
-      <RoutePage onClose={close} desktop="page" dirty={editor.dirty}>
-        {query.data ? (
-          <ShiftEditor data={query.data} onStatusChange={setEditor} />
-        ) : (
-          <>
-            <ResponsivePageHeader title="シフト" onBack={close} />
-            <ResponsivePageBody>
-              {query.isError ? (
-                <Button onClick={() => void query.refetch()}>再読み込み</Button>
-              ) : (
-                <LoadingState />
-              )}
-            </ResponsivePageBody>
-          </>
-        )}
-      </RoutePage>
+    <div
+      inert={navigating}
+      aria-busy={navigating}
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+    >
+      <ShiftEditor data={query.data} onStatusChange={setEditor} />
+      {blocker.status === "blocked" && (
+        <ConfirmDialog
+          title={
+            editor.pending
+              ? "保存処理中です"
+              : "未保存の変更を破棄して移動しますか"
+          }
+          confirmLabel="移動する"
+          onCancel={() => blocker.reset()}
+          onConfirm={() => {
+            if (!editor.pending) blocker.proceed()
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -69,11 +69,9 @@ export function MemberManager({ year }: { year: number }) {
   }
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setAdding(true)}>
-          追加
-        </Button>
+      <div className="sticky -top-6 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-3">
         <Input
+          className="w-full sm:max-w-80"
           aria-label="メンバーを検索"
           placeholder="名前・学籍番号で検索"
           value={search}
@@ -92,18 +90,77 @@ export function MemberManager({ year }: { year: number }) {
             })),
           ]}
         />
+        <span className="text-sm text-muted-foreground">
+          {members.length} / {roster.data?.members.length ?? 0}人
+        </span>
+        <Button
+          className="ml-auto"
+          variant="outline"
+          onClick={() => setAdding(true)}
+        >
+          メンバーを追加
+        </Button>
       </div>
+      {roster.isError && (
+        <p role="alert" className="text-sm">
+          メンバーを読み込めませんでした。
+          <Button variant="ghost" onClick={() => void roster.refetch()}>
+            再読み込み
+          </Button>
+        </p>
+      )}
+      {roster.isPending && (
+        <p className="text-sm text-muted-foreground">読み込み中…</p>
+      )}
       {selected.length > 0 && (
         <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
-          <span>{selected.length}人選択中</span>
+          <span className="mr-auto">{selected.length}人選択中</span>
+          <Button variant="ghost" size="sm" onClick={() => setSelected([])}>
+            選択を解除
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => edit(selected)}>
             ロールを変更
           </Button>
         </div>
       )}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          aria-label="表示中のメンバーをすべて選択"
+          checked={
+            members.length > 0 &&
+            members.every((member) => selected.includes(member.id))
+          }
+          disabled={members.length === 0}
+          onChange={(event) =>
+            setSelected(
+              event.target.checked
+                ? [
+                    ...new Set([
+                      ...selected,
+                      ...members.map((member) => member.id),
+                    ]),
+                  ]
+                : selected.filter(
+                    (id) => !members.some((member) => member.id === id)
+                  )
+            )
+          }
+        />
+        <span className="flex-1">名前・学籍番号</span>
+        <span>ロール / 操作</span>
+      </div>
+      {!roster.isPending && !roster.isError && members.length === 0 && (
+        <p className="py-8 text-sm text-muted-foreground">
+          条件に一致するメンバーはいません。
+        </p>
+      )}
       <ul className="divide-y border-y">
         {members.map((member) => (
-          <li key={member.id} className="flex min-h-16 items-center gap-4 py-3">
+          <li
+            key={member.id}
+            className="flex min-h-16 items-center gap-3 py-3 text-sm sm:gap-4"
+          >
             <input
               type="checkbox"
               aria-label={`${member.displayName}を選択`}

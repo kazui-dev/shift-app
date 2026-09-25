@@ -6,6 +6,7 @@
       "ignoreDependencies": ["cloudflare"]
     },
     "apps/web": {
+      "entry": ["vite.local.config.ts"],
       "ignoreDependencies": ["shadcn"]
     }
   }

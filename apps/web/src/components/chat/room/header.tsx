@@ -1,3 +1,4 @@
+import { PageHeader } from "@workspace/ui/components/page-header"
 import type { ReactNode } from "react"
 import { ArrowLeft, BellOff, Settings, Search } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
@@ -11,11 +12,9 @@ function HeaderRow({
   mobile?: boolean
 }) {
   return (
-    <header
-      className={`flex h-15 shrink-0 items-center gap-2 border-b px-4 pt-3 ${mobile ? "md:hidden" : ""}`}
-    >
+    <PageHeader className={`gap-2 pt-3 ${mobile ? "md:hidden" : ""}`}>
       {children}
-    </header>
+    </PageHeader>
   )
 }
 

@@ -5,7 +5,7 @@ import { getRouteApi } from "@tanstack/react-router"
 import { toast } from "@workspace/ui/lib/toast"
 
 const route = getRouteApi("/_app")
-export function useManagementYear() {
+export function useManagementYearState() {
   const { state } = route.useRouteContext()
   const key = `management-year:${state.member.studentId}`
   const query = useQuery({ ...yearsQuery })

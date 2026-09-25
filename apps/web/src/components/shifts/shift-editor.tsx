@@ -1,11 +1,11 @@
 import { keys } from "@/data/keys"
-import { japanDateWeekday } from "@workspace/shared/japan-time"
+import { japanTime } from "@workspace/shared/japan-time"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Undo2, Redo2, Search } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import {
@@ -19,8 +19,7 @@ import { ApiError, errorMessage } from "@/api/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { assignMember } from "./assign-member"
 import { ShiftActionsDialog } from "./shift-actions-dialog"
-import { ShiftFiltersDialog, type MemberFilters } from "./shift-filters-dialog"
-import { ShiftSettings } from "./shift-settings-dialog"
+import { ShiftSettings } from "./shift-settings"
 import { planOf, useShiftPlan } from "./use-shift-plan"
 import { TimeGrid, type EditorData } from "./time-grid"
 import {
@@ -28,7 +27,11 @@ import {
   type ShiftSelection,
 } from "./shift-selection-panel"
 
-import { ResponsivePageHeader } from "@workspace/ui/components/responsive-page"
+import { Input } from "@workspace/ui/components/input"
+import { SelectField } from "@/components/select-field"
+import { ShiftNavigation } from "./shift-navigation"
+
+import { useShiftView, type MemberFilters } from "@/components/manage/context"
 
 export function ShiftEditor({
   data: source,
@@ -40,29 +43,45 @@ export function ShiftEditor({
   const client = useQueryClient()
   const navigate = useNavigate()
   const [actions, setActions] = useState(false)
-  const [filtersOpen, setFiltersOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [latest, setLatest] = useState<EditorData | null>(null)
   const [conflicted, setConflicted] = useState(false)
   const [selection, setSelection] = useState<ShiftSelection | null>(null)
-  const [filters, setFilters] = useState<MemberFilters>({
-    search: "",
-    includeUnavailable: false,
-    role:
-      source.candidateRoleIds.length === 1
-        ? (source.candidateRoleIds[0] ?? "")
-        : source.candidateRoleIds.length > 1
-          ? "candidates"
-          : "",
-  })
+  const view = useShiftView(source.activity.year)
+  const [filters, storeFilters] = useState<MemberFilters>(
+    () =>
+      view.filters ?? {
+        search: "",
+        includeUnavailable: true,
+        role:
+          source.candidateRoleIds.length === 1
+            ? (source.candidateRoleIds[0] ?? "")
+            : source.candidateRoleIds.length > 1
+              ? "candidates"
+              : "",
+      }
+  )
+  function setFilters(value: MemberFilters) {
+    view.filters = value
+    storeFilters(value)
+  }
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [settings, setSettings] = useState(false)
   const [pending, setPending] = useState(false)
   const [warning, setWarning] = useState(false)
-  const { plan, base, version, dirty, update, confirm, rebase } = useShiftPlan(
-    source,
-    pending
-  )
+  const {
+    plan,
+    base,
+    version,
+    dirty,
+    update,
+    confirm,
+    rebase,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useShiftPlan(source, pending)
   useEffect(
     () => onStatusChange({ dirty, pending }),
     [dirty, pending, onStatusChange]
@@ -144,17 +163,36 @@ export function ShiftEditor({
       setPending(false)
     }
   }
-  const close = () => {
-    if (pending) return
-    void navigate({ to: "/manage/shifts", replace: true })
-  }
   return (
     <>
-      <ResponsivePageHeader
-        title={plan.name}
-        onBack={close}
-        backDisabled={pending}
-        action={
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
+        <ShiftNavigation activity={data.activity} disabled={pending} />
+        <div className="hidden items-center gap-1 md:flex">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="元に戻す"
+            disabled={!canUndo || pending}
+            onClick={undo}
+          >
+            <Undo2 />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="やり直す"
+            disabled={!canRedo || pending}
+            onClick={redo}
+          >
+            <Redo2 />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAttendanceOpen(true)}
+          >
+            出勤・連絡
+          </Button>
           <Button
             size="sm"
             disabled={pending || (!dirty && !conflicted)}
@@ -166,47 +204,105 @@ export function ShiftEditor({
                 : void save()
             }
           >
-            保存
+            {pending ? "保存中" : dirty ? "変更を保存" : "保存済み"}
           </Button>
-        }
-      />
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {japanDateWeekday(plan.startsAt)}
-          </p>
           <Button
             variant="ghost"
             size="icon-sm"
             aria-label="シフトの操作"
-            disabled={pending}
             onClick={() => setActions(true)}
           >
             <MoreHorizontal />
           </Button>
         </div>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <span>
+            {japanTime(plan.startsAt)}〜{japanTime(plan.endsAt)}
+          </span>
+          <span>{plan.place || "場所未設定"}</span>
+          <span className="text-muted-foreground">
+            責任者：
+            {plan.responsibles
+              .map(
+                (r) =>
+                  (r.targetType === "member"
+                    ? data.members.find((m) => m.id === r.targetId)?.displayName
+                    : data.roles.find((role) => role.id === r.targetId)
+                        ?.name) ?? "未設定"
+              )
+              .join("、")}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden md:inline-flex"
+            onClick={() => setSettings(!settings)}
+            aria-expanded={settings}
+          >
+            基本情報を編集
+          </Button>
+        </div>
+        {settings && (
+          <ShiftSettings
+            plan={plan}
+            data={data}
+            onSave={(value) => {
+              update(value)
+              setSettings(false)
+            }}
+          />
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor="manage-member-search"
+            className="relative w-full md:w-64"
+          >
+            <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
+            <Input
+              id="manage-member-search"
+              className="pl-9"
+              aria-label="名前・学籍番号で検索"
+              placeholder="名前・学籍番号で検索"
+              value={filters.search}
+              onChange={(event) =>
+                setFilters({ ...filters, search: event.target.value })
+              }
+            />
+          </label>
+          <SelectField
+            aria-label="表示するロール"
+            value={filters.role}
+            className="hidden w-auto md:flex"
+            options={[
+              { value: "", label: "すべてのロール" },
+              ...data.roles.map((role) => ({
+                value: role.id,
+                label: role.name,
+              })),
+            ]}
+            onValueChange={(role) => setFilters({ ...filters, role })}
+          />
+          <label className="ml-2 hidden items-center gap-2 text-sm md:flex">
+            <input
+              type="checkbox"
+              checked={filters.includeUnavailable}
+              onChange={(event) =>
+                setFilters({
+                  ...filters,
+                  includeUnavailable: event.target.checked,
+                })
+              }
+            />
+            参加不可・未回答も表示
+          </label>
+        </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
           <fieldset
             disabled={pending}
-            className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 lg:pr-4"
+            className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:pr-4"
           >
-            <div className="flex flex-wrap items-center gap-2 pl-38 sm:pl-46">
-              <div className="mr-auto flex w-full items-center gap-4 text-xs text-muted-foreground sm:w-auto">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-3 w-[22px] rounded-[3px] bg-[#e7edf3] dark:bg-slate-800" />
-                  希望時間
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="h-3 w-[22px] rounded-[3px]"
-                    style={{
-                      backgroundColor: `color-mix(in oklab, ${plan.color} 22%, var(--background))`,
-                    }}
-                  />
-                  シフト
-                </span>
-              </div>
-            </div>
             <TimeGrid
               data={data}
               plan={plan}
@@ -227,7 +323,6 @@ export function ShiftEditor({
                   endsAt: plan.endsAt,
                 })
               }
-              onFilter={() => setFiltersOpen(true)}
             />
           </fieldset>
           {selection && (
@@ -260,15 +355,6 @@ export function ShiftEditor({
           )}
         </div>
       </div>
-      {filtersOpen && (
-        <ShiftFiltersDialog
-          filters={filters}
-          plan={plan}
-          roles={data.roles}
-          onChange={setFilters}
-          onClose={() => setFiltersOpen(false)}
-        />
-      )}
       {actions && (
         <ShiftActionsDialog
           dirty={dirty}
@@ -337,17 +423,6 @@ export function ShiftEditor({
         <ShiftAttendance
           activityId={data.activity.id}
           onClose={() => setAttendanceOpen(false)}
-        />
-      )}
-      {settings && (
-        <ShiftSettings
-          plan={plan}
-          data={data}
-          onClose={() => setSettings(false)}
-          onSave={(value) => {
-            update(value)
-            setSettings(false)
-          }}
         />
       )}
       {warning && (

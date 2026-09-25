@@ -222,7 +222,7 @@ export function MessageActions({
         <div
           role="toolbar"
           aria-label="メッセージの操作"
-          className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
+          className={`absolute -top-7 right-4 z-10 flex rounded-lg border bg-background p-0.5 shadow-sm [&>button]:transition-colors ${opened ? "" : "invisible group-focus-within:visible [@media(hover:hover)]:group-hover:visible"}`}
         >
           {message.status === "failed" && (
             <Button

@@ -36,6 +36,8 @@ type ResponsiveOverlayProps = {
   description?: string
   children: React.ReactNode
   className?: string
+  bodyClassName?: string
+  onClosed?: () => void
   initialFocus?: React.RefObject<HTMLElement | null>
 }
 
@@ -47,11 +49,16 @@ function DrawerView({
   children,
   className,
   initialFocus,
+  bodyClassName,
+  onClosed,
 }: ResponsiveOverlayProps) {
   return (
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
+      onOpenChangeComplete={(value) => {
+        if (!value) onClosed?.()
+      }}
       showSwipeHandle
       swipeDirection="down"
     >
@@ -59,7 +66,7 @@ function DrawerView({
         initialFocus={initialFocus}
         className={cn("max-h-[85dvh]", className)}
       >
-        <DrawerHeader className="gap-2 border-b px-5 py-3 text-left">
+        <DrawerHeader className="gap-2 border-b px-5 py-3 group-data-[swipe-axis=y]/drawer-popup:text-left">
           <div className="flex items-center gap-3">
             <DrawerTitle className="min-w-0 flex-1">{title}</DrawerTitle>
             <DrawerClose
@@ -72,7 +79,12 @@ function DrawerView({
           </div>
           {description && <DrawerDescription>{description}</DrawerDescription>}
         </DrawerHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
+            bodyClassName
+          )}
+        >
           {children}
         </div>
       </DrawerContent>
@@ -121,7 +133,13 @@ export function ResponsiveSheet(props: ResponsiveOverlayProps) {
   if (!desktop) return <DrawerView {...props} />
 
   return (
-    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+    <Sheet
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      onOpenChangeComplete={(value) => {
+        if (!value) props.onClosed?.()
+      }}
+    >
       <SheetContent
         initialFocus={props.initialFocus}
         className={cn("w-[28rem] max-w-full gap-0", props.className)}
@@ -143,7 +161,12 @@ export function ResponsiveSheet(props: ResponsiveOverlayProps) {
             <SheetDescription>{props.description}</SheetDescription>
           )}
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
+            props.bodyClassName
+          )}
+        >
           {props.children}
         </div>
       </SheetContent>

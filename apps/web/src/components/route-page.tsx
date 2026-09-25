@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { useState, type ComponentProps, type ReactNode } from "react"
 import { useBlocker, useMatch } from "@tanstack/react-router"
 import { ResponsivePage } from "@workspace/ui/components/responsive-page"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -8,11 +8,13 @@ export function RoutePage({
   children,
   onClose,
   desktop = "dialog",
+  dialog = "standard",
   path,
   dirty = false,
 }: {
   children: ReactNode
   onClose: () => void
+  dialog?: ComponentProps<typeof ResponsivePage>["dialog"]
   desktop?: "dialog" | "page"
   path?: string
   dirty?: boolean
@@ -37,6 +39,7 @@ export function RoutePage({
   return (
     <ResponsivePage
       desktop={desktop}
+      dialog={dialog}
       open={!finished && (blocker.status !== "blocked" || confirming)}
       onClose={onClose}
       onClosed={() => {
