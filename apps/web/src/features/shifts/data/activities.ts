@@ -1,9 +1,6 @@
 import { queryOptions } from "@tanstack/react-query"
 import { keys } from "@/app/data/keys"
-import {
-  getActivities,
-  getActivity,
-} from "@/features/activities/api/activities"
+import { getActivities, getActivity } from "@/features/shifts/api/activities"
 export const activitiesQuery = (year: number) =>
   queryOptions({
     queryKey: keys.activities(year),

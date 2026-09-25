@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { change, redo, undo, type EditHistory } from "./editor-history"
 import { mergePlan } from "./merge-plan"
-import type { EditorData } from "./time-grid"
+import type { EditorData } from "../editor-data"
 
 export function planOf(data: EditorData): ActivityEditorInput {
   return {

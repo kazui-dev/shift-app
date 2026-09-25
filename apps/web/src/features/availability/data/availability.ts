@@ -1,4 +1,8 @@
-import { queryOptions, skipToken } from "@tanstack/react-query"
+import {
+  queryOptions,
+  skipToken,
+  type QueryClient,
+} from "@tanstack/react-query"
 import { keys } from "@/app/data/keys"
 import {
   getAvailability,
@@ -24,3 +28,11 @@ export const availabilitySubmissionsQuery = (year: number) =>
     queryFn: () => getAvailabilitySubmissions(year),
     staleTime: 30_000,
   })
+
+export function refreshAvailability(client: QueryClient, year: number) {
+  return Promise.all([
+    client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
+    client.invalidateQueries({ queryKey: keys.availability(year) }),
+    client.invalidateQueries({ queryKey: keys.availabilitySubmissions(year) }),
+  ])
+}

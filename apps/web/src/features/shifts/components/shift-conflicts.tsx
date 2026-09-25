@@ -3,7 +3,7 @@ import { japanMonthDayTime } from "@workspace/shared/japan-time"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { Button } from "@workspace/ui/components/button"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import type { EditorData } from "./time-grid"
+import type { EditorData } from "../editor-data"
 import { mergePlan } from "./merge-plan"
 
 function describe(value: unknown, data: EditorData): string {

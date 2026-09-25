@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { expect, it, vi } from "vite-plus/test"
 import { ManagementProvider } from "./provider"
-import { useShiftView } from "@/app/management-context"
+import { useShiftView } from "@/features/shifts/shift-view-context"
 
-vi.mock("@/app/use-management-year", () => ({
+vi.mock("@/features/management/use-management-year", () => ({
   useManagementYearState: () => ({ year: 2026 }),
 }))
 

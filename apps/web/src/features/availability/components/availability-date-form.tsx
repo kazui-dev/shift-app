@@ -5,7 +5,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import { toast } from "@workspace/ui/lib/toast"
 import type { FormDate } from "@workspace/shared/availability"
-import { keys } from "@/app/data/keys"
+import { refreshAvailability } from "../data/availability"
 import { MinuteInput } from "@/components/minute-input"
 import { saveAvailabilityDate } from "@/features/availability/api/availability"
 import { errorMessage } from "@/lib/http/client"
@@ -41,13 +41,7 @@ export function AvailabilityDateForm({
         endsMinute,
         accepting,
       })
-      await Promise.all([
-        client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
-        client.invalidateQueries({ queryKey: keys.availability(year) }),
-        client.invalidateQueries({
-          queryKey: keys.availabilitySubmissions(year),
-        }),
-      ])
+      await refreshAvailability(client, year)
       onSaved()
     } catch (error) {
       toast.error(errorMessage(error))

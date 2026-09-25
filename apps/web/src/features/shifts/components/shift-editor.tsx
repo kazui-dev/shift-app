@@ -5,7 +5,6 @@ import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { MoreHorizontal, Undo2, Redo2, Search } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import {
@@ -14,24 +13,27 @@ import {
   copyActivity,
   deleteActivity,
   notifyActivity,
-} from "@/features/activities/api/activities"
+} from "@/features/shifts/api/activities"
 import { ApiError, errorMessage } from "@/lib/http/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { assignMember } from "./assign-member"
 import { ShiftActionsDialog } from "./shift-actions-dialog"
 import { ShiftSettings } from "./shift-settings"
 import { planOf, useShiftPlan } from "./use-shift-plan"
-import { TimeGrid, type EditorData } from "./time-grid"
+import { TimeGrid } from "./time-grid"
+import type { EditorData } from "../editor-data"
 import {
   ShiftSelectionPanel,
   type ShiftSelection,
 } from "./shift-selection-panel"
 
-import { Input } from "@workspace/ui/components/input"
-import { SelectField } from "@/components/select-field"
-import { ShiftNavigation } from "./shift-navigation"
+import { ShiftEditorToolbar } from "./shift-editor-toolbar"
+import { MemberFilterBar } from "./member-filter-bar"
 
-import { useShiftView, type MemberFilters } from "@/app/management-context"
+import {
+  useShiftView,
+  type MemberFilters,
+} from "@/features/shifts/shift-view-context"
 
 export function ShiftEditor({
   data: source,
@@ -165,57 +167,25 @@ export function ShiftEditor({
   }
   return (
     <>
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
-        <ShiftNavigation activity={data.activity} disabled={pending} />
-        <div className="hidden items-center gap-1 md:flex">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="元に戻す"
-            disabled={!canUndo || pending}
-            onClick={undo}
-          >
-            <Undo2 />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="やり直す"
-            disabled={!canRedo || pending}
-            onClick={redo}
-          >
-            <Redo2 />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setAttendanceOpen(true)}
-          >
-            出勤・連絡
-          </Button>
-          <Button
-            size="sm"
-            disabled={pending || (!dirty && !conflicted)}
-            onClick={() =>
-              conflicted
-                ? void action(async () =>
-                    setLatest(await getActivity(data.activity.id))
-                  )
-                : void save()
-            }
-          >
-            {pending ? "保存中" : dirty ? "変更を保存" : "保存済み"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="シフトの操作"
-            onClick={() => setActions(true)}
-          >
-            <MoreHorizontal />
-          </Button>
-        </div>
-      </div>
+      <ShiftEditorToolbar
+        activity={data.activity}
+        dirty={dirty}
+        pending={pending}
+        conflicted={conflicted}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={undo}
+        onRedo={redo}
+        onAttendance={() => setAttendanceOpen(true)}
+        onSave={() =>
+          conflicted
+            ? void action(async () =>
+                setLatest(await getActivity(data.activity.id))
+              )
+            : void save()
+        }
+        onActions={() => setActions(true)}
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <span>
@@ -254,50 +224,11 @@ export function ShiftEditor({
             }}
           />
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <label
-            htmlFor="manage-member-search"
-            className="relative w-full md:w-64"
-          >
-            <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
-            <Input
-              id="manage-member-search"
-              className="pl-9"
-              aria-label="名前・学籍番号で検索"
-              placeholder="名前・学籍番号で検索"
-              value={filters.search}
-              onChange={(event) =>
-                setFilters({ ...filters, search: event.target.value })
-              }
-            />
-          </label>
-          <SelectField
-            aria-label="表示するロール"
-            value={filters.role}
-            className="hidden w-auto md:flex"
-            options={[
-              { value: "", label: "すべてのロール" },
-              ...data.roles.map((role) => ({
-                value: role.id,
-                label: role.name,
-              })),
-            ]}
-            onValueChange={(role) => setFilters({ ...filters, role })}
-          />
-          <label className="ml-2 hidden items-center gap-2 text-sm md:flex">
-            <input
-              type="checkbox"
-              checked={filters.includeUnavailable}
-              onChange={(event) =>
-                setFilters({
-                  ...filters,
-                  includeUnavailable: event.target.checked,
-                })
-              }
-            />
-            参加不可・未回答も表示
-          </label>
-        </div>
+        <MemberFilterBar
+          filters={filters}
+          roles={data.roles}
+          onChange={setFilters}
+        />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
           <fieldset
             disabled={pending}

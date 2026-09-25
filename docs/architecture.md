@@ -29,6 +29,8 @@ packages/
 
 Web の `routes` は URL に固有の処理と機能の合成を担当する。業務画面、HTTP client、query、局所状態は `features/<name>` が所有する。`app` は画面をまたぐ起動・認証済みレイアウト・cache・接続のライフサイクルを所有する。`components` と `lib` は機能から参照できるが、逆向きには参照しない。機能間参照は循環させず、上位画面の合成は route または上位機能に寄せる。共通 UI は `packages/ui` へ置く。
 
+管理画面の `management` は画面の組み立てと選択年度を所有する。シフト一覧・編集とその表示状態は `shifts`、希望の受付日程と提出状況は `availability` が所有する。カレンダーはこれらの機能が公開する query と操作を使って本人の画面を組み立てる。
+
 API は `routes/api.ts` と `routes/me`、`routes/years` が公開 URL を組み立てる。機能別 `routes` は入力、認証・認可、HTTP 応答を担当する。`domain` は純粋な規則、`services` は D1・Push・画像などの I/O、`durable-objects` はチャットの順序制御と接続を担当する。共通境界は `auth` と `lib` が所有する。API テストは `apps/api/test` に置く。
 
 `packages/shared` の契約は Web の応答検証と API の入力検証で共有する。DB の table 定義と HTTP 契約は別の境界であり、DB table をそのまま外部へ公開しない。`packages/db/src/schema.ts` は領域別 table の公開入口、SQL migration は `apps/api/migrations` に置く。認証用 Better Auth table は `packages/db/src/auth-schema.ts` に置く。

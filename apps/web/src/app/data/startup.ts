@@ -1,11 +1,7 @@
 import { chatRoomId } from "@/features/chat/lib/location"
 import * as v from "valibot"
 import type { QueryClient } from "@tanstack/react-query"
-import {
-  usersQuery,
-  auditQuery,
-  linksQuery,
-} from "../../features/admin/data/admin"
+import { usersQuery, auditQuery, linksQuery } from "@/features/admin/data/admin"
 import { assignmentMonthQuery } from "@/features/shifts/api/assignments"
 import {
   calendarViewKey,
@@ -16,18 +12,18 @@ import {
   yearsQuery,
   rolesQuery,
   rosterQuery,
-} from "../../features/years/data/years"
-import { roomsQuery, prepareConversation } from "../../features/chat/data/chat"
-import { warmConversation } from "../../features/chat/data/chat-warm"
+} from "@/features/years/data/years"
+import { roomsQuery, prepareConversation } from "@/features/chat/data/chat"
+import { warmConversation } from "@/features/chat/data/chat-warm"
 import {
   activitiesQuery,
   activityQuery,
-} from "../../features/activities/data/activities"
+} from "@/features/shifts/data/activities"
 import {
   availabilityQuery,
   availabilityDatesQuery,
   availabilitySubmissionsQuery,
-} from "../../features/availability/data/availability"
+} from "@/features/availability/data/availability"
 
 export async function prepareApp(
   client: QueryClient,

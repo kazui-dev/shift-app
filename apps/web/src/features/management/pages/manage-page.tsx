@@ -4,7 +4,7 @@ import { PageHeader } from "@workspace/ui/components/page-header"
 import { DialogTitle } from "@workspace/ui/components/dialog"
 import { RoutePage } from "@/app/route-page"
 import { useManagementBack } from "@/features/management/components/use-management-back"
-import { useManagement } from "@/app/management-context"
+import { useManagement } from "@/features/management/management-context"
 import { ManagementYearSelect } from "@/features/management/components/year-select"
 import { EmptyState } from "@/app/page-layout"
 import { UserManager } from "@/features/admin/components/user-manager"
@@ -12,7 +12,7 @@ import {
   AuditLogManager,
   DiscordLinkRequestManager,
 } from "@/features/admin/components/admin-panel"
-import { AvailabilitySummary } from "@/features/management/components/availability-summary"
+import { AvailabilitySummary } from "@/features/availability/components/availability-summary"
 import { YearSettingsPanel } from "@/features/years/components/year-settings-panel"
 import { MemberManager } from "@/features/members/components/member-manager"
 import { YearRoleManager } from "@/features/roles/components/year-role-manager"

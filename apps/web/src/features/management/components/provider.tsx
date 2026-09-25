@@ -1,15 +1,13 @@
-import { useMemo, useRef, type ReactNode } from "react"
-import { useManagementYearState } from "@/app/use-management-year"
-import { ManagementContext } from "@/app/management-context"
-import type { ContextType } from "react"
+import { type ReactNode } from "react"
+import { useManagementYearState } from "@/features/management/use-management-year"
+import { ManagementContext } from "@/features/management/management-context"
+import { ShiftViewProvider } from "@/features/shifts/shift-view-provider"
 
-type State = NonNullable<ContextType<typeof ManagementContext>>
 export function ManagementProvider({ children }: { children: ReactNode }) {
   const years = useManagementYearState()
-  const shiftViews = useRef<State["shiftViews"]>(new Map())
-  const value = useMemo(
-    () => ({ years, shiftViews: shiftViews.current }),
-    [years]
+  return (
+    <ManagementContext value={{ years }}>
+      <ShiftViewProvider>{children}</ShiftViewProvider>
+    </ManagementContext>
   )
-  return <ManagementContext value={value}>{children}</ManagementContext>
 }

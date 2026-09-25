@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { ShiftSelection } from "./shift-selection-panel"
-import type { EditorData } from "./time-grid"
+import type { EditorData } from "../editor-data"
 
 const STEP = 300_000
 

@@ -1,11 +1,9 @@
 import { useState } from "react"
-import { keys } from "@/app/data/keys"
-import { japanFullDate } from "@workspace/shared/japan-time"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Bell, Plus, Trash2 } from "lucide-react"
+import { japanFullDate } from "@workspace/shared/japan-time"
+import type { FormDate } from "@workspace/shared/availability"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { SelectField } from "@/components/select-field"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Accordion,
@@ -14,68 +12,41 @@ import {
   AccordionTrigger,
 } from "@workspace/ui/components/accordion"
 import { toast } from "@workspace/ui/lib/toast"
-import type { FormDate } from "@workspace/shared/availability"
-import {
-  availabilitySubmissionsQuery,
-  availabilityDatesQuery,
-} from "@/features/availability/data/availability"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   notifyAvailability,
   saveAvailabilityDate,
   deleteAvailabilityDate,
-} from "@/features/availability/api/availability"
-import { errorMessage } from "@/lib/http/client"
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { MemberAvatar } from "@/features/members/components/member-avatar"
-import { AvailabilityDateForm } from "@/features/management/components/availability-date-form"
+} from "../api/availability"
+import { availabilityDatesQuery } from "../data/availability"
+import { AvailabilityDateForm } from "./availability-date-form"
 
 const newDate = "new"
 
 function clock(minute: number) {
   return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`
 }
-export function AvailabilitySummary({ year }: { year: number }) {
-  const client = useQueryClient()
+
+export function AvailabilitySchedule({
+  year,
+  pending,
+  run,
+}: {
+  year: number
+  pending: boolean
+  run: (action: () => Promise<unknown>, onSuccess?: () => void) => Promise<void>
+}) {
   const dates = useQuery(availabilityDatesQuery(year))
-  const submissions = useQuery(availabilitySubmissionsQuery(year))
   const [selected, setSelected] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string[]>([])
   const [removing, setRemoving] = useState<FormDate | null>(null)
-  const [pending, setPending] = useState(false)
-  const [search, setSearch] = useState("")
-  const [status, setStatus] = useState("")
-  const progress = submissions.data?.progress ?? []
-  const filtered = progress.filter(
-    (item) =>
-      `${item.displayName} ${item.studentId}`
-        .toLowerCase()
-        .includes(search.toLowerCase()) &&
-      (status === "" ||
-        (status === "complete" ? item.complete : !item.complete))
-  )
   const adding = expanded.includes(newDate)
-  async function run(action: () => Promise<unknown>) {
-    if (pending) return
-    setPending(true)
-    try {
-      await action()
-      await Promise.all([
-        client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
-        client.invalidateQueries({ queryKey: keys.availability(year) }),
-        client.invalidateQueries({
-          queryKey: keys.availabilitySubmissions(year),
-        }),
-      ])
-      setSelected([])
-      setRemoving(null)
-    } catch (error) {
-      toast.error(errorMessage(error))
-    } finally {
-      setPending(false)
-    }
+  const clearSelection = () => {
+    setSelected([])
+    setRemoving(null)
   }
   return (
-    <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-12">
+    <>
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-medium">受付日程</h2>
@@ -90,7 +61,7 @@ export function AvailabilitySummary({ year }: { year: number }) {
                 void run(async () => {
                   await notifyAvailability(year, "all")
                   toast.success("受付を通知しました。")
-                })
+                }, clearSelection)
               }
             >
               <Bell />
@@ -201,19 +172,21 @@ export function AvailabilitySummary({ year }: { year: number }) {
               variant="outline"
               disabled={pending || selected.length === 0}
               onClick={() =>
-                void run(() =>
-                  Promise.all(
-                    (dates.data?.dates ?? [])
-                      .filter((date) => selected.includes(date.date))
-                      .map((date) =>
-                        saveAvailabilityDate(year, {
-                          date: date.date,
-                          startsMinute: date.startsMinute,
-                          endsMinute: date.endsMinute,
-                          accepting,
-                        })
-                      )
-                  )
+                void run(
+                  () =>
+                    Promise.all(
+                      (dates.data?.dates ?? [])
+                        .filter((date) => selected.includes(date.date))
+                        .map((date) =>
+                          saveAvailabilityDate(year, {
+                            date: date.date,
+                            startsMinute: date.startsMinute,
+                            endsMinute: date.endsMinute,
+                            accepting,
+                          })
+                        )
+                    ),
+                  clearSelection
                 )
               }
             >
@@ -222,91 +195,19 @@ export function AvailabilitySummary({ year }: { year: number }) {
           ))}
         </div>
       </section>
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-medium">
-            提出状況{" "}
-            <span className="ml-2 font-normal text-muted-foreground">
-              {progress.filter((item) => item.complete).length} /{" "}
-              {progress.length}人提出済み
-            </span>
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={
-              pending ||
-              !submissions.data?.progress.some((item) => !item.complete)
-            }
-            onClick={() =>
-              void run(async () => {
-                await notifyAvailability(year, "incomplete")
-                toast.success("未提出のメンバーに通知しました。")
-              })
-            }
-          >
-            <Bell />
-            未提出者に通知
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Input
-            className="min-w-40 flex-1"
-            aria-label="提出状況を検索"
-            placeholder="名前・学籍番号で検索"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <SelectField
-            aria-label="提出状況で絞り込み"
-            className="w-auto"
-            value={status}
-            onValueChange={setStatus}
-            options={[
-              { value: "", label: "全員" },
-              { value: "incomplete", label: "未提出" },
-              { value: "complete", label: "提出済み" },
-            ]}
-          />
-        </div>
-        {submissions.isPending && (
-          <p className="text-sm text-muted-foreground">読み込み中…</p>
-        )}
-        {submissions.isError ? (
-          <Button variant="outline" onClick={() => void submissions.refetch()}>
-            提出状況を再読み込み
-          </Button>
-        ) : (
-          <ul className="divide-y border-y">
-            {filtered.map((item) => (
-              <li key={item.memberId} className="flex items-center gap-3 py-3">
-                <MemberAvatar name={item.displayName} image={item.image} />
-                <span className="min-w-0 flex-1 truncate text-sm">
-                  {item.displayName}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {item.complete ? "提出済み" : "未提出"}
-                </span>
-              </li>
-            ))}
-            {!submissions.isPending && filtered.length === 0 && (
-              <li className="py-6 text-center text-sm text-muted-foreground">
-                条件に一致するメンバーはいません
-              </li>
-            )}
-          </ul>
-        )}
-      </section>
       {removing && (
         <ConfirmDialog
           title="日程を削除しますか"
           confirmLabel="削除"
           onCancel={() => setRemoving(null)}
           onConfirm={() =>
-            void run(() => deleteAvailabilityDate(year, removing.date))
+            void run(
+              () => deleteAvailabilityDate(year, removing.date),
+              clearSelection
+            )
           }
         />
       )}
-    </div>
+    </>
   )
 }

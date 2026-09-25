@@ -9,7 +9,7 @@ import {
   japanInputValue,
   japanLocalDateTime,
 } from "@workspace/shared/japan-time"
-import type { EditorData } from "./time-grid"
+import type { EditorData } from "../editor-data"
 
 export type ShiftSelection = {
   memberId: string

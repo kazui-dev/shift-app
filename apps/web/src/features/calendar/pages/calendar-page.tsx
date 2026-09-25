@@ -1,6 +1,5 @@
 import { PageHeader } from "@workspace/ui/components/page-header"
 import { DisplayYearNotice } from "@/app/display-year-notice"
-import { keys } from "@/app/data/keys"
 import {
   useCallback,
   useEffect,
@@ -9,21 +8,15 @@ import {
   useRef,
   useState,
 } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { SquarePen } from "lucide-react"
 
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
 
-import {
-  checkCampusLocation,
-  type CampusLocation,
-} from "@/features/calendar/components/campus-location"
+import type { CampusLocation } from "@/features/calendar/components/campus-location"
 import { AttendanceSheet } from "@/features/calendar/components/attendance-sheet"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { submitAttendance } from "@/features/shifts/api/assignments"
-import { errorMessage } from "@/lib/http/client"
 import { useCalendarViewState } from "@/features/calendar/components/calendar-view-context"
 import { useOfflineMode } from "@/app/offline-mode-context"
 import { useDisplayYear } from "@/app/use-display-year"
@@ -37,6 +30,7 @@ import { CalendarWeekHeader } from "@/features/calendar/components/calendar-week
 import { paintCalendarWeekHeader } from "@/features/calendar/components/calendar-week-presentation"
 import { MonthSwitcher } from "@/features/calendar/components/month-switcher"
 import { useCalendarAssignments } from "@/features/calendar/components/use-calendar-assignments"
+import { useCalendarAttendance } from "@/features/calendar/use-calendar-attendance"
 import { calendarSlideDates } from "@/features/calendar/lib/carousel"
 import { japanDateTime, japanFullDate } from "@workspace/shared/japan-time"
 import { loopCarouselInitialSlide } from "@/features/calendar/lib/loop-carousel"
@@ -71,7 +65,6 @@ function useCurrentTime(): Date {
 }
 
 export function CalendarPage() {
-  const queryClient = useQueryClient()
   const offline = useOfflineMode()
   // The form is worth opening only once a year has dates to answer; submitted
   // answers stay readable after the dates stop accepting.
@@ -80,16 +73,17 @@ export function CalendarPage() {
   const hasAvailability = (availability.data?.dates.length ?? 0) > 0
   const { date, selectDate, selectMonth, readScrollTop, saveScrollTop } =
     useCalendarViewState()
-  // Kept after closing until the drawer has slid away.
-  const [attendance, setAttendance] = useState<{
-    id: string
-    open: boolean
-  } | null>(null)
-  const [checkingInId, setCheckingInId] = useState<string | null>(null)
-  const [locationIssue, setLocationIssue] = useState<{
-    assignmentId: string
-    reason: Exclude<CampusLocation, "confirmed">
-  } | null>(null)
+  const {
+    attendance,
+    checkingInId,
+    locationIssue,
+    openAttendance,
+    closeAttendance,
+    clearAttendance,
+    clearLocationIssue,
+    checkIn,
+    saveCheckIn,
+  } = useCalendarAttendance()
   const calendarRef = useRef<HTMLDivElement>(null)
   const weekHeaderRef = useRef<HTMLDivElement>(null)
   const dateRef = useRef(date)
@@ -138,48 +132,6 @@ export function CalendarPage() {
       selectMonth(months)
     },
     [selectMonth]
-  )
-
-  const openAttendance = useCallback(
-    (assignmentId: string) => setAttendance({ id: assignmentId, open: true }),
-    []
-  )
-
-  const saveCheckIn = useCallback(
-    async (assignmentId: string, locationConfirmed: boolean) => {
-      setCheckingInId(assignmentId)
-      try {
-        await submitAttendance(assignmentId, {
-          state: "present",
-          locationConfirmed,
-        })
-        await queryClient.invalidateQueries({
-          queryKey: keys.assignmentMonth(),
-        })
-        toast.success("出勤を記録しました。")
-      } catch (error) {
-        toast.error(errorMessage(error))
-      } finally {
-        setCheckingInId(null)
-      }
-    },
-    [queryClient]
-  )
-
-  // A check-in confirms the campus first; when it cannot, the member decides
-  // whether to check in anyway, and cancelling leaves no trace.
-  const checkIn = useCallback(
-    async (assignmentId: string) => {
-      setCheckingInId(assignmentId)
-      const location = await checkCampusLocation()
-      if (location === "confirmed") {
-        await saveCheckIn(assignmentId, true)
-        return
-      }
-      setCheckingInId(null)
-      setLocationIssue({ assignmentId, reason: location })
-    },
-    [saveCheckIn]
   )
 
   return (
@@ -241,10 +193,8 @@ export function CalendarPage() {
             !!attendanceAssignment && checkingInId === attendanceAssignment.id
           }
           onCheckIn={(assignmentId) => void checkIn(assignmentId)}
-          onClose={() =>
-            setAttendance((current) => current && { ...current, open: false })
-          }
-          onClosed={() => setAttendance(null)}
+          onClose={closeAttendance}
+          onClosed={clearAttendance}
         />
         {locationIssue && (
           <ConfirmDialog
@@ -252,11 +202,11 @@ export function CalendarPage() {
             description={`${locationIssues[locationIssue.reason]}出勤確認の依頼が責任者に送信されます。`}
             confirmLabel="このまま出勤する"
             tone="default"
-            onCancel={() => setLocationIssue(null)}
+            onCancel={clearLocationIssue}
             onConfirm={() => {
               void saveCheckIn(locationIssue.assignmentId, false)
             }}
-            onClosed={() => setLocationIssue(null)}
+            onClosed={clearLocationIssue}
           />
         )}
       </div>

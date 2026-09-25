@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { activitiesQuery } from "@/features/activities/data/activities"
+import { activitiesQuery } from "@/features/shifts/data/activities"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { SelectField } from "@/components/select-field"

@@ -1,7 +1,7 @@
 import { getRouteApi, Link } from "@tanstack/react-router"
 import { ChevronRight } from "lucide-react"
 import { PageHeader } from "@workspace/ui/components/page-header"
-import { useManagement } from "@/app/management-context"
+import { useManagement } from "@/features/management/management-context"
 import { ManagementYearSelect } from "./year-select"
 
 const workItems = [

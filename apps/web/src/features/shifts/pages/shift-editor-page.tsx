@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { activityQuery } from "@/features/activities/data/activities"
+import { activityQuery } from "@/features/shifts/data/activities"
 import { getRouteApi, useBlocker, useRouterState } from "@tanstack/react-router"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { ShiftEditor } from "@/features/shifts/components/shift-editor"

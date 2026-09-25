@@ -6,7 +6,7 @@ import {
 } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import type { EditorData } from "./time-grid"
+import type { EditorData } from "../editor-data"
 
 export function ShiftSettings({
   plan,

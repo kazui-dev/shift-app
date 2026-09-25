@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { activitiesQuery } from "@/features/activities/data/activities"
+import { activitiesQuery } from "@/features/shifts/data/activities"
 import { japanDateTime, japanDateWeekday } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { SelectField } from "@/components/select-field"
-import type { EditorData } from "./time-grid"
+import type { EditorData } from "../editor-data"
 
 export function ShiftNavigation({
   activity,
