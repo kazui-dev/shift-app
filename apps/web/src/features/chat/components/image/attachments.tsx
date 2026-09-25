@@ -15,7 +15,7 @@ import {
   splitAspect,
   tileGap,
   tileSizes,
-} from "@/features/chat/components/image/frame"
+} from "@/features/chat/lib/image-frame"
 
 /** Object URLs of picked images, shared by every place one shows at once. */
 const localUrls = new Map<Blob, { url: string; users: number }>()

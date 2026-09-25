@@ -1,5 +1,28 @@
-import { expect, it } from "vite-plus/test"
-import { warmTargets } from "@/features/chat/data/chat-warm"
+import { QueryClient } from "@tanstack/react-query"
+import { afterEach, expect, it, vi } from "vite-plus/test"
+import { getChatMessages, getChatRoom } from "@/features/chat/api/chat"
+import { warmConversation, warmTargets } from "@/features/chat/data/chat-warm"
+
+vi.mock("@/features/chat/api/chat", () => ({
+  getChatMessages: vi.fn<typeof getChatMessages>(),
+  getChatRoom: vi.fn<typeof getChatRoom>(),
+}))
+afterEach(() => vi.unstubAllGlobals())
+
+it("prepares room details and history through one conversation entry point", async () => {
+  vi.stubGlobal("window", { innerWidth: 400, innerHeight: 800 })
+  vi.mocked(getChatRoom).mockImplementation(() => new Promise(() => {}))
+  vi.mocked(getChatMessages).mockImplementation(() => new Promise(() => {}))
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const warming = warmConversation(client, "room", "member")
+  expect(getChatRoom).toHaveBeenCalledWith("room")
+  expect(getChatMessages).toHaveBeenCalledWith("room", null)
+  await client.cancelQueries()
+  await warming
+  client.clear()
+})
 
 const image = (id: string) => ({ id, width: 400, height: 300 })
 const card = (path: string, withImage = true) => ({

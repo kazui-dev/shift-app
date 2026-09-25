@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import { keys } from "@/app/data/keys"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"

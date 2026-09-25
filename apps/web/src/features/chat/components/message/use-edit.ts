@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { editChatMessage } from "@/features/chat/api/chat"
 import { errorMessage } from "@/lib/http/client"
 import { receiveMessage } from "@/features/chat/data/chat-cache"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import { toast } from "@workspace/ui/lib/toast"
 import type { MessageRow } from "@/features/chat/components/message/list"
 

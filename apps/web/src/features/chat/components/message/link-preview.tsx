@@ -1,6 +1,6 @@
 import { useRef } from "react"
 import type { LinkPreview } from "@workspace/shared/communications"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import { useNearHistory } from "@/features/chat/components/message/use-near-history"
 import { acquireLinkImage, cachedLinkImage } from "@/features/chat/lib/images"
 import { useHeldImage } from "@/features/chat/components/image/use-held-image"

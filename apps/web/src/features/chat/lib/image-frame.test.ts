@@ -4,7 +4,7 @@ import {
   mosaic,
   singleImageSize,
   tileSizes,
-} from "@/features/chat/components/image/frame"
+} from "@/features/chat/lib/image-frame"
 
 it("arranges up to ten images in one frame", () => {
   expect(

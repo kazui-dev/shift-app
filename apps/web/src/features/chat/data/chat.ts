@@ -14,10 +14,10 @@ import {
   getChatMembers,
 } from "@/features/chat/api/chat"
 
-export const roomQuery = (id: string) =>
+export const roomQuery = (id: string | undefined) =>
   queryOptions({
     queryKey: keys.chatRoom(id),
-    queryFn: () => getChatRoom(id),
+    queryFn: id ? () => getChatRoom(id) : skipToken,
   })
 export const messagesQuery = (id: string) =>
   infiniteQueryOptions({

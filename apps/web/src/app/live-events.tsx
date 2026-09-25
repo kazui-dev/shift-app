@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { subscribeLiveEvents } from "@/app/api/live-events"
 import { applyLiveEvent } from "@/app/data/live-events"
-import { useChatStore } from "@/features/chat/components/use-chat-store"
+import { useChatStore } from "@/features/chat/hooks/use-chat-store"
 import { useOfflineMode } from "@/app/offline-mode-context"
 
 /** Keeps chat and every other shared view current while the app is open. */

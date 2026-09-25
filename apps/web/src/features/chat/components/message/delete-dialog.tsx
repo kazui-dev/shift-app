@@ -7,7 +7,7 @@ import {
   optimisticallyDeleteMessage,
   receiveMessage,
 } from "@/features/chat/data/chat-cache"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import { toast } from "@workspace/ui/lib/toast"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 

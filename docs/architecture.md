@@ -31,6 +31,8 @@ Web の `routes` は URL に固有の処理と機能の合成を担当する。�
 
 管理画面の `management` は画面の組み立てと選択年度を所有する。シフト一覧・編集とその表示状態は `shifts`、希望の受付日程と提出状況は `availability` が所有する。カレンダーはこれらの機能が公開する query と操作を使って本人の画面を組み立てる。
 
+チャットでは `lib/store.ts` が端末に残す下書き・送信待ちと画像転送の順序を調整し、`lib/storage.ts` が IndexedDB への保存を担当する。`data` はサーバーの query・cache 更新・会話の先読みを所有し、画面の hook と component はそれらを利用する。`app` は起動と接続のライフサイクルを組み立て、チャット固有の cache 更新はチャット機能へ委ねる。
+
 API は `routes/api.ts` と `routes/me`、`routes/years` が公開 URL を組み立てる。機能別 `routes` は入力、認証・認可、HTTP 応答を担当する。`domain` は純粋な規則、`services` は D1・Push・画像などの I/O、`durable-objects` はチャットの順序制御と接続を担当する。共通境界は `auth` と `lib` が所有する。API テストは `apps/api/test` に置く。
 
 `packages/shared` の契約は Web の応答検証と API の入力検証で共有する。DB の table 定義と HTTP 契約は別の境界であり、DB table をそのまま外部へ公開しない。`packages/db/src/schema.ts` は領域別 table の公開入口、SQL migration は `apps/api/migrations` に置く。認証用 Better Auth table は `packages/db/src/auth-schema.ts` に置く。

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import { chatStore } from "@/features/chat/lib/store"
 export function useChatStore() {
   const member = useChatMember()

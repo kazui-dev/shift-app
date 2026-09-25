@@ -19,7 +19,7 @@ import { errorMessage } from "@/lib/http/client"
 import { removeRoom } from "@/features/chat/data/chat-cache"
 import { RoomSettings } from "@/features/chat/components/room/settings"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { useChatStore } from "@/features/chat/components/use-chat-store"
+import { useChatStore } from "@/features/chat/hooks/use-chat-store"
 import { RoutePage } from "@/app/route-page"
 
 export function RoomSettingsPage() {

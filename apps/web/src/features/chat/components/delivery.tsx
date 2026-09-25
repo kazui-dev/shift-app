@@ -2,7 +2,7 @@ import { keys } from "@/app/data/keys"
 import { useEffect } from "react"
 import { receiveMessage } from "@/features/chat/data/chat-cache"
 import { useQueryClient } from "@tanstack/react-query"
-import { useChatStore } from "@/features/chat/components/use-chat-store"
+import { useChatStore } from "@/features/chat/hooks/use-chat-store"
 import { useOfflineMode } from "@/app/offline-mode-context"
 
 export function ChatDelivery() {

@@ -1,17 +1,16 @@
-import type { InfiniteData, QueryClient } from "@tanstack/react-query"
+import type { QueryClient } from "@tanstack/react-query"
 import * as v from "valibot"
 import {
   dataEventSchema,
   type DataEvent,
   type LiveEvent,
 } from "@workspace/shared/live"
-import type { getChatMembers, getChatMessages } from "@/features/chat/api/chat"
-import { applyChatEvent } from "../../features/chat/data/chat-events"
+import {
+  applyChatEvent,
+  changeChatProfile,
+} from "@/features/chat/data/chat-events"
 import { keys, roomKeys } from "./keys"
 import { refreshMemberships } from "./sync"
-
-type Messages = InfiniteData<Awaited<ReturnType<typeof getChatMessages>>>
-type Members = Awaited<ReturnType<typeof getChatMembers>>
 
 /** What a missed event could have changed outside chat. */
 const reconnectKeys = [
@@ -26,50 +25,6 @@ const reconnectKeys = [
 
 function invalidate(client: QueryClient, cacheKeys: unknown[][]) {
   for (const queryKey of cacheKeys) void client.invalidateQueries({ queryKey })
-}
-
-/** Shows a new profile image on every cached post and member list at once. */
-function changeProfile(
-  client: QueryClient,
-  memberId: string,
-  image: string | null
-) {
-  client.setQueriesData<Messages>(
-    { queryKey: keys.chatMessages() },
-    (current) => {
-      if (!current) return current
-      const posts = current.pages.flatMap((page) => page.messages)
-      // Replies name no member; one quoting a cached post of theirs is known.
-      const theirs = new Set(
-        posts
-          .filter((post) => post.memberId === memberId)
-          .map((post) => post.id)
-      )
-      return {
-        ...current,
-        pages: current.pages.map((page) => ({
-          ...page,
-          messages: page.messages.map((message) => ({
-            ...message,
-            ...(message.memberId === memberId ? { memberImage: image } : {}),
-            ...(message.reply && theirs.has(message.reply.id)
-              ? { reply: { ...message.reply, memberImage: image } }
-              : {}),
-          })),
-        })),
-      }
-    }
-  )
-  client.setQueriesData<Members>(
-    { queryKey: keys.chatMembers() },
-    (current) =>
-      current && {
-        ...current,
-        members: current.members.map((member) =>
-          member.id === memberId ? { ...member, image } : member
-        ),
-      }
-  )
 }
 
 function applyDataEvent(client: QueryClient, event: DataEvent) {
@@ -104,7 +59,7 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
       invalidate(client, [keys.availabilitySubmissions(event.year)])
       return
     case "profile_changed":
-      changeProfile(client, event.memberId, event.image)
+      changeChatProfile(client, event.memberId, event.image)
   }
 }
 

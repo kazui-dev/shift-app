@@ -1,8 +1,7 @@
 import { MessageTargetProvider } from "@/features/chat/components/message/target"
 import { useCloseOverlay } from "@/features/chat/components/overlay"
-import { keys } from "@/app/data/keys"
 import { RoutePage } from "@/app/route-page"
-import { prepareConversation, roomsQuery } from "@/features/chat/data/chat"
+import { roomQuery, roomsQuery } from "@/features/chat/data/chat"
 import { warmConversation } from "@/features/chat/data/chat-warm"
 import {
   Outlet,
@@ -11,9 +10,8 @@ import {
   useRouterState,
 } from "@tanstack/react-router"
 import { useChatNavigation } from "@/features/chat/components/use-chat-navigation"
-import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
-import { getChatRoom } from "@/features/chat/api/chat"
 import { useDisplayYear } from "@/app/use-display-year"
 import { useOfflineMode } from "@/app/offline-mode-context"
 import { RoomList } from "@/features/chat/components/room/list"
@@ -52,13 +50,11 @@ function ChatScreen() {
   const student = account.member.studentId
   useEffect(() => {
     if (!roomId || offline) return
-    void prepareConversation(client, roomId)
     void warmConversation(client, roomId, student)
   }, [client, roomId, offline, student])
 
   const room = useQuery({
-    queryKey: keys.chatRoom(retainedId),
-    queryFn: retainedId ? () => getChatRoom(retainedId) : skipToken,
+    ...roomQuery(retainedId),
     enabled: !offline && !!roomId,
   })
   const missing = room.error instanceof ApiError && room.error.status === 404
@@ -80,7 +76,6 @@ function ChatScreen() {
     for (const item of rooms.data?.rooms.slice(0, 5) ?? []) {
       if (warmed.current.has(item.id)) continue
       warmed.current.add(item.id)
-      void prepareConversation(client, item.id)
       void warmConversation(client, item.id, student)
     }
   }, [client, rooms.data, offline, student])

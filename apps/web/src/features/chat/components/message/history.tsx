@@ -16,7 +16,7 @@ import {
 } from "@/features/chat/components/message/list"
 import { ChatMessageRow } from "@/features/chat/components/message/row"
 import { OfflineSendDialog } from "@/features/chat/components/message/offline-send-dialog"
-import { useChatStore } from "@/features/chat/components/use-chat-store"
+import { useChatStore } from "@/features/chat/hooks/use-chat-store"
 import { useMessageEdit } from "@/features/chat/components/message/use-edit"
 import { useMessageScroll } from "@/features/chat/components/message/use-scroll"
 import { useMessageTarget } from "@/features/chat/components/message/use-target"

@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
-import { frameHeight, tileSizes } from "@/features/chat/components/image/frame"
-import { messagesQuery } from "@/features/chat/data/chat"
+import { frameHeight, tileSizes } from "@/features/chat/lib/image-frame"
+import { messagesQuery, roomQuery } from "@/features/chat/data/chat"
 import {
   acquireChatImage,
   acquireLinkImage,
@@ -92,6 +92,7 @@ export async function warmConversation(
   id: string,
   user: string
 ) {
+  void client.prefetchQuery(roomQuery(id))
   const loaded = await client
     .fetchInfiniteQuery(messagesQuery(id))
     .catch(() => undefined)

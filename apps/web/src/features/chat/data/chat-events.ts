@@ -1,6 +1,7 @@
-import type { QueryClient } from "@tanstack/react-query"
+import type { InfiniteData, QueryClient } from "@tanstack/react-query"
 import { keys, roomKeys } from "../../../app/data/keys"
 import type { ChatEvent } from "@workspace/shared/communications"
+import type { getChatMembers, getChatMessages } from "@/features/chat/api/chat"
 import { forgetImages } from "@/features/chat/lib/image-cache"
 import {
   cachedAttachmentIds,
@@ -8,6 +9,52 @@ import {
   updateRoom,
   removeRoom,
 } from "./chat-cache"
+
+type Messages = InfiniteData<Awaited<ReturnType<typeof getChatMessages>>>
+type Members = Awaited<ReturnType<typeof getChatMembers>>
+
+/** Update cached chat views when a member's profile changes. */
+export function changeChatProfile(
+  client: QueryClient,
+  memberId: string,
+  image: string | null
+) {
+  client.setQueriesData<Messages>(
+    { queryKey: keys.chatMessages() },
+    (current) => {
+      if (!current) return current
+      const posts = current.pages.flatMap((page) => page.messages)
+      const theirs = new Set(
+        posts
+          .filter((post) => post.memberId === memberId)
+          .map((post) => post.id)
+      )
+      return {
+        ...current,
+        pages: current.pages.map((page) => ({
+          ...page,
+          messages: page.messages.map((message) => ({
+            ...message,
+            ...(message.memberId === memberId ? { memberImage: image } : {}),
+            ...(message.reply && theirs.has(message.reply.id)
+              ? { reply: { ...message.reply, memberImage: image } }
+              : {}),
+          })),
+        })),
+      }
+    }
+  )
+  client.setQueriesData<Members>(
+    { queryKey: keys.chatMembers() },
+    (current) =>
+      current && {
+        ...current,
+        members: current.members.map((member) =>
+          member.id === memberId ? { ...member, image } : member
+        ),
+      }
+  )
+}
 
 export function applyChatEvent(
   client: QueryClient,

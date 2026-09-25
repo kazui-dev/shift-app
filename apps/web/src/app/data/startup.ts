@@ -1,4 +1,8 @@
 import { chatRoomId } from "@/features/chat/lib/location"
+import {
+  savedManagementYear,
+  selectManagementYear,
+} from "@/features/management/year-selection"
 import * as v from "valibot"
 import type { QueryClient } from "@tanstack/react-query"
 import { usersQuery, auditQuery, linksQuery } from "@/features/admin/data/admin"
@@ -13,7 +17,7 @@ import {
   rolesQuery,
   rosterQuery,
 } from "@/features/years/data/years"
-import { roomsQuery, prepareConversation } from "@/features/chat/data/chat"
+import { roomsQuery } from "@/features/chat/data/chat"
 import { warmConversation } from "@/features/chat/data/chat-warm"
 import {
   activitiesQuery,
@@ -55,19 +59,11 @@ export async function prepareApp(
     if (pathname === "/calendar/availability")
       wait(availabilityQuery(year).queryKey, availability)
   }
-  const manageable = available.years.filter((item) => item.canManage)
-  let saved: number | null = null
-  try {
-    const value = localStorage.getItem(`management-year:${studentId}`)
-    if (value) saved = Number(value)
-  } catch {
-    /* Storage is optional. */
-  }
-  const managementYear =
-    manageable.find((item) => item.year === saved)?.year ??
-    manageable.find((item) => item.isDefault)?.year ??
-    manageable[0]?.year
-  if (managementYear !== undefined) {
+  const managementYear = selectManagementYear(
+    available.years,
+    savedManagementYear(studentId)
+  )
+  if (managementYear !== null) {
     const activities = client.prefetchQuery(activitiesQuery(managementYear))
     if (pathname === "/manage/shifts")
       wait(activitiesQuery(managementYear).queryKey, activities)
@@ -110,7 +106,6 @@ export async function prepareApp(
     )
   const room = chatRoomId(pathname)
   if (room) {
-    void prepareConversation(client, room)
     void warmConversation(client, room, studentId)
   }
   await Promise.all(work)

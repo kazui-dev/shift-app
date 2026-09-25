@@ -1,5 +1,5 @@
 import { useRef } from "react"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import type { ChatImageSize } from "@workspace/shared/communications"
 import {
   acquireChatImage,

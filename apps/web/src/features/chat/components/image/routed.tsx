@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useChatMember } from "@/features/chat/components/use-chat-member"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
 import { useCloseOverlay } from "@/features/chat/components/overlay"
 import { keys } from "@/app/data/keys"
 import { useQuery } from "@tanstack/react-query"
