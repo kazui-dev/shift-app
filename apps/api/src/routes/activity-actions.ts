@@ -63,59 +63,71 @@ activityActionsApp.post(
       .toISOString()
       .slice(0, 10)
     const delta = japanDateStart(input.output.date) - japanDateStart(date)
-    await c.env.shift_app.batch([
-      c.env.shift_app
-        .prepare(`INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,notes,created_by,updated_by,created_at,updated_at)
+    try {
+      await c.env.shift_app.batch([
+        c.env.shift_app
+          .prepare(`INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,notes,created_by,updated_by,created_at,updated_at)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-        .bind(
-          id,
-          old.activity.year,
-          old.activity.name,
-          old.activity.place,
-          old.activity.activityType,
-          Date.parse(old.activity.startsAt) + delta,
-          Date.parse(old.activity.endsAt) + delta,
-          old.activity.color,
-          old.activity.notes,
-          actor.id,
-          actor.id,
-          now,
+          .bind(
+            id,
+            old.activity.year,
+            old.activity.name,
+            old.activity.place,
+            old.activity.activityType,
+            Date.parse(old.activity.startsAt) + delta,
+            Date.parse(old.activity.endsAt) + delta,
+            old.activity.color,
+            old.activity.notes,
+            actor.id,
+            actor.id,
+            now,
+            now
+          ),
+        ...roomStatements(
+          c.env.shift_app,
+          activityRoom({
+            id,
+            year: old.activity.year,
+            name: old.activity.name,
+            createdBy: actor.id,
+          }),
           now
         ),
-      ...roomStatements(
-        c.env.shift_app,
-        activityRoom({
-          id,
-          year: old.activity.year,
-          name: old.activity.name,
-          createdBy: actor.id,
-        }),
-        now
-      ),
-      ...old.responsibles.map((r) =>
+        ...old.responsibles.map((r) =>
+          c.env.shift_app
+            .prepare("INSERT INTO activity_responsibles VALUES (?,?,?)")
+            .bind(id, r.targetType, r.targetId)
+        ),
+        ...old.candidateRoleIds.map((roleId) =>
+          c.env.shift_app
+            .prepare("INSERT INTO activity_candidate_roles VALUES (?,?)")
+            .bind(id, roleId)
+        ),
+        ...old.slots.map((slot) =>
+          c.env.shift_app
+            .prepare(
+              "INSERT INTO shift_slots (id,activity_id,starts_at,ends_at,capacity) VALUES (?,?,?,?,?)"
+            )
+            .bind(
+              crypto.randomUUID(),
+              id,
+              Date.parse(slot.startsAt) + delta,
+              Date.parse(slot.endsAt) + delta,
+              slot.capacity
+            )
+        ),
         c.env.shift_app
-          .prepare("INSERT INTO activity_responsibles VALUES (?,?,?)")
-          .bind(id, r.targetType, r.targetId)
-      ),
-      ...old.candidateRoleIds.map((roleId) =>
-        c.env.shift_app
-          .prepare("INSERT INTO activity_candidate_roles VALUES (?,?)")
-          .bind(id, roleId)
-      ),
-      ...old.slots.map((slot) =>
-        c.env.shift_app
-          .prepare(
-            "INSERT INTO shift_slots (id,activity_id,starts_at,ends_at,capacity) VALUES (?,?,?,?,?)"
-          )
-          .bind(
-            crypto.randomUUID(),
-            id,
-            Date.parse(slot.startsAt) + delta,
-            Date.parse(slot.endsAt) + delta,
-            slot.capacity
-          )
-      ),
-    ])
+          .prepare("UPDATE activities SET active=1 WHERE id=?")
+          .bind(id),
+      ])
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("RESPONSIBLE_REQUIRED")
+      )
+        return apiError(c, errors.responsibleRequired)
+      throw error
+    }
     return c.json({ id }, 201)
   }
 )

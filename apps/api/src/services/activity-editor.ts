@@ -1,3 +1,10 @@
+import {
+  planningMembers,
+  planningRoles,
+  planningSubmissions,
+  planningWindows,
+  planningAssignments,
+} from "./directory-work"
 import { toIso } from "../lib/http"
 export async function readActivityEditor(db: D1Database, id: string) {
   const activity = await db
@@ -56,13 +63,13 @@ export async function readActivityEditor(db: D1Database, id: string) {
       }>(),
     db
       .prepare(
-        "SELECT a.id, a.slot_id AS slotId, a.member_id AS memberId FROM shift_assignments a JOIN shift_slots s ON s.id = a.slot_id WHERE s.activity_id = ? AND a.status = 'active'"
+        `SELECT a.id, a.slot_id AS slotId, a.member_id AS memberId FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id WHERE s.activity_id = ? AND a.status = 'active'`
       )
       .bind(id)
       .all<{ id: string; slotId: string; memberId: string }>(),
     db
       .prepare(
-        "SELECT m.id, identity.image, m.display_name AS displayName, m.student_id AS studentId FROM year_memberships ym JOIN app_users m ON m.id = ym.member_id LEFT JOIN user identity ON identity.id = m.user_id WHERE ym.year = ? AND ym.status = 'active' ORDER BY m.student_id"
+        `SELECT m.id, identity.image, m.display_name AS displayName, m.student_id AS studentId FROM ${planningMembers} m LEFT JOIN user identity ON identity.id = m.user_id WHERE m.year = ? ORDER BY m.student_id`
       )
       .bind(activity.year)
       .all<{
@@ -79,25 +86,25 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .all<{ id: string; name: string; color: string }>(),
     db
       .prepare(
-        "SELECT mr.member_id AS memberId, r.id, r.name, r.color FROM member_year_roles mr JOIN year_roles r ON r.id = mr.role_id WHERE r.year = ?"
+        `SELECT mr.member_id AS memberId, r.id, r.name, r.color FROM ${planningRoles} mr JOIN year_roles r ON r.id = mr.role_id WHERE r.year = ?`
       )
       .bind(activity.year)
       .all<{ memberId: string; id: string; name: string; color: string }>(),
     db
       .prepare(
-        `SELECT s.member_id AS memberId, w.starts_at AS startsAt, w.ends_at AS endsAt FROM availability_submissions s JOIN availability_windows w ON w.submission_id = s.id WHERE s.year = ? AND s.status = 'submitted'`
+        `SELECT s.member_id AS memberId, w.starts_at AS startsAt, w.ends_at AS endsAt FROM ${planningSubmissions} s JOIN ${planningWindows} w ON w.submission_id = s.id WHERE s.year = ? AND s.status = 'submitted'`
       )
       .bind(activity.year)
       .all<{ memberId: string; startsAt: number; endsAt: number }>(),
     db
       .prepare(
-        "SELECT member_id AS memberId FROM availability_submissions WHERE year = ? AND status = 'submitted'"
+        `SELECT member_id AS memberId FROM ${planningSubmissions} WHERE year = ? AND status = 'submitted'`
       )
       .bind(activity.year)
       .all<{ memberId: string }>(),
     db
       .prepare(
-        `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name FROM shift_assignments a JOIN shift_slots s ON s.id = a.slot_id JOIN activities act ON act.id = s.activity_id WHERE a.status = 'active' AND act.id <> ? AND act.year = ?`
+        `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id JOIN activities act ON act.id = s.activity_id WHERE a.status = 'active' AND act.id <> ? AND act.year = ?`
       )
       .bind(id, activity.year)
       .all<{

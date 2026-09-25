@@ -1,3 +1,4 @@
+import { planningAssignments } from "../../services/directory-work"
 import { activityRoom, roomStatements } from "../../services/chat-creation"
 import { canManageYear } from "../../services/role-authority"
 import { Hono } from "hono"
@@ -39,7 +40,7 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
          activity.ends_at AS endsAt,
          activity.color,
          activity.notes,
-         (SELECT COUNT(*) FROM shift_assignments assignment JOIN shift_slots slot ON slot.id = assignment.slot_id
+         (SELECT COUNT(*) FROM ${planningAssignments} assignment JOIN shift_slots slot ON slot.id = assignment.slot_id
           WHERE slot.activity_id = activity.id AND assignment.status = 'active') AS assignmentCount
        FROM activities activity
        WHERE activity.year = ? AND (? OR EXISTS(SELECT 1 FROM activity_effective_responsibles r WHERE r.activity_id=activity.id AND r.member_id=?) OR (activity.created_by=? AND activity.active=0))
@@ -72,6 +73,9 @@ yearActivitiesApp.post(
     if (!parsed.success) {
       return apiError(c, errors.invalidActivity, parsed.issues[0]?.message)
     }
+
+    if (parsed.output.responsibles.length === 0)
+      return apiError(c, errors.responsibleRequired)
 
     const eligible = await c.env.shift_app
       .prepare(
@@ -121,33 +125,46 @@ yearActivitiesApp.post(
         year
       )
 
-    const results = await c.env.shift_app.batch([
-      statement,
-      ...roomStatements(
-        c.env.shift_app,
-        activityRoom({
-          id,
-          year,
-          name: parsed.output.name,
-          createdBy: member.id,
-        }),
-        now
-      ),
-      ...parsed.output.responsibles.map((target) =>
+    let results: D1Result[]
+    try {
+      results = await c.env.shift_app.batch([
+        statement,
+        ...roomStatements(
+          c.env.shift_app,
+          activityRoom({
+            id,
+            year,
+            name: parsed.output.name,
+            createdBy: member.id,
+          }),
+          now
+        ),
+        ...parsed.output.responsibles.map((target) =>
+          c.env.shift_app
+            .prepare(
+              "INSERT INTO activity_responsibles (activity_id,target_type,target_id) SELECT id,?,? FROM activities WHERE id=?"
+            )
+            .bind(target.targetType, target.targetId, id)
+        ),
+        ...parsed.output.candidateRoleIds.map((roleId) =>
+          c.env.shift_app
+            .prepare(
+              "INSERT INTO activity_candidate_roles (activity_id,role_id) SELECT id,? FROM activities WHERE id=?"
+            )
+            .bind(roleId, id)
+        ),
         c.env.shift_app
-          .prepare(
-            "INSERT INTO activity_responsibles (activity_id,target_type,target_id) SELECT id,?,? FROM activities WHERE id=?"
-          )
-          .bind(target.targetType, target.targetId, id)
-      ),
-      ...parsed.output.candidateRoleIds.map((roleId) =>
-        c.env.shift_app
-          .prepare(
-            "INSERT INTO activity_candidate_roles (activity_id,role_id) SELECT id,? FROM activities WHERE id=?"
-          )
-          .bind(roleId, id)
-      ),
-    ])
+          .prepare("UPDATE activities SET active=1 WHERE id=?")
+          .bind(id),
+      ])
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("RESPONSIBLE_REQUIRED")
+      )
+        return apiError(c, errors.responsibleRequired)
+      throw error
+    }
     const result = results[0]
 
     if (!result?.results.length) {
@@ -160,7 +177,7 @@ yearActivitiesApp.post(
           id,
           year,
           ...parsed.output,
-          active: 0,
+          active: 1,
           version: 1,
           startsAt: Date.parse(parsed.output.startsAt),
           endsAt: Date.parse(parsed.output.endsAt),

@@ -1,3 +1,4 @@
+import { planningAssignments } from "./directory-work"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 
 export async function saveShiftPlan(
@@ -10,10 +11,18 @@ export async function saveShiftPlan(
   const now = Date.now()
   const previous = await db
     .prepare(
-      `SELECT a.id, a.slot_id AS slotId, a.member_id AS memberId FROM shift_assignments a JOIN shift_slots s ON s.id = a.slot_id WHERE s.activity_id = ? AND a.status = 'active'`
+      `SELECT a.id, a.slot_id AS slotId, a.member_id AS memberId FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id WHERE s.activity_id = ? AND a.status = 'active'`
     )
     .bind(id)
     .all<{ id: string; slotId: string; memberId: string }>()
+  const directory = await db
+    .prepare(`SELECT survey.id,survey.entry_id AS entryId FROM directory_availability_submissions survey
+    JOIN student_directory d ON d.id=survey.entry_id JOIN activities a ON a.year=d.year WHERE a.id=?`)
+    .bind(id)
+    .all<{ id: string; entryId: string }>()
+  const directoryIds = new Map(
+    directory.results.map((entry) => [entry.id, entry.entryId])
+  )
   const statements = [
     // NOT NULL makes a stale revision abort the entire D1 batch before any write.
     db
@@ -52,6 +61,11 @@ export async function saveShiftPlan(
         `UPDATE shift_assignments SET status='cancelled',cancelled_by=?,cancelled_at=?,updated_at=? WHERE slot_id IN (SELECT id FROM shift_slots WHERE activity_id=?) AND status='active'`
       )
       .bind(actor, now, now, id),
+    db
+      .prepare(
+        "DELETE FROM directory_shift_assignments WHERE slot_id IN (SELECT id FROM shift_slots WHERE activity_id=?)"
+      )
+      .bind(id),
     db.prepare("UPDATE shift_slots SET deleted=1 WHERE activity_id=?").bind(id),
     db
       .prepare("DELETE FROM activity_responsibles WHERE activity_id=?")
@@ -92,7 +106,23 @@ export async function saveShiftPlan(
       const existing = previous.results.find(
         (item) => item.slotId === slot.id && item.memberId === memberId
       )
-      if (existing)
+      const entryId = directoryIds.get(memberId)
+      if (entryId)
+        statements.push(
+          db
+            .prepare(
+              "INSERT INTO directory_shift_assignments (id,slot_id,entry_id,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?)"
+            )
+            .bind(
+              existing?.id ?? crypto.randomUUID(),
+              slot.id,
+              entryId,
+              actor,
+              now,
+              now
+            )
+        )
+      else if (existing)
         statements.push(
           db
             .prepare(

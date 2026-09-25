@@ -274,6 +274,27 @@
       "when": 1789713679877,
       "tag": "0038_private_messages",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "6",
+      "when": 1790057549438,
+      "tag": "0039_pending_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "6",
+      "when": 1790059096490,
+      "tag": "0040_directory_work",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1790059158273,
+      "tag": "0041_registered_members_only",
+      "breakpoints": true
     }
   ]
 }

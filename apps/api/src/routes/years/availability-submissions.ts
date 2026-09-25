@@ -1,3 +1,10 @@
+import {
+  planningMembers,
+  planningIdentities,
+  planningSubmissions,
+  planningAnswers,
+  planningWindows,
+} from "../../services/directory-work"
 import * as v from "valibot"
 import { sendMemberNotification } from "../../services/push"
 import { apiError, errors } from "../../lib/errors"
@@ -33,9 +40,9 @@ availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
          availability_date.date,
          window.starts_at AS startsAt,
          window.ends_at AS endsAt
-       FROM availability_submissions submission
-       JOIN app_users member ON member.id = submission.member_id
-       LEFT JOIN availability_windows window ON window.submission_id = submission.id
+       FROM ${planningSubmissions} submission
+       JOIN ${planningIdentities} member ON member.id = submission.member_id
+       LEFT JOIN ${planningWindows} window ON window.submission_id = submission.id
        LEFT JOIN availability_dates availability_date
          ON availability_date.id = window.availability_date_id
        WHERE submission.year = ? AND submission.status='submitted'
@@ -54,11 +61,11 @@ availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
 async function readProgress(db: D1Database, year: number) {
   const result = await db
     .prepare(`SELECT m.id AS memberId,m.display_name AS displayName,m.student_id AS studentId,identity.image AS image,
-    NOT EXISTS(SELECT 1 FROM availability_dates d WHERE d.year=ym.year AND d.deleted=0 AND d.accepting=1 AND NOT EXISTS(
-      SELECT 1 FROM availability_submissions s JOIN availability_day_answers answer ON answer.submission_id=s.id
-      WHERE s.year=ym.year AND s.member_id=ym.member_id AND s.status='submitted' AND answer.date_id=d.id AND answer.date_version=d.version)) AS complete
-    FROM year_memberships ym JOIN app_users m ON m.id=ym.member_id
-    LEFT JOIN user identity ON identity.id=m.user_id WHERE ym.year=? AND ym.status='active' ORDER BY m.student_id`)
+    NOT EXISTS(SELECT 1 FROM availability_dates d WHERE d.year=m.year AND d.deleted=0 AND d.accepting=1 AND NOT EXISTS(
+      SELECT 1 FROM ${planningSubmissions} s JOIN ${planningAnswers} answer ON answer.submission_id=s.id
+      WHERE s.year=m.year AND s.member_id=m.id AND s.status='submitted' AND answer.date_id=d.id AND answer.date_version=d.version)) AS complete
+    FROM ${planningMembers} m
+    LEFT JOIN user identity ON identity.id=m.user_id WHERE m.year=? ORDER BY m.student_id`)
     .bind(year)
     .all<{
       memberId: string

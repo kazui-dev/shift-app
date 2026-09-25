@@ -136,7 +136,7 @@ export const createYearRoleInputSchema = v.object({
 
 const activityFields = {
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
-  place: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
+  place: v.pipe(v.string(), v.trim(), v.maxLength(120)),
   activityType: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(80)),
   startsAt: instantSchema,
   endsAt: instantSchema,

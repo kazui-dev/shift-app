@@ -841,3 +841,80 @@ export const chatRoomExits = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.roomId, table.memberId] })]
 )
+
+// Temporary directory-owned work for external survey responses; see docs/compatibility.md.
+export const directoryAvailabilitySubmissions = sqliteTable(
+  "directory_availability_submissions",
+  {
+    id: text("id").primaryKey(),
+    entryId: text("entry_id")
+      .notNull()
+      .unique()
+      .references(() => studentDirectory.id, { onDelete: "cascade" }),
+    submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  }
+)
+export const directoryAvailabilityDayAnswers = sqliteTable(
+  "directory_availability_day_answers",
+  {
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => directoryAvailabilitySubmissions.id, {
+        onDelete: "cascade",
+      }),
+    dateId: text("date_id")
+      .notNull()
+      .references(() => availabilityDates.id, { onDelete: "cascade" }),
+    dateVersion: integer("date_version").notNull(),
+    choice: text("choice", { enum: ["all", "times", "no"] }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.submissionId, table.dateId] })]
+)
+export const directoryAvailabilityWindows = sqliteTable(
+  "directory_availability_windows",
+  {
+    id: text("id").primaryKey(),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => directoryAvailabilitySubmissions.id, {
+        onDelete: "cascade",
+      }),
+    availabilityDateId: text("availability_date_id")
+      .notNull()
+      .references(() => availabilityDates.id, { onDelete: "cascade" }),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    check(
+      "directory_windows_time_order_check",
+      sql`${table.startsAt} < ${table.endsAt}`
+    ),
+  ]
+)
+export const directoryShiftAssignments = sqliteTable(
+  "directory_shift_assignments",
+  {
+    id: text("id").primaryKey(),
+    slotId: text("slot_id")
+      .notNull()
+      .references(() => shiftSlots.id, { onDelete: "cascade" }),
+    entryId: text("entry_id")
+      .notNull()
+      .references(() => studentDirectory.id, { onDelete: "cascade" }),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => appUsers.id, { onDelete: "restrict" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("directory_assignments_slot_entry_uidx").on(
+      table.slotId,
+      table.entryId
+    ),
+  ]
+)

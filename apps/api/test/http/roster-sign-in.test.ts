@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test"
 
 import { createAuth } from "../../src/auth"
 import { d1Binding, migrated } from "../support/sqlite"
+import { directoryWork } from "../support/directory-work"
 
 const origin = "https://shift.example.test"
 
@@ -65,6 +66,42 @@ function directory(db: DatabaseSync) {
 const taro = { studentId: "26aj001", displayName: "電大 太郎" }
 
 describe("directory sign-in", () => {
+  it("creates a member only at first sign-in and transfers directory-owned work", async () => {
+    const db = migrated()
+    try {
+      directory(db)
+      directoryWork(db, "d1")
+      expect(db.prepare("SELECT COUNT(*) AS n FROM user").get()?.n).toBe(0)
+      expect(db.prepare("SELECT COUNT(*) AS n FROM account").get()?.n).toBe(0)
+      const wrongName = await signIn(db, { ...taro, displayName: "別人" })
+      expect(wrongName.status).toBe(403)
+      expect(db.prepare("SELECT COUNT(*) AS n FROM app_users").get()?.n).toBe(0)
+
+      const response = await signIn(db, taro)
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ created: true })
+      expect(
+        db.prepare("SELECT id,user_id FROM app_users").get()
+      ).toMatchObject({
+        id: expect.any(String),
+        user_id: expect.any(String),
+      })
+      expect(
+        db.prepare("SELECT member_id FROM availability_submissions").get()
+          ?.member_id
+      ).toBe(db.prepare("SELECT id FROM app_users").get()?.id)
+      expect(
+        db.prepare("SELECT choice FROM availability_day_answers").get()?.choice
+      ).toBe("all")
+      const again = await signIn(db, taro)
+      await expect(again.json()).resolves.toEqual({ created: false })
+      expect(db.prepare("SELECT COUNT(*) AS n FROM user").get()?.n).toBe(1)
+      expect(db.prepare("SELECT COUNT(*) AS n FROM app_users").get()?.n).toBe(1)
+    } finally {
+      db.close()
+    }
+  })
+
   it("creates the member, places them in the year, and reuses the identity", async () => {
     const db = migrated()
     try {

@@ -166,6 +166,10 @@ email や学籍番号の一致による暗黙 linking は無効にする。学�
 
 ### Directory Sign-in
 
+2026年の外部アンケートの未サインイン回答は、名簿に紐付く専用テーブルで保持する。
+メンバーと認証アカウントは初回サインイン時に作成し、そのトランザクションで希望・割当を引き継ぐ。
+管理画面の希望確認とシフト編集のみ名簿側のデータも読む。一時対応の削除条件・手順は[互換と変更の出し方](compatibility.md)に記録する。
+
 `DISCORD_OAUTH_ENABLED` が `"false"` のとき、Discord OAuth の代わりに名簿サインインを構成する。`apps/api/src/auth` は composition (`index.ts`)、Discord provider と所属確認 (`discord.ts`)、名簿サインイン plugin (`roster.ts`)、保存してよいプロフィール画像の判定 (`profile-image.ts`) に分かれ、provider は常にどちらか一方だけを構成する。名簿の照会と配置は `services/student-directory.ts` が持つ。
 
 ```mermaid

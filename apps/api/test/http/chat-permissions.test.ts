@@ -418,11 +418,40 @@ it("creates annual rooms in the server transaction and rejects duplicate years w
   ).toBe(0)
 })
 
+it.each([false, true])(
+  "rejects creation without an effective responsible atomically (revoked: %s)",
+  async (revoked) => {
+    const f = fixture()
+    if (revoked)
+      f.beforeBatch(() => {
+        f.db
+          .prepare(
+            "UPDATE year_memberships SET status='inactive' WHERE member_id=?"
+          )
+          .run(member)
+      })
+    const response = await f.request("/years/2026/activities", "POST", {
+      name: "受付",
+      place: "",
+      activityType: "勤務",
+      startsAt: "2026-09-13T10:00:00+09:00",
+      endsAt: "2026-09-13T11:00:00+09:00",
+      color: "#888888",
+      responsibles: revoked ? [{ targetType: "member", targetId: member }] : [],
+    })
+    expect(response.status).toBe(409)
+    expect(f.db.prepare("SELECT * FROM activities").all()).toHaveLength(0)
+    expect(
+      f.db.prepare("SELECT * FROM activity_chat_rooms").all()
+    ).toHaveLength(0)
+  }
+)
+
 it("creates and copies a shift with distinct linked rooms and retains the calendar report destination", async () => {
   const f = fixture()
   const response = await f.request("/years/2026/activities", "POST", {
     name: "受付",
-    place: "入口",
+    place: "",
     activityType: "勤務",
     startsAt: "2026-09-13T10:00:00+09:00",
     endsAt: "2026-09-13T11:00:00+09:00",
@@ -437,7 +466,13 @@ it("creates and copies a shift with distinct linked rooms and retains the calend
   const activityId = String(link?.activity_id),
     roomId = String(link?.room_id)
   expect(activityId).not.toBe(roomId)
-  f.db.prepare("UPDATE activities SET active=1 WHERE id=?").run(activityId)
+  expect(await response.json()).toMatchObject({
+    activity: { active: true, place: "" },
+  })
+  expect(
+    f.db.prepare("SELECT active FROM activities WHERE id=?").get(activityId)
+      ?.active
+  ).toBe(1)
   f.db
     .prepare(
       "INSERT INTO shift_slots(id,activity_id,starts_at,ends_at) VALUES('slot',?,?,?)"
@@ -467,6 +502,10 @@ it("creates and copies a shift with distinct linked rooms and retains the calend
     date: "2026-09-14",
   })
   expect(copy.status).toBe(201)
+  expect(f.db.prepare("SELECT active FROM activities").all()).toEqual([
+    { active: 1 },
+    { active: 1 },
+  ])
   expect(
     f.db.prepare("SELECT room_id FROM activity_chat_rooms").all()
   ).toHaveLength(2)
