@@ -9,7 +9,7 @@ import {
   requireSameOriginForMutation,
 } from "../lib/http"
 import { activitiesApp } from "../features/activities/routes/activities"
-import { assignmentsApp } from "../features/assignments/routes/assignments"
+import { attendanceApp } from "../features/attendance/routes/attendance"
 import { chatApp } from "../features/chat/routes/index"
 import { openLiveEvents } from "../features/live/routes/events"
 import { meApp } from "./me/index"
@@ -37,7 +37,7 @@ apiApp.route("/years", yearsApp)
 apiApp.route("/year-settings", yearSettingsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
-apiApp.route("/assignments", assignmentsApp)
+apiApp.route("/assignments", attendanceApp)
 apiApp.route("/chat", chatApp)
 
 apiApp.notFound((c) => apiError(c, errors.routeNotFound))

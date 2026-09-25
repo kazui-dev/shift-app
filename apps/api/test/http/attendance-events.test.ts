@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { errorBody, errors } from "../../src/lib/errors"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { assignmentsApp } from "../../src/features/assignments/routes/assignments"
+import { attendanceApp } from "../../src/features/attendance/routes/attendance"
 import { canManageActivity } from "../../src/features/activities/services/activity-access"
 vi.mock("../../src/features/activities/services/activity-access", () => ({
   canManageActivity: vi.fn<typeof canManageActivity>(),
@@ -62,7 +62,7 @@ describe("attendance history visibility", () => {
       })
       await next()
     })
-    app.route("/", assignmentsApp)
+    app.route("/", attendanceApp)
     const response = await app.request(
       `/${assignmentId}/attendance/events`,
       {},

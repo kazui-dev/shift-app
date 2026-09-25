@@ -1,9 +1,9 @@
 import { Hono } from "hono"
 import { describe, expect, it } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { assignmentsApp } from "../../src/features/assignments/routes/assignments"
+import { attendanceApp } from "../../src/features/attendance/routes/attendance"
 const app = new Hono<ApiEnv>()
-app.route("/assignments", assignmentsApp)
+app.route("/assignments", attendanceApp)
 const url = "/assignments/00000000-0000-4000-8000-000000000001/attendance"
 describe("attendance input boundary", () => {
   it.each([
