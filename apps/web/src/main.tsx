@@ -11,16 +11,16 @@ import {
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 
 import "@workspace/ui/globals.css"
-import "./app-layout.css"
-import { AppToaster } from "@/components/app-toaster.tsx"
-import { PwaUpdateNotice } from "@/components/pwa-update-notice.tsx"
-import { ThemeProvider } from "@/components/theme-provider.tsx"
+import "./app/app-layout.css"
+import { AppToaster } from "@/app/app-toaster.tsx"
+import { PwaUpdateNotice } from "@/app/pwa-update-notice.tsx"
+import { ThemeProvider } from "@/app/theme-provider.tsx"
 import {
   persister,
   queryClient,
   shouldPersistQueryKey,
-} from "@/data/query-client.ts"
-import { pruneCachedImages } from "@/lib/chat/image-cache"
+} from "@/app/data/query-client.ts"
+import { pruneCachedImages } from "@/features/chat/lib/image-cache"
 import { routeTree } from "./routeTree.gen.ts"
 
 void pruneCachedImages()

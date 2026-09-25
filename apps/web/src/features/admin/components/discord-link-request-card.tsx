@@ -1,0 +1,101 @@
+import { useState } from "react"
+import { keys } from "@/app/data/keys"
+import { useQueryClient } from "@tanstack/react-query"
+import { LoaderCircle } from "lucide-react"
+
+import type { IdentityLinkRequest } from "@workspace/shared/auth"
+import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { toast } from "@workspace/ui/lib/toast"
+
+import { decideDiscordLinkRequest } from "@/features/admin/api/admin"
+import { errorMessage } from "@/lib/http/client"
+import { ConfirmDialog } from "@/components/confirm-dialog"
+
+export function DiscordLinkRequestCard({
+  request,
+}: {
+  request: IdentityLinkRequest
+}) {
+  const queryClient = useQueryClient()
+  const [reason, setReason] = useState("")
+  const [pending, setPending] = useState<"approved" | "rejected" | null>(null)
+  const [confirmApproval, setConfirmApproval] = useState(false)
+
+  async function decide(decision: "approved" | "rejected") {
+    if (!reason.trim()) {
+      toast.error("判断理由を入力してください。")
+      return
+    }
+    setPending(decision)
+    try {
+      await decideDiscordLinkRequest(request.id, { decision, reason })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: keys.adminLinkRequests(),
+        }),
+        queryClient.invalidateQueries({ queryKey: keys.adminUsers() }),
+        queryClient.invalidateQueries({ queryKey: keys.adminAuditLogs() }),
+      ])
+    } catch (caught) {
+      toast.error(errorMessage(caught))
+    } finally {
+      setPending(null)
+    }
+  }
+
+  return (
+    <li className="space-y-3 py-4">
+      <div>
+        <p className="font-medium">{request.requesterDisplayName}</p>
+        <p className="text-xs text-muted-foreground">
+          連携先: {request.targetDisplayName}（{request.targetStudentId}）
+        </p>
+      </div>
+      <Input
+        className="h-11"
+        maxLength={240}
+        placeholder="本人確認の方法、または拒否理由"
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+      />
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={
+            request.targetsCurrentAdmin || !reason.trim() || pending !== null
+          }
+          onClick={() => setConfirmApproval(true)}
+        >
+          {pending === "approved" && <LoaderCircle className="animate-spin" />}
+          承認
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!reason.trim() || pending !== null}
+          onClick={() => void decide("rejected")}
+        >
+          {pending === "rejected" && <LoaderCircle className="animate-spin" />}
+          拒否
+        </Button>
+      </div>
+      {request.targetsCurrentAdmin && (
+        <p className="text-xs text-destructive">
+          自分のDiscord連携は、別の管理者による確認が必要です。
+        </p>
+      )}
+      {confirmApproval && (
+        <ConfirmDialog
+          title="Discord連携を置き換えますか"
+          confirmLabel="承認する"
+          onCancel={() => setConfirmApproval(false)}
+          onConfirm={() => {
+            setConfirmApproval(false)
+            void decide("approved")
+          }}
+        />
+      )}
+    </li>
+  )
+}

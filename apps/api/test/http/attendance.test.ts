@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { describe, expect, it } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { assignmentsApp } from "../../src/routes/assignments"
+import { assignmentsApp } from "../../src/features/assignments/routes/assignments"
 const app = new Hono<ApiEnv>()
 app.route("/assignments", assignmentsApp)
 const url = "/assignments/00000000-0000-4000-8000-000000000001/attendance"

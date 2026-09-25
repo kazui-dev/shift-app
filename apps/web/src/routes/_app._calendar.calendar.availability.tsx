@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { AvailabilityPage } from "@/pages/availability-page"
+import { AvailabilityPage } from "@/features/availability/pages/availability-page"
 
 export const Route = createFileRoute("/_app/_calendar/calendar/availability")({
   beforeLoad: ({ context }) => {

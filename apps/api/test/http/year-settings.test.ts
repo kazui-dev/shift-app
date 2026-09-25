@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { describe, expect, it } from "vite-plus/test"
 
 import type { ApiEnv, MemberContext } from "../../src/lib/http"
-import { yearSettingsApp } from "../../src/routes/year-settings"
+import { yearSettingsApp } from "../../src/features/years/routes/year-settings"
 
 function appFor(accessLevel: MemberContext["accessLevel"]) {
   const app = new Hono<ApiEnv>()

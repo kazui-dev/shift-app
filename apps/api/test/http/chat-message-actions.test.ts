@@ -1,10 +1,10 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
-import { chatApp } from "../../src/routes/chat/index"
+import { chatApp } from "../../src/features/chat/routes/index"
 import type { ApiEnv } from "../../src/lib/http"
-import { findAccessibleRoom } from "../../src/services/chat-access"
+import { findAccessibleRoom } from "../../src/features/chat/services/chat-access"
 import { chatRoom } from "../support/chat"
-vi.mock("../../src/services/chat-access", () => ({
+vi.mock("../../src/features/chat/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
 const roomId = "10000000-0000-4000-8000-000000000001",

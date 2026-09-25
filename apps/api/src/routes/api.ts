@@ -8,15 +8,18 @@ import {
   requireMember,
   requireSameOriginForMutation,
 } from "../lib/http"
-import { activitiesApp } from "./activities"
-import { assignmentsApp } from "./assignments"
-import { chatApp } from "./chat/index"
-import { openLiveEvents } from "./events"
+import { activitiesApp } from "../features/activities/routes/activities"
+import { assignmentsApp } from "../features/assignments/routes/assignments"
+import { chatApp } from "../features/chat/routes/index"
+import { openLiveEvents } from "../features/live/routes/events"
 import { meApp } from "./me/index"
-import { membersApp } from "./members"
-import { pushApp, notificationDevicesApp } from "./push"
-import { rolesApp } from "./roles"
-import { yearSettingsApp } from "./year-settings"
+import { membersApp } from "../features/members/routes/members"
+import {
+  pushApp,
+  notificationDevicesApp,
+} from "../features/notifications/routes/push"
+import { rolesApp } from "../features/roles/routes/roles"
+import { yearSettingsApp } from "../features/years/routes/year-settings"
 import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()

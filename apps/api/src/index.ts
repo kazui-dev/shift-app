@@ -1,9 +1,9 @@
-export { ChatDirectory } from "./durable-objects/chat-directory"
-import { cleanDeletedRooms } from "./services/chat-cleanup"
+export { ChatDirectory } from "./features/chat/durable-objects/chat-directory"
+import { cleanDeletedRooms } from "./features/chat/services/chat-cleanup"
 import { app } from "./app"
-import { sendDueAssignmentReminders } from "./services/push"
+import { sendDueAssignmentReminders } from "./features/notifications/services/push"
 
-export { ChatRoom } from "./durable-objects/chat-room"
+export { ChatRoom } from "./features/chat/durable-objects/chat-room"
 export { SharedCache } from "./entrypoints/shared-cache"
 
 export default {

@@ -18,7 +18,7 @@ import {
   readDirectoryYear,
   renameMember,
   type DirectoryEntry,
-} from "../services/student-directory"
+} from "../features/directory/services/student-directory"
 
 /** The provider id directory identities are stored under, beside `discord`. */
 const rosterProviderId = "roster"

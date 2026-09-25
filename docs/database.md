@@ -1,6 +1,6 @@
 # Database
 
-この文書は実装済みの認証・シフト・chat・push schemaを示す。D1実装の正は`packages/db/src/schema.ts`とSQL migration、Durable Object実装の正は`apps/api/src/durable-objects/chat-room.ts`とする。
+この文書は実装済みの認証・シフト・chat・push schemaを示す。D1実装の正は`packages/db/src/schema.ts`とSQL migration、Durable Object実装の正は`apps/api/src/features/chat/durable-objects/chat-room.ts`とする。
 
 ## Policy
 
@@ -14,7 +14,7 @@
 - OAuth identity は Better Auth `account` として保持する。初期版は Discord 1 件、将来は 1 人の `user` に複数 provider を連携できる
 - application ID は `crypto.randomUUID()` で生成する
 
-認証関連 table は `packages/db/src/auth-schema.ts` と `packages/db/src/schema.ts` を正とする。既存の placeholder `members` table を作り直す `0001` migration は、対象 DB の `members` が 0 件であることを確認してから適用する。
+認証関連 table は `packages/db/src/auth-schema.ts` と `packages/db/src/schema.ts` を正とする。適用済み migration は編集せず、新しい migration の SQL と既存データへの影響を確認する。
 
 ## User Management
 
@@ -272,7 +272,7 @@ polymorphic targetの存在は作成APIで検証する。閲覧・送信時は�
 | `private_to`          | text    | 非公開の対象member。NULLならルーム全員が読める |
 | `private_name`        | text    | 非公開の対象memberの表示名snapshot             |
 
-非公開メッセージは、`private_to`のmemberと、ルームのシフトの見守り役（現在の責任者、その年度で`shift.manage`を持つmember、`system_admin`）だけが読める。判定はD1の`services/private-messages.ts`に1か所だけ置き、履歴・検索・画像・リンクカード・編集削除・返信・リアルタイム配信・Push・未読数のすべてで同じ判定を使う。責任者は読むときに判定するため、新しい責任者は過去の連絡も読め、外れた人は読めなくなる。非公開メッセージへの返信は同じ非公開を引き継ぎ、読めない人は返信できない。
+非公開メッセージは、`private_to`のmemberと、ルームのシフトの見守り役（現在の責任者、その年度で`shift.manage`を持つmember、`system_admin`）だけが読める。判定はD1の`apps/api/src/features/chat/services/private-messages.ts`に1か所だけ置き、履歴・検索・画像・リンクカード・編集削除・返信・リアルタイム配信・Push・未読数のすべてで同じ判定を使う。責任者は読むときに判定するため、新しい責任者は過去の連絡も読め、外れた人は読めなくなる。非公開メッセージへの返信は同じ非公開を引き継ぎ、読めない人は返信できない。
 
 D1との分散transactionは作らない。WorkerがD1でアクセスを検証してからDurable Object RPCを呼び、メッセージを先に永続化する。client生成IDにより、応答喪失後の同一送信を安全に再試行できる。
 

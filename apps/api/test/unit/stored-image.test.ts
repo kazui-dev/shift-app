@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test"
-import { isStoredImageType, storedImage } from "../../src/domain/stored-image"
+import {
+  isStoredImageType,
+  storedImage,
+} from "../../src/features/chat/domain/stored-image"
 import {
   bytes,
   exif,

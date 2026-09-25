@@ -27,7 +27,7 @@ import {
 } from "@workspace/ui/components/sheet"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useMediaQuery } from "@/hooks/use-media-query"
+import { useMediaQuery } from "@/lib/hooks/use-media-query"
 
 type ResponsiveOverlayProps = {
   open: boolean

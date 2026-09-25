@@ -4,7 +4,7 @@ import { Hono } from "hono"
 import { describe, expect, it } from "vite-plus/test"
 
 import type { ApiEnv } from "../../src/lib/http"
-import { availabilitySubmissionsApp } from "../../src/routes/years/availability-submissions"
+import { availabilitySubmissionsApp } from "../../src/features/availability/routes/years/availability-submissions"
 import { d1Binding, migrated } from "../support/sqlite"
 import { directoryWork } from "../support/directory-work"
 

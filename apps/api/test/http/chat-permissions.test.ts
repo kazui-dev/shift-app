@@ -1,24 +1,24 @@
-import { chatApp } from "../../src/routes/chat/index"
-import { activityActionsApp } from "../../src/routes/activity-actions"
+import { chatApp } from "../../src/features/chat/routes/index"
+import { activityActionsApp } from "../../src/features/activities/routes/activity-actions"
 import { DatabaseSync } from "node:sqlite"
 import { Hono } from "hono"
 import { afterEach, expect, it, vi } from "vite-plus/test"
 import * as v from "valibot"
 import { chatRoomsResponseSchema } from "@workspace/shared/communications"
 import type { ApiEnv } from "../../src/lib/http"
-import { chatMembershipsApp } from "../../src/routes/me/chat-memberships"
-import { yearLifecycleApp } from "../../src/routes/years/lifecycle"
-import { yearActivitiesApp } from "../../src/routes/years/activities"
-import { meAssignmentsApp } from "../../src/routes/me/assignments"
+import { chatMembershipsApp } from "../../src/features/chat/routes/me/chat-memberships"
+import { yearLifecycleApp } from "../../src/features/years/routes/lifecycle"
+import { yearActivitiesApp } from "../../src/features/activities/routes/years/activities"
+import { meAssignmentsApp } from "../../src/features/assignments/routes/me/assignments"
 import {
   activityRoom,
   yearRoom,
   roomCommands,
-} from "../../src/services/chat-creation"
-import { roomPermissions } from "../../src/services/chat-permissions"
+} from "../../src/features/chat/services/chat-creation"
+import { roomPermissions } from "../../src/features/chat/services/chat-permissions"
 import { d1Binding, migrated } from "../support/sqlite"
 
-vi.mock("../../src/services/push", () => ({
+vi.mock("../../src/features/notifications/services/push", () => ({
   notifyRoomMessage: async () => {},
   sendMemberNotification: async () => {},
 }))

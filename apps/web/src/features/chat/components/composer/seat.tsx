@@ -1,0 +1,54 @@
+import type { RefObject } from "react"
+import type { ComposerHandle } from "@/features/chat/components/composer/form"
+import type { ChatDraft, ChatFile } from "@/features/chat/lib/store"
+import { ChatComposer } from "@/features/chat/components/composer/form"
+
+/**
+ * The composer area below the history. Its backdrop starts partway into the
+ * rail or the composer and fades to the background down to the bottom edge.
+ * A room the member may only read keeps the box, saying so instead of taking
+ * a message.
+ */
+export function ComposerSeat({
+  roomName,
+  draft,
+  editing,
+  disabled,
+  saving,
+  canPost,
+  onChange,
+  onAddFiles,
+  onSend,
+  handle,
+}: {
+  roomName: string
+  draft: ChatDraft
+  editing?: { id: string; hasImages: boolean; onCancel: () => void } | undefined
+  disabled: boolean
+  saving: boolean
+  canPost: boolean
+  onChange: (draft: ChatDraft) => void
+  onAddFiles: (files: ChatFile[]) => void
+  onSend: () => void
+  handle: RefObject<ComposerHandle | null>
+}) {
+  return (
+    <div
+      data-composer-seat
+      className="relative isolate px-[var(--chat-gutter)] pb-[var(--composer-bottom)]"
+    >
+      <ChatComposer
+        roomName={roomName}
+        draft={draft}
+        editing={editing}
+        canPost={canPost}
+        disabled={disabled || !canPost}
+        saving={saving}
+        onChange={onChange}
+        onAddFiles={onAddFiles}
+        onSend={onSend}
+        handle={handle}
+      />
+    </div>
+  )
+}

@@ -58,7 +58,7 @@ vp -C apps/api exec drizzle-kit generate
 vp -C apps/api exec wrangler d1 migrations apply shift-app --local
 ```
 
-生成された SQL を review し、local で検証してから remote に適用する。現在の `0001` は placeholder の `members` table を作り直すため、本番適用前に remote の件数が 0 件であることを必ず確認する。
+生成された SQL を review し、local で検証してから remote に適用する。既存 migration は編集せず、新しい migration の SQL と本番データへの影響を確認する。
 
 ```bash
 vp -C apps/api exec wrangler login

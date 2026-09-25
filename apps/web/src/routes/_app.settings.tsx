@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { preparePushControl } from "@/lib/push/control-store"
-import { SettingsPage } from "@/pages/settings-page"
+import { preparePushControl } from "@/features/notifications/lib/control-store"
+import { SettingsPage } from "@/features/settings/pages/settings-page"
 
 export const Route = createFileRoute("/_app/settings")({
   // The page shows the notification toggle already settled, so it waits for

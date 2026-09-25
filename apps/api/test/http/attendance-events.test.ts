@@ -2,9 +2,9 @@ import { Hono } from "hono"
 import { errorBody, errors } from "../../src/lib/errors"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { assignmentsApp } from "../../src/routes/assignments"
-import { canManageActivity } from "../../src/services/activity-access"
-vi.mock("../../src/services/activity-access", () => ({
+import { assignmentsApp } from "../../src/features/assignments/routes/assignments"
+import { canManageActivity } from "../../src/features/activities/services/activity-access"
+vi.mock("../../src/features/activities/services/activity-access", () => ({
   canManageActivity: vi.fn<typeof canManageActivity>(),
 }))
 
