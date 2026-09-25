@@ -47,9 +47,3 @@ export type ChatFile = v.InferOutput<typeof fileSchema>
 export type ChatDraft = v.InferOutput<typeof draftSchema>
 export type QueuedMessage = v.InferOutput<typeof queuedSchema>
 export type SavedChat = v.InferOutput<typeof stateSchema>
-/** How far an image's upload has gone, or that it stopped; absent once uploaded. */
-export type UploadProgress = { sent: number; total: number } | "failed"
-export type ChatStoreState = SavedChat & {
-  ready: boolean
-  uploads: Record<string, UploadProgress>
-}

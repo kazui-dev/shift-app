@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import type { RefObject } from "react"
 import {
   MessageScroll,
   type ScrollPosition,
@@ -174,47 +173,4 @@ export function useMessageScroll(
         !window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ),
   }
-}
-
-/** Fetch earlier pages as the history approaches its top edge. */
-export function useOlderMessages({
-  viewport,
-  active,
-  offline,
-  hasNextPage,
-  isFetchingNextPage,
-  fetchNextPage,
-}: {
-  viewport: RefObject<HTMLElement | null>
-  active: boolean
-  offline: boolean
-  hasNextPage: boolean
-  isFetchingNextPage: boolean
-  fetchNextPage: () => Promise<unknown>
-}) {
-  const older = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const list = viewport.current,
-      sentinel = older.current
-    if (!list || !sentinel || !active || offline || !hasNextPage)
-      return undefined
-    if (isFetchingNextPage) return undefined
-    // Start loading about a screen before the top, so reading back never stalls.
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage()
-      },
-      { root: list, rootMargin: "100% 0px 0px 0px" }
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [
-    viewport,
-    active,
-    offline,
-    hasNextPage,
-    isFetchingNextPage,
-    fetchNextPage,
-  ])
-  return older
 }

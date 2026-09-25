@@ -15,10 +15,6 @@ import {
   notifyActivity,
 } from "@/features/shifts/api/activities"
 import { ApiError, errorMessage } from "@/lib/http/client"
-import {
-  availabilityDuringShift,
-  hasAssignmentOutsideAvailability,
-} from "@/features/shifts/lib/availability"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { assignMember } from "./assign-member"
 import { ShiftActionsDialog } from "./shift-actions-dialog"
@@ -94,7 +90,11 @@ export function ShiftEditor({
   )
   const data = {
     ...source,
-    availability: availabilityDuringShift(source.availability, plan),
+    availability: source.availability.filter(
+      (window) =>
+        Date.parse(window.startsAt) < Date.parse(plan.endsAt) &&
+        Date.parse(window.endsAt) > Date.parse(plan.startsAt)
+    ),
   }
   function applySelection(value: ShiftSelection): string | null {
     const result = assignMember(plan, value, data.otherAssignments)
@@ -104,7 +104,17 @@ export function ShiftEditor({
     return null
   }
   async function save(confirmed = false) {
-    const outside = hasAssignmentOutsideAvailability(plan, data.availability)
+    const outside = plan.slots.some((slot) =>
+      slot.memberIds.some(
+        (memberId) =>
+          !data.availability.some(
+            (window) =>
+              window.memberId === memberId &&
+              Date.parse(window.startsAt) <= Date.parse(slot.startsAt) &&
+              Date.parse(window.endsAt) >= Date.parse(slot.endsAt)
+          )
+      )
+    )
     if (outside && !confirmed) {
       setWarning(true)
       return
