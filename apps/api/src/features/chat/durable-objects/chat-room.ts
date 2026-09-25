@@ -1,11 +1,5 @@
-import * as v from "valibot"
 import { messagePermissions } from "@workspace/shared/messages"
 import { findAccessibleRoom } from "../services/chat-access"
-import {
-  linkPreviewSchema,
-  type ChatAttachment,
-  type LinkPreview,
-} from "@workspace/shared/communications"
 import { purgeShared } from "../../../lib/shared-cache"
 import { publishChatEvent } from "../services/chat-directory"
 import { withMemberImages } from "../services/chat-profiles"
@@ -13,88 +7,14 @@ import { makeLinkCard } from "../services/link-card"
 import type { UploadLimit } from "../domain/chat-attachment"
 import { ChatAttachments, type StoredAttachment } from "./chat-attachments"
 import { cardLink, ChatLinkCards } from "./chat-link-cards"
+import { ChatMessages, type Reader, type ChatMessage } from "./chat-messages"
 import { DurableObject } from "cloudflare:workers"
-
-type ChatMessage = {
-  sequence: number
-  id: string
-  /** Set when a bot posted the message; no member sent it. */
-  bot?: true
-  /** Set when only this member and the shift's keepers may read it. */
-  privateTo?: { memberId: string; displayName: string }
-  memberId: string
-  memberDisplayName: string
-  content: string
-  createdAt: string
-  reply?: {
-    id: string
-    bot?: true
-    memberId: string
-    sequence: number
-    memberDisplayName: string
-    content: string
-    deleted?: boolean
-  }
-  editedAt?: string
-  deleted?: boolean
-  attachments: ChatAttachment[]
-  /** The first link's card once it is made, or `null`. */
-  linkPreview: LinkPreview | null
-  /** Rises with every change, so an older copy never replaces a newer one. */
-  version: number
-}
-
-type StoredMessage = {
-  sequence: number
-  id: string
-  bot: number
-  privateTo: string | null
-  privateName: string | null
-  memberId: string
-  memberDisplayName: string
-  content: string
-  createdAt: number
-  replyToId: string | null
-  editedAt: number | null
-  deleted: number
-  linkPreview: string | null
-  version: number
-}
-
-/** Every column of a stored message, named as `StoredMessage`. */
-const messageColumns = `sequence,id,bot,private_to AS privateTo,private_name AS privateName,member_id AS memberId,member_display_name AS memberDisplayName,
-  content,created_at AS createdAt,reply_to_id AS replyToId,edited_at AS editedAt,deleted,
-  link_preview AS linkPreview,version`
-
-/**
- * Who reads, as far as private messages go: the member, and whether they look
- * after the room's shift. Routes resolve it; the room only applies it.
- */
-export type Reader = { memberId: string; readsPrivate: boolean }
-
-/** Rows a reader may see; binds the member's id, then 1 if they read all. */
-const readable = "(private_to IS NULL OR private_to=? OR ?=1)"
-const readableParams = (reader: Reader) =>
-  [reader.memberId, reader.readsPrivate ? 1 : 0] as const
-
-function readableBy(row: StoredMessage, reader: Reader) {
-  return (
-    row.privateTo === null ||
-    row.privateTo === reader.memberId ||
-    reader.readsPrivate
-  )
-}
-
-function storedPreview(value: string | null) {
-  if (value === null) return null
-  const parsed = v.safeParse(linkPreviewSchema, JSON.parse(value))
-  return parsed.success ? parsed.output : null
-}
 
 export class ChatRoom extends DurableObject<CloudflareBindings> {
   private deleted = false
   private attachments: ChatAttachments
   private cards: ChatLinkCards
+  private messages: ChatMessages
 
   async deleteMessages(roomId: string) {
     const room = await this.env.shift_app
@@ -107,7 +27,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       socket.close(1000, "Room deleted")
     await this.attachments.clean(true)
     this.cards.clear()
-    this.ctx.storage.sql.exec("DELETE FROM messages")
+    this.messages.clear()
   }
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {
     super(ctx, env)
@@ -117,6 +37,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       purgeShared
     )
     this.cards = new ChatLinkCards(ctx.storage, makeLinkCard)
+    this.messages = new ChatMessages(ctx.storage, this.attachments)
     void ctx.blockConcurrencyWhile(() => Promise.resolve(this.migrate()))
   }
 
@@ -179,15 +100,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     })
   }
 
-  private findMessage(id: string) {
-    return this.ctx.storage.sql
-      .exec<StoredMessage>(
-        `SELECT ${messageColumns} FROM messages WHERE id=?`,
-        id
-      )
-      .toArray()[0]
-  }
-
   async changeMessage(input: {
     roomId: string
     memberId: string
@@ -201,8 +113,9 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       input.memberId
     )
     if (this.deleted || !room) return { error: "not_found" } as const
-    const row = this.findMessage(input.id)
-    if (!row || !readableBy(row, input)) return { error: "not_found" } as const
+    const row = this.messages.find(input.id)
+    if (!row || !this.messages.canRead(row, input))
+      return { error: "not_found" } as const
     const deleting = input.content === undefined
     const permission = messagePermissions({
       memberId: input.memberId,
@@ -215,7 +128,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     if (!(deleting ? permission.delete : permission.edit))
       return { error: "forbidden" } as const
     if (deleting && row.deleted)
-      return { message: this.toMessage(row), changed: false }
+      return { message: this.messages.toMessage(row), changed: false }
     if (
       !deleting &&
       !input.content?.trim() &&
@@ -223,25 +136,17 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     )
       return { error: "empty" } as const
     if (!deleting && input.content === row.content)
-      return { message: this.toMessage(row), changed: false }
+      return { message: this.messages.toMessage(row), changed: false }
     if (deleting) await this.ctx.storage.setAlarm(Date.now() + 1000)
     const now = Date.now()
     const due = this.ctx.storage.transactionSync(() => {
       if (deleting) {
-        this.ctx.storage.sql.exec(
-          "UPDATE messages SET content='',deleted=1,version=version+1 WHERE id=?",
-          row.id
-        )
+        this.messages.delete(row.id)
         this.attachments.deleteMessage(row.id)
         return this.cards.request(input.roomId, row.id, null, now)
       }
       const content = input.content ?? ""
-      this.ctx.storage.sql.exec(
-        "UPDATE messages SET content=?,edited_at=?,version=version+1 WHERE id=?",
-        content,
-        now,
-        row.id
-      )
+      this.messages.edit(row.id, content, now)
       // The card stays while the first link does.
       const link = cardLink(content)
       return link === cardLink(row.content)
@@ -249,9 +154,9 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
         : this.cards.request(input.roomId, row.id, link, now)
     })
     if (due !== null) await this.schedule(due)
-    const updated = this.findMessage(row.id)
+    const updated = this.messages.find(row.id)
     if (!updated) throw new Error("Message disappeared")
-    return { message: this.toMessage(updated), changed: true }
+    return { message: this.messages.toMessage(updated), changed: true }
   }
 
   async reserveAttachment(
@@ -299,8 +204,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
   getAttachment(id: string, reader: Reader) {
     const attachment = this.attachments.readable(id)
     if (!attachment) return null
-    const row = this.findMessage(attachment.messageId)
-    return row && readableBy(row, reader)
+    const row = this.messages.find(attachment.messageId)
+    return row && this.messages.canRead(row, reader)
       ? { name: attachment.name, type: attachment.type }
       : null
   }
@@ -330,18 +235,17 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
 
   /** Raises a message's version for a change beside its own row, then tells the room. */
   private async publishChange(roomId: string, messageId: string) {
-    this.ctx.storage.sql.exec(
-      "UPDATE messages SET version=version+1 WHERE id=?",
-      messageId
-    )
+    this.messages.advanceVersion(messageId)
     await this.publishCard(roomId, messageId)
   }
 
   /** Tells the room a message now shows its card. */
   private async publishCard(roomId: string, messageId: string) {
-    const row = this.findMessage(messageId)
+    const row = this.messages.find(messageId)
     if (!row) return
-    const [message] = await withMemberImages(this.env, [this.toMessage(row)])
+    const [message] = await withMemberImages(this.env, [
+      this.messages.toMessage(row),
+    ])
     if (message)
       await publishChatEvent(this.env, {
         type: "message_changed",
@@ -350,41 +254,8 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       })
   }
 
-  getMessages(
-    beforeSequence: number | null,
-    limit: number,
-    reader: Reader
-  ): { messages: ChatMessage[]; hasMore: boolean } {
-    const boundedLimit = Math.max(1, Math.min(limit, 100))
-    const rows = this.ctx.storage.sql
-      .exec<StoredMessage>(
-        `SELECT ${messageColumns}
-         FROM messages
-         WHERE (? IS NULL OR sequence < ?) AND ${readable}
-         ORDER BY sequence DESC
-         LIMIT ?`,
-        beforeSequence,
-        beforeSequence,
-        ...readableParams(reader),
-        boundedLimit
-      )
-      .toArray()
-    const oldest = rows.at(-1)?.sequence
-    // Deleted messages are not shown, so only visible ones make older history worth loading.
-    const older =
-      oldest === undefined
-        ? []
-        : this.ctx.storage.sql
-            .exec<{ sequence: number }>(
-              `SELECT sequence FROM messages WHERE sequence < ? AND deleted = 0 AND ${readable} LIMIT 1`,
-              oldest,
-              ...readableParams(reader)
-            )
-            .toArray()
-    return {
-      messages: this.toMessages(rows.reverse()),
-      hasMore: older.length > 0,
-    }
+  getMessages(beforeSequence: number | null, limit: number, reader: Reader) {
+    return this.messages.get(beforeSequence, limit, reader)
   }
 
   searchMessages(
@@ -393,37 +264,14 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     limit: number,
     reader: Reader
   ) {
-    const size = Math.max(1, Math.min(limit, 100))
-    const rows = this.ctx.storage.sql
-      .exec<StoredMessage>(
-        `SELECT ${messageColumns}
-       FROM messages WHERE deleted=0 AND instr(lower(content),lower(?))>0
-       AND (? IS NULL OR sequence<?) AND ${readable} ORDER BY sequence DESC LIMIT ?`,
-        query,
-        before,
-        before,
-        ...readableParams(reader),
-        size + 1
-      )
-      .toArray()
-    return {
-      messages: this.toMessages(rows.slice(0, size)),
-      hasMore: rows.length > size,
-    }
+    return this.messages.search(query, before, limit, reader)
   }
 
-  /** The stored card of a message's first link, while the message stands. */
   linkPreview(id: string, reader: Reader) {
-    const row = this.findMessage(id)
-    return row && !row.deleted && readableBy(row, reader)
-      ? storedPreview(row.linkPreview)
-      : null
+    return this.messages.linkPreview(id, reader)
   }
 
-  /**
-   * Posts as a bot. Only the server calls this, so there is no permission to
-   * check: the bot writes where the code puts it, with no attachments or reply.
-   */
+  /** Server-only posting: bot messages have no member authorization step. */
   postBotMessage(input: {
     id: string
     botId: string
@@ -432,25 +280,7 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     createdAt: number
     privateTo: { memberId: string; displayName: string } | null
   }): ChatMessage | null {
-    if (this.deleted) return null
-    const existing = this.findMessage(input.id)
-    if (existing) return this.toMessage(existing)
-    const row = this.ctx.storage.sql
-      .exec<StoredMessage>(
-        `INSERT INTO messages
-        (id, bot, member_id, member_display_name, content, created_at, private_to, private_name)
-        VALUES (?, 1, ?, ?, ?, ?, ?, ?)
-        RETURNING ${messageColumns}`,
-        input.id,
-        input.botId,
-        input.botName,
-        input.content,
-        input.createdAt,
-        input.privateTo?.memberId ?? null,
-        input.privateTo?.displayName ?? null
-      )
-      .one()
-    return this.toMessage(row)
+    return this.deleted ? null : this.messages.postBot(input)
   }
 
   async sendMessage(input: {
@@ -471,36 +301,30 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
     )
     if (this.deleted || permission?.canPost !== 1)
       throw new Error("CHAT_READ_ONLY")
-    const existing = this.findMessage(input.id)
+    const existing = this.messages.find(input.id)
     if (existing) {
       if (existing.memberId !== input.memberId)
         throw new Error("MESSAGE_ID_CONFLICT")
-      return this.toMessage(existing)
+      return this.messages.toMessage(existing)
     }
     // A reply to a private message stays among the people who could read it.
-    const target = input.replyToId ? this.findMessage(input.replyToId) : null
+    const target = input.replyToId ? this.messages.find(input.replyToId) : null
     if (
       input.replyToId &&
-      (!target || target.deleted || !readableBy(target, input))
+      (!target || target.deleted || !this.messages.canRead(target, input))
     )
       throw new Error("INVALID_CHAT_REPLY")
     const { row, due } = this.ctx.storage.transactionSync(() => {
-      const inserted = this.ctx.storage.sql
-        .exec<StoredMessage>(
-          `INSERT INTO messages
-          (id, member_id, member_display_name, content, created_at, reply_to_id, private_to, private_name)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         RETURNING ${messageColumns}`,
-          input.id,
-          input.memberId,
-          input.memberDisplayName,
-          input.content,
-          input.createdAt,
-          input.replyToId ?? null,
-          target?.privateTo ?? null,
-          target?.privateName ?? null
-        )
-        .one()
+      const inserted = this.messages.insert({
+        id: input.id,
+        memberId: input.memberId,
+        memberDisplayName: input.memberDisplayName,
+        content: input.content,
+        createdAt: input.createdAt,
+        ...(input.replyToId ? { replyToId: input.replyToId } : {}),
+        privateTo: target?.privateTo ?? null,
+        privateName: target?.privateName ?? null,
+      })
       this.attachments.claim(input.attachmentIds, input.memberId, input.id)
       return {
         row: inserted,
@@ -513,83 +337,6 @@ export class ChatRoom extends DurableObject<CloudflareBindings> {
       }
     })
     if (due !== null) await this.schedule(due)
-    return this.toMessage(row)
-  }
-
-  private toMessage(row: StoredMessage) {
-    return this.messageJson(row, this.related([row]))
-  }
-
-  private toMessages(rows: StoredMessage[]) {
-    const related = this.related(rows)
-    return rows.map((row) => this.messageJson(row, related))
-  }
-
-  /** The replied-to messages and attachments of a page, each in one query. */
-  private related(rows: StoredMessage[]) {
-    const replyIds = [
-      ...new Set(rows.flatMap((row) => (row.replyToId ? [row.replyToId] : []))),
-    ]
-    const replies = new Map(
-      (replyIds.length
-        ? this.ctx.storage.sql
-            .exec<StoredMessage>(
-              `SELECT ${messageColumns} FROM messages WHERE id IN (SELECT value FROM json_each(?))`,
-              JSON.stringify(replyIds)
-            )
-            .toArray()
-        : []
-      ).map((reply) => [reply.id, reply])
-    )
-    return {
-      replies,
-      attachments: this.attachments.forMessages(rows.map((row) => row.id)),
-    }
-  }
-
-  private messageJson(
-    row: StoredMessage,
-    related: ReturnType<ChatRoom["related"]>
-  ): ChatMessage {
-    const target = row.replyToId
-      ? related.replies.get(row.replyToId)
-      : undefined
-    return {
-      sequence: row.sequence,
-      id: row.id,
-      ...(row.bot ? { bot: true as const } : {}),
-      ...(row.privateTo === null
-        ? {}
-        : {
-            privateTo: {
-              memberId: row.privateTo,
-              displayName: row.privateName ?? "",
-            },
-          }),
-      memberId: row.memberId,
-      memberDisplayName: row.memberDisplayName,
-      content: row.content,
-      createdAt: new Date(row.createdAt).toISOString(),
-      ...(row.editedAt === null
-        ? {}
-        : { editedAt: new Date(row.editedAt).toISOString() }),
-      ...(row.deleted ? { deleted: true } : {}),
-      ...(target
-        ? {
-            reply: {
-              id: target.id,
-              ...(target.bot ? { bot: true as const } : {}),
-              memberId: target.memberId,
-              sequence: target.sequence,
-              memberDisplayName: target.memberDisplayName,
-              content: target.content,
-              ...(target.deleted ? { deleted: true } : {}),
-            },
-          }
-        : {}),
-      attachments: related.attachments.get(row.id) ?? [],
-      linkPreview: storedPreview(row.linkPreview),
-      version: row.version,
-    }
+    return this.messages.toMessage(row)
   }
 }
