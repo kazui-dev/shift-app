@@ -5,7 +5,7 @@ description: Change or verify shift-app Cloudflare Worker configuration, binding
 
 # Change Shift App Cloudflare Infrastructure
 
-Read `docs/architecture.md`, `docs/development.md`, and the affected
+Read `docs/architecture.md`, `CONTRIBUTING.md`, `docs/setup.md`, and the affected
 `apps/api/wrangler.jsonc` section before editing. Verify current Cloudflare
 behavior from official documentation when changing version-sensitive fields.
 

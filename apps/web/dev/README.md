@@ -13,7 +13,5 @@ Cloudflare plugin, remote binding, proxy or `.dev.vars` file. Changes to sample
 shifts last only until this server restarts. The window title identifies this
 as a screen review. Do not use real member data with this server.
 
-This pass changes the management UI only. The existing manual save, conflict
-check and session undo remain in place; reliable autosave, concurrent-operation
-undo and durable unsaved-edit recovery need the separately reviewed server
-work. No production database change is part of this pass.
+This is a local screen-review fixture. It does not persist edits or represent
+production data. Use the normal Worker preview to verify API behavior.
