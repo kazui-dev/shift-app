@@ -3,6 +3,7 @@
   "ignoreDependencies": ["vite"],
   "workspaces": {
     "apps/api": {
+      "entry": ["scripts/chunk-snapshot-sql.mjs"],
       "ignoreDependencies": ["cloudflare"]
     },
     "apps/web": {

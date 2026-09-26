@@ -61,6 +61,16 @@ const plugins = lazyPlugins(() => {
         ...webPlugins,
         cloudflare({
           configPath: "../api/wrangler.jsonc",
+          ...(process.env["SHIFT_APP_DEV_DATA"] === "production-snapshot"
+            ? {
+                persistState: {
+                  path: path.resolve(
+                    import.meta.dirname,
+                    "../../.wrangler/production-snapshot"
+                  ),
+                },
+              }
+            : {}),
         }),
       ]
 })
