@@ -4,7 +4,7 @@ import {
   activityRoom,
   yearRoom,
   roomCommands,
-} from "../src/services/chat-creation.ts"
+} from "../src/features/chat/services/chat-creation.ts"
 
 const [inputPath, outputPath] = process.argv.slice(2)
 if (!inputPath || !outputPath)

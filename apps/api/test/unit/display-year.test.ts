@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vite-plus/test"
-import { resolveDisplayYear } from "../../src/domain/display-year"
+import { resolveDisplayYear } from "../../src/features/years/domain/display-year"
 
 describe("display year selection", () => {
   it.each([

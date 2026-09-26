@@ -2,8 +2,8 @@ import { Hono } from "hono"
 import { expect, it } from "vite-plus/test"
 import { applyMigration, d1Binding, migrated } from "../support/sqlite"
 import { directoryWork } from "../support/directory-work"
-import { readActivityEditor } from "../../src/services/activity-editor"
-import { saveShiftPlan } from "../../src/services/save-shift-plan"
+import { readActivityEditor } from "../../src/features/activities/services/activity-editor"
+import { saveShiftPlan } from "../../src/features/shifts/services/save-shift-plan"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 
 it("preserves directory planning through migration, saves allocations and transfers them when a real member is created", async () => {

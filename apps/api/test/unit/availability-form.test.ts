@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test"
 import type { DayAnswer, FormDate } from "@workspace/shared/availability"
-import { validateFormAnswers } from "../../src/domain/availability-form"
+import { validateFormAnswers } from "../../src/features/availability/domain/availability-form"
 const date: FormDate = {
   date: "2026-11-01",
   startsMinute: 540,

@@ -1,0 +1,70 @@
+import { useRef } from "react"
+import { useChatMember } from "@/features/chat/hooks/use-chat-member"
+import type { ChatImageSize } from "@workspace/shared/communications"
+import {
+  acquireChatImage,
+  cachedChatImage,
+  sentChatImage,
+} from "@/features/chat/lib/images"
+import { useNearHistory } from "@/features/chat/components/message/use-near-history"
+import { useHeldImage } from "@/features/chat/components/image/use-held-image"
+
+export function RemoteImage({
+  roomId,
+  id,
+  size,
+  width,
+  height,
+  alt,
+  fit = "contain",
+  onOpen,
+}: {
+  roomId: string
+  id: string
+  size: ChatImageSize
+  width: number
+  height: number
+  alt: string
+  fit?: "contain" | "cover"
+  onOpen: () => void
+}) {
+  const user = useChatMember().studentId
+  const element = useRef<HTMLButtonElement>(null)
+  // Loading starts two screens ahead. A tile in memory, or this device's preview
+  // of an image it just sent, shows on the first render until the tile decodes.
+  const near = useNearHistory(element, 2)
+  const image = useHeldImage(
+    () => acquireChatImage(user, roomId, id, size),
+    near,
+    () =>
+      cachedChatImage(user, roomId, id, size) ?? sentChatImage(user, roomId, id)
+  )
+  return (
+    <button
+      data-page-swipe
+      ref={element}
+      type="button"
+      aria-label={image.failed && !image.src ? "画像を再読み込み" : alt}
+      onClick={() => (image.src ? onOpen() : image.failed && image.retry())}
+      // The frame clips outside the tile, so the focus outline is drawn inside it.
+      className="size-full overflow-hidden bg-muted/30 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+    >
+      {image.src ? (
+        <img
+          src={image.src}
+          width={width}
+          height={height}
+          alt={alt}
+          draggable={false}
+          className={`size-full ${fit === "cover" ? "object-cover" : "object-contain"}`}
+          // The URL was revoked or broke: load the image again.
+          onError={image.retry}
+        />
+      ) : (
+        <span className="flex size-full items-center justify-center text-xs text-muted-foreground">
+          {image.failed ? "再読み込み" : ""}
+        </span>
+      )}
+    </button>
+  )
+}

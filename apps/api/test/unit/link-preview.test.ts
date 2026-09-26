@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test"
-import { previewText } from "../../src/domain/link-preview"
+import { previewText } from "../../src/features/chat/domain/link-preview"
 
 it("decodes character references in page metadata", () => {
   expect(

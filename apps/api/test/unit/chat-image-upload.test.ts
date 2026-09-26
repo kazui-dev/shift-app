@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test"
-import { storableImage } from "../../src/services/chat-image"
+import { storableImage } from "../../src/features/chat/services/chat-image"
 import {
   exif,
   jpeg,

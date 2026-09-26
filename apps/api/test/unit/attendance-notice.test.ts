@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test"
 
-import { attendanceNotice } from "../../src/domain/attendance-notice"
+import { attendanceNotice } from "../../src/features/attendance/domain/attendance-notice"
 
 const shift = {
   displayName: "美輪和維",

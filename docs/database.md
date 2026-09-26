@@ -1,348 +1,37 @@
 # Database
 
-この文書は実装済みの認証・シフト・chat・push schemaを示す。D1実装の正は`packages/db/src/schema.ts`とSQL migration、Durable Object実装の正は`apps/api/src/durable-objects/chat-room.ts`とする。
+この文書は保存先の境界と、変更時に守る制約を記す。列・外部キー・index の正は [Drizzle schema](../packages/db/src/schema.ts)、Better Auth の表は [auth-schema.ts](../packages/db/src/auth-schema.ts)、D1 に適用する定義の正は [SQL migration](../apps/api/migrations) とする。実際の振る舞いは [runtime-behavior.md](design/runtime-behavior.md)、旧クライアント向けの扱いは [compatibility.md](compatibility.md) を参照する。
 
-## Policy
+## 保存先と変更方法
 
-- DB は Cloudflare D1 を使う
-- ORM は Drizzle を使う
-- 時刻は Unix epoch milliseconds で保存する
-- 年度をまたいで使うため、年度に依存するデータには `year` を持たせる
-- Better Auth が必要とする `user`、`session`、`account` などの core schema は Better Auth に合わせる
-- Better Auth `user` は認証主体、`members` は onboarding 済みの旭祭シフトのアカウントとして分離する
-- `members.student_id` と `members.user_id` はそれぞれ unique とし、アカウントと学籍番号を 1:1 にする
-- OAuth identity は Better Auth `account` として保持する。初期版は Discord 1 件、将来は 1 人の `user` に複数 provider を連携できる
-- application ID は `crypto.randomUUID()` で生成する
+- アプリの関係データは Cloudflare D1 に保存し、Drizzle で扱う。時刻は Unix epoch milliseconds を使う。
+- Chat のメッセージ本文はルームごとの `ChatRoom` Durable Object の SQLite に保存する。D1 はルーム、対象者、未読用 index などの管理情報を持つ。D1 と Durable Object にまたがる transaction はない。
+- Chat の画像は R2 に保存する。画像の参照権限は対応するメッセージの権限で確認する。
+- 適用済み migration は編集しない。schema の変更には新しい migration を生成し、既存データ・制約・削除動作を確認する。schema をファイル別に分けたこと自体は DB migration を必要としない。
+- `packages/db/src/schema.ts` は各領域の schema を公開する入口。表の定義は `packages/db/src/schema/` に置き、アプリ間の入出力契約は `packages/shared/src/contracts/` に置く。DB の行型を HTTP 契約として直接使わない。
 
-認証関連 table は `packages/db/src/auth-schema.ts` と `packages/db/src/schema.ts` を正とする。既存の placeholder `members` table を作り直す `0001` migration は、対象 DB の `members` が 0 件であることを確認してから適用する。
+## アカウントと組織
 
-## User Management
+[account.ts](../packages/db/src/schema/account.ts) の `app_users` はアプリの利用者を表し、Better Auth の `user` は認証主体を表す。認証だけ済んだ利用者とアプリの利用者を区別する。学籍番号はアプリ利用者で一意とし、入力境界で正規化する。所属確認、identity 復旧申請、管理操作の監査記録もこの領域に置く。OAuth の identity は Better Auth の `account` に置き、所属確認に token を複製しない。identity の移動を申請だけで確定させない。
 
-### `members`
+[organization.ts](../packages/db/src/schema/organization.ts) には年度、参加状態、年度 role と権限、局・担当、年度別名簿を置く。名簿 `student_directory` はアカウントとは独立しており、同一人物が複数年度の名簿に載れる。局・担当は名前ではなく `role_id` で年度 role を参照する。年度参加 `year_memberships` と role 付与 `member_year_roles` は別の関係であり、role だけで年度参加にはならない。参加を `inactive` にしても過去の割当や role は削除せず、通常アクセスと実効権限から除外する。
 
-| Column         | Type    | Note                                         |
-| -------------- | ------- | -------------------------------------------- |
-| `id`           | text    | PK                                           |
-| `user_id`      | text    | unique FK, Better Auth `user.id`             |
-| `display_name` | text    | 本名                                         |
-| `student_id`   | text    | unique、`COLLATE NOCASE`、正規化済み学籍番号 |
-| `access_level` | text    | `system_admin`, `leader`, `member`           |
-| `created_at`   | integer | UNIX time milliseconds                       |
-| `updated_at`   | integer | UNIX time milliseconds                       |
+年度は `operating_years` で管理する。`year_settings` のデフォルト年度は 1 件だけで、年度へのアクセス権を付与しない。初期化と削除禁止の trigger は migration で管理する。年度 role の権限は `shift.create`、`shift.manage`、`member.manage`、`role.manage`。実効権限は API で確認する。
 
-Better Auth `user` が存在しても `members` がなければ onboarding 中とする。通常 API は `members` の存在を必須とし、作成直後の `access_level` は `member` とする。
+## 活動・希望・割当・勤怠
 
-`student_id` は `^\d{2}[A-Z]{2}\d{3}$` を満たす canonical value だけを保存する。API で Unicode NFKC 正規化、trim、大文字化を行い、DB の case-insensitive unique index でも重複を防ぐ。入学年度と学科コードは必要になった時点で `student_id` から導出し、同じ情報を別 column に重複保存しない。
+[activities.ts](../packages/db/src/schema/activities.ts) は年度内の活動と責任者、履歴、候補 role、通知設定を持つ。[availability.ts](../packages/db/src/schema/availability.ts) は希望の提出、入力可能日、時間帯、下書きと日別回答を持つ。[shifts.ts](../packages/db/src/schema/shifts.ts) は活動内の `shift_slots`、利用者への `shift_assignments`、勤怠の現在値と変更履歴を持つ。割当の時間と定員は slot に置き、割当行には重複して持たない。取消済み割当は監査のため保持する。
 
-### Better Auth `account`
+名簿上の人をアカウント作成前に扱う `directory_availability_*` と `directory_shift_assignments` もある。アカウントの希望・割当とは別の保存先なので、統合時の扱いは [compatibility.md](compatibility.md) と実装で確認する。
 
-初期版は 1 つの Better Auth `user` に Discord identity を 1 件連携する。`(provider_id, account_id)` を unique とし、同じ provider identity が複数 user へ紐づかないようにする。schema は将来の複数 provider に対応できる。OAuth token は Better Auth の token encryption を有効にして保存する。
+希望の時間関係、slot と割当の重複、勤怠の遷移は DB 制約だけでは完結しない。共有契約による入力検証と API の認可・業務ロジックも合わせて変更する。
 
-暗黙の email linking は使わない。provider 追加は将来拡張とする。
+## Chat
 
-### `affiliation_verifications`
+[chat.ts](../packages/db/src/schema/chat.ts) はルーム、活動との関連、対象者、bot、利用者設定、メッセージ index、削除・退出記録を持つ。対象者は現在の参加・role・割当と照合するため、過去に対象だったことだけで閲覧権は残らない。bot は投稿者であり、利用者と同じ閲覧主体にはしない。
 
-| Column                | Type    | Note                          |
-| --------------------- | ------- | ----------------------------- |
-| `id`                  | text    | PK                            |
-| `user_id`             | text    | FK, Better Auth `user.id`     |
-| `provider_id`         | text    | 初期版は `discord`            |
-| `provider_account_id` | text    | provider 内の stable identity |
-| `organization_id`     | text    | Discord server ID             |
-| `verified_at`         | integer | 最終所属確認時刻              |
-| `created_at`          | integer | UNIX time milliseconds        |
-| `updated_at`          | integer | UNIX time milliseconds        |
+メッセージの正は [chat-room.ts](../apps/api/src/features/chat/durable-objects/chat-room.ts) の `ChatRoom` Durable Object。非公開メッセージの閲覧判定は [private-messages.ts](../apps/api/src/features/chat/services/private-messages.ts) に集約する。履歴、リアルタイム配信、未読、画像などがこの判定を通るようにする。Worker は D1 側でアクセスを確認してから Durable Object を呼ぶ。
 
-`(provider_id, provider_account_id)` を unique とする。access/refresh token 自体はこの table に重複保存しない。
+## Push
 
-### `bureaus` と `duties`
-
-委員会の局と、その局の中の担当。どちらも年度ごとに持ち、付与する年度 role を `role_id` で直接指す。名前一致ではないので、表記ゆれで付与が外れることはない。
-
-| Column       | Type    | Note                                   |
-| ------------ | ------- | -------------------------------------- |
-| `id`         | text    | PK                                     |
-| `year`       | integer | FK, `operating_years.year`             |
-| `name`       | text    | 局名。年度内で case-insensitive に一意 |
-| `role_id`    | text    | FK, `year_roles.id`、nullable          |
-| `created_at` | integer | UNIX time milliseconds                 |
-
-`duties` は `bureau_id` で局にぶら下がり、`(bureau_id, lower(name))` を unique とする。**担当名は局の中で一意**なので、別の局が同じ名前の担当を持ってよい。role が消えた場合は `role_id` が NULL になり、付与されなくなるだけで名簿は残る。
-
-### `student_directory` と `directory_duties`
-
-年度ごとの委員会名簿。Discord OAuth を無効にした期間のサインイン確認と、年度参加・年度 role の付与に使う。アカウント情報は持たない。
-
-| Column         | Type    | Note                             |
-| -------------- | ------- | -------------------------------- |
-| `id`           | text    | PK                               |
-| `year`         | integer | FK, `operating_years.year`       |
-| `student_id`   | text    | 年度内で case-insensitive に一意 |
-| `display_name` | text    | 名簿上の氏名                     |
-| `bureau_id`    | text    | FK, `bureaus.id`、nullable       |
-| `office`       | text    | 局長・局長補佐など、nullable     |
-| `created_at`   | integer | UNIX time milliseconds           |
-
-担当は `directory_duties(entry_id, duty_id)` で持ち、**1人が複数の担当を兼ねられる**。`office` は委員会の記録として持つだけで、role の付与には使わない。
-
-氏名の照合は NFKC 正規化のうえ空白を除いて行うため、SQL では学籍番号だけで引き、氏名は API 側で比較する。サインインでは局と担当の `role_id` をまとめて付与する。Discord OAuth が有効なときは参照しない。
-
-### `identity_link_requests`
-
-学籍番号が既存だった場合の管理者復旧に使う。申請だけで identity を移動せず、承認処理は監査ログ、旧Discord identityの解除、新しい検証済みidentityの移動、申請者と対象memberの全session失効を1つのD1 batchで行う。対象member本人による自己承認は禁止する。
-
-| Column              | Type    | Note                                           |
-| ------------------- | ------- | ---------------------------------------------- |
-| `id`                | text    | PK                                             |
-| `requester_user_id` | text    | FK, onboarding 中の Better Auth `user.id`      |
-| `target_member_id`  | text    | FK, `members.id`                               |
-| `status`            | text    | `pending`, `approved`, `rejected`, `cancelled` |
-| `decided_by`        | text    | FK, `members.id`, nullable                     |
-| `created_at`        | integer | UNIX time milliseconds                         |
-| `decided_at`        | integer | UNIX time milliseconds, nullable               |
-
-### `admin_audit_logs`
-
-`system_admin` の昇格、identity recovery、role 変更、全session失効などの管理操作を理由付きで記録する。初回管理者昇格も公開 bootstrap API を使わず、Cloudflare operator が既存 member を特定して D1 上で実行し、この table に同じ操作 ID の監査記録を残す。通常の管理操作は更新と監査recordをD1 batchにまとめ、どちらか一方だけが成立しないようにする。
-
-### `operating_years`
-
-`year`自体を識別子兼表示値とし、作成・更新日時を保持する。年度の3状態は廃止し、アクセスと編集は参加状態・権限で判断する。開始日・終了日は設けない。
-
-| Column       | Type    | Note                   |
-| ------------ | ------- | ---------------------- |
-| `year`       | integer | PK、識別子兼表示値     |
-| `created_at` | integer | UNIX time milliseconds |
-| `updated_at` | integer | UNIX time milliseconds |
-
-### `year_settings`
-
-| Column         | Type    | Note                                              |
-| -------------- | ------- | ------------------------------------------------- |
-| `id`           | integer | PK、CHECKで1に限定                                |
-| `default_year` | integer | NOT NULL、FK `operating_years.year`、削除RESTRICT |
-
-最初の年度を作るtriggerで初期化し、singletonの削除をtriggerで拒否する。年度が存在する状態では必ず1つのデフォルト年度を持つ。切り替えは参照先の更新だけで行い、新しい年度の作成では切り替わらない。triggerはmigration `0012_default_year.sql`で管理する。移行時は旧active年度のうち最新、存在しなければ既存の最新年度を選ぶ。
-
-システム管理者の`PUT /api/year-settings`で切り替える。デフォルトの指定自体は年度へのアクセス権を付与しない。
-
-### `year_roles`
-
-| Column       | Type    | Note                       |
-| ------------ | ------- | -------------------------- |
-| `id`         | text    | PK                         |
-| `year`       | integer | FK, `operating_years.year` |
-| `name`       | text    | ロール名                   |
-| `color`      | text    | 表示色                     |
-| `created_at` | integer | UNIX time milliseconds     |
-| `updated_at` | integer | UNIX time milliseconds     |
-
-### `year_memberships`
-
-`members` と年度の参加関係を独立して管理する。年度 role は参加者へ追加権限を与えるものであり、role の有無だけでは年度参加を意味しない。
-
-| Column       | Type    | Note                               |
-| ------------ | ------- | ---------------------------------- |
-| `year`       | integer | 複合PK、FK, `operating_years.year` |
-| `member_id`  | text    | 複合PK、FK, `members.id`           |
-| `status`     | text    | `active`, `inactive`               |
-| `created_at` | integer | UNIX time milliseconds             |
-| `updated_at` | integer | UNIX time milliseconds             |
-
-`inactive` への変更では年度 role、割当、希望、履歴を削除しないが、年度への通常アクセス、実効権限、割当候補からは即時に除外する。再度 `active` にすると保持していた role が再び有効になる。
-
-導入 migration では既存動作を維持するため、既存の全年度と既存 member の組を `active` として補完する。新しく年度を作成した時点では参加者を自動追加しない。既存 member を新年度へ追加する方針は保留であり、現在は `system_admin` が明示的に追加する。
-
-### `year_role_permissions`
-
-年度別 role に機能権限を付与する。初期版の permission は `shift.manage`。application role の `leader` だけを根拠にシフト管理を許可せず、`system_admin` の全体権限またはこの permission を API で確認する。
-
-### `member_year_roles`
-
-| Column       | Type    | Note                    |
-| ------------ | ------- | ----------------------- |
-| `member_id`  | text    | PK, FK, `members.id`    |
-| `role_id`    | text    | PK, FK, `year_roles.id` |
-| `created_at` | integer | UNIX time milliseconds  |
-
-## Shift Management
-
-### `activities`
-
-| Column          | Type    | Note                   |
-| --------------- | ------- | ---------------------- |
-| `id`            | text    | PK                     |
-| `year`          | integer | 年度                   |
-| `name`          | text    | 活動名                 |
-| `place`         | text    | 場所                   |
-| `activity_type` | text    | 種別                   |
-| `starts_at`     | integer | UNIX time milliseconds |
-| `ends_at`       | integer | UNIX time milliseconds |
-| `color`         | text    | 表示色                 |
-| `notes`         | text    | nullable               |
-| `created_by`    | text    | FK, `members.id`       |
-| `updated_by`    | text    | FK, `members.id`       |
-| `created_at`    | integer | UNIX time milliseconds |
-| `updated_at`    | integer | UNIX time milliseconds |
-
-### `availability_submissions`
-
-年度・member ごとの希望提出を一件保持し、`draft` または `submitted` とする。希望の具体的な時間帯は子 table に分離する。
-
-### `availability_dates`
-
-シフト管理者が年度ごとに設定した、希望を入力できる日付を保持する。年度と日付の組を一意にし、日付を削除した場合はその日の希望時間帯も削除する。
-
-### `availability_windows`
-
-希望時間帯を設定済みの `availability_dates` に紐付け、任意の開始・終了時刻で保持する。固定の時間粒度は DB に埋め込まない。開始と終了が同じ日本日付に属すること、および同一提出内で重複しないことを共有 schema と API で拒否し、各行は DB の check constraint でも `starts_at < ends_at` を保証する。
-
-### `shift_assignments`
-
-| Column         | Type    | Note                   |
-| -------------- | ------- | ---------------------- |
-| `id`           | text    | PK                     |
-| `activity_id`  | text    | FK, `activities.id`    |
-| `member_id`    | text    | FK, `members.id`       |
-| `starts_at`    | integer | UNIX time milliseconds |
-| `ends_at`      | integer | UNIX time milliseconds |
-| `notes`        | text    | nullable               |
-| `status`       | text    | `active`, `cancelled`  |
-| `created_by`   | text    | FK, `members.id`       |
-| `cancelled_by` | text    | FK, nullable           |
-| `cancelled_at` | integer | nullable               |
-| `created_at`   | integer | UNIX time milliseconds |
-| `updated_at`   | integer | UNIX time milliseconds |
-
-割当は activity 内の時間に限定し、member の active な割当同士の重複を API の条件付き insert で防ぐ。取消は監査情報を残すため物理削除せず `cancelled` に更新する。希望時間外の割当は業務上必要になり得るため拒否せず、API が警告を返す。
-
-### `assignment_attendance`
-
-割当ごとの勤怠を一件保持する。`state` は `late`（到着見込み `expected_at` と理由）、`absent`（理由）、`present`（出勤時刻 `checked_in_at` と、位置を確認できたか責任者の確認待ちかを表す `check_in_status`）のいずれか。遅刻・欠勤の取り消しは行を削除し、出勤済は本人から変更できない。遅刻から出勤した場合は到着見込みと理由を残す。責任者は遅刻・欠勤を対応済み（`resolved_by`・`resolved_at`）にでき、出勤時刻を修正すると確認済みになる。
-
-### `assignment_attendance_events`
-
-勤怠の変更を一件ずつ保持する。`action` は `late`・`absent`・`withdrawn`・`checked_in`・`corrected`・`resolved` で、到着見込み、出勤時刻、修正前の出勤時刻、理由を必要に応じて記録する。
-
-## Chat Management
-
-### `chat_rooms`
-
-| Column       | Type    | Note                       |
-| ------------ | ------- | -------------------------- |
-| `id`         | text    | PK                         |
-| `year`       | integer | FK, `operating_years.year` |
-| `name`       | text    | ルーム名                   |
-| `created_by` | text    | FK, 作成した`members.id`   |
-| `created_at` | integer | UNIX time milliseconds     |
-| `updated_at` | integer | UNIX time milliseconds     |
-
-### `chat_room_targets`
-
-| Column        | Type    | Note                                 |
-| ------------- | ------- | ------------------------------------ |
-| `room_id`     | text    | 複合PK、FK, `chat_rooms.id`          |
-| `target_type` | text    | 複合PK、`member`, `role`, `activity` |
-| `target_id`   | text    | 複合PK、対象resourceのID             |
-| `created_at`  | integer | UNIX time milliseconds               |
-
-polymorphic targetの存在は作成APIで検証する。閲覧・送信時は現在のmember、年度role、active assignmentと照合するため、対象から外れた利用者の権限は即時に失効する。
-
-### `bots` と `chat_room_bots`
-
-人ではない送り主。`bots`は`id`、コードから参照する一意の`key`、`display_name`を持ち、行はマイグレーションで投入する（実行時には作らない）。現在は勤怠通知bot（`key = attendance`）だけがある。`chat_room_bots`はbotが属するルームで、シフトのルームを作るとき勤怠通知botを加える。botはメッセージを読まず、投稿だけを行う。
-
-### `chat_message_index`
-
-未読数のための索引。ルーム・sequence・投稿者・削除済みかに加え、`private_to`を持つ。`private_to`が入ったメッセージは、そのmemberとシフトの見守り役（下記）以外の未読に数えない。勤怠通知botの投稿は、連絡した本人の未読にならないよう本人を投稿者として記録する。
-
-### `ChatRoom` Durable Object SQLite
-
-ルームIDをDurable Object名として1ルームを1インスタンスへ割り当てる。各object内の`messages` tableは次を持つ。
-
-| Column                | Type    | Note                                           |
-| --------------------- | ------- | ---------------------------------------------- |
-| `sequence`            | integer | PK、自動増分、表示順                           |
-| `id`                  | text    | unique、client生成UUID                         |
-| `member_id`           | text    | 送信時点の`members.id`                         |
-| `member_display_name` | text    | 送信時点の表示名snapshot                       |
-| `content`             | text    | 本文                                           |
-| `created_at`          | integer | UNIX time milliseconds                         |
-| `bot`                 | integer | botの投稿なら1。誰も編集・削除できない         |
-| `private_to`          | text    | 非公開の対象member。NULLならルーム全員が読める |
-| `private_name`        | text    | 非公開の対象memberの表示名snapshot             |
-
-非公開メッセージは、`private_to`のmemberと、ルームのシフトの見守り役（現在の責任者、その年度で`shift.manage`を持つmember、`system_admin`）だけが読める。判定はD1の`services/private-messages.ts`に1か所だけ置き、履歴・検索・画像・リンクカード・編集削除・返信・リアルタイム配信・Push・未読数のすべてで同じ判定を使う。責任者は読むときに判定するため、新しい責任者は過去の連絡も読め、外れた人は読めなくなる。非公開メッセージへの返信は同じ非公開を引き継ぎ、読めない人は返信できない。
-
-D1との分散transactionは作らない。WorkerがD1でアクセスを検証してからDurable Object RPCを呼び、メッセージを先に永続化する。client生成IDにより、応答喪失後の同一送信を安全に再試行できる。
-
-## Push Notifications
-
-### `notification_devices`
-
-| Column            | Type    | Note                               |
-| ----------------- | ------- | ---------------------------------- |
-| `id`              | text    | PK                                 |
-| `member_id`       | text    | FK, `app_users.id`                 |
-| `enabled`         | integer | 通知設定。許可・購読の有無とは独立 |
-| `endpoint`        | text    | nullable、unique、Push service URL |
-| `expiration_time` | integer | nullable                           |
-| `p256dh`          | text    | nullable、公開鍵                   |
-| `auth`            | text    | nullable、認証シークレット         |
-| `created_at`      | integer | UNIX time milliseconds             |
-| `updated_at`      | integer | UNIX time milliseconds             |
-
-endpointはPush serviceのcapability URLとして扱い、ログへ出さない。同一endpointを別memberへ上書きすることはできない。Push serviceが404/410を返した場合は一致する古いendpointと鍵だけを消し、登録IDと配信ON/OFFは保持する。OFFの登録とendpointがない登録には配信しない。
-
-### `notification_deliveries`
-
-| Column            | Type    | Note                             |
-| ----------------- | ------- | -------------------------------- |
-| `assignment_id`   | text    | 複合PK、FK                       |
-| `subscription_id` | text    | 複合PK、FK                       |
-| `kind`            | text    | 複合PK、`assigned`, `ten_minute` |
-| `status`          | text    | `claimed`, `sent`                |
-| `claimed_at`      | integer | UNIX time milliseconds           |
-| `sent_at`         | integer | nullable                         |
-
-配送前に`INSERT OR IGNORE`でclaimし、同一通知の並行・重複送信を防ぐ。一時的な送信失敗ではclaimを削除して次回実行に再試行させる。process停止の境界では重複より未送信を選ぶat-most-once寄りの設計とする。
-
-## ER Diagram
-
-```mermaid
-erDiagram
-    auth_users ||--o| members : activates
-    auth_users ||--o{ auth_accounts : links
-    auth_users ||--o{ affiliation_verifications : verifies
-    auth_users ||--o{ identity_link_requests : requests
-    members ||--o{ identity_link_requests : target
-    operating_years ||--o{ year_roles : defines
-    operating_years ||--o{ activities : contains
-    operating_years ||--o{ availability_submissions : collects
-    operating_years ||--o{ availability_dates : defines
-    year_roles ||--o{ year_role_permissions : grants
-    year_roles ||--o{ member_year_roles : assigned_to
-    members ||--o{ member_year_roles : has
-    members ||--o{ availability_submissions : submits
-    availability_submissions ||--o{ availability_windows : contains
-    availability_dates ||--o{ availability_windows : permits
-    activities ||--o{ shift_assignments : has
-    members ||--o{ shift_assignments : assigned_to
-    shift_assignments ||--o| assignment_attendance : has
-    members ||--o{ assignment_attendance : attends
-    shift_assignments ||--o{ assignment_attendance_events : logs
-    operating_years ||--o{ chat_rooms : contains
-    members ||--o{ chat_rooms : creates
-    chat_rooms ||--o{ chat_room_targets : targets
-    chat_rooms ||--o{ chat_room_bots : includes
-    bots ||--o{ chat_room_bots : joins
-    members ||--o{ notification_devices : subscribes
-    notification_devices ||--o{ notification_deliveries : receives
-    shift_assignments ||--o{ notification_deliveries : notifies
-```
-
-## Open Questions
-
-- 場所の master table を作るか
-- 既読管理をどの粒度で持つか
-- application role と機能別 role の permission matrix
+[notifications.ts](../packages/db/src/schema/notifications.ts) の `notification_devices` は端末ごとの配信設定と購読情報を持つ。OFF はサーバー側の配信停止であり、購読解除とは別。endpoint は capability URL として扱い、ログに出さない。`notification_deliveries` は割当・端末・通知種別ごとの送信 claim を持ち、重複配送を抑える。失敗時の再試行とプロセス停止時の限界は [runtime-behavior.md](design/runtime-behavior.md) を参照する。

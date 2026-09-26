@@ -3,8 +3,8 @@ import { Hono } from "hono"
 import { createAuth } from "./auth"
 import { apiError, errors } from "./lib/errors"
 
-import { accountApp } from "./routes/account"
-import { adminApp } from "./routes/admin/index"
+import { accountApp } from "./features/account/routes/account"
+import { adminApp } from "./features/admin/routes/index"
 import { apiApp } from "./routes/api"
 
 export const app = new Hono<{ Bindings: CloudflareBindings }>()

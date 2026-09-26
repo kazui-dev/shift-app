@@ -4,8 +4,8 @@ import {
   activityEditorInputSchema,
   createActivityInputSchema,
   updateRoleInputSchema,
-} from "../../../packages/shared/src/shifts"
-import { formDateInputSchema } from "../../../packages/shared/src/availability"
+} from "../../../packages/shared/src/contracts/shifts"
+import { formDateInputSchema } from "../../../packages/shared/src/contracts/availability"
 import { dates, makeEditors, members, roles, uuid } from "./fixtures"
 
 // This server owns every /api request. Unknown requests fail closed, never proxy.

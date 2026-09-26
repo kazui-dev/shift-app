@@ -1,16 +1,18 @@
 import { Hono } from "hono"
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import type { LinkPreview } from "@workspace/shared/communications"
-import { chatApp } from "../../src/routes/chat/index"
-import { findAccessibleRoom } from "../../src/services/chat-access"
+import { chatApp } from "../../src/features/chat/routes/index"
+import { findAccessibleRoom } from "../../src/features/chat/services/chat-access"
 import { sharedResource } from "../../src/lib/shared-cache"
 import type { ApiEnv } from "../../src/lib/http"
 import { chatRoom } from "../support/chat"
-vi.mock("../../src/services/chat-access", async (original) => ({
-  ...(await original<typeof import("../../src/services/chat-access")>()),
+vi.mock("../../src/features/chat/services/chat-access", async (original) => ({
+  ...(await original<
+    typeof import("../../src/features/chat/services/chat-access")
+  >()),
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
-vi.mock("../../src/services/chat-profiles", () => ({
+vi.mock("../../src/features/chat/services/chat-profiles", () => ({
   withMemberImages: async (env: unknown, messages: unknown) => messages,
 }))
 vi.mock("../../src/lib/shared-cache", async (original) => ({

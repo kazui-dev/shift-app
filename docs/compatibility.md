@@ -24,10 +24,10 @@
 
 一時的な互換を追加したら、ここへ追記する。削除したら行ごと消す。載っていない互換コードは残さない。
 
-| 残しているもの                             | 理由                                                                  | 追加       | 削除してよい条件             | 削除時に触る場所                                                                                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------- | ---------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/chat/events` での WebSocket 接続 | 更新前の画面はリアルタイム受信にこの URL を使う。現行は `/api/events` | 2026-09-17 | 利用者の画面更新が一巡したら | `apps/api/src/routes/chat/index.ts` の `chatApp.get("/events", ...)`、`apps/api/test/http/chat-message-actions.test.ts` の接続テストを `/api/events` へ移す |
-| 名簿に紐付く外部回答と割当                 | 外部アンケートの希望・割当をログイン用アカウント作成前に扱う          | 2026-09-22 | 下記の削除条件を満たしたら   | 下記の「2026年の外部アンケート回答と初回サインイン前の参加者」参照                                                                                          |
+| 残しているもの                             | 理由                                                                  | 追加       | 削除してよい条件             | 削除時に触る場所                                                                                                                                                     |
+| ------------------------------------------ | --------------------------------------------------------------------- | ---------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/chat/events` での WebSocket 接続 | 更新前の画面はリアルタイム受信にこの URL を使う。現行は `/api/events` | 2026-09-17 | 利用者の画面更新が一巡したら | `apps/api/src/features/chat/routes/index.ts` の `chatApp.get("/events", ...)`、`apps/api/test/http/chat-message-actions.test.ts` の接続テストを `/api/events` へ移す |
+| 名簿に紐付く外部回答と割当                 | 外部アンケートの希望・割当をログイン用アカウント作成前に扱う          | 2026-09-22 | 下記の削除条件を満たしたら   | 下記の「2026年の外部アンケート回答と初回サインイン前の参加者」参照                                                                                                   |
 
 ## 2026年の外部アンケート回答と初回サインイン前の参加者
 
@@ -38,7 +38,7 @@
 - `directory_availability_submissions` は名簿の回答を保持する。`submitted_at IS NULL` は全日未回答を表す。
 - `directory_availability_day_answers` と `directory_availability_windows` は確定できた日の回答・参加可能時間を保持する。判断できない日は行を作らず未回答とする。
 - `directory_shift_assignments` は名簿の人への割当を保持する。実メンバーの希望・割当は従来のテーブルを使う。
-- 希望確認・シフト編集・割当数では `apps/api/src/services/directory-work.ts` の集計用SQLで双方を読む。提出判定は日別回答と受付日程の版による。
+- 希望確認・シフト編集・割当数では `apps/api/src/features/directory/services/directory-work.ts` の集計用SQLで双方を読む。提出判定は日別回答と受付日程の版による。
 - メンバー一覧・年度参加・チャットは従来どおり実メンバーのみを扱う。未サインインの人を除外する処理や認証状態のUI表示は追加しない。
 - HTTPのレスポンス形式は維持する。名簿IDはUUIDのバージョン・variantを保証しないため、HTTPの対象IDには使わない。名簿側では回答レコードのUUIDを既存の `memberId` として返し、保存時に名簿IDへ解決して対応するテーブルへ書き分ける。更新前クライアントのUUID検証も維持する。
 
@@ -59,9 +59,9 @@ DB変更を伴うため「慎重に進める」に該当する。0040で名簿�
 
 4つの `directory_availability_*` / `directory_shift_assignments` テーブルがすべて0件で、本人のサインイン後にも希望・割当が保たれていることを確認できたら削除できる。サインインしない人が残った場合は、その人の記録をどう扱うか決めるまで残す。日数だけでは外さない。
 
-1. `services/directory-work.ts` のSQLを呼ぶ `services/activity-editor.ts`、`services/save-shift-plan.ts`、`routes/years/availability-submissions.ts`、`routes/years/activities.ts` を実メンバーのテーブルだけ読む形へ戻す。
+1. `apps/api/src/features/directory/services/directory-work.ts` のSQLを呼ぶ `apps/api/src/features/activities/services/activity-editor.ts`、`apps/api/src/features/shifts/services/save-shift-plan.ts`、`apps/api/src/features/availability/routes/years/availability-submissions.ts`、`apps/api/src/features/activities/routes/years/activities.ts` を実メンバーのテーブルだけ読む形へ戻す。
 2. 名簿用の保存分岐、上記集計用SQL、対応する回帰テスト・テスト補助を削除する。
-3. 新しいマイグレーションで `directory_work_on_registration`・`directory_assignment_check`・`directory_slot_overlap` と名簿用4テーブルを削除し、`packages/db/src/schema.ts` からも定義を除く。既存の年度参加作成トリガーの重複防止条件は見直す。
+3. 新しいマイグレーションで `directory_work_on_registration`・`directory_assignment_check`・`directory_slot_overlap` と名簿用4テーブルを削除し、`packages/db/src/schema/availability.ts` と `schema/shifts.ts` からも定義を除く。既存の年度参加作成トリガーの重複防止条件は見直す。
 4. 実メンバーの希望確認・割当保存・初回サインインを検証し、この節と互換一覧の行を削除する。適用済みマイグレーションは削除・編集しない。
 
 ## 変えない識別子

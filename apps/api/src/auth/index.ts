@@ -4,7 +4,7 @@ import { betterAuth } from "better-auth/minimal"
 
 import * as schema from "@workspace/db"
 
-import { isDiscordOAuthEnabled, rosterAuth } from "./roster"
+import { rosterAuth } from "../features/directory/auth/roster"
 import {
   discordProvider,
   isDiscordConfigured,
@@ -26,7 +26,8 @@ const FOUR_HUNDRED_DAYS_IN_SECONDS = 60 * 60 * 24 * 400
  * OAuth rather than joining it, so only one of the two is ever configured.
  */
 export function getConfiguredProviders(env: CloudflareBindings) {
-  const discord = isDiscordOAuthEnabled(env) && isDiscordConfigured(env)
+  const discord =
+    env.DISCORD_OAUTH_ENABLED !== "false" && isDiscordConfigured(env)
   return { discord, roster: !discord }
 }
 
