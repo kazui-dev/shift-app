@@ -47,6 +47,19 @@ vp -C apps/api run dev
 
 local D1 は Wrangler の local state を使う。remote D1 を通常の開発で共有すると、誤更新や開発者間の干渉が起きるため避ける。
 
+### 本番データのローカル確認
+
+管理画面を実際のデータ量で確認するときは、Cloudflare にログインした状態で Web と API を止め、次を実行する。
+
+```bash
+vp -C apps/api run snapshot:refresh
+SHIFT_APP_DEV_DATA=production-snapshot vp -C apps/web dev
+```
+
+このコマンドは本番 D1 の指定テーブルを**読み取るだけ**で、通常の `.wrangler/state` とは別の `.wrangler/production-snapshot` に取り込む。Web の `/api` は、このローカルコピーを使う。通常の開発に戻るときは環境変数を外して `vp dev` を起動する。再取り込みはサーバーを止めて同じコマンドを実行する。
+
+利用者・名簿・シフト・希望など管理画面に必要なデータを含むため、ローカルコピーも個人情報として扱う。`.wrangler` は Git 管理から除外されている。`account`、`session`、`verification`、通知端末の endpoint、チャットの D1 メタデータ・Durable Object・R2 は取り込まない。活動履歴の大きな本文も対象外。ログインにはローカルの認証設定を使い、本番のセッションは引き継がない。チャットや通知の再現には使わない。
+
 ## Database Migrations
 
 Drizzle schema は `packages/db/src/schema.ts`、生成設定は `apps/api/drizzle.config.ts`、SQL migration は `apps/api/migrations` に置く。
