@@ -54,6 +54,7 @@ export async function findDirectoryEntry(
     .where(
       and(
         eq(studentDirectory.year, year),
+        eq(studentDirectory.status, "active"),
         sql`lower(${studentDirectory.studentId}) = ${studentId.toLowerCase()}`
       )
     )

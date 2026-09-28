@@ -14,7 +14,7 @@
 
 [account.ts](../packages/db/src/schema/account.ts) の `app_users` はアプリの利用者を表し、Better Auth の `user` は認証主体を表す。認証だけ済んだ利用者とアプリの利用者を区別する。学籍番号はアプリ利用者で一意とし、入力境界で正規化する。所属確認、identity 復旧申請、管理操作の監査記録もこの領域に置く。OAuth の identity は Better Auth の `account` に置き、所属確認に token を複製しない。identity の移動を申請だけで確定させない。
 
-[organization.ts](../packages/db/src/schema/organization.ts) には年度、参加状態、年度 role と権限、局・担当、年度別名簿を置く。名簿 `student_directory` はアカウントとは独立しており、同一人物が複数年度の名簿に載れる。局・担当は名前ではなく `role_id` で年度 role を参照する。年度参加 `year_memberships` と role 付与 `member_year_roles` は別の関係であり、role だけで年度参加にはならない。参加を `inactive` にしても過去の割当や role は削除せず、通常アクセスと実効権限から除外する。
+[organization.ts](../packages/db/src/schema/organization.ts) には年度、参加状態、年度 role と権限、局・担当、年度別名簿を置く。名簿 `student_directory` はアカウントとは独立しており、同一人物が複数年度の名簿に載れる。名簿の `inactive` はその年度の登録対象から外す状態で、外部希望回答を残したままサインイン・配置候補・初回登録時の希望統合から除外する。割当がある名簿行は先に割当を取り消す。局・担当は名前ではなく `role_id` で年度 role を参照する。年度参加 `year_memberships` と role 付与 `member_year_roles` は別の関係であり、role だけで年度参加にはならない。参加を `inactive` にしても過去の割当や role は削除せず、通常アクセスと実効権限から除外する。
 
 年度は `operating_years` で管理する。`year_settings` のデフォルト年度は 1 件だけで、年度へのアクセス権を付与しない。初期化と削除禁止の trigger は migration で管理する。年度 role の権限は `shift.create`、`shift.manage`、`member.manage`、`role.manage`。実効権限は API で確認する。
 

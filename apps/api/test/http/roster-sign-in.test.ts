@@ -66,6 +66,28 @@ function directory(db: DatabaseSync) {
 const taro = { studentId: "26aj001", displayName: "電大 太郎" }
 
 describe("directory sign-in", () => {
+  it("does not sign in an inactive listing or delete its submitted answers", async () => {
+    const db = migrated()
+    try {
+      directory(db)
+      directoryWork(db, "d1")
+      db.exec("UPDATE student_directory SET status='inactive' WHERE id='d1'")
+
+      const response = await signIn(db, taro)
+      expect(response.status).toBe(403)
+      expect(db.prepare("SELECT count(*) AS n FROM app_users").get()?.n).toBe(0)
+      expect(
+        db
+          .prepare(
+            "SELECT count(*) AS n FROM directory_availability_day_answers"
+          )
+          .get()?.n
+      ).toBe(1)
+    } finally {
+      db.close()
+    }
+  })
+
   it("creates a member only at first sign-in and transfers directory-owned work", async () => {
     const db = migrated()
     try {

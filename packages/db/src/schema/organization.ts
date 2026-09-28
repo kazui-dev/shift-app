@@ -86,6 +86,9 @@ export const studentDirectory = sqliteTable(
     }),
     /** 局長 and the like: the committee's own record, granted to no one. */
     office: text("office"),
+    status: text("status", { enum: ["active", "inactive"] })
+      .notNull()
+      .default("active"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
