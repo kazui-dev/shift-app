@@ -59,6 +59,19 @@ it("excludes an inactive directory listing while retaining its answers", async (
     expect(
       db.prepare(`SELECT id FROM ${planningSubmissions} WHERE year=2026`).all()
     ).toEqual([])
+    const app = new Hono<{ Bindings: CloudflareBindings }>()
+    app.get("/", async (c) => {
+      await expect(
+        readActivityEditor(c.env.shift_app, "work")
+      ).resolves.toMatchObject({
+        members: [{ id: "admin" }],
+        slots: [{ memberIds: [] }],
+        submittedMemberIds: [],
+      })
+      return c.text("ok")
+    })
+    const result = await app.request("/", {}, { shift_app: d1Binding(db) })
+    expect(await result.text()).toBe("ok")
     expect(
       db
         .prepare("SELECT COUNT(*) AS n FROM directory_availability_day_answers")
