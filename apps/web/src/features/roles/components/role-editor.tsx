@@ -45,9 +45,9 @@ export function RoleEditor({
     grants.length !== (role?.permissions.length ?? 0) ||
     grants.some((grant) => !role?.permissions.includes(grant))
   useEffect(() => {
-    onDirtyChange(dirty)
+    onDirtyChange(dirty || pending)
     return () => onDirtyChange(false)
-  }, [dirty, onDirtyChange])
+  }, [dirty, pending, onDirtyChange])
   function close() {
     if (dirty) setDiscarding(true)
     else onClose()
@@ -74,19 +74,6 @@ export function RoleEditor({
   }
   return (
     <form onSubmit={save} className="mx-auto max-w-2xl min-w-0 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-medium">
-          {role?.name ?? "ロールを作成"}
-        </h2>
-        <Button
-          type="button"
-          variant="ghost"
-          disabled={pending}
-          onClick={close}
-        >
-          一覧に戻る
-        </Button>
-      </div>
       {!canEdit && (
         <p className="text-sm text-muted-foreground">
           このロールを編集する権限がありません。

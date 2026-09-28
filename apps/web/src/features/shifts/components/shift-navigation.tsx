@@ -1,7 +1,13 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { activitiesQuery } from "@/features/shifts/data/activities"
+import {
+  activitiesQuery,
+  activityQuery,
+} from "@/features/shifts/data/activities"
+import { errorMessage } from "@/lib/http/client"
+import { toast } from "@workspace/ui/lib/toast"
 import { japanDateTime, japanDateWeekday } from "@workspace/shared/japan-time"
 import { Button } from "@workspace/ui/components/button"
 import { SelectField } from "@/components/select-field"
@@ -10,27 +16,40 @@ import type { EditorData } from "../editor-data"
 export function ShiftNavigation({
   activity,
   disabled,
+  onPendingChange,
 }: {
   activity: EditorData["activity"]
   disabled: boolean
+  onPendingChange: (pending: boolean) => void
 }) {
   const navigate = useNavigate()
+  const client = useQueryClient()
+  const [loading, setLoading] = useState(false)
   const all = useQuery(activitiesQuery(activity.year)).data?.activities ?? []
   const dates = [
     ...new Set(all.map((item) => japanDateTime(item.startsAt).date)),
   ].sort()
   const date = japanDateTime(activity.startsAt).date
   const index = dates.indexOf(date)
-  function open(id: string) {
-    void navigate({
-      to: "/manage/shifts/$shiftId",
-      params: { shiftId: id },
-      replace: true,
-      state: (previous) =>
-        previous.managementParent
-          ? { managementParent: previous.managementParent }
-          : {},
-    })
+  async function open(id: string) {
+    if (disabled || loading || id === activity.id) return
+    setLoading(true)
+    onPendingChange(true)
+    try {
+      await client.ensureQueryData(activityQuery(id))
+      await navigate({
+        to: "/manage/shifts/$shiftId",
+        params: { shiftId: id },
+        replace: true,
+      })
+    } catch (error) {
+      toast.error(errorMessage(error), {
+        action: { label: "再試行", onClick: () => void open(id) },
+      })
+    } finally {
+      setLoading(false)
+      onPendingChange(false)
+    }
   }
   function move(next: string | undefined) {
     const candidates = all.filter(
@@ -38,7 +57,7 @@ export function ShiftNavigation({
     )
     const target =
       candidates.find((item) => item.name === activity.name) ?? candidates[0]
-    if (target) open(target.id)
+    if (target) void open(target.id)
   }
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -46,7 +65,7 @@ export function ShiftNavigation({
         variant="ghost"
         size="icon-sm"
         aria-label="前の日"
-        disabled={disabled || index <= 0}
+        disabled={disabled || loading || index <= 0}
         onClick={() => move(dates[index - 1])}
       >
         <ChevronLeft />
@@ -54,7 +73,7 @@ export function ShiftNavigation({
       <SelectField
         aria-label="シフトの日付"
         value={date}
-        disabled={disabled}
+        disabled={disabled || loading}
         className="w-auto"
         options={dates.map((value) => ({
           value,
@@ -66,7 +85,7 @@ export function ShiftNavigation({
         variant="ghost"
         size="icon-sm"
         aria-label="次の日"
-        disabled={disabled || index >= dates.length - 1}
+        disabled={disabled || loading || index >= dates.length - 1}
         onClick={() => move(dates[index + 1])}
       >
         <ChevronRight />
@@ -74,13 +93,16 @@ export function ShiftNavigation({
       <SelectField
         aria-label="編集するシフト"
         value={activity.id}
-        disabled={disabled}
+        disabled={disabled || loading}
         className="w-auto min-w-28"
         options={all
           .filter((item) => japanDateTime(item.startsAt).date === date)
           .map((item) => ({ value: item.id, label: item.name }))}
-        onValueChange={open}
+        onValueChange={(id) => void open(id)}
       />
+      {loading && (
+        <output className="text-xs text-muted-foreground">読み込み中…</output>
+      )}
     </div>
   )
 }

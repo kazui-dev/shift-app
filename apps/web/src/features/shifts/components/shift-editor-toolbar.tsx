@@ -7,6 +7,7 @@ export function ShiftEditorToolbar({
   activity,
   dirty,
   pending,
+  navigating,
   conflicted,
   canUndo,
   canRedo,
@@ -15,10 +16,12 @@ export function ShiftEditorToolbar({
   onAttendance,
   onSave,
   onActions,
+  onNavigationPendingChange,
 }: {
   activity: EditorData["activity"]
   dirty: boolean
   pending: boolean
+  navigating: boolean
   conflicted: boolean
   canUndo: boolean
   canRedo: boolean
@@ -27,16 +30,21 @@ export function ShiftEditorToolbar({
   onAttendance: () => void
   onSave: () => void
   onActions: () => void
+  onNavigationPendingChange: (pending: boolean) => void
 }) {
   return (
     <div className="flex shrink-0 flex-col gap-2 px-4 py-3 sm:px-6 md:flex-row md:items-center md:justify-between">
-      <ShiftNavigation activity={activity} disabled={pending} />
+      <ShiftNavigation
+        activity={activity}
+        disabled={pending}
+        onPendingChange={onNavigationPendingChange}
+      />
       <div className="flex items-center justify-end gap-1">
         <Button
           variant="ghost"
           size="icon-sm"
           aria-label="元に戻す"
-          disabled={!canUndo || pending}
+          disabled={!canUndo || pending || navigating}
           onClick={onUndo}
         >
           <Undo2 />
@@ -45,7 +53,7 @@ export function ShiftEditorToolbar({
           variant="ghost"
           size="icon-sm"
           aria-label="やり直す"
-          disabled={!canRedo || pending}
+          disabled={!canRedo || pending || navigating}
           onClick={onRedo}
         >
           <Redo2 />
@@ -54,13 +62,14 @@ export function ShiftEditorToolbar({
           variant="ghost"
           size="sm"
           className="hidden md:inline-flex"
+          disabled={navigating}
           onClick={onAttendance}
         >
           出勤・連絡
         </Button>
         <Button
           size="sm"
-          disabled={pending || (!dirty && !conflicted)}
+          disabled={pending || navigating || (!dirty && !conflicted)}
           onClick={onSave}
         >
           {pending
@@ -75,6 +84,7 @@ export function ShiftEditorToolbar({
           variant="ghost"
           size="icon-sm"
           aria-label="シフトの操作"
+          disabled={navigating}
           onClick={onActions}
         >
           <MoreHorizontal />

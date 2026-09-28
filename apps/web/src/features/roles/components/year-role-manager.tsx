@@ -1,21 +1,22 @@
 import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import { ArrowUp, ArrowDown } from "lucide-react"
-import { Button } from "@workspace/ui/components/button"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import { rolesQuery } from "@/features/years/data/years"
 import { keys } from "@/app/data/keys"
 import { reorderRoles } from "@/features/years/api/years"
 import { errorMessage } from "@/lib/http/client"
 import { permissions } from "./role-permissions"
-import { RoleEditor } from "./role-editor"
 
 export function YearRoleManager({
   year,
-  onDirtyChange,
+  view,
 }: {
   year: number
-  onDirtyChange: (dirty: boolean) => void
+  view: { search: string }
 }) {
   const query = useQuery({
     ...rolesQuery(year),
@@ -23,7 +24,14 @@ export function YearRoleManager({
   const client = useQueryClient()
   const [ordering, setOrdering] = useState(false)
   const [reordering, setReordering] = useState(false)
+  const [search, setSearch] = useState(() => view.search)
   const authority = query.data?.authority
+  const roles = query.data?.roles ?? []
+  const visible = reordering
+    ? roles
+    : roles.filter((role) =>
+        role.name.toLowerCase().includes(search.toLowerCase())
+      )
   const editable = (position: number) =>
     !!authority &&
     (authority.systemAdmin ||
@@ -46,48 +54,54 @@ export function YearRoleManager({
       setOrdering(false)
     }
   }
-  const [selected, setSelected] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-  const role = query.data?.roles.find((item) => item.id === selected)
   const canCreate =
     !!authority &&
     (authority.systemAdmin || authority.permissions.includes("role.manage"))
-  if (role || creating)
-    return (
-      <RoleEditor
-        key={role?.id ?? "new"}
-        year={year}
-        role={role ?? null}
-        canEdit={role ? editable(role.position) : canCreate}
-        grantable={
-          authority?.systemAdmin
-            ? permissions.map((p) => p.value)
-            : (authority?.permissions ?? [])
-        }
-        onDirtyChange={onDirtyChange}
-        onClose={() => {
-          setSelected(null)
-          setCreating(false)
-        }}
-      />
-    )
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
+        <Input
+          className="h-9 w-full sm:max-w-80"
+          aria-label="ロールを検索"
+          placeholder="ロール名で検索"
+          disabled={reordering}
+          value={search}
+          onChange={(event) => {
+            view.search = event.target.value
+            setSearch(event.target.value)
+          }}
+        />
+        <span className="text-sm text-muted-foreground">
+          {visible.length} / {roles.length}件
+        </span>
         <Button
+          className="ml-auto"
           variant="outline"
+          size="sm"
           disabled={!canCreate || ordering}
-          onClick={() => setReordering(!reordering)}
+          onClick={() => {
+            if (!reordering) {
+              view.search = ""
+              setSearch("")
+            }
+            setReordering(!reordering)
+          }}
         >
           {reordering ? "並べ替えを終了" : "並べ替え"}
         </Button>
-        <Button
-          variant="outline"
-          disabled={!canCreate || ordering || reordering}
-          onClick={() => setCreating(true)}
-        >
-          ロールを作成
-        </Button>
+        {canCreate && !ordering && !reordering ? (
+          <Link
+            to="/manage/roles/$year/new"
+            params={{ year: String(year) }}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            ロールを作成
+          </Link>
+        ) : (
+          <Button variant="outline" size="sm" disabled>
+            ロールを作成
+          </Button>
+        )}
       </div>
       {query.isPending && (
         <p className="text-sm text-muted-foreground">読み込み中…</p>
@@ -106,7 +120,7 @@ export function YearRoleManager({
         </p>
       )}
       <ul className="divide-y border-y">
-        {query.data?.roles.map((item, index) => (
+        {visible.map((item, index) => (
           <li key={item.id} className="flex min-h-16 items-center gap-3 py-3">
             <span
               className="size-3 shrink-0 rounded-full"
@@ -157,14 +171,14 @@ export function YearRoleManager({
                 </Button>
               </div>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
+              <Link
+                to="/manage/roles/$year/$roleId"
+                params={{ year: String(year), roleId: item.id }}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
                 aria-label={`${item.name}を${editable(item.position) ? "編集" : "表示"}`}
-                onClick={() => setSelected(item.id)}
               >
                 {editable(item.position) ? "編集" : "表示"}
-              </Button>
+              </Link>
             )}
           </li>
         ))}
@@ -172,6 +186,11 @@ export function YearRoleManager({
       {query.data?.roles.length === 0 && (
         <p className="py-4 text-sm text-muted-foreground">
           ロールがありません。
+        </p>
+      )}
+      {query.data && roles.length > 0 && visible.length === 0 && (
+        <p className="py-4 text-sm text-muted-foreground">
+          条件に一致するロールがありません。
         </p>
       )}
     </div>

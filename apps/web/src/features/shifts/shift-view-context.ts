@@ -6,7 +6,10 @@ export type MemberFilters = {
   includeUnavailable: boolean
 }
 
-export type ShiftView = { filters?: MemberFilters; scrollTop: number }
+export type ShiftView = {
+  filters?: MemberFilters
+  scrollTop: number
+}
 export const ShiftViewContext = createContext<Map<number, ShiftView> | null>(
   null
 )
@@ -16,7 +19,9 @@ export function useShiftView(year: number) {
   if (!views) throw new Error("ShiftViewProvider is required")
   let view = views.get(year)
   if (!view) {
-    view = { scrollTop: 0 }
+    view = {
+      scrollTop: 0,
+    }
     views.set(year, view)
   }
   return view

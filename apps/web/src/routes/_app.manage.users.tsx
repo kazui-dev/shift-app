@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { ManagePage } from "@/features/management/pages/manage-page"
+import { UsersPage } from "@/features/management/pages/screens"
 
 export const Route = createFileRoute("/_app/manage/users")({
   beforeLoad: ({ context }) => {
@@ -8,5 +8,5 @@ export const Route = createFileRoute("/_app/manage/users")({
       throw redirect({ to: "/manage" })
     }
   },
-  component: () => <ManagePage view="users" />,
+  component: UsersPage,
 })

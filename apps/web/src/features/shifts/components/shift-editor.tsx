@@ -18,7 +18,6 @@ import { ApiError, errorMessage } from "@/lib/http/client"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { assignMember } from "./assign-member"
 import { ShiftActionsDialog } from "./shift-actions-dialog"
-import { ShiftSettings } from "./shift-settings"
 import { planOf, useShiftPlan } from "./use-shift-plan"
 import { TimeGrid } from "./time-grid"
 import type { EditorData } from "../editor-data"
@@ -29,6 +28,7 @@ import {
 
 import { ShiftEditorToolbar } from "./shift-editor-toolbar"
 import { MemberFilterBar } from "./member-filter-bar"
+import { hasUnavailableAssignments } from "./availability-warning"
 
 import {
   useShiftView,
@@ -68,8 +68,8 @@ export function ShiftEditor({
     storeFilters(value)
   }
   const [attendanceOpen, setAttendanceOpen] = useState(false)
-  const [settings, setSettings] = useState(false)
   const [pending, setPending] = useState(false)
+  const [navigationPending, setNavigationPending] = useState(false)
   const [warning, setWarning] = useState(false)
   const {
     plan,
@@ -104,18 +104,7 @@ export function ShiftEditor({
     return null
   }
   async function save(confirmed = false) {
-    const outside = plan.slots.some((slot) =>
-      slot.memberIds.some(
-        (memberId) =>
-          !data.availability.some(
-            (window) =>
-              window.memberId === memberId &&
-              Date.parse(window.startsAt) <= Date.parse(slot.startsAt) &&
-              Date.parse(window.endsAt) >= Date.parse(slot.endsAt)
-          )
-      )
-    )
-    if (outside && !confirmed) {
+    if (hasUnavailableAssignments(plan, data.availability) && !confirmed) {
       setWarning(true)
       return
     }
@@ -171,6 +160,7 @@ export function ShiftEditor({
         activity={data.activity}
         dirty={dirty}
         pending={pending}
+        navigating={navigationPending}
         conflicted={conflicted}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -185,6 +175,7 @@ export function ShiftEditor({
             : void save()
         }
         onActions={() => setActions(true)}
+        onNavigationPendingChange={setNavigationPending}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
@@ -208,31 +199,25 @@ export function ShiftEditor({
             variant="ghost"
             size="sm"
             className="hidden md:inline-flex"
-            onClick={() => setSettings(!settings)}
-            aria-expanded={settings}
+            onClick={() =>
+              void navigate({
+                to: "/manage/shifts/$shiftId/settings",
+                params: { shiftId: data.activity.id },
+              })
+            }
           >
             基本情報を編集
           </Button>
         </div>
-        {settings && (
-          <ShiftSettings
-            plan={plan}
-            data={data}
-            onSave={(value) => {
-              update(value)
-              setSettings(false)
-            }}
-          />
-        )}
         <MemberFilterBar
           filters={filters}
           roles={data.roles}
           onChange={setFilters}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden xl:flex-row">
           <fieldset
-            disabled={pending}
-            className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:pr-4"
+            disabled={pending || navigationPending}
+            className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 xl:pr-4"
           >
             <TimeGrid
               data={data}
@@ -264,7 +249,7 @@ export function ShiftEditor({
               startsAt={plan.startsAt}
               endsAt={plan.endsAt}
               data={data}
-              pending={pending}
+              pending={pending || navigationPending}
               onClose={() => setSelection(null)}
               onApply={applySelection}
               onRemove={(slotId) => {
@@ -294,7 +279,10 @@ export function ShiftEditor({
           onClose={() => setActions(false)}
           onSettings={() => {
             setActions(false)
-            setSettings(true)
+            void navigate({
+              to: "/manage/shifts/$shiftId/settings",
+              params: { shiftId: data.activity.id },
+            })
           }}
           onAttendance={() => {
             setActions(false)

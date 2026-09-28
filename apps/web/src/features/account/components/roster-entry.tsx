@@ -86,7 +86,7 @@ export function RosterEntry({
           disabled={pending}
         >
           {pending && <LoaderCircle className="animate-spin" />}
-          送信
+          サインイン
         </Button>
       </form>
     </AuthShell>

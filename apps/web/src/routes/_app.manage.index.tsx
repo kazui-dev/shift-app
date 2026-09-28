@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_app/manage/")({
-  component: () => null,
+  beforeLoad: () => {
+    throw redirect({ to: "/manage/shifts", replace: true })
+  },
 })
