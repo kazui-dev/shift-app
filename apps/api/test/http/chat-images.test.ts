@@ -3,21 +3,21 @@ import { beforeEach, expect, it, vi } from "vite-plus/test"
 import {
   dailyUploadLimit,
   type UploadLimit,
-} from "../../src/domain/chat-attachment"
+} from "../../src/features/chat/domain/chat-attachment"
 import type { ApiEnv } from "../../src/lib/http"
 import {
   purgeShared,
   sharedResource,
   warmShared,
 } from "../../src/lib/shared-cache"
-import { chatApp } from "../../src/routes/chat/index"
-import { findAccessibleRoom } from "../../src/services/chat-access"
-import { storableImage } from "../../src/services/chat-image"
+import { chatApp } from "../../src/features/chat/routes/index"
+import { findAccessibleRoom } from "../../src/features/chat/services/chat-access"
+import { storableImage } from "../../src/features/chat/services/chat-image"
 import { chatRoom } from "../support/chat"
-vi.mock("../../src/services/chat-access", () => ({
+vi.mock("../../src/features/chat/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
-vi.mock("../../src/services/chat-image", () => ({
+vi.mock("../../src/features/chat/services/chat-image", () => ({
   storableImage: vi.fn<typeof storableImage>(),
 }))
 vi.mock("../../src/lib/shared-cache", async (original) => ({

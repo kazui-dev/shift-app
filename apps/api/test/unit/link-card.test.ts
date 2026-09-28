@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test"
 import { linkPreview, sharedResource } from "../../src/lib/shared-cache"
-import { fetchLink } from "../../src/services/link-fetch"
-import { makeLinkCard } from "../../src/services/link-card"
+import { fetchLink } from "../../src/features/chat/services/link-fetch"
+import { makeLinkCard } from "../../src/features/chat/services/link-card"
 
 vi.mock("../../src/lib/shared-cache", async (original) => ({
   ...(await original<typeof import("../../src/lib/shared-cache")>()),

@@ -33,7 +33,11 @@ import { Route as AppChatRoomIdInfoRouteImport } from './routes/_app.chat.$roomI
 import { Route as AppChatRoomIdSearchRouteImport } from './routes/_app.chat.$roomId.search'
 import { Route as AppManageShiftsShiftIdRouteImport } from './routes/_app.manage.shifts_.$shiftId'
 import { Route as AppManageShiftsAvailabilityRouteImport } from './routes/_app.manage.shifts_.availability'
+import { Route as AppManageShiftsNewRouteImport } from './routes/_app.manage.shifts_.new'
 import { Route as AppChatRoomIdInfoSettingsRouteImport } from './routes/_app.chat.$roomId.info.settings'
+import { Route as AppManageRolesYearRoleIdRouteImport } from './routes/_app.manage.roles_.$year.$roleId'
+import { Route as AppManageRolesYearNewRouteImport } from './routes/_app.manage.roles_.$year.new'
+import { Route as AppManageShiftsShiftIdSettingsRouteImport } from './routes/_app.manage.shifts_.$shiftId_.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -156,11 +160,33 @@ const AppManageShiftsAvailabilityRoute =
     path: '/shifts/availability',
     getParentRoute: () => AppManageRoute,
   } as any)
+const AppManageShiftsNewRoute = AppManageShiftsNewRouteImport.update({
+  id: '/shifts_/new',
+  path: '/shifts/new',
+  getParentRoute: () => AppManageRoute,
+} as any)
 const AppChatRoomIdInfoSettingsRoute =
   AppChatRoomIdInfoSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
     getParentRoute: () => AppChatRoomIdInfoRoute,
+  } as any)
+const AppManageRolesYearRoleIdRoute =
+  AppManageRolesYearRoleIdRouteImport.update({
+    id: '/roles_/$year/$roleId',
+    path: '/roles/$year/$roleId',
+    getParentRoute: () => AppManageRoute,
+  } as any)
+const AppManageRolesYearNewRoute = AppManageRolesYearNewRouteImport.update({
+  id: '/roles_/$year/new',
+  path: '/roles/$year/new',
+  getParentRoute: () => AppManageRoute,
+} as any)
+const AppManageShiftsShiftIdSettingsRoute =
+  AppManageShiftsShiftIdSettingsRouteImport.update({
+    id: '/shifts_/$shiftId_/settings',
+    path: '/shifts/$shiftId/settings',
+    getParentRoute: () => AppManageRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -186,7 +212,11 @@ export interface FileRoutesByFullPath {
   '/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRoute
+  '/manage/shifts/new': typeof AppManageShiftsNewRoute
   '/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
+  '/manage/roles/$year/$roleId': typeof AppManageRolesYearRoleIdRoute
+  '/manage/roles/$year/new': typeof AppManageRolesYearNewRoute
+  '/manage/shifts/$shiftId/settings': typeof AppManageShiftsShiftIdSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -209,7 +239,11 @@ export interface FileRoutesByTo {
   '/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
   '/manage/shifts/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/manage/shifts/availability': typeof AppManageShiftsAvailabilityRoute
+  '/manage/shifts/new': typeof AppManageShiftsNewRoute
   '/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
+  '/manage/roles/$year/$roleId': typeof AppManageRolesYearRoleIdRoute
+  '/manage/roles/$year/new': typeof AppManageRolesYearNewRoute
+  '/manage/shifts/$shiftId/settings': typeof AppManageShiftsShiftIdSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -237,7 +271,11 @@ export interface FileRoutesById {
   '/_app/chat/$roomId/search': typeof AppChatRoomIdSearchRoute
   '/_app/manage/shifts_/$shiftId': typeof AppManageShiftsShiftIdRoute
   '/_app/manage/shifts_/availability': typeof AppManageShiftsAvailabilityRoute
+  '/_app/manage/shifts_/new': typeof AppManageShiftsNewRoute
   '/_app/chat/$roomId/info/settings': typeof AppChatRoomIdInfoSettingsRoute
+  '/_app/manage/roles_/$year/$roleId': typeof AppManageRolesYearRoleIdRoute
+  '/_app/manage/roles_/$year/new': typeof AppManageRolesYearNewRoute
+  '/_app/manage/shifts_/$shiftId_/settings': typeof AppManageShiftsShiftIdSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -264,7 +302,11 @@ export interface FileRouteTypes {
     | '/chat/$roomId/search'
     | '/manage/shifts/$shiftId'
     | '/manage/shifts/availability'
+    | '/manage/shifts/new'
     | '/chat/$roomId/info/settings'
+    | '/manage/roles/$year/$roleId'
+    | '/manage/roles/$year/new'
+    | '/manage/shifts/$shiftId/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -287,7 +329,11 @@ export interface FileRouteTypes {
     | '/chat/$roomId/search'
     | '/manage/shifts/$shiftId'
     | '/manage/shifts/availability'
+    | '/manage/shifts/new'
     | '/chat/$roomId/info/settings'
+    | '/manage/roles/$year/$roleId'
+    | '/manage/roles/$year/new'
+    | '/manage/shifts/$shiftId/settings'
   id:
     | '__root__'
     | '/'
@@ -314,7 +360,11 @@ export interface FileRouteTypes {
     | '/_app/chat/$roomId/search'
     | '/_app/manage/shifts_/$shiftId'
     | '/_app/manage/shifts_/availability'
+    | '/_app/manage/shifts_/new'
     | '/_app/chat/$roomId/info/settings'
+    | '/_app/manage/roles_/$year/$roleId'
+    | '/_app/manage/roles_/$year/new'
+    | '/_app/manage/shifts_/$shiftId_/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -492,12 +542,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManageShiftsAvailabilityRouteImport
       parentRoute: typeof AppManageRoute
     }
+    '/_app/manage/shifts_/new': {
+      id: '/_app/manage/shifts_/new'
+      path: '/shifts/new'
+      fullPath: '/manage/shifts/new'
+      preLoaderRoute: typeof AppManageShiftsNewRouteImport
+      parentRoute: typeof AppManageRoute
+    }
     '/_app/chat/$roomId/info/settings': {
       id: '/_app/chat/$roomId/info/settings'
       path: '/settings'
       fullPath: '/chat/$roomId/info/settings'
       preLoaderRoute: typeof AppChatRoomIdInfoSettingsRouteImport
       parentRoute: typeof AppChatRoomIdInfoRoute
+    }
+    '/_app/manage/roles_/$year/$roleId': {
+      id: '/_app/manage/roles_/$year/$roleId'
+      path: '/roles/$year/$roleId'
+      fullPath: '/manage/roles/$year/$roleId'
+      preLoaderRoute: typeof AppManageRolesYearRoleIdRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/roles_/$year/new': {
+      id: '/_app/manage/roles_/$year/new'
+      path: '/roles/$year/new'
+      fullPath: '/manage/roles/$year/new'
+      preLoaderRoute: typeof AppManageRolesYearNewRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/shifts_/$shiftId_/settings': {
+      id: '/_app/manage/shifts_/$shiftId_/settings'
+      path: '/shifts/$shiftId/settings'
+      fullPath: '/manage/shifts/$shiftId/settings'
+      preLoaderRoute: typeof AppManageShiftsShiftIdSettingsRouteImport
+      parentRoute: typeof AppManageRoute
     }
   }
 }
@@ -576,6 +654,10 @@ interface AppManageRouteChildren {
   AppManageIndexRoute: typeof AppManageIndexRoute
   AppManageShiftsShiftIdRoute: typeof AppManageShiftsShiftIdRoute
   AppManageShiftsAvailabilityRoute: typeof AppManageShiftsAvailabilityRoute
+  AppManageShiftsNewRoute: typeof AppManageShiftsNewRoute
+  AppManageRolesYearRoleIdRoute: typeof AppManageRolesYearRoleIdRoute
+  AppManageRolesYearNewRoute: typeof AppManageRolesYearNewRoute
+  AppManageShiftsShiftIdSettingsRoute: typeof AppManageShiftsShiftIdSettingsRoute
 }
 
 const AppManageRouteChildren: AppManageRouteChildren = {
@@ -589,6 +671,10 @@ const AppManageRouteChildren: AppManageRouteChildren = {
   AppManageIndexRoute: AppManageIndexRoute,
   AppManageShiftsShiftIdRoute: AppManageShiftsShiftIdRoute,
   AppManageShiftsAvailabilityRoute: AppManageShiftsAvailabilityRoute,
+  AppManageShiftsNewRoute: AppManageShiftsNewRoute,
+  AppManageRolesYearRoleIdRoute: AppManageRolesYearRoleIdRoute,
+  AppManageRolesYearNewRoute: AppManageRolesYearNewRoute,
+  AppManageShiftsShiftIdSettingsRoute: AppManageShiftsShiftIdSettingsRoute,
 }
 
 const AppManageRouteWithChildren = AppManageRoute._addFileChildren(

@@ -3,7 +3,7 @@ import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
 import type { ApiEnv } from "../lib/http"
-import { broadcastChange } from "../services/live-events"
+import { broadcastChange } from "../features/live/services/live-events"
 
 /**
  * Announces what a write changed, once the handler has succeeded. Attach it to

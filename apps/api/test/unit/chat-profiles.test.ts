@@ -2,7 +2,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { Hono } from "hono"
 import { expect, it } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { withMemberImages } from "../../src/services/chat-profiles"
+import { withMemberImages } from "../../src/features/chat/services/chat-profiles"
 it("resolves current profile images without modifying stored posts", async () => {
   const db = new DatabaseSync(":memory:")
   try {

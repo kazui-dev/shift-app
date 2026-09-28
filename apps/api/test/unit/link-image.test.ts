@@ -1,9 +1,11 @@
 import { beforeEach, expect, it, vi } from "vite-plus/test"
-import { fetchLink } from "../../src/services/link-fetch"
-import { loadLinkImage } from "../../src/services/link-preview"
+import { fetchLink } from "../../src/features/chat/services/link-fetch"
+import { loadLinkImage } from "../../src/features/chat/services/link-preview"
 import { fakeTransformer } from "../support/images"
-vi.mock("../../src/services/link-fetch", async (original) => ({
-  ...(await original<typeof import("../../src/services/link-fetch")>()),
+vi.mock("../../src/features/chat/services/link-fetch", async (original) => ({
+  ...(await original<
+    typeof import("../../src/features/chat/services/link-fetch")
+  >()),
   fetchLink: vi.fn<typeof fetchLink>(),
 }))
 const info = vi.fn<() => Promise<ImageInfoResponse>>()

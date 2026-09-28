@@ -6,9 +6,12 @@ import {
   chatImageKey,
   chatImageTag,
   chatRoomTag,
-} from "../domain/chat-attachment"
+} from "../features/chat/domain/chat-attachment"
 import { linkPreview, sharedRoutes } from "../lib/shared-cache"
-import { loadLinkImage, loadLinkPreview } from "../services/link-preview"
+import {
+  loadLinkImage,
+  loadLinkPreview,
+} from "../features/chat/services/link-preview"
 
 const day = 86_400
 /** A missing page or image may come back, so a failure is kept only briefly. */

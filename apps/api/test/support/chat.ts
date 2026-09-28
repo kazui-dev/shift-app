@@ -1,4 +1,4 @@
-import type { RoomRow } from "../../src/services/chat-access"
+import type { RoomRow } from "../../src/features/chat/services/chat-access"
 
 /** A readable room the member may post in, with any fields changed. */
 export const chatRoom = (change: Partial<RoomRow> = {}): RoomRow => ({

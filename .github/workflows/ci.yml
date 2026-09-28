@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -56,6 +56,6 @@ jobs:
           test "$root_status" = "200"
           grep --ignore-case --quiet '^content-type: *text/html' "$root_headers"
 
-          api_status="$(curl --silent --show-error --dump-header "$api_headers" --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4173/api/me/timeline)"
+          api_status="$(curl --silent --show-error --dump-header "$api_headers" --output /dev/null --write-out '%{http_code}' http://127.0.0.1:4173/api/me/assignments)"
           test "$api_status" = "401"
           grep --ignore-case --quiet '^content-type: *application/json' "$api_headers"

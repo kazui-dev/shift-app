@@ -1,0 +1,179 @@
+import { and, eq } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/d1"
+import { Hono } from "hono"
+import { bodyLimit } from "hono/body-limit"
+import * as v from "valibot"
+
+import { identityLinkRequests, appUsers } from "@workspace/db/schema"
+import {
+  onboardingInputSchema,
+  providerSchema,
+  type Provider,
+} from "@workspace/shared/auth"
+
+import { createAuth, getConfiguredProviders } from "../../../auth"
+import { apiError, errorBody, errors } from "../../../lib/errors"
+import { requireSameOriginForMutation } from "../../../lib/http"
+
+export const accountApp = new Hono<{ Bindings: CloudflareBindings }>()
+
+accountApp.use("/account", requireSameOriginForMutation)
+
+accountApp.get("/account", async (c) => {
+  const auth = createAuth(c.env)
+  const authSession = await auth.api.getSession({
+    headers: c.req.raw.headers,
+  })
+  const providers = getConfiguredProviders(c.env)
+
+  if (!authSession) {
+    return c.json({ status: "anonymous" as const, providers })
+  }
+
+  const accounts = await auth.api.listUserAccounts({
+    headers: c.req.raw.headers,
+  })
+  const linkedProviders = accounts
+    .map((account) => account.providerId)
+    .filter((provider): provider is Provider => v.is(providerSchema, provider))
+
+  const db = drizzle(c.env.shift_app)
+  const [member] = await db
+    .select({
+      id: appUsers.id,
+      displayName: appUsers.displayName,
+      studentId: appUsers.studentId,
+      accessLevel: appUsers.accessLevel,
+    })
+    .from(appUsers)
+    .where(eq(appUsers.userId, authSession.user.id))
+    .limit(1)
+
+  if (!member) {
+    return c.json({
+      status: "onboarding" as const,
+      providers,
+      linkedProviders,
+    })
+  }
+
+  return c.json({
+    status: "active" as const,
+    member: { ...member, image: authSession.user.image ?? null },
+    providers,
+    linkedProviders,
+  })
+})
+
+accountApp.put(
+  "/account",
+  bodyLimit({
+    maxSize: 4 * 1024,
+    onError: (c) => apiError(c, errors.bodyTooLarge),
+  }),
+  async (c) => {
+    const auth = createAuth(c.env)
+    const authSession = await auth.api.getSession({
+      headers: c.req.raw.headers,
+    })
+    if (!authSession) {
+      return apiError(c, errors.unauthorized)
+    }
+
+    let payload: unknown
+    try {
+      payload = await c.req.json()
+    } catch {
+      return apiError(c, errors.invalidJson)
+    }
+
+    const parsed = v.safeParse(onboardingInputSchema, payload)
+    if (!parsed.success) {
+      return c.json(
+        {
+          ...errorBody(errors.invalidOnboardingData),
+          issues: v.flatten(parsed.issues).nested ?? {},
+        },
+        400
+      )
+    }
+
+    const db = drizzle(c.env.shift_app)
+    const [currentMember] = await db
+      .select({ id: appUsers.id })
+      .from(appUsers)
+      .where(eq(appUsers.userId, authSession.user.id))
+      .limit(1)
+
+    if (currentMember) {
+      return c.json({ ok: true as const })
+    }
+
+    const { studentId, displayName } = parsed.output
+    const [targetMember] = await db
+      .select({ id: appUsers.id })
+      .from(appUsers)
+      .where(eq(appUsers.studentId, studentId))
+      .limit(1)
+
+    if (targetMember) {
+      const [existingRequest] = await db
+        .select({ id: identityLinkRequests.id })
+        .from(identityLinkRequests)
+        .where(
+          and(
+            eq(identityLinkRequests.requesterUserId, authSession.user.id),
+            eq(identityLinkRequests.status, "pending")
+          )
+        )
+        .limit(1)
+
+      if (!existingRequest) {
+        await db.insert(identityLinkRequests).values({
+          id: crypto.randomUUID(),
+          requesterUserId: authSession.user.id,
+          targetMemberId: targetMember.id,
+          status: "pending",
+          createdAt: new Date(),
+        })
+      }
+
+      return c.json(
+        {
+          ...errorBody(errors.accountExists),
+          linkRequestCreated: true as const,
+        },
+        409
+      )
+    }
+
+    const now = new Date()
+    try {
+      await db.insert(appUsers).values({
+        id: crypto.randomUUID(),
+        userId: authSession.user.id,
+        displayName,
+        studentId,
+        accessLevel: "member",
+        createdAt: now,
+        updatedAt: now,
+      })
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          message: "Onboarding insert conflict",
+          userId: authSession.user.id,
+          error: error instanceof Error ? error.message : "Unknown error",
+        })
+      )
+      return c.json(
+        {
+          ...errorBody(errors.accountConflict),
+        },
+        409
+      )
+    }
+
+    return c.json({ ok: true as const }, 201)
+  }
+)

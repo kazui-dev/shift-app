@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 
-import { dueReminderWindow } from "../../src/domain/reminder-window"
+import { dueReminderWindow } from "../../src/features/notifications/domain/reminder-window"
 
 describe("push reminders", () => {
   it("selects assignments in the minute ending ten minutes ahead", () => {

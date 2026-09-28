@@ -9,14 +9,14 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
-    "./auth": "./src/auth.ts",
-    "./japan-time": "./src/japan-time.ts",
-    "./messages": "./src/messages.ts",
-    "./communications": "./src/communications.ts",
-    "./live": "./src/live.ts",
-    "./push": "./src/push.ts",
-    "./shifts": "./src/shifts.ts",
-    "./availability": "./src/availability.ts"
+    "./auth": "./src/contracts/auth.ts",
+    "./japan-time": "./src/lib/japan-time.ts",
+    "./messages": "./src/contracts/messages.ts",
+    "./communications": "./src/contracts/communications.ts",
+    "./live": "./src/contracts/live.ts",
+    "./push": "./src/contracts/push.ts",
+    "./shifts": "./src/contracts/shifts.ts",
+    "./availability": "./src/contracts/availability.ts"
   },
   "dependencies": {
     "valibot": "1.4.2"

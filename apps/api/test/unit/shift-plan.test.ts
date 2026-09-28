@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
-import { validateShiftPlan } from "../../src/domain/shift-plan"
+import { validateShiftPlan } from "../../src/features/shifts/domain/shift-plan"
 const at = (hour: number) =>
   `2026-11-01T${String(hour).padStart(2, "0")}:00:00+09:00`
 const slot = {

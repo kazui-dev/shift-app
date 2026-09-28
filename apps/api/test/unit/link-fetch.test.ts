@@ -3,7 +3,7 @@ import {
   fetchLink,
   limitedBody,
   publicLink,
-} from "../../src/services/link-fetch"
+} from "../../src/features/chat/services/link-fetch"
 afterEach(() => vi.unstubAllGlobals())
 it("rejects private names, literal addresses, credentials and unexpected protocols/ports", () => {
   for (const url of [

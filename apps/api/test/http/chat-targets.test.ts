@@ -1,12 +1,15 @@
-import { activityRoom, roomCommands } from "../../src/services/chat-creation"
-import { chatApp } from "../../src/routes/chat/index"
+import {
+  activityRoom,
+  roomCommands,
+} from "../../src/features/chat/services/chat-creation"
+import { chatApp } from "../../src/features/chat/routes/index"
 import { URL } from "node:url"
 import { readFileSync, readdirSync } from "node:fs"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { Hono } from "hono"
 import { describe, expect, it, vi } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { meAssignmentsApp } from "../../src/routes/me/assignments"
+import { meAssignmentsApp } from "../../src/features/assignments/routes/me/assignments"
 
 describe("migrated chat and calendar queries", () => {
   it("loads active shift targets and the calendar against the current schema", async () => {

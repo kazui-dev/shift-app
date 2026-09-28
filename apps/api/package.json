@@ -9,7 +9,8 @@
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "cf-typegen:check": "wrangler types --env-interface CloudflareBindings --check",
     "chat:initialize": "node --experimental-strip-types scripts/initialize-chat.ts",
-    "directory:seed": "node --experimental-strip-types scripts/seed-student-directory.ts"
+    "directory:seed": "node --experimental-strip-types scripts/seed-student-directory.ts",
+    "snapshot:refresh": "bash scripts/refresh-production-snapshot.sh"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.29",

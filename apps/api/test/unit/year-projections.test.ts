@@ -4,7 +4,7 @@ import {
   groupAvailabilitySubmissions,
   serializeActivity,
   type AvailabilityManagerRow,
-} from "../../src/domain/year-projections"
+} from "../../src/features/years/domain/year-projections"
 
 describe("year route transformations", () => {
   it("serializes activity timestamps", () => {

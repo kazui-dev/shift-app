@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs"
 import { Hono } from "hono"
 import { expect, it } from "vite-plus/test"
 import type { ApiEnv } from "../../src/lib/http"
-import { notificationDevicesApp } from "../../src/routes/push"
+import { notificationDevicesApp } from "../../src/features/notifications/routes/push"
 const app = new Hono<ApiEnv>().route(
   "/me/notification-devices",
   notificationDevicesApp

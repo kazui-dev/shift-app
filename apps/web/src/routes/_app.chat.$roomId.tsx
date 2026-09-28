@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
-import { chatImageLocation } from "@/lib/chat/image-location"
+import { chatImageLocation } from "@/features/chat/lib/image-location"
 export const Route = createFileRoute("/_app/chat/$roomId")({
   validateSearch: (
     search: Record<string, unknown>

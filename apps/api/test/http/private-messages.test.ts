@@ -3,13 +3,16 @@ import type { DatabaseSync } from "node:sqlite"
 import * as v from "valibot"
 import { afterEach, expect, it } from "vite-plus/test"
 
-import { findAccessibleRoom } from "../../src/services/chat-access"
-import { activityRoom, roomCommands } from "../../src/services/chat-creation"
+import { findAccessibleRoom } from "../../src/features/chat/services/chat-access"
+import {
+  activityRoom,
+  roomCommands,
+} from "../../src/features/chat/services/chat-creation"
 import {
   messageAudience,
   privateReaders,
   readsPrivate,
-} from "../../src/services/private-messages"
+} from "../../src/features/chat/services/private-messages"
 import { d1Binding, migrated } from "../support/sqlite"
 
 const databases: DatabaseSync[] = []

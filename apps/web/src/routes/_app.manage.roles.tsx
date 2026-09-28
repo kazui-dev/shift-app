@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { ManagePage } from "@/pages/manage-page"
+import { RolesPage } from "@/features/management/pages/screens"
 
 export const Route = createFileRoute("/_app/manage/roles")({
-  component: () => <ManagePage view="roles" />,
+  component: RolesPage,
 })

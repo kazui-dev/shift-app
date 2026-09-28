@@ -6,7 +6,7 @@ import {
   chatImageTag,
   chatRoomTag,
   dailyUploadLimit,
-} from "../../src/domain/chat-attachment"
+} from "../../src/features/chat/domain/chat-attachment"
 
 it("names storage and cache tags by room and attachment", () => {
   expect(chatImageKey("room", "image")).toBe("room/image")

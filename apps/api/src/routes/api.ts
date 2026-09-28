@@ -4,19 +4,22 @@ import { apiError, errors } from "../lib/errors"
 
 import {
   type ApiEnv,
-  limitRequestBody,
   requireMember,
   requireSameOriginForMutation,
 } from "../lib/http"
-import { activitiesApp } from "./activities"
-import { assignmentsApp } from "./assignments"
-import { chatApp } from "./chat/index"
-import { openLiveEvents } from "./events"
+import { limitRequestBody } from "./request-limits"
+import { activitiesApp } from "../features/activities/routes/activities"
+import { attendanceApp } from "../features/attendance/routes/attendance"
+import { chatApp } from "../features/chat/routes/index"
+import { openLiveEvents } from "../features/live/routes/events"
 import { meApp } from "./me/index"
-import { membersApp } from "./members"
-import { pushApp, notificationDevicesApp } from "./push"
-import { rolesApp } from "./roles"
-import { yearSettingsApp } from "./year-settings"
+import { membersApp } from "../features/members/routes/members"
+import {
+  pushApp,
+  notificationDevicesApp,
+} from "../features/notifications/routes/push"
+import { rolesApp } from "../features/roles/routes/roles"
+import { yearSettingsApp } from "../features/years/routes/year-settings"
 import { yearsApp } from "./years/index"
 
 export const apiApp = new Hono<ApiEnv>()
@@ -34,7 +37,7 @@ apiApp.route("/years", yearsApp)
 apiApp.route("/year-settings", yearSettingsApp)
 apiApp.route("/roles", rolesApp)
 apiApp.route("/activities", activitiesApp)
-apiApp.route("/assignments", assignmentsApp)
+apiApp.route("/assignments", attendanceApp)
 apiApp.route("/chat", chatApp)
 
 apiApp.notFound((c) => apiError(c, errors.routeNotFound))

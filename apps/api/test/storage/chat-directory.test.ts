@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vite-plus/test"
-import { ChatDirectory } from "../../src/durable-objects/chat-directory"
+import { ChatDirectory } from "../../src/features/chat/durable-objects/chat-directory"
 it("delivers chat events to participants only and changes to every device", () => {
   const socket = (id: string) => ({
     deserializeAttachment: () => id,

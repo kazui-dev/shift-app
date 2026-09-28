@@ -1,28 +1,28 @@
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test"
-import { ChatRoom } from "../../src/durable-objects/chat-room"
-import { findAccessibleRoom } from "../../src/services/chat-access"
-import { roomRecipients } from "../../src/services/chat-permissions"
+import { ChatRoom } from "../../src/features/chat/durable-objects/chat-room"
+import { findAccessibleRoom } from "../../src/features/chat/services/chat-access"
+import { roomRecipients } from "../../src/features/chat/services/chat-permissions"
 import { purgeShared } from "../../src/lib/shared-cache"
-import { publishChatEvent } from "../../src/services/chat-directory"
-import { makeLinkCard } from "../../src/services/link-card"
+import { publishChatEvent } from "../../src/features/chat/services/chat-directory"
+import { makeLinkCard } from "../../src/features/chat/services/link-card"
 import { chatRoom } from "../support/chat"
 vi.mock("../../src/lib/shared-cache", () => ({
   purgeShared: vi.fn<typeof purgeShared>().mockResolvedValue(undefined),
 }))
-vi.mock("../../src/services/link-card", () => ({
+vi.mock("../../src/features/chat/services/link-card", () => ({
   makeLinkCard: vi.fn<typeof makeLinkCard>(),
 }))
-vi.mock("../../src/services/chat-directory", () => ({
+vi.mock("../../src/features/chat/services/chat-directory", () => ({
   publishChatEvent: vi.fn<typeof publishChatEvent>(),
 }))
-vi.mock("../../src/services/chat-profiles", () => ({
+vi.mock("../../src/features/chat/services/chat-profiles", () => ({
   withMemberImages: async (_env: unknown, messages: unknown) => messages,
 }))
-vi.mock("../../src/services/chat-access", () => ({
+vi.mock("../../src/features/chat/services/chat-access", () => ({
   findAccessibleRoom: vi.fn<typeof findAccessibleRoom>(),
 }))
-vi.mock("../../src/services/chat-permissions", () => ({
+vi.mock("../../src/features/chat/services/chat-permissions", () => ({
   roomRecipients: vi.fn<typeof roomRecipients>(),
 }))
 const room = chatRoom({ id: "room", name: "room", createdBy: "author" })

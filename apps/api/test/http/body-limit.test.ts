@@ -4,7 +4,7 @@ import { expect, it } from "vite-plus/test"
 import { chatImageLimits } from "@workspace/shared/communications"
 
 import { errorBody, errors } from "../../src/lib/errors"
-import { limitRequestBody } from "../../src/lib/http"
+import { limitRequestBody } from "../../src/routes/request-limits"
 
 const app = new Hono()
 app.use("*", limitRequestBody)

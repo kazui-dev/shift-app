@@ -47,6 +47,19 @@ vp -C apps/api run dev
 
 local D1 は Wrangler の local state を使う。remote D1 を通常の開発で共有すると、誤更新や開発者間の干渉が起きるため避ける。
 
+### 本番データのローカル確認
+
+管理画面を実際のデータ量で確認するときは、Cloudflare にログインした状態で Web と API を止め、次を実行する。
+
+```bash
+vp -C apps/api run snapshot:refresh
+SHIFT_APP_DEV_DATA=production-snapshot vp -C apps/web dev
+```
+
+このコマンドは本番 D1 の指定テーブルを**読み取るだけ**で、通常の `.wrangler/state` とは別の `.wrangler/production-snapshot` に取り込む。Web の `/api` は、このローカルコピーを使う。通常の開発に戻るときは環境変数を外して `vp dev` を起動する。再取り込みはサーバーを止めて同じコマンドを実行する。
+
+利用者・名簿・シフト・希望など管理画面に必要なデータを含むため、ローカルコピーも個人情報として扱う。`.wrangler` は Git 管理から除外されている。`account`、`session`、`verification`、通知端末の endpoint、チャットの D1 メタデータ・Durable Object・R2 は取り込まない。活動履歴の大きな本文も対象外。ログインにはローカルの認証設定を使い、本番のセッションは引き継がない。チャットや通知の再現には使わない。
+
 ## Database Migrations
 
 Drizzle schema は `packages/db/src/schema.ts`、生成設定は `apps/api/drizzle.config.ts`、SQL migration は `apps/api/migrations` に置く。
@@ -58,11 +71,11 @@ vp -C apps/api exec drizzle-kit generate
 vp -C apps/api exec wrangler d1 migrations apply shift-app --local
 ```
 
-生成された SQL を review し、local で検証してから remote に適用する。現在の `0001` は placeholder の `members` table を作り直すため、本番適用前に remote の件数が 0 件であることを必ず確認する。
+生成された SQL を review し、local で検証してから remote に適用する。既存 migration は編集せず、新しい migration の SQL と本番データへの影響を確認する。
 
 ```bash
 vp -C apps/api exec wrangler login
-vp -C apps/api exec wrangler d1 execute shift-app --remote --command "SELECT COUNT(*) AS member_count FROM members"
+vp -C apps/api exec wrangler d1 execute shift-app --remote --command "SELECT COUNT(*) AS member_count FROM app_users"
 vp -C apps/api exec wrangler d1 migrations apply shift-app --remote
 ```
 
@@ -102,7 +115,7 @@ Vite PWA plugin が Service Worker と manifest を生成する。TanStack Query
 
 ### Durable Objects
 
-チャットの`ChatRoom` classは`apps/api/src`からexportし、`wrangler.jsonc`の`durable_objects.bindings`とSQLite storageの宣言型`exports`だけで管理する。bindingを変更したら`cf-typegen`を再実行する。
+`ChatRoom` と `ChatDirectory` class は `apps/api/src` から export し、`wrangler.jsonc` の `durable_objects.bindings` と SQLite storage の宣言型 `exports` で管理する。binding を変更したら `cf-typegen` を再実行する。
 
 ### Better Auth（実装済み）
 
@@ -170,43 +183,4 @@ OAuth profile、email、学籍番号の一致で account を暗黙連携しな�
 
 Notion OAuth は将来拡張であり、現時点では設定不要。候補 workspace ID と検討事項は `docs/requirements.md` に残す。
 
-## Verification
-
-ルートで実行する。
-
-```bash
-vp check
-vp exec knip
-vp run -r coverage
-vp run -r --cache typecheck
-vp run web#build
-```
-
-Worker bundle と Static Assets の設定を Cloudflare へ送信せず検証する:
-
-```bash
-vp run deployCheck
-```
-
-本番 D1 migration を適用済みであることを確認してから、Web と API を同じ Worker へ deploy する:
-
-```bash
-vp run deploy
-```
-
-`shift.kazui.dev` は Worker が origin になる Custom Domain とし、`wrangler.jsonc` の `routes[].custom_domain` を source of truth にする。Cloudflare が DNS record と証明書を管理し、`workers.dev` は無効化する。
-
-## Workers Builds
-
-GitHub 連携による自動 deploy は Cloudflare Dashboard の Worker `shift-app` → Settings → Builds で次のように設定する。
-
-| Setting        | Value                                           |
-| -------------- | ----------------------------------------------- |
-| Root directory | `/`                                             |
-| Build command  | `pnpm build`                                    |
-| Deploy command | `pnpm exec vp -C apps/web exec wrangler deploy` |
-| Production     | `main`                                          |
-
-既定の `npx wrangler deploy` はmonorepo rootで自動検出を開始するため使わない。rootの`build` scriptが`web#build`を実行し、Cloudflare Vite Plugin経由で生成したredirected Wrangler設定を、`apps/web`から固定済みWranglerでdeployする。依存packageのinstallはWorkers Buildsに任せる。
-
-初期運用では non-production branch builds を無効にする。preview deploy を導入するときは、production と D1/secrets を共有しない preview 環境を先に設計する。
+検証、migration と本番反映の手順は [Contributing](../CONTRIBUTING.md) を参照する。

@@ -4,7 +4,7 @@ import * as v from "valibot"
 import {
   displayNameSchema,
   studentIdSchema,
-} from "../../../packages/shared/src/auth.ts"
+} from "../../../packages/shared/src/contracts/auth.ts"
 
 const [year, inputPath, outputPath] = process.argv.slice(2)
 if (!year || !inputPath || !outputPath) {

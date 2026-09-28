@@ -8,7 +8,17 @@ import {
 } from "react"
 import { Dialog } from "@base-ui/react/dialog"
 import { ArrowLeft } from "lucide-react"
+import { PageHeader } from "@workspace/ui/components/page-header"
 import { Button } from "@workspace/ui/components/button"
+
+const dialogClasses = {
+  standard:
+    "md:h-[min(44rem,85dvh)] md:w-[38rem] md:data-open:zoom-in-95 md:data-closed:zoom-out-95",
+  workspace:
+    "md:h-[min(44rem,85dvh)] md:w-[72rem] md:data-open:zoom-in-100 md:data-closed:zoom-out-100",
+  compact:
+    "md:h-auto md:max-h-[85dvh] md:w-[38rem] md:data-open:zoom-in-100 md:data-closed:zoom-out-100",
+}
 
 const PageContext = createContext(false)
 const desktopQuery = "(min-width: 768px)"
@@ -27,7 +37,9 @@ export function ResponsivePage({
   onClosed,
   children,
   desktop = "dialog",
+  dialog = "standard",
 }: {
+  dialog?: keyof typeof dialogClasses
   desktop?: "dialog" | "page"
   open: boolean
   onClose: () => void
@@ -70,7 +82,7 @@ export function ResponsivePage({
             <Dialog.Popup
               ref={popup}
               initialFocus={() => popup.current}
-              className="pointer-events-auto absolute inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none motion-reduce:animate-none md:fixed md:inset-auto md:top-1/2 md:left-1/2 md:h-[min(44rem,85dvh)] md:w-[38rem] md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bg-popover md:pt-0 md:text-popover-foreground md:ring-1 md:ring-foreground/10 md:duration-100 data-open:animate-in data-open:slide-in-from-right-full md:data-open:fade-in-0 md:data-open:slide-in-from-right-0 md:data-open:zoom-in-95 data-closed:animate-out data-closed:slide-out-to-right-full md:data-closed:fade-out-0 md:data-closed:slide-out-to-right-0 md:data-closed:zoom-out-95"
+              className={`pointer-events-auto absolute inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-clip bg-background pt-[env(safe-area-inset-top)] duration-300 ease-out outline-none motion-reduce:animate-none md:fixed md:inset-auto md:top-1/2 md:left-1/2 ${dialogClasses[dialog]} md:max-w-[calc(100%-2rem)] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-xl md:bg-popover md:pt-0 md:text-popover-foreground md:ring-1 md:ring-foreground/10 md:duration-100 data-open:animate-in data-open:slide-in-from-right-full md:data-open:fade-in-0 md:data-open:slide-in-from-right-0 data-closed:animate-out data-closed:slide-out-to-right-full md:data-closed:fade-out-0 md:data-closed:slide-out-to-right-0`}
             >
               {children}
             </Dialog.Popup>
@@ -95,7 +107,7 @@ export function ResponsivePageHeader({
   const inline = useContext(PageContext)
   const Title = inline ? "h1" : Dialog.Title
   return (
-    <header className="grid h-16 shrink-0 grid-cols-[4rem_minmax(0,1fr)_4rem] items-center gap-2 border-b px-4">
+    <PageHeader className="grid h-16 grid-cols-[4rem_minmax(0,1fr)_4rem] gap-2">
       <Button
         type="button"
         variant="ghost"
@@ -110,7 +122,7 @@ export function ResponsivePageHeader({
         {title}
       </Title>
       {action}
-    </header>
+    </PageHeader>
   )
 }
 

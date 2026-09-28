@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { ManagementLayout } from "@/components/manage/layout"
-import { yearsQuery } from "@/data/years"
-import { canOpenManagement } from "@/lib/account/management"
+import { ManagementLayout } from "@/features/management/components/layout"
+import { yearsQuery } from "@/features/years/data/years"
+import { canOpenManagement } from "@/features/account/lib/management"
 
 export const Route = createFileRoute("/_app/manage")({
   beforeLoad: async ({ context }) => {
