@@ -17,7 +17,7 @@ export async function saveShiftPlan(
     .all<{ id: string; slotId: string; memberId: string }>()
   const directory = await db
     .prepare(`SELECT survey.id,survey.entry_id AS entryId FROM directory_availability_submissions survey
-    JOIN student_directory d ON d.id=survey.entry_id JOIN activities a ON a.year=d.year WHERE a.id=?`)
+    JOIN student_directory d ON d.id=survey.entry_id AND d.status='active' JOIN activities a ON a.year=d.year WHERE a.id=?`)
     .bind(id)
     .all<{ id: string; entryId: string }>()
   const directoryIds = new Map(
