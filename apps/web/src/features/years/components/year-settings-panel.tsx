@@ -1,7 +1,7 @@
 import { yearsQuery } from "@/features/years/data/years"
 import { LoadingState } from "@/app/page-layout"
 import { keys } from "@/app/data/keys"
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -10,11 +10,19 @@ import { toast } from "@workspace/ui/lib/toast"
 import { errorMessage } from "@/lib/http/client"
 import { createYear, setDefaultYear } from "@/features/years/api/years"
 
-export function YearSettingsPanel() {
+export function YearSettingsPanel({
+  onDirtyChange,
+}: {
+  onDirtyChange: (dirty: boolean) => void
+}) {
   const queryClient = useQueryClient()
   const years = useQuery({ ...yearsQuery })
   const [yearNumber, setYearNumber] = useState<number | null>(null)
   const [pending, setPending] = useState(false)
+  useEffect(() => {
+    onDirtyChange(yearNumber !== null || pending)
+    return () => onDirtyChange(false)
+  }, [yearNumber, pending, onDirtyChange])
   const nextYear =
     yearNumber ??
     Math.max(

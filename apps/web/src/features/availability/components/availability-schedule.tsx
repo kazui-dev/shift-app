@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Bell, Plus, Trash2 } from "lucide-react"
 import { japanFullDate } from "@workspace/shared/japan-time"
@@ -31,15 +31,26 @@ export function AvailabilitySchedule({
   year,
   pending,
   run,
+  onDirtyChange,
 }: {
   year: number
   pending: boolean
   run: (action: () => Promise<unknown>, onSuccess?: () => void) => Promise<void>
+  onDirtyChange: (dirty: boolean) => void
 }) {
   const dates = useQuery(availabilityDatesQuery(year))
   const [selected, setSelected] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string[]>([])
   const [removing, setRemoving] = useState<FormDate | null>(null)
+  const dirtyDates = useRef(new Set<string>())
+  const trackDirty = useCallback(
+    (date: string, dirty: boolean) => {
+      if (dirty) dirtyDates.current.add(date)
+      else dirtyDates.current.delete(date)
+      onDirtyChange(dirtyDates.current.size > 0)
+    },
+    [onDirtyChange]
+  )
   const adding = expanded.includes(newDate)
   const clearSelection = () => {
     setSelected([])
@@ -93,6 +104,7 @@ export function AvailabilitySchedule({
                 <AccordionContent className="px-1">
                   <AvailabilityDateForm
                     year={year}
+                    onDirtyChange={trackDirty}
                     onSaved={() => setExpanded([])}
                     onCancel={() => setExpanded([])}
                   />
@@ -101,9 +113,10 @@ export function AvailabilitySchedule({
             )}
             {dates.data?.dates.map((date) => (
               <AccordionItem key={date.date} value={date.date}>
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <Checkbox
                     aria-label={`${date.date}を選択`}
+                    className="mt-6"
                     disabled={pending}
                     checked={selected.includes(date.date)}
                     onCheckedChange={(checked) =>
@@ -128,10 +141,20 @@ export function AvailabilitySchedule({
                         </span>
                       </span>
                     </AccordionTrigger>
+                    <AccordionContent className="px-1">
+                      <AvailabilityDateForm
+                        year={year}
+                        initial={date}
+                        onDirtyChange={trackDirty}
+                        onSaved={() => setExpanded([])}
+                        onCancel={() => setExpanded([])}
+                      />
+                    </AccordionContent>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon-sm"
+                    className="mt-4"
                     aria-label={`${date.date}を削除`}
                     disabled={pending}
                     onClick={() => setRemoving(date)}
@@ -139,14 +162,6 @@ export function AvailabilitySchedule({
                     <Trash2 />
                   </Button>
                 </div>
-                <AccordionContent className="px-1">
-                  <AvailabilityDateForm
-                    year={year}
-                    initial={date}
-                    onSaved={() => setExpanded([])}
-                    onCancel={() => setExpanded([])}
-                  />
-                </AccordionContent>
               </AccordionItem>
             ))}
             {dates.data?.dates.length === 0 && !adding && (

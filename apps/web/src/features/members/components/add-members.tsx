@@ -1,7 +1,7 @@
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { keys } from "@/app/data/keys"
 import { membershipsQuery, yearsQuery } from "@/features/years/data/years"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -17,12 +17,15 @@ import {
 import { errorMessage } from "@/lib/http/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { SelectField } from "@/components/select-field"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 export function AddMembers({
   year,
   onClose,
+  onDirtyChange,
 }: {
   year: number
   onClose: () => void
+  onDirtyChange: (dirty: boolean) => void
 }) {
   const client = useQueryClient()
   const years = useQuery({ ...yearsQuery })
@@ -48,6 +51,12 @@ export function AddMembers({
   const [search, setSearch] = useState("")
   const [selected, setSelected] = useState<string[]>([])
   const [pending, setPending] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const dirty = selected.length > 0 || copyRoleIds.length > 0
+  useEffect(() => {
+    onDirtyChange(dirty || pending)
+    return () => onDirtyChange(false)
+  }, [dirty, pending, onDirtyChange])
   const items =
     query.data?.memberships.filter(
       (item) =>
@@ -59,8 +68,7 @@ export function AddMembers({
                 existing.member.id === item.member.id &&
                 existing.status === "active"
             )) &&
-        `$<MemberAvatar name={item.member.displayName} image={item.member.image} />
-                  {item.member.displayName} ${item.member.studentId}`
+        `${item.member.displayName} ${item.member.studentId}`
           .toLowerCase()
           .includes(search.toLowerCase())
     ) ?? []
@@ -140,7 +148,10 @@ export function AddMembers({
       open
       title="メンバーを追加"
       onOpenChange={(open) => {
-        if (!open && !pending) onClose()
+        if (!open && !pending) {
+          if (dirty) setDiscarding(true)
+          else onClose()
+        }
       }}
     >
       <div className="space-y-4">
@@ -230,6 +241,14 @@ export function AddMembers({
           {selected.length ? `${selected.length}人を追加` : "追加"}
         </Button>
       </div>
+      {discarding && (
+        <ConfirmDialog
+          title="選択を破棄しますか"
+          confirmLabel="破棄する"
+          onCancel={() => setDiscarding(false)}
+          onConfirm={onClose}
+        />
+      )}
     </ResponsiveDialog>
   )
 }

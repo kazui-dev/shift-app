@@ -4,7 +4,7 @@ import { refreshMemberships } from "@/app/data/sync"
 import { rosterQuery, rolesQuery } from "@/features/years/data/years"
 import { AddMembers } from "./add-members"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -17,7 +17,15 @@ import { errorMessage } from "@/lib/http/client"
 import { SelectField } from "@/components/select-field"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 
-export function MemberManager({ year }: { year: number }) {
+export function MemberManager({
+  year,
+  view,
+  onDirtyChange,
+}: {
+  year: number
+  view: { search: string; filter: string }
+  onDirtyChange: (dirty: boolean) => void
+}) {
   const client = useQueryClient()
   const roster = useQuery({
     ...rosterQuery(year),
@@ -27,13 +35,20 @@ export function MemberManager({ year }: { year: number }) {
   })
   const [adding, setAdding] = useState(false)
   const [leaving, setLeaving] = useState<string | null>(null)
-  const [search, setSearch] = useState("")
-  const [filter, setFilter] = useState("")
+  const [search, setSearch] = useState(() => view.search)
+  const [filter, setFilter] = useState(() => view.filter)
   const [selected, setSelected] = useState<string[]>([])
   const [editing, setEditing] = useState<string[] | null>(null)
   const [add, setAdd] = useState<string[]>([])
   const [remove, setRemove] = useState<string[]>([])
   const [pending, setPending] = useState(false)
+  const [addMembersDirty, setAddMembersDirty] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const roleDirty = editing !== null && (add.length > 0 || remove.length > 0)
+  useEffect(() => {
+    onDirtyChange(roleDirty || addMembersDirty || pending)
+    return () => onDirtyChange(false)
+  }, [roleDirty, addMembersDirty, pending, onDirtyChange])
   const members =
     roster.data?.members.filter(
       (member) =>
@@ -72,19 +87,25 @@ export function MemberManager({ year }: { year: number }) {
   }
   return (
     <div className="space-y-4">
-      <div className="sticky -top-6 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-3">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
         <Input
-          className="w-full sm:max-w-80"
+          className="h-9 w-full sm:max-w-80"
           aria-label="メンバーを検索"
           placeholder="名前・学籍番号で検索"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => {
+            view.search = event.target.value
+            setSearch(event.target.value)
+          }}
         />
         <SelectField
           aria-label="ロールで絞り込み"
-          className="w-auto"
+          className="h-9 w-auto"
           value={filter}
-          onValueChange={(value) => setFilter(value)}
+          onValueChange={(value) => {
+            view.filter = value
+            setFilter(value)
+          }}
           options={[
             { value: "", label: "すべてのロール" },
             ...(roles.data?.roles ?? []).map((role) => ({
@@ -99,6 +120,7 @@ export function MemberManager({ year }: { year: number }) {
         <Button
           className="ml-auto"
           variant="outline"
+          size="sm"
           onClick={() => setAdding(true)}
         >
           メンバーを追加
@@ -200,7 +222,16 @@ export function MemberManager({ year }: { year: number }) {
           </li>
         ))}
       </ul>
-      {adding && <AddMembers year={year} onClose={() => setAdding(false)} />}
+      {adding && (
+        <AddMembers
+          year={year}
+          onDirtyChange={setAddMembersDirty}
+          onClose={() => {
+            setAdding(false)
+            setAddMembersDirty(false)
+          }}
+        />
+      )}
       {leaving && (
         <ConfirmDialog
           title="年度への参加を解除しますか"
@@ -220,7 +251,10 @@ export function MemberManager({ year }: { year: number }) {
           open
           title="ロールを変更"
           onOpenChange={(open) => {
-            if (!open && !pending) setEditing(null)
+            if (!open && !pending) {
+              if (roleDirty) setDiscarding(true)
+              else setEditing(null)
+            }
           }}
         >
           <div className="space-y-4">
@@ -270,6 +304,17 @@ export function MemberManager({ year }: { year: number }) {
             </Button>
           </div>
         </ResponsiveDialog>
+      )}
+      {discarding && (
+        <ConfirmDialog
+          title="変更を破棄しますか"
+          confirmLabel="破棄する"
+          onCancel={() => setDiscarding(false)}
+          onConfirm={() => {
+            setDiscarding(false)
+            setEditing(null)
+          }}
+        />
       )}
     </div>
   )

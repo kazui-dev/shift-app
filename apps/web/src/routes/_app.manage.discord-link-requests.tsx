@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { ManagePage } from "@/features/management/pages/manage-page"
+import { DiscordLinksPage } from "@/features/management/pages/screens"
 
 export const Route = createFileRoute("/_app/manage/discord-link-requests")({
   beforeLoad: ({ context }) => {
@@ -8,5 +8,5 @@ export const Route = createFileRoute("/_app/manage/discord-link-requests")({
       throw redirect({ to: "/manage" })
     }
   },
-  component: () => <ManagePage view="discordLinks" />,
+  component: DiscordLinksPage,
 })

@@ -68,7 +68,7 @@ export function ShiftSelectionPanel({
   return (
     <aside
       aria-label="シフトの編集パネル"
-      className="flex min-h-0 min-w-0 shrink-0 flex-col border-t bg-background lg:h-full lg:w-72 lg:border-t-0 lg:border-l"
+      className="flex min-h-0 min-w-0 shrink-0 flex-col border-t bg-background xl:h-full xl:w-72 xl:border-t-0 xl:border-l"
     >
       <header className="flex min-h-12 shrink-0 items-center gap-2 px-4">
         <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
@@ -80,7 +80,7 @@ export function ShiftSelectionPanel({
           aria-label={
             expanded ? "編集パネルを小さくする" : "編集パネルを広げる"
           }
-          className="lg:hidden"
+          className="xl:hidden"
           onClick={() => setExpanded(!expanded)}
         >
           {expanded ? <ChevronDown /> : <ChevronUp />}
@@ -95,7 +95,7 @@ export function ShiftSelectionPanel({
         </Button>
       </header>
       <div
-        className={`min-h-0 space-y-4 overflow-y-auto px-4 pb-4 ${expanded ? "max-h-[55dvh]" : "max-h-[30dvh]"} lg:max-h-none`}
+        className={`min-h-0 space-y-4 overflow-y-auto px-4 pb-4 ${expanded ? "max-h-[55dvh]" : "max-h-[30dvh]"} xl:max-h-none`}
       >
         <div className="space-y-2 text-xs text-muted-foreground">
           <p>希望時間</p>

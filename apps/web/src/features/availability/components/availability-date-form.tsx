@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -16,11 +16,13 @@ export function AvailabilityDateForm({
   initial,
   onSaved,
   onCancel,
+  onDirtyChange,
 }: {
   year: number
   initial?: FormDate
   onSaved: () => void
   onCancel: () => void
+  onDirtyChange: (key: string, dirty: boolean) => void
 }) {
   const client = useQueryClient()
   const fieldId = `availability-${initial?.date ?? "new"}`
@@ -29,6 +31,15 @@ export function AvailabilityDateForm({
   const [endsMinute, setEnd] = useState(initial?.endsMinute ?? 1080)
   const [accepting, setAccepting] = useState(initial?.accepting ?? false)
   const [pending, setPending] = useState(false)
+  const dirty =
+    date !== (initial?.date ?? "") ||
+    startsMinute !== (initial?.startsMinute ?? 540) ||
+    endsMinute !== (initial?.endsMinute ?? 1080) ||
+    accepting !== (initial?.accepting ?? false)
+  useEffect(() => {
+    onDirtyChange(fieldId, dirty || pending)
+    return () => onDirtyChange(fieldId, false)
+  }, [fieldId, dirty, pending, onDirtyChange])
   const invalid = !date || startsMinute >= endsMinute
   async function save(event: React.FormEvent) {
     event.preventDefault()
@@ -66,7 +77,7 @@ export function AvailabilityDateForm({
             />
           </div>
         )}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2.5">
             <p className="text-sm font-medium">開始時刻</p>
             <MinuteInput

@@ -2,7 +2,7 @@ import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { keys } from "@/app/data/keys"
 import { usersQuery } from "@/features/admin/data/admin"
 import { yearsQuery } from "@/features/years/data/years"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AdminUser } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
@@ -16,18 +16,25 @@ import {
 import { errorMessage } from "@/lib/http/client"
 import { ResponsiveSheet } from "@/components/responsive-overlay"
 import { SelectField } from "@/components/select-field"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 
 const labels = {
   member: "一般",
   leader: "委員会幹部",
   system_admin: "システム管理者",
 }
-export function UserManager() {
+export function UserManager({
+  view,
+  onDirtyChange,
+}: {
+  view: { search: string }
+  onDirtyChange: (dirty: boolean) => void
+}) {
   const users = useQuery({
     ...usersQuery,
   })
   const years = useQuery({ ...yearsQuery })
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useState(() => view.search)
   const [detailOpen, setDetailOpen] = useState(false)
   const [id, setId] = useState<string | null>(null)
   const selected = users.data?.users.find((user) => user.id === id)
@@ -39,13 +46,16 @@ export function UserManager() {
     ) ?? []
   return (
     <div className="space-y-4">
-      <div className="sticky -top-6 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-3">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
         <Input
-          className="sm:max-w-80"
+          className="h-9 sm:max-w-80"
           placeholder="名前・学籍番号で検索"
           aria-label="ユーザーを検索"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            view.search = event.target.value
+            setSearch(event.target.value)
+          }}
         />
         <span className="text-sm text-muted-foreground">
           {filtered.length} / {users.data?.users.length ?? 0}人
@@ -107,6 +117,7 @@ export function UserManager() {
           open={detailOpen}
           onClose={() => setDetailOpen(false)}
           onClosed={() => setId(null)}
+          onDirtyChange={onDirtyChange}
         />
       )}
     </div>
@@ -118,18 +129,26 @@ function UserDetail({
   onClose,
   onClosed,
   open,
+  onDirtyChange,
 }: {
   open: boolean
   onClosed: () => void
   user: AdminUser
   years: number[]
   onClose: () => void
+  onDirtyChange: (dirty: boolean) => void
 }) {
   const client = useQueryClient()
   const content = useRef<HTMLDivElement>(null)
   const [level, setLevel] = useState(user.accessLevel)
   const [reason, setReason] = useState("")
   const [pending, setPending] = useState(false)
+  const [discarding, setDiscarding] = useState(false)
+  const dirty = level !== user.accessLevel
+  useEffect(() => {
+    onDirtyChange(open && (dirty || pending))
+    return () => onDirtyChange(false)
+  }, [open, dirty, pending, onDirtyChange])
   async function run(action: () => Promise<unknown>) {
     setPending(true)
     try {
@@ -157,7 +176,10 @@ function UserDetail({
       title={user.displayName}
       description={user.studentId}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen && !pending) onClose()
+        if (!nextOpen && !pending) {
+          if (dirty) setDiscarding(true)
+          else onClose()
+        }
       }}
     >
       <div ref={content} tabIndex={-1} className="space-y-6 outline-none">
@@ -237,6 +259,17 @@ function UserDetail({
           )}
         </section>
       </div>
+      {discarding && (
+        <ConfirmDialog
+          title="権限の変更を破棄しますか"
+          confirmLabel="破棄する"
+          onCancel={() => setDiscarding(false)}
+          onConfirm={() => {
+            setDiscarding(false)
+            onClose()
+          }}
+        />
+      )}
     </ResponsiveSheet>
   )
 }
