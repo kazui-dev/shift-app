@@ -38,6 +38,6 @@
 ## 関連資料
 
 - [チャット画像の保存と配信](../design/chat-images.md)
-- [現行アーキテクチャ：チャット画面と画像](../architecture.md#チャット画面と画像)
+- [画面・同期の設計：チャット画面と画像](../design/runtime-behavior.md#チャット画面と画像)
 - [Workers Cache](https://developers.cloudflare.com/workers/cache/)
 - [Images の制限と形式](https://developers.cloudflare.com/images/get-started/limits/)
