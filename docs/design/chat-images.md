@@ -1,9 +1,8 @@
 # チャット画像の保存と配信
 
-- 状態：合意済み。実装済み。
-- 実装状況：Workers Cacheの基盤（`SharedCache` entrypoint）、リンクプレビュー、リンクカードの画像、アイコン、チャット画像の保存・配信・表示を実装済み。
+- 実装範囲：Workers Cacheの基盤（`SharedCache` entrypoint）、リンクプレビュー、リンクカードの画像、アイコン、チャット画像の保存・配信・表示。
 - 判断の理由：[ADR 0004](../adr/0004-chat-image-delivery.md)
-- 現行の実装：[アーキテクチャ：チャット画面と画像](../architecture.md#チャット画面と画像)
+- 現行の実装：[画面・同期の設計：チャット画面と画像](runtime-behavior.md#チャット画面と画像)
 
 ## 画像の種類と使い道
 

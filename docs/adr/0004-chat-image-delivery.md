@@ -29,7 +29,7 @@
 
 ## 影響
 
-- `docs/architecture.md`の「原本は保存しない」「送信済み画像はオフラインキャッシュへ保存しない」と、`docs/requirements.md`のオフライン対応を、実装時に書き換える。
+- アーキテクチャとオフライン要件は、原本の保存と縮小画像の端末キャッシュを前提にする。現在の構成は[アーキテクチャ](../architecture.md)と[画面・同期の設計](../design/runtime-behavior.md)を参照する。
 - JPEG・PNG（APNGを含む）・WebP・GIF向けに、再圧縮せずメタデータだけを除く処理とテストが必要になる。
 - Workers Cacheの内部entrypoint、キャッシュタグによる削除、`cross_version_cache`の設定が必要になる。変換の設定を変えるときは、キャッシュキーの版を上げる。
 - Imagesの無料枠は月5000回の変換までで、1枚につき最大3回使う。
@@ -38,6 +38,6 @@
 ## 関連資料
 
 - [チャット画像の保存と配信](../design/chat-images.md)
-- [現行アーキテクチャ：チャット画面と画像](../architecture.md#チャット画面と画像)
+- [画面・同期の設計：チャット画面と画像](../design/runtime-behavior.md#チャット画面と画像)
 - [Workers Cache](https://developers.cloudflare.com/workers/cache/)
 - [Images の制限と形式](https://developers.cloudflare.com/images/get-started/limits/)
