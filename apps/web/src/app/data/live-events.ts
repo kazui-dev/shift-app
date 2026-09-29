@@ -21,6 +21,7 @@ const reconnectKeys = [
   keys.availability,
   keys.availabilityDates,
   keys.availabilitySubmissions,
+  keys.availabilityHistory,
 ]
 
 function invalidate(client: QueryClient, cacheKeys: unknown[][]) {

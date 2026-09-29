@@ -73,7 +73,7 @@ it("refreshes only what each change touches", () => {
   client.clear()
 })
 
-it("catches up on shifts and chat when the connection reopens", () => {
+it("catches up on shifts, availability and chat when the connection reopens", () => {
   const { client, invalidated } = watched()
   applyLiveEvent(client, null, "me")
   expect(invalidated()).toEqual(
@@ -81,6 +81,7 @@ it("catches up on shifts and chat when the connection reopens", () => {
       keys.assignments(),
       keys.shiftAttendance(),
       keys.availability(),
+      keys.availabilityHistory(),
       keys.chatMessages(),
     ])
   )
