@@ -23,10 +23,10 @@ export async function readAvailabilityForm(
       }>(),
     db
       .prepare(
-        "SELECT id,submitted_at AS submittedAt FROM availability_submissions WHERE year=? AND member_id=?"
+        "SELECT id,submitted_at AS submittedAt,revision FROM availability_submissions WHERE year=? AND member_id=?"
       )
       .bind(year, memberId)
-      .first<{ id: string; submittedAt: number | null }>(),
+      .first<{ id: string; submittedAt: number | null; revision: number }>(),
     db
       .prepare(
         "SELECT answers FROM availability_drafts WHERE year=? AND member_id=?"
@@ -94,5 +94,6 @@ export async function readAvailabilityForm(
     }),
     submitted,
     submittedAt: submission?.submittedAt ? toIso(submission.submittedAt) : null,
+    revision: submission?.revision ?? 0,
   }
 }

@@ -70,6 +70,11 @@ availabilitySubmissionsApp.get(
     if (year === null) return apiError(c, errors.yearNotFound)
     if (!(await canManageShifts(c.env, c.get("member"), year)))
       return apiError(c, errors.shiftManagementRequired)
+    const memberId = v.safeParse(
+      v.pipe(v.string(), v.uuid()),
+      c.req.param("memberId")
+    )
+    if (!memberId.success) return apiError(c, errors.memberNotFound)
     const rows = await c.env.shift_app
       .prepare(
         `SELECT change.id,change.date,change.changed_at AS changedAt,
@@ -80,7 +85,7 @@ availabilitySubmissionsApp.get(
         WHERE submission.year=? AND submission.member_id=?
         ORDER BY change.changed_at DESC,change.date,change.id`
       )
-      .bind(year, c.req.param("memberId"))
+      .bind(year, memberId.output)
       .all<{
         id: string
         date: string

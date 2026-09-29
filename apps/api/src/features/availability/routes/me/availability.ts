@@ -100,9 +100,9 @@ meAvailabilityApp.put("/:year", async (c) => {
     statements.push(
       db
         .prepare(
-          "INSERT INTO availability_submissions (id,year,member_id,status,submitted_at,created_at,updated_at) VALUES (?,?,?,'submitted',?,?,?) ON CONFLICT(year,member_id) DO UPDATE SET status='submitted',submitted_at=excluded.submitted_at,updated_at=excluded.updated_at"
+          "INSERT INTO availability_submissions (id,year,member_id,status,submitted_at,revision,created_at,updated_at) VALUES (?,?,?,'submitted',?,?,?,?) ON CONFLICT(year,member_id) DO UPDATE SET status='submitted',submitted_at=excluded.submitted_at,revision=excluded.revision,updated_at=excluded.updated_at"
         )
-        .bind(id, year, memberId, now, now, now)
+        .bind(id, year, memberId, now, form.revision + 1, now, now)
     )
     for (const date of open) {
       const answer = input.output.answers.find(
@@ -148,6 +148,8 @@ meAvailabilityApp.put("/:year", async (c) => {
   try {
     await db.batch(statements)
   } catch (error) {
+    if (error instanceof Error && error.message.includes("AVAILABILITY_STALE"))
+      return apiError(c, errors.availabilitySubmissionChanged)
     if (
       error instanceof Error &&
       error.message.includes("availability_drafts.answers")

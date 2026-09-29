@@ -98,7 +98,7 @@ export function AvailabilityProgress({
               <span className="shrink-0 text-xs text-muted-foreground">
                 {item.complete ? "提出済み" : "未提出"}
               </span>
-              {item.complete && item.hasHistory && (
+              {item.hasHistory && (
                 <Button
                   variant="ghost"
                   size="sm"

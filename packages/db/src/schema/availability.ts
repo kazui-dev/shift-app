@@ -25,6 +25,7 @@ export const availabilitySubmissions = sqliteTable(
       .notNull()
       .default("draft"),
     submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+    revision: integer("revision").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },

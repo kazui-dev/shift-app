@@ -33,8 +33,9 @@ describe("availability change history", () => {
           VALUES ('${memberId}','u','Aoi','26AJ001','member',0,0);
         INSERT INTO availability_dates (id,year,date,starts_minute,ends_minute,created_at,updated_at)
           VALUES ('${dateId}',2026,'2026-10-29',510,1200,0,0);`)
+      let beforeBatch = () => {}
       const env = {
-        shift_app: d1Binding(db),
+        shift_app: d1Binding(db, { beforeBatch: () => beforeBatch() }),
         CHAT_DIRECTORY: {
           getByName: () => ({ broadcast: () => Promise.resolve() }),
         },
@@ -94,6 +95,32 @@ describe("availability change history", () => {
           after: { choice: "times", times: [{ from: 510, to: 930 }] },
         },
       ])
+      const historyBefore = db
+        .prepare("SELECT COUNT(*) AS n FROM availability_submission_changes")
+        .get()?.n
+      beforeBatch = () => {
+        db.prepare(
+          "UPDATE availability_submissions SET revision=revision+1 WHERE member_id=?"
+        ).run(memberId)
+        beforeBatch = () => {}
+      }
+      const stale = await submit("all")
+      expect(stale.status).toBe(409)
+      expect(await stale.json()).toEqual({
+        error: {
+          code: "SUBMISSION_CHANGED",
+          message: "希望が別の画面から更新されました。再読み込みしてください。",
+        },
+      })
+      expect(
+        db
+          .prepare("SELECT COUNT(*) AS n FROM availability_submission_changes")
+          .get()?.n
+      ).toBe(historyBefore)
+      expect(
+        db.prepare("SELECT choice FROM availability_day_answers").get()?.choice
+      ).toBe("times")
+      expect((await submit("times")).status).toBe(200)
       db.exec(`INSERT INTO availability_dates (id,year,date,starts_minute,ends_minute,created_at,updated_at)
         VALUES ('30000000-0000-4000-8000-000000000001',2026,'2026-10-30',510,1200,0,0);`)
       const addedDate = await app.request(
