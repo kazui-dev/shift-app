@@ -69,6 +69,15 @@ export const activitiesResponseSchema = v.object({
         v.integer(),
         v.minValue(0)
       ),
+      requirements: v.array(
+        v.object({
+          id: v.pipe(v.string(), v.uuid()),
+          startsAt: instantSchema,
+          endsAt: instantSchema,
+          requiredCount: v.pipe(v.number(), v.integer(), v.minValue(0)),
+        })
+      ),
+      responsibleNames: v.array(v.string()),
     })
   ),
 })
@@ -90,6 +99,13 @@ const slotSchema = v.object({
   memberIds: v.pipe(v.array(v.pipe(v.string(), v.uuid())), v.maxLength(500)),
 })
 
+const requirementSchema = v.object({
+  id: v.pipe(v.string(), v.uuid()),
+  startsAt: instantSchema,
+  endsAt: instantSchema,
+  requiredCount: v.pipe(v.number(), v.integer(), v.minValue(0)),
+})
+
 export const activityEditorInputSchema = v.object({
   ...activityFields,
   version: v.pipe(v.number(), v.integer(), v.minValue(1)),
@@ -100,6 +116,7 @@ export const activityEditorInputSchema = v.object({
   ),
   responsibles: v.pipe(v.array(responsibleSchema), v.maxLength(100)),
   slots: v.pipe(v.array(slotSchema), v.maxLength(200)),
+  requirements: v.pipe(v.array(requirementSchema), v.maxLength(200)),
 })
 
 export const activityEditorResponseSchema = v.object({
@@ -111,6 +128,7 @@ export const activityEditorResponseSchema = v.object({
   candidateRoleIds: v.array(v.string()),
   responsibles: v.array(responsibleSchema),
   slots: v.array(slotSchema),
+  requirements: v.array(requirementSchema),
   members: v.array(yearMemberResponseSchema),
   roles: v.array(
     v.object({ id: v.string(), name: v.string(), color: v.string() })

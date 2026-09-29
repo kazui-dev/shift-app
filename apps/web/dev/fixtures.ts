@@ -95,6 +95,7 @@ export function makeEditors(): Editor[] {
       ],
       members,
       roles,
+      requirements: [],
       slots: Array.from({ length: 6 }, (_, n) => ({
         id: uuid(10000 + day * 100 + job * 10 + n),
         startsAt: at(date, 9 + n),

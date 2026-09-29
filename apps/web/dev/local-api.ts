@@ -235,6 +235,17 @@ export function localApi(): Plugin {
               send({
                 activities: editors.map((e) => ({
                   ...e.activity,
+                  requirements: e.requirements,
+                  responsibleNames: e.responsibles.flatMap((target) => {
+                    const name =
+                      target.targetType === "role"
+                        ? roles.find((role) => role.id === target.targetId)
+                            ?.name
+                        : members.find(
+                            (member) => member.id === target.targetId
+                          )?.displayName
+                    return name ? [name] : []
+                  }),
                   assignmentCount: e.slots.reduce(
                     (count, slot) => count + slot.memberIds.length,
                     0

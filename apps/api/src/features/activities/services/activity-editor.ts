@@ -30,6 +30,7 @@ export async function readActivityEditor(db: D1Database, id: string) {
     candidateRoles,
     responsibles,
     slots,
+    requirements,
     assignments,
     members,
     roles,
@@ -60,6 +61,17 @@ export async function readActivityEditor(db: D1Database, id: string) {
         startsAt: number
         endsAt: number
         capacity: number | null
+      }>(),
+    db
+      .prepare(
+        "SELECT id, starts_at AS startsAt, ends_at AS endsAt, required_count AS requiredCount FROM shift_requirements WHERE activity_id=? ORDER BY starts_at, id"
+      )
+      .bind(id)
+      .all<{
+        id: string
+        startsAt: number
+        endsAt: number
+        requiredCount: number
       }>(),
     db
       .prepare(
@@ -130,6 +142,11 @@ export async function readActivityEditor(db: D1Database, id: string) {
       memberIds: assignments.results
         .filter((a) => a.slotId === slot.id)
         .map((a) => a.memberId),
+    })),
+    requirements: requirements.results.map((item) => ({
+      ...item,
+      startsAt: toIso(item.startsAt),
+      endsAt: toIso(item.endsAt),
     })),
     members: members.results.map((member) => ({
       ...member,

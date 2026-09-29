@@ -54,7 +54,43 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
     )
     .bind(year, canManage ? 1 : 0, c.get("member").id, c.get("member").id)
     .all<ActivityRow>()
-  return c.json({ activities: result.results.map(serializeActivity) })
+  const requirements = await c.env.shift_app
+    .prepare(`SELECT r.activity_id AS activityId, r.id, r.starts_at AS startsAt, r.ends_at AS endsAt, r.required_count AS requiredCount
+      FROM shift_requirements r JOIN activities a ON a.id=r.activity_id WHERE a.year=? ORDER BY r.starts_at, r.id`)
+    .bind(year)
+    .all<{
+      activityId: string
+      id: string
+      startsAt: number
+      endsAt: number
+      requiredCount: number
+    }>()
+  const responsibles = await c.env.shift_app
+    .prepare(`SELECT ar.activity_id AS activityId,
+      CASE WHEN ar.target_type='role' THEN role.name ELSE member.display_name END AS name
+      FROM activity_responsibles ar
+      JOIN activities activity ON activity.id=ar.activity_id
+      LEFT JOIN year_roles role ON ar.target_type='role' AND role.id=ar.target_id
+      LEFT JOIN app_users member ON ar.target_type='member' AND member.id=ar.target_id
+      WHERE activity.year=? ORDER BY ar.target_type, ar.target_id`)
+    .bind(year)
+    .all<{ activityId: string; name: string | null }>()
+  return c.json({
+    activities: result.results.map((activity) => ({
+      ...serializeActivity(activity),
+      requirements: requirements.results
+        .filter((item) => item.activityId === activity.id)
+        .map((item) => ({
+          id: item.id,
+          startsAt: new Date(item.startsAt).toISOString(),
+          endsAt: new Date(item.endsAt).toISOString(),
+          requiredCount: item.requiredCount,
+        })),
+      responsibleNames: responsibles.results
+        .filter((item) => item.activityId === activity.id)
+        .flatMap((item) => (item.name === null ? [] : [item.name])),
+    })),
+  })
 })
 
 yearActivitiesApp.post(

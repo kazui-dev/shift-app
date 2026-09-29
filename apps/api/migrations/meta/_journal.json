@@ -309,6 +309,13 @@
       "when": 1790568915537,
       "tag": "0043_inactive-directory-guard",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "6",
+      "when": 1790605993123,
+      "tag": "0044_light_quasar",
+      "breakpoints": true
     }
   ]
 }

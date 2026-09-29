@@ -116,6 +116,19 @@ activityActionsApp.post(
               slot.capacity
             )
         ),
+        ...old.requirements.map((item) =>
+          c.env.shift_app
+            .prepare(
+              "INSERT INTO shift_requirements (id,activity_id,starts_at,ends_at,required_count) VALUES (?,?,?,?,?)"
+            )
+            .bind(
+              crypto.randomUUID(),
+              id,
+              Date.parse(item.startsAt) + delta,
+              Date.parse(item.endsAt) + delta,
+              item.requiredCount
+            )
+        ),
         c.env.shift_app
           .prepare("UPDATE activities SET active=1 WHERE id=?")
           .bind(id),

@@ -152,6 +152,7 @@ it("saves directory allocations and transfers them when a real member is created
         candidateRoleIds: [],
         responsibles: [{ targetType: "member", targetId: "admin" }],
         slots: before.slots,
+        requirements: before.requirements,
       }
       await saveShiftPlan(binding, "work", "admin", input, before)
       expect(

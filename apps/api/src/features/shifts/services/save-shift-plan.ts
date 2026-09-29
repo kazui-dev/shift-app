@@ -141,6 +141,22 @@ export async function saveShiftPlan(
     }
   }
   statements.push(
+    db.prepare("DELETE FROM shift_requirements WHERE activity_id=?").bind(id),
+    ...input.requirements.map((item) =>
+      db
+        .prepare(
+          "INSERT INTO shift_requirements (id,activity_id,starts_at,ends_at,required_count) VALUES (?,?,?,?,?)"
+        )
+        .bind(
+          item.id,
+          id,
+          Date.parse(item.startsAt),
+          Date.parse(item.endsAt),
+          item.requiredCount
+        )
+    )
+  )
+  statements.push(
     db
       .prepare("UPDATE activities SET active=? WHERE id=?")
       .bind(input.active ? 1 : 0, id)
