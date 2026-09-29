@@ -276,8 +276,13 @@ export function localApi(): Plugin {
                   )
                   return
                 }
-                const { slots, responsibles, candidateRoleIds, ...activity } =
-                  parsed.output
+                const {
+                  slots,
+                  responsibles,
+                  candidateRoleIds,
+                  requirements,
+                  ...activity
+                } = parsed.output
                 editor.activity = {
                   ...editor.activity,
                   ...activity,
@@ -286,6 +291,12 @@ export function localApi(): Plugin {
                 editor.slots = slots
                 editor.responsibles = responsibles
                 editor.candidateRoleIds = candidateRoleIds
+                editor.requirements =
+                  input !== null &&
+                  typeof input === "object" &&
+                  !Object.hasOwn(input, "requirements")
+                    ? editor.requirements
+                    : requirements
               }
               if (req.method !== "GET" && req.method !== "PUT") {
                 fail()

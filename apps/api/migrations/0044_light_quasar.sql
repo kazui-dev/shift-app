@@ -11,6 +11,12 @@ CREATE TABLE `shift_requirements` (
 --> statement-breakpoint
 CREATE INDEX `shift_requirements_activity_idx` ON `shift_requirements` (`activity_id`,`starts_at`);
 --> statement-breakpoint
+CREATE TRIGGER `shift_requirements_no_overlap` BEFORE INSERT ON `shift_requirements`
+WHEN EXISTS (SELECT 1 FROM `shift_requirements` AS existing
+  WHERE existing.`activity_id` = NEW.`activity_id`
+    AND existing.`starts_at` < NEW.`ends_at` AND existing.`ends_at` > NEW.`starts_at`)
+BEGIN SELECT RAISE(ABORT, 'INVALID_REQUIREMENTS'); END;
+--> statement-breakpoint
 INSERT INTO `shift_requirements` (`id`,`activity_id`,`starts_at`,`ends_at`,`required_count`)
 SELECT `id`,`activity_id`,`starts_at`,`ends_at`,`capacity`
 FROM `shift_slots` AS slot

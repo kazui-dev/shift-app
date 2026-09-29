@@ -116,7 +116,10 @@ export const activityEditorInputSchema = v.object({
   ),
   responsibles: v.pipe(v.array(responsibleSchema), v.maxLength(100)),
   slots: v.pipe(v.array(slotSchema), v.maxLength(200)),
-  requirements: v.pipe(v.array(requirementSchema), v.maxLength(200)),
+  requirements: v.optional(
+    v.pipe(v.array(requirementSchema), v.maxLength(200)),
+    []
+  ),
 })
 
 export const activityEditorResponseSchema = v.object({
