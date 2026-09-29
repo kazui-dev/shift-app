@@ -202,6 +202,7 @@ export function localApi(): Plugin {
                   studentId: m.studentId,
                   image: null,
                   complete: i % 13 !== 7,
+                  hasHistory: false,
                 })),
                 submissions: [],
               })

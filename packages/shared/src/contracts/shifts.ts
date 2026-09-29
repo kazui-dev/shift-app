@@ -43,6 +43,7 @@ export {
   availabilitySubmissionResponseSchema,
   availabilityEnvelopeSchema,
   availabilitySubmissionsResponseSchema,
+  availabilityHistoryResponseSchema,
   createAvailabilityDateInputSchema,
   availabilityDatesResponseSchema,
   availabilityDateEnvelopeSchema,

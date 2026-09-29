@@ -4,7 +4,10 @@ import {
   type FormDate,
   type DayAnswer,
 } from "@workspace/shared/availability"
-import { availabilitySubmissionsResponseSchema } from "@workspace/shared/shifts"
+import {
+  availabilityHistoryResponseSchema,
+  availabilitySubmissionsResponseSchema,
+} from "@workspace/shared/shifts"
 import { apiJson, apiVoid } from "../../../lib/http/client"
 export const getAvailability = (year: number) =>
   apiJson(`/api/me/availability/${year}`, formResponseSchema)
@@ -33,6 +36,12 @@ export const getAvailabilitySubmissions = (year: number) =>
   apiJson(
     `/api/years/${year}/availability-submissions`,
     availabilitySubmissionsResponseSchema
+  )
+
+export const getAvailabilityHistory = (year: number, memberId: string) =>
+  apiJson(
+    `/api/years/${year}/availability-submissions/${encodeURIComponent(memberId)}/history`,
+    availabilityHistoryResponseSchema
   )
 
 export const notifyAvailability = (year: number, scope: "all" | "incomplete") =>
