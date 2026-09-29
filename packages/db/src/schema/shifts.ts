@@ -28,6 +28,30 @@ export const shiftSlots = sqliteTable(
   ]
 )
 
+export const shiftRequirements = sqliteTable(
+  "shift_requirements",
+  {
+    id: text("id").primaryKey(),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    requiredCount: integer("required_count").notNull(),
+  },
+  (table) => [
+    index("shift_requirements_activity_idx").on(
+      table.activityId,
+      table.startsAt
+    ),
+    check(
+      "shift_requirements_time_check",
+      sql`${table.startsAt} < ${table.endsAt}`
+    ),
+    check("shift_requirements_count_check", sql`${table.requiredCount} >= 0`),
+  ]
+)
+
 export const shiftAssignments = sqliteTable(
   "shift_assignments",
   {

@@ -8,6 +8,7 @@ export function planOf(data: EditorData): ActivityEditorInput {
   return {
     ...data.activity,
     slots: data.slots,
+    requirements: data.requirements,
     candidateRoleIds: data.candidateRoleIds,
     responsibles: data.responsibles,
   }

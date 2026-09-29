@@ -68,7 +68,22 @@ export function CreateShift({ year }: { year: number }) {
           ? {
               activities: [
                 ...current.activities,
-                { ...activity, assignmentCount: 0 },
+                {
+                  ...activity,
+                  assignmentCount: 0,
+                  requirements: [],
+                  responsibleNames: responsibles.flatMap((target) => {
+                    const responsibleName =
+                      target.targetType === "role"
+                        ? roles.data?.roles.find(
+                            (role) => role.id === target.targetId
+                          )?.name
+                        : roster.data?.members.find(
+                            (member) => member.id === target.targetId
+                          )?.displayName
+                    return responsibleName ? [responsibleName] : []
+                  }),
+                },
               ],
             }
           : undefined

@@ -13,6 +13,7 @@ const base: ActivityEditorInput = {
   active: false,
   responsibles: [],
   candidateRoleIds: [],
+  requirements: [],
   slots: [
     {
       id: "one",
@@ -24,6 +25,23 @@ const base: ActivityEditorInput = {
   ],
 }
 describe("mergePlan", () => {
+  it("keeps an edited requirement when another editor changes an unrelated field", () => {
+    const requirements = [
+      {
+        id: "one",
+        startsAt: base.startsAt,
+        endsAt: base.endsAt,
+        requiredCount: 4,
+      },
+    ]
+    const result = mergePlan(
+      base,
+      { ...base, requirements },
+      { ...base, version: 2, place: "正門" }
+    )
+    expect(result.plan.requirements).toEqual(requirements)
+    expect(result.plan.place).toBe("正門")
+  })
   it("preserves independent changes and adopts the latest version", () => {
     const result = mergePlan(
       base,

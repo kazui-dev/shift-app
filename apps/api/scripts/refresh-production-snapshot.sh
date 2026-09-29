@@ -41,6 +41,14 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$repo_root"
+# Production may not have received the new table yet. Read it when present;
+# local migrations always create the table in the snapshot database.
+has_remote_requirements=false
+if vp -C apps/api exec wrangler d1 execute shift-app --remote \
+  --command "SELECT COUNT(*) FROM shift_requirements" >"$command_log" 2>&1; then
+  tables+=(shift_requirements)
+  has_remote_requirements=true
+fi
 table_args=()
 for table in "${tables[@]}"; do table_args+=(--table "$table"); done
 
@@ -67,6 +75,14 @@ if ! vp -C apps/api exec wrangler d1 migrations apply shift-app \
   echo "Local snapshot migrations failed." >&2
   exit 1
 fi
+# Existing active activities are exported before their responsible rows.
+if ! vp -C apps/api exec wrangler d1 execute shift-app \
+  --local --persist-to "$staging_dir" \
+  --command "DROP TRIGGER activities_create_inactive" --yes \
+  >"$command_log" 2>&1; then
+  echo "Could not prepare activity import." >&2
+  exit 1
+fi
 for chunk in "$chunk_dir"/*.sql; do
   if ! vp -C apps/api exec wrangler d1 execute shift-app \
     --local --persist-to "$staging_dir" --file "$chunk" --yes \
@@ -76,6 +92,22 @@ for chunk in "$chunk_dir"/*.sql; do
     exit 1
   fi
 done
+if [[ "$has_remote_requirements" == false ]]; then
+  if ! vp -C apps/api exec wrangler d1 execute shift-app \
+    --local --persist-to "$staging_dir" \
+    --command "INSERT INTO shift_requirements (id,activity_id,starts_at,ends_at,required_count) SELECT slot.id,slot.activity_id,slot.starts_at,slot.ends_at,slot.capacity FROM shift_slots slot WHERE slot.deleted=0 AND slot.capacity IS NOT NULL AND NOT EXISTS (SELECT 1 FROM shift_assignments a WHERE a.slot_id=slot.id AND a.status='active') AND NOT EXISTS (SELECT 1 FROM directory_shift_assignments a WHERE a.slot_id=slot.id)" --yes \
+    >"$command_log" 2>&1; then
+    echo "Could not import known staffing requirements." >&2
+    exit 1
+  fi
+fi
+if ! vp -C apps/api exec wrangler d1 execute shift-app \
+  --local --persist-to "$staging_dir" \
+  --command "CREATE TRIGGER activities_create_inactive BEFORE INSERT ON activities WHEN NEW.active=1 BEGIN SELECT RAISE(ABORT,'RESPONSIBLE_REQUIRED'); END" --yes \
+  >"$command_log" 2>&1; then
+  echo "Could not restore activity import invariant." >&2
+  exit 1
+fi
 rm -f "$state_root/production-snapshot-error.log"
 
 if [[ -d "$snapshot_dir" ]]; then
