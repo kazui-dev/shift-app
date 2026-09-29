@@ -6,7 +6,10 @@ import { apiError, errors } from "../../../../lib/errors"
 import { type ApiEnv, parseYear, readJson } from "../../../../lib/http"
 import { hasActiveYearMembership } from "../../../../auth/authorization/membership"
 import { readAvailabilityForm } from "../../services/availability-form"
-import { validateFormAnswers } from "../../domain/availability-form"
+import {
+  changedAnswers,
+  validateFormAnswers,
+} from "../../domain/availability-form"
 import { broadcastChange } from "../../../live/services/live-events"
 export const meAvailabilityApp = new Hono<ApiEnv>()
 meAvailabilityApp.use("/:year", async (c, next) => {
@@ -69,6 +72,31 @@ meAvailabilityApp.put("/:year", async (c) => {
       .bind(year, memberId)
       .first<{ id: string }>()
     const id = old?.id ?? crypto.randomUUID()
+    if (form.submittedAt) {
+      for (const change of changedAnswers(
+        form.submitted,
+        input.output.answers.filter((answer) =>
+          open.some((date) => date.date === answer.date)
+        )
+      )) {
+        statements.push(
+          db
+            .prepare(
+              "INSERT INTO availability_submission_changes (id,submission_id,date,before_choice,before_times,after_choice,after_times,changed_at) VALUES (?,?,?,?,?,?,?,?)"
+            )
+            .bind(
+              crypto.randomUUID(),
+              id,
+              change.date,
+              change.before.choice,
+              JSON.stringify(change.before.times),
+              change.after.choice,
+              JSON.stringify(change.after.times),
+              now
+            )
+        )
+      }
+    }
     statements.push(
       db
         .prepare(

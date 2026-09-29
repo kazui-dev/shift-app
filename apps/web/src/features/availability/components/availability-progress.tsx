@@ -8,6 +8,7 @@ import { SelectField } from "@/components/select-field"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { notifyAvailability } from "../api/availability"
 import { availabilitySubmissionsQuery } from "../data/availability"
+import { AvailabilityHistory } from "./availability-history"
 
 export function AvailabilityProgress({
   year,
@@ -21,6 +22,7 @@ export function AvailabilityProgress({
   const submissions = useQuery(availabilitySubmissionsQuery(year))
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("")
+  const [historyMemberId, setHistoryMemberId] = useState<string | null>(null)
   const progress = submissions.data?.progress ?? []
   const filtered = progress.filter(
     (item) =>
@@ -96,6 +98,16 @@ export function AvailabilityProgress({
               <span className="shrink-0 text-xs text-muted-foreground">
                 {item.complete ? "提出済み" : "未提出"}
               </span>
+              {item.complete && item.hasHistory && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`${item.displayName}の変更履歴`}
+                  onClick={() => setHistoryMemberId(item.memberId)}
+                >
+                  履歴
+                </Button>
+              )}
             </li>
           ))}
           {!submissions.isPending && filtered.length === 0 && (
@@ -104,6 +116,17 @@ export function AvailabilityProgress({
             </li>
           )}
         </ul>
+      )}
+      {historyMemberId && (
+        <AvailabilityHistory
+          year={year}
+          memberId={historyMemberId}
+          name={
+            progress.find((item) => item.memberId === historyMemberId)
+              ?.displayName ?? "参加者"
+          }
+          onClose={() => setHistoryMemberId(null)}
+        />
       )}
     </section>
   )

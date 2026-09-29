@@ -42,7 +42,10 @@ it("refreshes only what each change touches", () => {
   ])
   invalidate.mockClear()
   applyLiveEvent(client, { type: "availability_submitted", year: 2026 }, "me")
-  expect(invalidated()).toEqual([keys.availabilitySubmissions(2026)])
+  expect(invalidated()).toEqual([
+    keys.availabilitySubmissions(2026),
+    keys.availabilityHistory(2026),
+  ])
   invalidate.mockClear()
   applyLiveEvent(client, { type: "availability_changed", year: 2026 }, "me")
   expect(invalidated()).toEqual([
