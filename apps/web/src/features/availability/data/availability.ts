@@ -8,6 +8,7 @@ import {
   getAvailability,
   getAvailabilityDates,
   getAvailabilitySubmissions,
+  getAvailabilityHistory,
 } from "@/features/availability/api/availability"
 /** The member's own form. Without a year there is nothing to ask for. */
 export const availabilityQuery = (year: number | null) =>
@@ -28,11 +29,18 @@ export const availabilitySubmissionsQuery = (year: number) =>
     queryFn: () => getAvailabilitySubmissions(year),
     staleTime: 30_000,
   })
+export const availabilityHistoryQuery = (year: number, memberId: string) =>
+  queryOptions({
+    queryKey: keys.availabilityHistory(year, memberId),
+    queryFn: () => getAvailabilityHistory(year, memberId),
+    staleTime: 30_000,
+  })
 
 export function refreshAvailability(client: QueryClient, year: number) {
   return Promise.all([
     client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
     client.invalidateQueries({ queryKey: keys.availability(year) }),
     client.invalidateQueries({ queryKey: keys.availabilitySubmissions(year) }),
+    client.invalidateQueries({ queryKey: keys.availabilityHistory(year) }),
   ])
 }

@@ -1,4 +1,33 @@
 import type { DayAnswer, FormDate } from "@workspace/shared/availability"
+
+type Choice = DayAnswer["choice"] | "unanswered"
+type AnswerValue = { choice: Choice; times: { from: number; to: number }[] }
+
+function answerValue(answer: DayAnswer): AnswerValue {
+  return {
+    choice: answer.choice,
+    times:
+      answer.choice === "times"
+        ? answer.times
+            .map(({ from, to }) => ({ from, to }))
+            .sort((a, b) => a.from - b.from)
+        : [],
+  }
+}
+
+export function changedAnswers(previous: DayAnswer[], next: DayAnswer[]) {
+  return next.flatMap((answer) => {
+    const old = previous.find((item) => item.date === answer.date)
+    const before: AnswerValue = old
+      ? answerValue(old)
+      : { choice: "unanswered", times: [] }
+    const after = answerValue(answer)
+    return JSON.stringify(before) === JSON.stringify(after)
+      ? []
+      : [{ date: answer.date, before, after }]
+  })
+}
+
 export function validateFormAnswers(
   dates: FormDate[],
   answers: DayAnswer[],

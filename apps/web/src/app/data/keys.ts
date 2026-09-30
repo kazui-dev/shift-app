@@ -21,6 +21,7 @@ export const keys = {
   availability: key("availability"),
   availabilityDates: key("availability-dates"),
   availabilitySubmissions: key("availability-submissions"),
+  availabilityHistory: key("availability-history"),
   shiftAttendance: key("shift-attendance"),
   attendanceEvents: key("attendance-events"),
   chatRooms: key("chat-rooms"),

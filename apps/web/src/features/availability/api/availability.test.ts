@@ -15,6 +15,7 @@ it("loads manager submissions containing a full day through 24:00", async () => 
             studentId: "26AJ001",
             image: "https://cdn.example/aoi.png",
             complete: true,
+            hasHistory: false,
           },
         ],
         submissions: [

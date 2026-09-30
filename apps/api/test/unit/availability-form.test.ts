@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vite-plus/test"
 import type { DayAnswer, FormDate } from "@workspace/shared/availability"
-import { validateFormAnswers } from "../../src/features/availability/domain/availability-form"
+import {
+  changedAnswers,
+  validateFormAnswers,
+} from "../../src/features/availability/domain/availability-form"
 const date: FormDate = {
   date: "2026-11-01",
   startsMinute: 540,
@@ -15,6 +18,50 @@ const answer: DayAnswer = {
   times: [],
 }
 describe("availability form rounds", () => {
+  it("records only changed choices or time ranges, ignoring range IDs and order", () => {
+    expect(changedAnswers([], [answer])).toEqual([
+      {
+        date: date.date,
+        before: { choice: "unanswered", times: [] },
+        after: { choice: "all", times: [] },
+      },
+    ])
+    const previous: DayAnswer = {
+      ...answer,
+      choice: "times",
+      times: [
+        { id: "old-b", from: 780, to: 900 },
+        { id: "old-a", from: 540, to: 720 },
+      ],
+    }
+    expect(
+      changedAnswers(
+        [previous],
+        [
+          {
+            ...previous,
+            times: [
+              { id: "new-a", from: 540, to: 720 },
+              { id: "new-b", from: 780, to: 900 },
+            ],
+          },
+        ]
+      )
+    ).toEqual([])
+    expect(changedAnswers([previous], [answer])).toEqual([
+      {
+        date: date.date,
+        before: {
+          choice: "times",
+          times: [
+            { from: 540, to: 720 },
+            { from: 780, to: 900 },
+          ],
+        },
+        after: { choice: "all", times: [] },
+      },
+    ])
+  })
   it("keeps incomplete drafts separate from submission requirements", () => {
     expect(validateFormAnswers([date], [], false)).toBeNull()
     expect(validateFormAnswers([date], [], true)).not.toBeNull()
