@@ -27,7 +27,7 @@ export function UserManager({
   view,
   onDirtyChange,
 }: {
-  view: { search: string }
+  view: { search: string; save: (patch: { search: string }) => void }
   onDirtyChange: (dirty: boolean) => void
 }) {
   const users = useQuery({
@@ -53,7 +53,7 @@ export function UserManager({
           aria-label="ユーザーを検索"
           value={search}
           onChange={(event) => {
-            view.search = event.target.value
+            view.save({ search: event.target.value })
             setSearch(event.target.value)
           }}
         />

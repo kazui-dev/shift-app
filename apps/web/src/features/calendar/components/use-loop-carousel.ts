@@ -39,8 +39,11 @@ export function useLoopCarousel<Value extends string>({
     slidesToScroll: 1,
     startIndex: loopCarouselInitialSlide,
   })
-  const stateRef = useRef(createLoopCarouselState(value, valuesAround))
-  const [values, setValues] = useState(stateRef.current.values)
+  const [initialState] = useState(() =>
+    createLoopCarouselState(value, valuesAround)
+  )
+  const stateRef = useRef(initialState)
+  const [values, setValues] = useState(initialState.values)
 
   const transition = useCallback(
     (event: LoopCarouselEvent<Value>) => {

@@ -37,7 +37,7 @@ export function ManagementPageFrame({
       <div
         ref={viewport}
         onScroll={(event) => {
-          view.scrollTop = event.currentTarget.scrollTop
+          view.save({ scrollTop: event.currentTarget.scrollTop })
         }}
         className={`min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8 ${flushTop ? "pt-0" : "pt-6"}`}
       >

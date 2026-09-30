@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { getRouteApi } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ImagePlus, LoaderCircle, Trash2 } from "lucide-react"
@@ -31,7 +31,7 @@ export function AccountSettings() {
   const { state } = route.useRouteContext()
   const account = useQuery({ ...accountStateQueryOptions, initialData: state })
   const [open, setOpen] = useState(false)
-  const [picked, setPicked] = useState<File | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const member =
     account.data.status === "active" ? account.data.member : undefined
@@ -49,7 +49,12 @@ export function AccountSettings() {
     }
   }
 
-  const picker = useAvatarPicker(setPicked)
+  const picker = useAvatarPicker((file) => setPicked(URL.createObjectURL(file)))
+  useEffect(() => {
+    return () => {
+      if (picked) URL.revokeObjectURL(picked)
+    }
+  }, [picked])
   if (!member) return null
   return (
     <>
@@ -79,7 +84,8 @@ export function AccountSettings() {
       </div>
       {picked && (
         <AvatarEditor
-          file={picked}
+          key={picked}
+          source={picked}
           pending={pending}
           onCancel={() => setPicked(null)}
           onDone={(cropped) => {

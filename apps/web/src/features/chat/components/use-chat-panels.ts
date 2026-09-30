@@ -4,6 +4,7 @@ import {
   useEffectEvent,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react"
 import { pageDrag, boundPages } from "@/features/chat/components/page-motion"
 import useEmblaCarousel from "embla-carousel-react"
@@ -28,8 +29,8 @@ export function useChatPanels({
 }) {
   const desktop = useMediaQuery("(min-width: 768px)")
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)")
-  const initial = useRef(showingRoom ? (showingMembers ? 2 : 1) : 0)
-  const requested = useRef(initial.current)
+  const [initial] = useState(() => (showingRoom ? (showingMembers ? 2 : 1) : 0))
+  const requested = useRef(initial)
   const list = useRef<HTMLElement>(null)
   const conversation = useRef<HTMLDivElement>(null)
   const members = useRef<HTMLElement>(null)
@@ -48,7 +49,7 @@ export function useChatPanels({
     align: "start",
     slides: "[data-chat-panel]",
     containScroll: false,
-    startIndex: initial.current,
+    startIndex: initial,
     watchDrag,
     watchFocus: false,
     duration: reducedMotion ? 0 : 20,
