@@ -12,28 +12,32 @@ import { useAvatarPicker } from "@/features/account/components/avatar-picker"
 
 /** The optional profile image, offered once the member has been created. */
 export function AvatarStep({ onDone }: { onDone: () => void }) {
-  const [picked, setPicked] = useState<File | null>(null)
-  const [image, setImage] = useState<Blob | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{ image: Blob; url: string } | null>(
+    null
+  )
   const [pending, setPending] = useState(false)
-  const picker = useAvatarPicker(setPicked)
+  const picker = useAvatarPicker((file) => setPicked(URL.createObjectURL(file)))
 
   useEffect(() => {
-    const url = image ? URL.createObjectURL(image) : null
-    setPreview(url)
     return () => {
-      if (url) URL.revokeObjectURL(url)
+      if (picked) URL.revokeObjectURL(picked)
     }
-  }, [image])
+  }, [picked])
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url)
+    }
+  }, [preview])
 
   async function confirm() {
-    if (!image) {
+    if (!preview) {
       onDone()
       return
     }
     setPending(true)
     try {
-      await uploadAvatar(image)
+      await uploadAvatar(preview.image)
       onDone()
     } catch (caught) {
       toast.error(errorMessage(caught))
@@ -53,7 +57,7 @@ export function AvatarStep({ onDone }: { onDone: () => void }) {
           className="flex size-32 items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground"
         >
           {preview ? (
-            <img src={preview} alt="" className="size-full object-cover" />
+            <img src={preview.url} alt="" className="size-full object-cover" />
           ) : (
             <span className="flex flex-col items-center gap-1 text-xs">
               <ImagePlus className="size-5" />
@@ -64,11 +68,12 @@ export function AvatarStep({ onDone }: { onDone: () => void }) {
       </div>
       {picked && (
         <AvatarEditor
-          file={picked}
+          key={picked}
+          source={picked}
           pending={pending}
           onCancel={() => setPicked(null)}
           onDone={(cropped) => {
-            setImage(cropped)
+            setPreview({ image: cropped, url: URL.createObjectURL(cropped) })
             setPicked(null)
           }}
         />

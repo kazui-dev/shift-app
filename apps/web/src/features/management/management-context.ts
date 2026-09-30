@@ -27,5 +27,10 @@ export function useManagementScreenView(key: string) {
     view = { scrollTop: 0, search: "", filter: "" }
     screenViews.set(key, view)
   }
-  return view
+  return {
+    ...view,
+    save(patch: Partial<ManagementScreenView>) {
+      screenViews.set(key, { ...(screenViews.get(key) ?? view), ...patch })
+    },
+  }
 }

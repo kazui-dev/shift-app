@@ -22,8 +22,10 @@ import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useChatStore } from "@/features/chat/hooks/use-chat-store"
 import { RoutePage } from "@/app/route-page"
 
+const settingsRoute = getRouteApi("/_app/chat/$roomId/info/settings")
+
 export function RoomSettingsPage() {
-  const { roomId } = getRouteApi("/_app/chat/$roomId/info/settings").useParams()
+  const { roomId } = settingsRoute.useParams()
   return <RoomSettingsScreen key={roomId} roomId={roomId} />
 }
 function RoomSettingsScreen({ roomId }: { roomId: string }) {

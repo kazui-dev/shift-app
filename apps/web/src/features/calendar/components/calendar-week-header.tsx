@@ -177,16 +177,18 @@ export function CalendarWeekHeader({
 
   useLayoutEffect(() => {
     const root = rootRef.current
-    if (root) resetCalendarWeekHeader(root)
+    if (root) {
+      root.dataset.date = date
+      resetCalendarWeekHeader(root)
+    }
   }, [date, rootRef])
 
   useEffect(() => {
     if (animatedDate === null) return undefined
-    if (animatedDate !== date) {
-      setAnimatedDate(null)
-      return undefined
-    }
-    const timeout = window.setTimeout(() => setAnimatedDate(null), 160)
+    const timeout = window.setTimeout(
+      () => setAnimatedDate(null),
+      animatedDate === date ? 160 : 0
+    )
     return () => window.clearTimeout(timeout)
   }, [animatedDate, date])
 

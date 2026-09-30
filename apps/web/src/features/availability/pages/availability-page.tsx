@@ -10,10 +10,12 @@ import { useDisplayYear } from "@/app/use-display-year"
 import { availabilityQuery } from "@/features/availability/data/availability"
 import { AvailabilityEditor } from "@/features/availability/components/availability-editor"
 
+const appRoute = getRouteApi("/_app")
+
 export function AvailabilityPage() {
   const display = useDisplayYear()
   const navigate = useNavigate()
-  const { state } = getRouteApi("/_app").useRouteContext()
+  const { state } = appRoute.useRouteContext()
   const year = display.year
   const query = useQuery(availabilityQuery(year))
   const close = () => void navigate({ to: "/calendar" })

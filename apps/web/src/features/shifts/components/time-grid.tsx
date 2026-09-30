@@ -41,7 +41,7 @@ export function TimeGrid({
     if (lastFilter.current === key) return
     lastFilter.current = key
     if (viewport.current) viewport.current.scrollTop = 0
-    view.scrollTop = 0
+    view.save({ scrollTop: 0 })
     setScrollTop(0)
   }, [search, role, includeUnavailable, view])
   const scale = timeScale(plan.startsAt, plan.endsAt)
@@ -73,7 +73,7 @@ export function TimeGrid({
       onScroll={(event) => {
         const top = event.currentTarget.scrollTop
         setScrollTop(top)
-        view.scrollTop = top
+        view.save({ scrollTop: top })
       }}
       className="min-h-0 max-w-full min-w-0 flex-1 overflow-auto border-y border-border/70"
     >

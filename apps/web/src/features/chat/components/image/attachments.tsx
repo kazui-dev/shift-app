@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState, type ReactNode } from "react"
+import { useCallback, useState, type ReactNode } from "react"
 import { ImageIcon } from "lucide-react"
 import type {
   ChatAttachment,
@@ -51,14 +51,18 @@ export function LocalImage({
   alt: string
   className?: string
 }) {
-  const [source, setSource] = useState<{ blob: Blob; url: string | null }>()
-  // Before paint, so the image never shows a frame without its source.
-  useLayoutEffect(() => {
-    setSource({ blob, url: acquireUrl(blob) })
-    return () => releaseUrl(blob)
-  }, [blob])
-  if (source?.blob !== blob) return null
-  return source.url === null ? (
+  const [failedBlob, setFailedBlob] = useState<Blob | null>(null)
+  // Callback refs run during commit, before paint, and release the shared URL
+  // when this image or blob leaves the screen.
+  const attach = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image) return undefined
+      image.src = acquireUrl(blob)
+      return () => releaseUrl(blob)
+    },
+    [blob]
+  )
+  return failedBlob === blob ? (
     <span
       className={`flex items-center justify-center bg-muted ${className}`}
       title={alt}
@@ -67,11 +71,11 @@ export function LocalImage({
     </span>
   ) : (
     <img
-      src={source.url}
+      ref={attach}
       alt={alt}
       decoding="async"
       className={className}
-      onError={() => setSource({ blob, url: null })}
+      onError={() => setFailedBlob(blob)}
     />
   )
 }
@@ -180,16 +184,16 @@ function ImageFrame({
         {corner}
       </div>
     )
-  let offset = 0
   return (
     <div
       data-message-media
       className="relative mt-2 flex w-full flex-col overflow-hidden rounded-lg"
       style={frame}
     >
-      {layout.rows.map((size) => {
-        const start = offset
-        offset += size
+      {layout.rows.map((size, index) => {
+        const start = layout.rows
+          .slice(0, index)
+          .reduce((offset, rowSize) => offset + rowSize, 0)
         return (
           <div
             key={start}

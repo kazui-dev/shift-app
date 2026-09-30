@@ -64,7 +64,7 @@ export function ShiftEditor({
       }
   )
   function setFilters(value: MemberFilters) {
-    view.filters = value
+    view.save({ filters: value })
     storeFilters(value)
   }
   const [attendanceOpen, setAttendanceOpen] = useState(false)

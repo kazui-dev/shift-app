@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import * as v from "valibot"
 import {
   dayAnswerSchema,
@@ -46,7 +46,6 @@ export function useAvailabilityEditor(
   const pending = useRef(0)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const active = useRef(true)
-  latest.current = answers
   function save(publish: boolean) {
     clearTimeout(timer.current)
     const current = latest.current
@@ -98,7 +97,10 @@ export function useAvailabilityEditor(
     return task
   }
   const saveRef = useRef(save)
-  saveRef.current = save
+  useLayoutEffect(() => {
+    latest.current = answers
+    saveRef.current = save
+  })
   useEffect(() => {
     const json = JSON.stringify(answers)
     if (!pending.current && json === confirmed.current) return undefined

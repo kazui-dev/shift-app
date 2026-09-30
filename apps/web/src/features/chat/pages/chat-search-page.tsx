@@ -19,8 +19,10 @@ import { senderImage } from "@/features/chat/lib/bot"
 import { getChatRoom, searchChatMessages } from "@/features/chat/api/chat"
 import { useMessageTarget } from "@/features/chat/components/message/use-target"
 
+const searchRoute = getRouteApi("/_app/chat/$roomId/search")
+
 export function ChatSearchPage() {
-  const { roomId } = getRouteApi("/_app/chat/$roomId/search").useParams()
+  const { roomId } = searchRoute.useParams()
   return <ChatSearch key={roomId} roomId={roomId} />
 }
 function ChatSearch({ roomId }: { roomId: string }) {

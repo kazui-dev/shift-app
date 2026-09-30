@@ -74,6 +74,13 @@ export function ChatMessages({
     history.markRead,
     history.query.data !== undefined
   )
+  const {
+    viewport: scrollViewport,
+    content: scrollContent,
+    onScroll: onHistoryScroll,
+    showLatest,
+    latest: scrollLatest,
+  } = scroll
   const selectedMessage = rows.find(
     (message) => message.id === menu?.message.id
   )
@@ -170,14 +177,14 @@ export function ChatMessages({
       >
         <div className="relative min-h-0 flex-1">
           <section
-            ref={scroll.viewport}
+            ref={scrollViewport}
             data-chat-history
-            onScroll={scroll.onScroll}
+            onScroll={onHistoryScroll}
             aria-label="メッセージ履歴"
             className="absolute inset-0 touch-pan-y [scrollbar-width:none] overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none]"
           >
             <div
-              ref={scroll.content}
+              ref={scrollContent}
               className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-overlap)+1rem)]"
             >
               <div ref={older} aria-hidden />
@@ -233,13 +240,13 @@ export function ChatMessages({
           )}
         </div>
         <div className="relative z-10 -mt-[var(--composer-overlap)] shrink-0">
-          {scroll.showLatest && (
+          {showLatest && (
             <Button
               variant="outline"
               size="icon"
               aria-label="最新のメッセージへ"
               className="absolute right-[var(--chat-gutter)] bottom-[calc(100%+var(--chat-gutter))] size-9 rounded-full bg-background shadow-sm dark:bg-background dark:hover:bg-muted"
-              onClick={scroll.latest}
+              onClick={scrollLatest}
             >
               <ArrowDown className="size-4" />
             </Button>

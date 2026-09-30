@@ -16,7 +16,7 @@ export function YearRoleManager({
   view,
 }: {
   year: number
-  view: { search: string }
+  view: { search: string; save: (patch: { search: string }) => void }
 }) {
   const query = useQuery({
     ...rolesQuery(year),
@@ -67,7 +67,7 @@ export function YearRoleManager({
           disabled={reordering}
           value={search}
           onChange={(event) => {
-            view.search = event.target.value
+            view.save({ search: event.target.value })
             setSearch(event.target.value)
           }}
         />
@@ -81,7 +81,7 @@ export function YearRoleManager({
           disabled={!canCreate || ordering}
           onClick={() => {
             if (!reordering) {
-              view.search = ""
+              view.save({ search: "" })
               setSearch("")
             }
             setReordering(!reordering)

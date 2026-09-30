@@ -88,7 +88,9 @@ export function CalendarPage() {
   const weekHeaderRef = useRef<HTMLDivElement>(null)
   const dateRef = useRef(date)
   const initializedCalendarRef = useRef(false)
-  dateRef.current = date
+  useLayoutEffect(() => {
+    dateRef.current = date
+  }, [date])
   const currentTime = useCurrentTime()
   const now = japanDateTime(currentTime)
   const nowMs = currentTime.getTime()

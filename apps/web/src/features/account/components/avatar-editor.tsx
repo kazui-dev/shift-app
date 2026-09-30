@@ -65,19 +65,18 @@ async function cropped(
  * pinched directly. Nothing is written on it but the two controls.
  */
 export function AvatarEditor({
-  file,
+  source,
   pending,
   onCancel,
   onDone,
 }: {
-  file: File
+  source: string
   pending: boolean
   onCancel: () => void
   onDone: (image: Blob) => void
 }) {
   // Measured before the first paint so the image is placed once, without a jump.
   const [area, setArea] = useState(screen)
-  const [source, setSource] = useState<string | null>(null)
   const [size, setSize] = useState<Size | null>(null)
   const [frame, setFrame] = useState<Frame | null>(null)
   const [working, setWorking] = useState(false)
@@ -89,14 +88,6 @@ export function AvatarEditor({
     x: (area.width - circle) / 2,
     y: (area.height - circle) / 2,
   }
-
-  useEffect(() => {
-    const url = URL.createObjectURL(file)
-    setSource(url)
-    setSize(null)
-    setFrame(null)
-    return () => URL.revokeObjectURL(url)
-  }, [file])
 
   useEffect(() => {
     const measure = () => {

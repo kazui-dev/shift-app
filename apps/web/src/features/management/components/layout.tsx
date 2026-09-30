@@ -29,6 +29,7 @@ const systemItems = [
   { to: "/manage/discord-link-requests", label: "Discord連携申請" },
   { to: "/manage/audit", label: "操作履歴" },
 ] as const
+const appRoute = getRouteApi("/_app")
 
 export function ManagementLayout() {
   return (
@@ -39,7 +40,7 @@ export function ManagementLayout() {
 }
 
 function ManagementWorkspace() {
-  const { state } = getRouteApi("/_app").useRouteContext()
+  const { state } = appRoute.useRouteContext()
   const { dirty } = useManagement()
   const { pathname, editingShift } = useRouterState({
     select: (router) => ({
