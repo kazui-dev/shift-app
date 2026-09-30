@@ -174,7 +174,7 @@ export function ChatMessages({
             data-chat-history
             onScroll={scroll.onScroll}
             aria-label="メッセージ履歴"
-            className="absolute inset-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] [scrollbar-width:none]"
+            className="absolute inset-0 touch-pan-y [scrollbar-width:none] overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none]"
           >
             <div
               ref={scroll.content}

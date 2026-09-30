@@ -5,7 +5,7 @@
 ## Requirements
 
 - Node.js 22.23.1（ルート `.node-version` を正とする）
-- Vite+ 0.2.9
+- Vite+ 1.0.0
 - pnpm 10.33.4（Vite+がルート `package.json` の `packageManager` から解決する）
 - remote resource を作成・変更する場合のみ Cloudflare account
 

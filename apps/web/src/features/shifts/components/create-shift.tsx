@@ -114,7 +114,7 @@ export function CreateShift({ year }: { year: number }) {
         <span className="text-sm text-muted-foreground">{year}年度</span>
       </PageHeader>
       <form onSubmit={create} className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 [scrollbar-width:none] sm:px-6">
+        <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
           <fieldset disabled={pending} className="mx-auto max-w-2xl space-y-5">
             <label htmlFor="new-shift-name" className="block space-y-2 text-sm">
               シフト名

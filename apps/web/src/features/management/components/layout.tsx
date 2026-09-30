@@ -112,7 +112,7 @@ function ManagementWorkspace() {
       <div className="flex min-h-0 min-w-0 flex-1">
         <aside
           id="management-desktop-menu"
-          className={`hidden w-52 shrink-0 overflow-y-auto border-r [scrollbar-width:none] lg:w-56 ${showDesktopMenu ? "md:block" : ""}`}
+          className={`hidden w-52 shrink-0 [scrollbar-width:none] overflow-y-auto border-r lg:w-56 ${showDesktopMenu ? "md:block" : ""}`}
         >
           {navigation}
         </aside>
