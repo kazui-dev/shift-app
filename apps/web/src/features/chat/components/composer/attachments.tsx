@@ -16,7 +16,7 @@ export function ComposerAttachments({
     <div>
       <ul
         data-horizontal-scroll
-        className="flex max-w-full min-w-0 touch-pan-x gap-2 overflow-x-auto overscroll-x-contain pb-2 [scrollbar-width:none]"
+        className="flex max-w-full min-w-0 touch-pan-x [scrollbar-width:none] gap-2 overflow-x-auto overscroll-x-contain pb-2"
         aria-label="添付する画像"
       >
         {files.map((file) => (

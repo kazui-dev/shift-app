@@ -39,7 +39,7 @@ export function ManagementPageFrame({
         onScroll={(event) => {
           view.scrollTop = event.currentTarget.scrollTop
         }}
-        className={`min-h-0 flex-1 overflow-y-auto px-4 pb-6 [scrollbar-width:none] sm:px-6 lg:px-8 ${flushTop ? "pt-0" : "pt-6"}`}
+        className={`min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8 ${flushTop ? "pt-0" : "pt-6"}`}
       >
         <div className="mx-auto max-w-6xl">{children}</div>
       </div>

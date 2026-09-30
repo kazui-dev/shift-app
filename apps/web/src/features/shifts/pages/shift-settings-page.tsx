@@ -88,7 +88,7 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
           {source.activity.year}年度
         </span>
       </PageHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 [scrollbar-width:none] sm:px-6">
+      <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
         <ShiftSettings
           value={value}
           data={source}

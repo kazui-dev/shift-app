@@ -28,7 +28,7 @@ export function ThumbnailStrip({
   return (
     <div
       data-horizontal-scroll
-      className="-mx-5 flex shrink-0 justify-center-safe overflow-x-auto px-5 [scrollbar-width:none]"
+      className="-mx-5 flex shrink-0 [scrollbar-width:none] justify-center-safe overflow-x-auto px-5"
     >
       <fieldset
         ref={strip}
