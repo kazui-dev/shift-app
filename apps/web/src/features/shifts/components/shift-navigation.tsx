@@ -100,9 +100,6 @@ export function ShiftNavigation({
           .map((item) => ({ value: item.id, label: item.name }))}
         onValueChange={(id) => void open(id)}
       />
-      {loading && (
-        <output className="text-xs text-muted-foreground">読み込み中…</output>
-      )}
     </div>
   )
 }

@@ -114,9 +114,32 @@ export const availabilitySubmissionsResponseSchema = v.object({
       studentId: v.string(),
       image: v.nullable(v.string()),
       complete: v.boolean(),
+      hasHistory: v.boolean(),
     })
   ),
   submissions: v.array(availabilitySubmissionResponseSchema),
+})
+
+const availabilityHistoryAnswerSchema = v.object({
+  choice: v.picklist(["all", "times", "no", "unanswered"]),
+  times: v.array(
+    v.object({
+      from: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(1440)),
+      to: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(1440)),
+    })
+  ),
+})
+
+export const availabilityHistoryResponseSchema = v.object({
+  changes: v.array(
+    v.object({
+      id: v.string(),
+      date: dateOnlySchema,
+      changedAt: instantSchema,
+      before: availabilityHistoryAnswerSchema,
+      after: availabilityHistoryAnswerSchema,
+    })
+  ),
 })
 
 export const createAvailabilityDateInputSchema = v.object({

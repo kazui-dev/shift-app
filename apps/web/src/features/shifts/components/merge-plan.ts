@@ -98,6 +98,13 @@ export function mergePlan(
     active: field("active", "有効・無効"),
     responsibles: field("responsibles", "責任者"),
     candidateRoleIds: field("candidateRoleIds", "候補のロール"),
+    requirements: pick(
+      "requirements",
+      "必要人数",
+      base.requirements,
+      local.requirements,
+      latest.requirements
+    ),
     slots: slots.sort(
       (a, b) => a.startsAt.localeCompare(b.startsAt) || a.id.localeCompare(b.id)
     ),

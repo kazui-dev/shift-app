@@ -11,6 +11,7 @@ const slot = {
   memberIds: ["m"],
 }
 const plan: ActivityEditorInput = {
+  requirements: [],
   candidateRoleIds: [],
   name: "Shift",
   place: "Campus",
@@ -35,6 +36,49 @@ describe("shift plan validation", () => {
       )
     ).toEqual({ error: null, outside: [] })
   })
+  it("keeps staffing requirements independent of work slots", () => {
+    expect(
+      validateShiftPlan(
+        {
+          ...plan,
+          slots: [],
+          requirements: [
+            {
+              id: "morning",
+              startsAt: at(9),
+              endsAt: at(12),
+              requiredCount: 8,
+            },
+            {
+              id: "afternoon",
+              startsAt: at(12),
+              endsAt: at(18),
+              requiredCount: 5,
+            },
+          ],
+        },
+        [],
+        [],
+        []
+      ).error
+    ).toBeNull()
+  })
+  it.each([
+    [{ id: "one", startsAt: at(8), endsAt: at(12), requiredCount: 8 }],
+    [{ id: "one", startsAt: at(9), endsAt: at(19), requiredCount: 8 }],
+    [
+      { id: "one", startsAt: at(9), endsAt: at(12), requiredCount: 8 },
+      { id: "two", startsAt: at(11), endsAt: at(18), requiredCount: 5 },
+    ],
+  ])(
+    "rejects requirements outside or overlapping the shift",
+    (...requirements) => {
+      expect(
+        validateShiftPlan({ ...plan, slots: [], requirements }, [], [], [])
+          .error
+      ).toBe("INVALID_REQUIREMENTS")
+    }
+  )
   it("warns about unavailable and unsubmitted members", () => {
     expect(validateShiftPlan(plan, ["m"], [], [])).toEqual({
       error: null,

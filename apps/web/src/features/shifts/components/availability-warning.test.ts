@@ -3,6 +3,7 @@ import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { hasUnavailableAssignments } from "./availability-warning"
 
 const plan: ActivityEditorInput = {
+  requirements: [],
   name: "受付",
   place: "入口",
   activityType: "シフト",

@@ -21,6 +21,7 @@ const reconnectKeys = [
   keys.availability,
   keys.availabilityDates,
   keys.availabilitySubmissions,
+  keys.availabilityHistory,
 ]
 
 function invalidate(client: QueryClient, cacheKeys: unknown[][]) {
@@ -56,7 +57,10 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
       ])
       return
     case "availability_submitted":
-      invalidate(client, [keys.availabilitySubmissions(event.year)])
+      invalidate(client, [
+        keys.availabilitySubmissions(event.year),
+        keys.availabilityHistory(event.year),
+      ])
       return
     case "profile_changed":
       changeChatProfile(client, event.memberId, event.image)

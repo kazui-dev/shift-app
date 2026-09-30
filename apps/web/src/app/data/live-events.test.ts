@@ -42,7 +42,10 @@ it("refreshes only what each change touches", () => {
   ])
   invalidate.mockClear()
   applyLiveEvent(client, { type: "availability_submitted", year: 2026 }, "me")
-  expect(invalidated()).toEqual([keys.availabilitySubmissions(2026)])
+  expect(invalidated()).toEqual([
+    keys.availabilitySubmissions(2026),
+    keys.availabilityHistory(2026),
+  ])
   invalidate.mockClear()
   applyLiveEvent(client, { type: "availability_changed", year: 2026 }, "me")
   expect(invalidated()).toEqual([
@@ -70,7 +73,7 @@ it("refreshes only what each change touches", () => {
   client.clear()
 })
 
-it("catches up on shifts and chat when the connection reopens", () => {
+it("catches up on shifts, availability and chat when the connection reopens", () => {
   const { client, invalidated } = watched()
   applyLiveEvent(client, null, "me")
   expect(invalidated()).toEqual(
@@ -78,6 +81,7 @@ it("catches up on shifts and chat when the connection reopens", () => {
       keys.assignments(),
       keys.shiftAttendance(),
       keys.availability(),
+      keys.availabilityHistory(),
       keys.chatMessages(),
     ])
   )

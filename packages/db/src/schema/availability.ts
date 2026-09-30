@@ -25,6 +25,7 @@ export const availabilitySubmissions = sqliteTable(
       .notNull()
       .default("draft"),
     submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+    revision: integer("revision").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
@@ -120,6 +121,32 @@ export const availabilityDayAnswers = sqliteTable(
   (table) => [primaryKey({ columns: [table.submissionId, table.dateId] })]
 )
 
+export const availabilitySubmissionChanges = sqliteTable(
+  "availability_submission_changes",
+  {
+    id: text("id").primaryKey(),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => availabilitySubmissions.id, { onDelete: "cascade" }),
+    date: text("date").notNull(),
+    beforeChoice: text("before_choice", {
+      enum: ["all", "times", "no", "unanswered"],
+    }).notNull(),
+    beforeTimes: text("before_times").notNull(),
+    afterChoice: text("after_choice", {
+      enum: ["all", "times", "no"],
+    }).notNull(),
+    afterTimes: text("after_times").notNull(),
+    changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("availability_changes_submission_changed_idx").on(
+      table.submissionId,
+      table.changedAt
+    ),
+  ]
+)
+
 // Temporary directory-owned work for external survey responses; see docs/compatibility.md.
 export const directoryAvailabilitySubmissions = sqliteTable(
   "directory_availability_submissions",
@@ -169,6 +196,10 @@ export const directoryAvailabilityWindows = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
+    index("directory_availability_windows_submission_startsAt_idx").on(
+      table.submissionId,
+      table.startsAt
+    ),
     check(
       "directory_windows_time_order_check",
       sql`${table.startsAt} < ${table.endsAt}`

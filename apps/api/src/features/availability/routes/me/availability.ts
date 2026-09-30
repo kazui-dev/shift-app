@@ -6,7 +6,10 @@ import { apiError, errors } from "../../../../lib/errors"
 import { type ApiEnv, parseYear, readJson } from "../../../../lib/http"
 import { hasActiveYearMembership } from "../../../../auth/authorization/membership"
 import { readAvailabilityForm } from "../../services/availability-form"
-import { validateFormAnswers } from "../../domain/availability-form"
+import {
+  changedAnswers,
+  validateFormAnswers,
+} from "../../domain/availability-form"
 import { broadcastChange } from "../../../live/services/live-events"
 export const meAvailabilityApp = new Hono<ApiEnv>()
 meAvailabilityApp.use("/:year", async (c, next) => {
@@ -69,12 +72,37 @@ meAvailabilityApp.put("/:year", async (c) => {
       .bind(year, memberId)
       .first<{ id: string }>()
     const id = old?.id ?? crypto.randomUUID()
+    if (form.submittedAt) {
+      for (const change of changedAnswers(
+        form.submitted,
+        input.output.answers.filter((answer) =>
+          open.some((date) => date.date === answer.date)
+        )
+      )) {
+        statements.push(
+          db
+            .prepare(
+              "INSERT INTO availability_submission_changes (id,submission_id,date,before_choice,before_times,after_choice,after_times,changed_at) VALUES (?,?,?,?,?,?,?,?)"
+            )
+            .bind(
+              crypto.randomUUID(),
+              id,
+              change.date,
+              change.before.choice,
+              JSON.stringify(change.before.times),
+              change.after.choice,
+              JSON.stringify(change.after.times),
+              now
+            )
+        )
+      }
+    }
     statements.push(
       db
         .prepare(
-          "INSERT INTO availability_submissions (id,year,member_id,status,submitted_at,created_at,updated_at) VALUES (?,?,?,'submitted',?,?,?) ON CONFLICT(year,member_id) DO UPDATE SET status='submitted',submitted_at=excluded.submitted_at,updated_at=excluded.updated_at"
+          "INSERT INTO availability_submissions (id,year,member_id,status,submitted_at,revision,created_at,updated_at) VALUES (?,?,?,'submitted',?,?,?,?) ON CONFLICT(year,member_id) DO UPDATE SET status='submitted',submitted_at=excluded.submitted_at,revision=excluded.revision,updated_at=excluded.updated_at"
         )
-        .bind(id, year, memberId, now, now, now)
+        .bind(id, year, memberId, now, form.revision + 1, now, now)
     )
     for (const date of open) {
       const answer = input.output.answers.find(
@@ -120,6 +148,8 @@ meAvailabilityApp.put("/:year", async (c) => {
   try {
     await db.batch(statements)
   } catch (error) {
+    if (error instanceof Error && error.message.includes("AVAILABILITY_STALE"))
+      return apiError(c, errors.availabilitySubmissionChanged)
     if (
       error instanceof Error &&
       error.message.includes("availability_drafts.answers")

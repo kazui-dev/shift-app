@@ -202,6 +202,7 @@ export function localApi(): Plugin {
                   studentId: m.studentId,
                   image: null,
                   complete: i % 13 !== 7,
+                  hasHistory: false,
                 })),
                 submissions: [],
               })
@@ -235,6 +236,17 @@ export function localApi(): Plugin {
               send({
                 activities: editors.map((e) => ({
                   ...e.activity,
+                  requirements: e.requirements,
+                  responsibleNames: e.responsibles.flatMap((target) => {
+                    const name =
+                      target.targetType === "role"
+                        ? roles.find((role) => role.id === target.targetId)
+                            ?.name
+                        : members.find(
+                            (member) => member.id === target.targetId
+                          )?.displayName
+                    return name ? [name] : []
+                  }),
                   assignmentCount: e.slots.reduce(
                     (count, slot) => count + slot.memberIds.length,
                     0
@@ -265,8 +277,13 @@ export function localApi(): Plugin {
                   )
                   return
                 }
-                const { slots, responsibles, candidateRoleIds, ...activity } =
-                  parsed.output
+                const {
+                  slots,
+                  responsibles,
+                  candidateRoleIds,
+                  requirements,
+                  ...activity
+                } = parsed.output
                 editor.activity = {
                   ...editor.activity,
                   ...activity,
@@ -275,6 +292,12 @@ export function localApi(): Plugin {
                 editor.slots = slots
                 editor.responsibles = responsibles
                 editor.candidateRoleIds = candidateRoleIds
+                editor.requirements =
+                  input !== null &&
+                  typeof input === "object" &&
+                  !Object.hasOwn(input, "requirements")
+                    ? editor.requirements
+                    : requirements
               }
               if (req.method !== "GET" && req.method !== "PUT") {
                 fail()

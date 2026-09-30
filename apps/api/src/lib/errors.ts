@@ -133,6 +133,11 @@ export const errors = {
     "FORM_CHANGED",
     "受付内容が変更されました。入力内容を確認してください。"
   ),
+  availabilitySubmissionChanged: define(
+    409,
+    "SUBMISSION_CHANGED",
+    "希望が別の画面から更新されました。再読み込みしてください。"
+  ),
   availabilityFormClosed: define(
     409,
     "FORM_CLOSED",
@@ -531,6 +536,11 @@ export const errors = {
 
 /** Why a shift plan cannot be saved, keyed by the domain rule that rejected it. */
 export const shiftPlanErrors = {
+  INVALID_REQUIREMENTS: define(
+    409,
+    "INVALID_REQUIREMENTS",
+    "必要人数の時間帯をシフト内で重ならないように設定してください。"
+  ),
   INVALID_TIME_RANGE: define(
     409,
     "INVALID_TIME_RANGE",

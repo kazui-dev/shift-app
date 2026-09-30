@@ -51,11 +51,13 @@ export async function prepareApp(
   }
   if (year !== null) {
     const calendar = client.prefetchQuery(assignmentMonthQuery(month, year))
-    const rooms = client.prefetchQuery(roomsQuery(year))
+    const rooms = pathname.startsWith("/chat")
+      ? client.prefetchQuery(roomsQuery(year))
+      : null
     const availability = client.prefetchQuery(availabilityQuery(year))
     if (pathname === "/calendar")
       wait(assignmentMonthQuery(month, year).queryKey, calendar)
-    if (pathname.startsWith("/chat")) wait(roomsQuery(year).queryKey, rooms)
+    if (rooms) wait(roomsQuery(year).queryKey, rooms)
     if (pathname === "/calendar/availability")
       wait(availabilityQuery(year).queryKey, availability)
   }

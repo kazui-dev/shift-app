@@ -7,8 +7,31 @@ import { saveShiftPlan } from "../../src/features/shifts/services/save-shift-pla
 import {
   planningMembers,
   planningSubmissions,
+  planningWindows,
 } from "../../src/features/directory/services/directory-work"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
+
+it("looks up directory availability windows by submission in the activity editor", () => {
+  const db = migrated()
+  try {
+    const plan = db
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT s.member_id, w.starts_at, w.ends_at
+         FROM ${planningSubmissions} s JOIN ${planningWindows} w ON w.submission_id = s.id
+         WHERE s.year = ? AND s.status = 'submitted'`
+      )
+      .all(2026)
+    expect(
+      plan.some((step) =>
+        String(step.detail).includes(
+          "SEARCH directory_availability_windows USING INDEX directory_availability_windows_submission_startsAt_idx"
+        )
+      )
+    ).toBe(true)
+  } finally {
+    db.close()
+  }
+})
 
 it("keeps existing directory answers when adding listing status", () => {
   const db = migrated(42)
@@ -152,6 +175,7 @@ it("saves directory allocations and transfers them when a real member is created
         candidateRoleIds: [],
         responsibles: [{ targetType: "member", targetId: "admin" }],
         slots: before.slots,
+        requirements: before.requirements,
       }
       await saveShiftPlan(binding, "work", "admin", input, before)
       expect(

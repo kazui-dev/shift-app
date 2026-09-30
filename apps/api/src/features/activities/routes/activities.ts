@@ -42,16 +42,19 @@ activitiesApp.put(
   "/:activityId",
   announce({ type: "shifts_changed" }),
   async (c) => {
-    const parsed = v.safeParse(
-      activityEditorInputSchema,
-      await readJson(c.req.raw)
-    )
+    const body = await readJson(c.req.raw)
+    const parsed = v.safeParse(activityEditorInputSchema, body)
     if (!parsed.success)
       return apiError(c, errors.invalidShift, parsed.issues[0]?.message)
-    const id = c.req.param("activityId"),
-      input = parsed.output
+    const id = c.req.param("activityId")
     const current = await readActivityEditor(c.env.shift_app, id)
     if (!current) return apiError(c, errors.activityNotFound)
+    const input =
+      body !== null &&
+      typeof body === "object" &&
+      !Object.hasOwn(body, "requirements")
+        ? { ...parsed.output, requirements: current.requirements }
+        : parsed.output
     if (current.activity.version !== input.version)
       return apiError(c, errors.shiftStale)
     const checked = validateShiftPlan(

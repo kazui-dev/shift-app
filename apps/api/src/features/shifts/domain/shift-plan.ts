@@ -9,6 +9,7 @@ export type ShiftPlanError =
   | "DUPLICATE_MEMBER"
   | "YEAR_MEMBERSHIP_REQUIRED"
   | "SHIFT_OVERLAP"
+  | "INVALID_REQUIREMENTS"
 
 export function validateShiftPlan(
   input: ActivityEditorInput,
@@ -19,6 +20,25 @@ export function validateShiftPlan(
   const start = Date.parse(input.startsAt),
     end = Date.parse(input.endsAt)
   if (start >= end) return { error: "INVALID_TIME_RANGE", outside: [] }
+  {
+    const ordered = [...input.requirements].sort((a, b) =>
+      a.startsAt.localeCompare(b.startsAt)
+    )
+    if (
+      new Set(ordered.map((item) => item.id)).size !== ordered.length ||
+      ordered.some((item, index) => {
+        const from = Date.parse(item.startsAt)
+        const to = Date.parse(item.endsAt)
+        return (
+          from < start ||
+          to > end ||
+          from >= to ||
+          (index > 0 && Date.parse(ordered[index - 1]?.endsAt ?? "") > from)
+        )
+      })
+    )
+      return { error: "INVALID_REQUIREMENTS", outside: [] }
+  }
   if (new Set(input.slots.map((slot) => slot.id)).size !== input.slots.length)
     return { error: "DUPLICATE_SLOT", outside: [] }
   const placed: Window[] = [...other]
