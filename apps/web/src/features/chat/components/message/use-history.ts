@@ -1,6 +1,6 @@
 import { readRoom } from "@/features/chat/data/chat-cache"
 import { messagesQuery } from "@/features/chat/data/chat"
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import {
   updateChatPreferences,
@@ -10,8 +10,8 @@ import {
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 export function useMessages(room: Room, offline: boolean, active: boolean) {
   const client = useQueryClient()
-  const initialRead = useRef(room.lastRead),
-    readSequence = useRef(room.lastRead)
+  const [initialRead] = useState(room.lastRead)
+  const readSequence = useRef(room.lastRead)
   const query = useInfiniteQuery({
     ...messagesQuery(room.id),
     enabled: !offline && active,
@@ -37,5 +37,5 @@ export function useMessages(room: Room, offline: boolean, active: boolean) {
         })
     }
   }, [messages, offline, active, room.id, room.lastRead, client])
-  return { messages, initialRead: initialRead.current, query, markRead }
+  return { messages, initialRead, query, markRead }
 }

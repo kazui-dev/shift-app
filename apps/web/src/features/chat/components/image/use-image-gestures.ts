@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react"
 import {
   initialImageView,
   limitImageView,
@@ -24,18 +30,18 @@ export function useImageGestures(
   const press = useRef<Point | null>(null)
   const lastTap = useRef<{ time: number; x: number; y: number } | null>(null)
 
-  function reset() {
+  const reset = useCallback(() => {
     pointers.current.clear()
     current.current = initialImageView
     setView(initialImageView)
-  }
+  }, [])
   useEffect(() => {
     const element = frame.current
     if (!element) return undefined
     const observer = new ResizeObserver(reset)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
+  }, [reset])
 
   function update(value: typeof view, eased = false) {
     setEasing(eased && !reducedMotion)

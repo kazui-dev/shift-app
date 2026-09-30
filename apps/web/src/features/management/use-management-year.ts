@@ -32,10 +32,14 @@ export function useManagementYearState() {
       saved !== null &&
       !years.some((item) => item.year === saved)
     ) {
-      setSaved(null)
-      saveManagementYear(studentId, null)
-      toast.info("管理できる年度が変更されたため、年度を切り替えました。")
+      const timer = window.setTimeout(() => {
+        setSaved(null)
+        saveManagementYear(studentId, null)
+        toast.info("管理できる年度が変更されたため、年度を切り替えました。")
+      }, 0)
+      return () => window.clearTimeout(timer)
     }
+    return undefined
   }, [query.isSuccess, saved, years, studentId])
   return { ...query, years, year, selectYear }
 }

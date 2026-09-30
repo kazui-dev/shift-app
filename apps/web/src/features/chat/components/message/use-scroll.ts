@@ -151,7 +151,7 @@ export function useMessageScroll(
   }, [rows, active, initialRead, memberId, loaded])
 
   useEffect(() => {
-    if (controller.current?.isAtBottom()) markRead()
+    if (status.atBottom && controller.current?.isAtBottom()) markRead()
   }, [markRead, status.atBottom])
 
   return {

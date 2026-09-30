@@ -23,7 +23,11 @@ export function MemberManager({
   onDirtyChange,
 }: {
   year: number
-  view: { search: string; filter: string }
+  view: {
+    search: string
+    filter: string
+    save: (patch: Partial<{ search: string; filter: string }>) => void
+  }
   onDirtyChange: (dirty: boolean) => void
 }) {
   const client = useQueryClient()
@@ -94,7 +98,7 @@ export function MemberManager({
           placeholder="名前・学籍番号で検索"
           value={search}
           onChange={(event) => {
-            view.search = event.target.value
+            view.save({ search: event.target.value })
             setSearch(event.target.value)
           }}
         />
@@ -103,7 +107,7 @@ export function MemberManager({
           className="h-9 w-auto"
           value={filter}
           onValueChange={(value) => {
-            view.filter = value
+            view.save({ filter: value })
             setFilter(value)
           }}
           options={[

@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import type { HeldImage } from "@/features/chat/lib/images"
 
 /**
@@ -14,33 +14,30 @@ export function useHeldImage(
   const [src, setSrc] = useState(initial)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  const held = useRef<HeldImage<string> | null>(null)
   const start = useEffectEvent(acquire)
-  useEffect(
-    () => () => {
-      held.current?.release()
-      held.current = null
-    },
-    [attempt]
-  )
+  const request = wanted || src || attempt > 0 ? attempt : null
   useEffect(() => {
-    if (held.current || (!wanted && !src)) return
+    if (request === null) return undefined
     const image = start()
-    held.current = image
-    setFailed(false)
+    let active = true
     void image.promise
       .then((url) => {
-        if (held.current === image) setSrc(url)
+        if (active) setSrc(url)
       })
       .catch(() => {
-        if (held.current === image) setFailed(true)
+        if (active) setFailed(true)
       })
-  }, [wanted, src, attempt])
+    return () => {
+      active = false
+      image.release()
+    }
+  }, [request])
   return {
     src,
     failed,
     /** Loads the image again, as when its URL broke or loading failed. */
     retry: () => {
+      setFailed(false)
       setSrc(undefined)
       setAttempt((value) => value + 1)
     },

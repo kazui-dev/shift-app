@@ -1,4 +1,4 @@
-# 0006 Vite+ 1.0 の導入時に既存 UI の React Compiler 指摘を分離する
+# 0006 Vite+ 1.0 の React Compiler 指摘を解消する
 
 - 状態：採用
 - 決定記録日：2026-09-30
@@ -6,15 +6,16 @@
 
 ## 背景
 
-Vite+ 1.0 への更新で Vitest 5 と新しい lint 規則が導入された。既存の Web コードには React Compiler 関連の 57 件の指摘があり、参照、状態、effect、TanStack Router の hook 呼び出しに分布する。これらを一度に書き換えると、ツール更新と画面動作の変更が混ざる。
+Vite+ 1.0 の導入時、既存 Web コードに React Compiler 関連の指摘が 57 件あり、5 規則を一時的に無効にしていた。規則を無効にしたままでは、既存の問題と新しい問題を検出できない。
 
 ## 決定
 
-- Vite+、Vitest、CI の更新を先に行い、テスト、coverage、型検査、build、preview で動作を確認する。
-- `react/rules-of-hooks` は引き続き error にする。
-- Web の既存コードに対する `react/exhaustive-effect-dependencies`、`react/hooks`、`react/immutability`、`react/refs`、`react/set-state-in-effect` は一時的に無効にする。対象は `apps/web` に限定し、他の package では維持する。
-- これらの規則を有効に戻す作業では、画面ごとに挙動を検証しながら修正する。
+- 5 規則を再び有効にし、指摘されたコードを修正する。
+- render 中の ref 参照と更新を避ける。初期値は state に保持し、最新値の同期は layout effect で行う。
+- 画面のスクロールや検索条件の保存は、コンポーネントから保存メソッドを呼ぶ。共有ビューの変更はストア側に集める。
+- 外部リソースの取得と解放を commit 後の処理に置き、effect 内で同期的に state を更新しない。
+- `react/rules-of-hooks` と React Compiler 規則を lint error として維持する。
 
 ## 影響
 
-Vite+ 1.0 の導入を、既存 UI の広範な書き換えから分けて検証できる。Web では上記 5 規則による新規違反も検出されないため、後続の修正で再有効化が必要になる。
+Vite+ 1.0 の lint を Web 全体で実行できる。既存の表示状態保存、画像 URL の管理、チャット履歴のスクロールを検証する。

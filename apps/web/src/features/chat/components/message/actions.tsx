@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useEffectEvent,
   useRef,
@@ -77,13 +78,13 @@ export function MessageActions({
   const available =
     pending ||
     (!offline && (permission.reply || permission.edit || permission.delete))
-  function cancelPress() {
+  const cancelPress = useCallback(() => {
     if (press.current?.timer) clearTimeout(press.current.timer)
     if (releaseTimer.current) clearTimeout(releaseTimer.current)
     releaseTimer.current = null
     press.current = null
     setPressed(false)
-  }
+  }, [])
   useEffect(() => {
     const reset = () => {
       consumed.current = false
@@ -93,7 +94,7 @@ export function MessageActions({
       cancelPress()
       document.removeEventListener("pointerdown", reset, true)
     }
-  }, [])
+  }, [cancelPress])
   useEffect(() => {
     if (!opened || mobile) return undefined
     const close = (event: PointerEvent) => {
@@ -195,7 +196,7 @@ export function MessageActions({
       element.removeEventListener("click", click, true)
       element.removeEventListener("keydown", key)
     }
-  }, [available, editing])
+  }, [available, editing, cancelPress])
   return (
     <article
       ref={root}

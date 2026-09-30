@@ -23,6 +23,8 @@ import { removeRoom } from "@/features/chat/data/chat-cache"
 import { CreateChat } from "@/features/chat/components/room/create"
 import { restoreChatView, saveChatView } from "@/features/chat/lib/view"
 
+const appRoute = getRouteApi("/_app")
+
 export function ChatPage() {
   return (
     <MessageTargetProvider>
@@ -32,7 +34,7 @@ export function ChatPage() {
 }
 function ChatScreen() {
   const client = useQueryClient()
-  const { state: account } = getRouteApi("/_app").useRouteContext()
+  const { state: account } = appRoute.useRouteContext()
   const memberId = account.member.id
   const router = useRouter()
   const pathname = useRouterState({

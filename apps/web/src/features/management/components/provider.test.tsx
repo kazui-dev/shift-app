@@ -10,8 +10,10 @@ vi.mock("@/features/management/use-management-year", () => ({
 
 function Remember({ year }: { year: number }) {
   const view = useShiftView(year)
-  view.filters = { search: "鈴木", role: "all", includeUnavailable: false }
-  view.scrollTop = 760
+  view.save({
+    filters: { search: "鈴木", role: "all", includeUnavailable: false },
+    scrollTop: 760,
+  })
   return null
 }
 
@@ -22,8 +24,7 @@ function Read({ year }: { year: number }) {
 
 function RememberScreen({ viewKey }: { viewKey: string }) {
   const view = useManagementScreenView(viewKey)
-  view.search = "田中"
-  view.scrollTop = 420
+  view.save({ search: "田中", scrollTop: 420 })
   return null
 }
 
@@ -34,9 +35,7 @@ function ReadScreen({ viewKey }: { viewKey: string }) {
 
 function RememberShiftList({ year }: { year: number }) {
   const view = useManagementScreenView(`shifts:${year}`)
-  view.search = "受付"
-  view.filter = "active"
-  view.scrollTop = 560
+  view.save({ search: "受付", filter: "active", scrollTop: 560 })
   return null
 }
 

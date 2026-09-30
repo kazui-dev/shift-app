@@ -27,7 +27,11 @@ export function ActivityManager({
   view,
 }: {
   year: number
-  view: { search: string; filter: string }
+  view: {
+    search: string
+    filter: string
+    save: (patch: Partial<{ search: string; filter: string }>) => void
+  }
 }) {
   const query = useQuery(activitiesQuery(year))
   const [search, setSearch] = useState(() => view.search)
@@ -52,7 +56,7 @@ export function ActivityManager({
           className="h-9 w-full sm:max-w-80"
           value={search}
           onChange={(event) => {
-            view.search = event.target.value
+            view.save({ search: event.target.value })
             setSearch(event.target.value)
           }}
         />
@@ -61,7 +65,7 @@ export function ActivityManager({
           className="h-9 w-auto"
           value={status}
           onValueChange={(value) => {
-            view.filter = value
+            view.save({ filter: value })
             setStatus(value)
           }}
           options={[

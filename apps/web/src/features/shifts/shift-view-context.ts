@@ -24,5 +24,10 @@ export function useShiftView(year: number) {
     }
     views.set(year, view)
   }
-  return view
+  return {
+    ...view,
+    save(patch: Partial<ShiftView>) {
+      views.set(year, { ...(views.get(year) ?? view), ...patch })
+    },
+  }
 }
