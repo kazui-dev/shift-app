@@ -17,7 +17,7 @@ export function ViewerCaption({
   children?: ReactNode
 }) {
   return (
-    <div className="flex max-h-[30dvh] shrink-0 flex-col gap-4 overflow-y-auto px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm [scrollbar-width:none]">
+    <div className="flex max-h-[30dvh] shrink-0 [scrollbar-width:none] flex-col gap-4 overflow-y-auto px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] text-sm">
       <div className="flex items-start gap-3">
         <MemberAvatar
           name={author}

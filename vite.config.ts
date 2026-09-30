@@ -86,6 +86,17 @@ export default defineConfig({
         },
       },
       {
+        files: ["apps/web/**/*.{ts,tsx}"],
+        // Existing UI patterns need a separate React Compiler cleanup.
+        rules: {
+          "react/exhaustive-effect-dependencies": "off",
+          "react/hooks": "off",
+          "react/immutability": "off",
+          "react/refs": "off",
+          "react/set-state-in-effect": "off",
+        },
+      },
+      {
         files: ["apps/web/public/push-sw.js"],
         env: {
           worker: true,

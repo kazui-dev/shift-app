@@ -83,7 +83,7 @@ function RolePage({
           <span className="text-sm text-muted-foreground">{year}年度</span>
         )}
       </PageHeader>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 [scrollbar-width:none] sm:px-6">
+      <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
         {!allowed ? (
           <EmptyState>管理できない年度です</EmptyState>
         ) : query.isPending ? (
