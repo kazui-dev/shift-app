@@ -9,7 +9,7 @@ vi.mock("@/lib/http/client", () => ({
   apiVoid: vi.fn<typeof apiVoid>(),
 }))
 afterEach(() => vi.restoreAllMocks())
-it("prepares primary destinations without fetching all conversations or privileged management data", async () => {
+it("prepares primary destinations without fetching chat rooms or privileged management data", async () => {
   const requests: string[] = []
   vi.mocked(apiJson).mockImplementation(async (path) => {
     requests.push(path)
@@ -33,10 +33,30 @@ it("prepares primary destinations without fetching all conversations or privileg
     true
   )
   expect(requests).toContain("/api/me/availability/2026")
-  expect(requests).toContain("/api/chat/rooms?year=2026")
+  expect(requests).not.toContain("/api/chat/rooms?year=2026")
   expect(requests.some((path) => /messages|roster|\/admin\//.test(path))).toBe(
     false
   )
+  client.clear()
+})
+it("fetches the room list when opening chat", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  client.setQueryData(["display-year"], {
+    year: 2026,
+    defaultYear: 2026,
+    years: [2026],
+    unavailableSelection: false,
+  })
+  client.setQueryData(["years"], { years: [{ year: 2026, canManage: false }] })
+  const requests: string[] = []
+  vi.mocked(apiJson).mockImplementation(async (path) => {
+    requests.push(path)
+    return {}
+  })
+  await prepareApp(client, "/chat", "test", false)
+  expect(requests).toContain("/api/chat/rooms?year=2026")
   client.clear()
 })
 it("does not hold a warm calendar transition behind background revalidation", async () => {

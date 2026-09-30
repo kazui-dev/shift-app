@@ -1,0 +1,1 @@
+CREATE INDEX `directory_availability_windows_submission_startsAt_idx` ON `directory_availability_windows` (`submission_id`,`starts_at`);

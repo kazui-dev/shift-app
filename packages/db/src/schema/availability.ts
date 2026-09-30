@@ -196,6 +196,10 @@ export const directoryAvailabilityWindows = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
+    index("directory_availability_windows_submission_startsAt_idx").on(
+      table.submissionId,
+      table.startsAt
+    ),
     check(
       "directory_windows_time_order_check",
       sql`${table.startsAt} < ${table.endsAt}`
