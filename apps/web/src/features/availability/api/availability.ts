@@ -13,7 +13,7 @@ export const getAvailability = (year: number) =>
   apiJson(`/api/me/availability/${year}`, formResponseSchema)
 export const replaceAvailability = (
   year: number,
-  input: { answers: DayAnswer[]; submit: boolean }
+  input: { answers: DayAnswer[]; submit: boolean; revision: number }
 ) =>
   apiJson(`/api/me/availability/${year}`, formResponseSchema, {
     method: "PUT",
@@ -49,3 +49,19 @@ export const notifyAvailability = (year: number, scope: "all" | "incomplete") =>
     method: "POST",
     body: JSON.stringify({ scope }),
   })
+
+export const getMemberAvailability = (year: number, memberId: string) =>
+  apiJson(
+    `/api/years/${year}/availability-submissions/${encodeURIComponent(memberId)}`,
+    formResponseSchema
+  )
+export const saveMemberAvailability = (
+  year: number,
+  memberId: string,
+  input: { answers: DayAnswer[]; revision: number }
+) =>
+  apiJson(
+    `/api/years/${year}/availability-submissions/${encodeURIComponent(memberId)}`,
+    formResponseSchema,
+    { method: "PATCH", body: JSON.stringify(input) }
+  )

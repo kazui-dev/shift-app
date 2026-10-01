@@ -38,6 +38,7 @@ export const availabilityHistoryQuery = (year: number, memberId: string) =>
 
 export function refreshAvailability(client: QueryClient, year: number) {
   return Promise.all([
+    client.invalidateQueries({ queryKey: keys.memberAvailability(year) }),
     client.invalidateQueries({ queryKey: keys.availabilityDates(year) }),
     client.invalidateQueries({ queryKey: keys.availability(year) }),
     client.invalidateQueries({ queryKey: keys.availabilitySubmissions(year) }),

@@ -5,7 +5,8 @@ import { toIso } from "../../../lib/http"
 export async function readAvailabilityForm(
   db: D1Database,
   year: number,
-  memberId: string
+  memberId: string,
+  directory = false
 ) {
   const [dates, submission, draft] = await Promise.all([
     db
@@ -23,23 +24,27 @@ export async function readAvailabilityForm(
       }>(),
     db
       .prepare(
-        "SELECT id,submitted_at AS submittedAt,revision FROM availability_submissions WHERE year=? AND member_id=?"
+        directory
+          ? "SELECT id,submitted_at AS submittedAt,revision FROM directory_availability_submissions WHERE id=? AND EXISTS(SELECT 1 FROM student_directory d WHERE d.id=entry_id AND d.year=?)"
+          : "SELECT id,submitted_at AS submittedAt,revision FROM availability_submissions WHERE member_id=? AND year=?"
       )
-      .bind(year, memberId)
+      .bind(memberId, year)
       .first<{ id: string; submittedAt: number | null; revision: number }>(),
-    db
-      .prepare(
-        "SELECT answers FROM availability_drafts WHERE year=? AND member_id=?"
-      )
-      .bind(year, memberId)
-      .first<{ answers: string }>(),
+    directory
+      ? Promise.resolve(null)
+      : db
+          .prepare(
+            "SELECT answers,revision FROM availability_drafts WHERE year=? AND member_id=?"
+          )
+          .bind(year, memberId)
+          .first<{ answers: string; revision: number | null }>(),
   ])
   const submitted: DayAnswer[] = []
   if (submission) {
     const [answers, windows] = await Promise.all([
       db
         .prepare(
-          "SELECT date_id AS dateId,date_version AS version,choice FROM availability_day_answers WHERE submission_id=?"
+          `SELECT date_id AS dateId,date_version AS version,choice FROM ${directory ? "directory_availability_day_answers" : "availability_day_answers"} WHERE submission_id=?`
         )
         .bind(submission.id)
         .all<{
@@ -49,7 +54,7 @@ export async function readAvailabilityForm(
         }>(),
       db
         .prepare(
-          "SELECT id,availability_date_id AS dateId,starts_at AS startsAt,ends_at AS endsAt FROM availability_windows WHERE submission_id=? ORDER BY starts_at"
+          `SELECT id,availability_date_id AS dateId,starts_at AS startsAt,ends_at AS endsAt FROM ${directory ? "directory_availability_windows" : "availability_windows"} WHERE submission_id=? ORDER BY starts_at`
         )
         .bind(submission.id)
         .all<{
@@ -95,5 +100,6 @@ export async function readAvailabilityForm(
     submitted,
     submittedAt: submission?.submittedAt ? toIso(submission.submittedAt) : null,
     revision: submission?.revision ?? 0,
+    draftRevision: draft?.revision ?? null,
   }
 }

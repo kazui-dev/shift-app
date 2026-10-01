@@ -26,12 +26,19 @@ export const dayAnswerSchema = v.object({
 export const formAnswersInputSchema = v.strictObject({
   answers: v.pipe(v.array(dayAnswerSchema), v.maxLength(200)),
   submit: v.boolean(),
+  revision: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+})
+export const managedAnswersInputSchema = v.strictObject({
+  answers: v.pipe(v.array(dayAnswerSchema), v.maxLength(200)),
+  revision: v.pipe(v.number(), v.integer(), v.minValue(0)),
 })
 export const formResponseSchema = v.object({
   dates: v.array(formDateSchema),
   answers: v.array(dayAnswerSchema),
   submitted: v.array(dayAnswerSchema),
   submittedAt: v.nullable(v.string()),
+  revision: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  draftRevision: v.nullable(v.number()),
 })
 export const formDatesResponseSchema = v.object({
   dates: v.array(formDateSchema),
