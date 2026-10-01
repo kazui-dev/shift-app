@@ -22,6 +22,9 @@ function requirementLabel(activity: {
     .join(" / ")
 }
 
+const columns =
+  "@4xl:grid-cols-[6rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.5fr)_2.5rem]"
+
 export function ActivityManager({
   year,
   view,
@@ -105,8 +108,10 @@ export function ActivityManager({
               <summary className="mb-2 cursor-pointer text-sm font-medium marker:text-muted-foreground">
                 {japanDateWeekday(`${date}T12:00:00+09:00`)}
               </summary>
-              <div className="overflow-x-auto border-y">
-                <div className="grid min-w-[76rem] grid-cols-[6rem_minmax(12rem,1fr)_12rem_9rem_24rem_3rem] gap-4 border-b px-2 py-2 text-xs text-muted-foreground">
+              <div className="@container min-w-0 border-y">
+                <div
+                  className={`hidden grid-cols-1 gap-3 border-b px-2 py-2 text-xs text-muted-foreground @4xl:grid ${columns}`}
+                >
                   <span>時間</span>
                   <span>シフト</span>
                   <span>担当</span>
@@ -121,37 +126,40 @@ export function ActivityManager({
                         to="/manage/shifts/$shiftId"
                         params={{ shiftId: item.id }}
                         preload="intent"
-                        className="grid min-h-11 min-w-[76rem] grid-cols-[6rem_minmax(12rem,1fr)_12rem_9rem_24rem_3rem] items-center gap-4 px-2 py-2 hover:bg-muted/50"
+                        className={`block min-w-0 space-y-1 px-2 py-3 hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring @4xl:grid @4xl:min-h-11 @4xl:items-center @4xl:gap-3 @4xl:space-y-0 @4xl:py-2 ${columns}`}
                       >
-                        <span className="text-sm tabular-nums">
+                        <span className="block text-xs text-muted-foreground tabular-nums @4xl:text-sm @4xl:text-foreground">
                           {japanTime(item.startsAt)}–{japanTime(item.endsAt)}
                         </span>
                         <span
-                          className="min-w-0 truncate text-sm font-medium"
+                          className="block min-w-0 text-sm font-medium break-words @4xl:truncate"
                           title={item.name}
                         >
                           {item.name}
                         </span>
                         <span
-                          className="truncate text-xs text-muted-foreground"
+                          className="block min-w-0 text-xs break-words text-muted-foreground @4xl:truncate"
                           title={item.responsibleNames.join("、")}
                         >
-                          {item.responsibleNames.join("、")}
+                          <span className="@4xl:hidden">担当：</span>
+                          {item.responsibleNames.join("、") || "—"}
                         </span>
                         <span
-                          className="truncate text-xs text-muted-foreground"
+                          className="block min-w-0 text-xs break-words text-muted-foreground @4xl:truncate"
                           title={item.place}
                         >
+                          <span className="@4xl:hidden">場所：</span>
                           {item.place || "—"}
                         </span>
                         <span
-                          className="truncate text-xs whitespace-nowrap text-muted-foreground"
+                          className="block min-w-0 text-xs break-words text-muted-foreground"
                           title={requirementLabel(item)}
                         >
-                          {requirementLabel(item)}
+                          <span className="@4xl:hidden">必要人数：</span>
+                          {requirementLabel(item) || "—"}
                         </span>
-                        <span className="text-xs text-muted-foreground">
-                          {item.active ? "" : "無効"}
+                        <span className="block text-xs text-muted-foreground">
+                          {item.active ? "有効" : "無効"}
                         </span>
                       </Link>
                     </li>
