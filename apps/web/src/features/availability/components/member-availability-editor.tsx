@@ -48,19 +48,13 @@ export function MemberAvailabilityEditor({
       }}
     >
       <DialogContent
-        className="max-h-[85dvh] overflow-y-auto"
+        className="flex h-[min(85dvh,42rem)] flex-col gap-0 overflow-hidden p-0"
         showCloseButton={!pending}
       >
-        <DialogTitle>{name}さんのシフト希望</DialogTitle>
-        {query.isPending && (
-          <p className="text-sm text-muted-foreground">読み込み中…</p>
-        )}
-        {query.isError && (
-          <Button variant="outline" onClick={() => void query.refetch()}>
-            再読み込み
-          </Button>
-        )}
-        {query.data && (
+        <header className="shrink-0 px-6 pt-6 pr-16 pb-4">
+          <DialogTitle>{name}さんのシフト希望</DialogTitle>
+        </header>
+        {query.data ? (
           <MemberAnswers
             key={`${memberId}:${generation}`}
             year={year}
@@ -74,6 +68,26 @@ export function MemberAvailabilityEditor({
               if (result.isSuccess) setGeneration((value) => value + 1)
             }}
           />
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div
+              className="min-h-0 flex-1 px-6 py-2"
+              aria-live="polite"
+              aria-busy={query.isPending}
+            >
+              {query.isPending && (
+                <p className="text-sm text-muted-foreground">読み込み中…</p>
+              )}
+              {query.isError && (
+                <Button variant="outline" onClick={() => void query.refetch()}>
+                  再読み込み
+                </Button>
+              )}
+            </div>
+            <footer className="flex shrink-0 justify-end border-t px-6 py-4">
+              <Button disabled>保存</Button>
+            </footer>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -156,37 +170,46 @@ function MemberAnswers({
   }
   return (
     <form
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
       onSubmit={(event) => {
         event.preventDefault()
         void save()
       }}
     >
-      <AvailabilityFields
-        dates={data.dates}
-        answers={answers}
-        submitted={data.submitted}
-        pending={pending || conflicted}
-        allowClosed
-        onUpdate={update}
-      />
-      {error && (
-        <p role="alert" className="mb-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2">
-        {conflicted && (
-          <Button type="button" variant="outline" onClick={() => void reload()}>
-            再読み込み
-          </Button>
-        )}
-        <Button
-          type="submit"
-          disabled={pending || conflicted || !answers.length}
-        >
-          {pending ? "保存中" : "保存"}
-        </Button>
+      <div className="relative min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-6 py-2">
+        <AvailabilityFields
+          dates={data.dates}
+          answers={answers}
+          submitted={data.submitted}
+          pending={pending || conflicted}
+          allowClosed
+          onUpdate={update}
+        />
       </div>
+      <footer className="shrink-0 border-t px-6 py-4">
+        {error && (
+          <p role="alert" className="mb-3 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          {conflicted && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void reload()}
+            >
+              再読み込み
+            </Button>
+          )}
+          <Button
+            type="submit"
+            disabled={pending || conflicted || !answers.length}
+          >
+            {pending ? "保存中" : "保存"}
+          </Button>
+        </div>
+      </footer>
     </form>
   )
 }
