@@ -64,6 +64,11 @@ export function AvailabilityHistory({
                     minute: "2-digit",
                   })}
                 </time>
+                {change.changedByName && (
+                  <p className="text-xs text-muted-foreground">
+                    {change.changedByName}
+                  </p>
+                )}
                 <p className="font-medium">
                   {change.date.slice(5).replace("-", "/")}
                 </p>

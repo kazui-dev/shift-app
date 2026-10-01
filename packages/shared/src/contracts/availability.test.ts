@@ -1,6 +1,10 @@
 import * as v from "valibot"
 import { expect, it } from "vite-plus/test"
-import { dayAnswerSchema, formDateInputSchema } from "./availability"
+import {
+  dayAnswerSchema,
+  formDateInputSchema,
+  managedAnswersInputSchema,
+} from "./availability"
 
 const date = {
   date: "2026-09-13",
@@ -28,4 +32,15 @@ it("keeps an answer's choice within the offered options", () => {
   expect(
     v.safeParse(dayAnswerSchema, { ...answer, choice: "maybe" }).success
   ).toBe(false)
+})
+
+it("requires a nonnegative integer revision for editing another member's answers", () => {
+  expect(
+    v.safeParse(managedAnswersInputSchema, { answers: [], revision: 0 }).success
+  ).toBe(true)
+  for (const revision of [undefined, -1, 0.5, "1"]) {
+    expect(
+      v.safeParse(managedAnswersInputSchema, { answers: [], revision }).success
+    ).toBe(false)
+  }
 })

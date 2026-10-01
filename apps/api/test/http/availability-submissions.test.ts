@@ -27,7 +27,7 @@ describe("availability submission progress", () => {
       db.exec(`INSERT INTO operating_years VALUES (2026,0,0);
         INSERT INTO student_directory (id,year,student_id,display_name,created_at)
         VALUES ('11111111-2222-f333-4444-555555555555',2026,'26AJ001','Participant',0);
-        INSERT INTO directory_availability_submissions VALUES
+        INSERT INTO directory_availability_submissions (id,entry_id,submitted_at,created_at,updated_at) VALUES
         ('11111111-2222-4333-8444-555555555555','11111111-2222-f333-4444-555555555555',0,0,0);
         INSERT INTO availability_dates (id,year,date,created_at,updated_at)
         VALUES ('11111111-2222-4333-8444-555555555556',2026,'2026-10-31',0,0);

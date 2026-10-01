@@ -1,3 +1,4 @@
+import { memberAvailabilityApp } from "./member-availability"
 import {
   planningMembers,
   planningIdentities,
@@ -18,7 +19,13 @@ import {
 import { type ApiEnv, parseYear, readJson, toIso } from "../../../../lib/http"
 import { canManageShifts } from "../../../../auth/authorization/membership"
 
+const submissionChanges = `(SELECT id,submission_id,date,before_choice,before_times,
+  after_choice,after_times,changed_at,changed_by,changed_by_name FROM availability_submission_changes
+  UNION ALL SELECT id,submission_id,date,before_choice,before_times,
+  after_choice,after_times,changed_at,changed_by,changed_by_name FROM directory_availability_submission_changes)`
+
 export const availabilitySubmissionsApp = new Hono<ApiEnv>()
+availabilitySubmissionsApp.route("/", memberAvailabilityApp)
 
 availabilitySubmissionsApp.get("/:year/availability-submissions", async (c) => {
   const year = parseYear(c.req.param("year"))
@@ -78,10 +85,11 @@ availabilitySubmissionsApp.get(
     const rows = await c.env.shift_app
       .prepare(
         `SELECT change.id,change.date,change.changed_at AS changedAt,
+          change.changed_by AS changedBy,change.changed_by_name AS changedByName,
           change.before_choice AS beforeChoice,change.before_times AS beforeTimes,
           change.after_choice AS afterChoice,change.after_times AS afterTimes
-        FROM availability_submission_changes change
-        JOIN availability_submissions submission ON submission.id=change.submission_id
+        FROM ${submissionChanges} change
+        JOIN ${planningSubmissions} submission ON submission.id=change.submission_id
         WHERE submission.year=? AND submission.member_id=?
         ORDER BY change.changed_at DESC,change.date,change.id`
       )
@@ -89,6 +97,8 @@ availabilitySubmissionsApp.get(
       .all<{
         id: string
         date: string
+        changedBy: string | null
+        changedByName: string | null
         changedAt: number
         beforeChoice: "all" | "times" | "no" | "unanswered"
         beforeTimes: string
@@ -101,6 +111,8 @@ availabilitySubmissionsApp.get(
           id: row.id,
           date: row.date,
           changedAt: toIso(row.changedAt),
+          changedBy: row.changedBy,
+          changedByName: row.changedByName,
           before: {
             choice: row.beforeChoice,
             times: JSON.parse(row.beforeTimes),
@@ -115,8 +127,8 @@ availabilitySubmissionsApp.get(
 async function readProgress(db: D1Database, year: number) {
   const result = await db
     .prepare(`SELECT m.id AS memberId,m.display_name AS displayName,m.student_id AS studentId,identity.image AS image,
-    EXISTS(SELECT 1 FROM availability_submission_changes change
-      JOIN availability_submissions submission ON submission.id=change.submission_id
+    EXISTS(SELECT 1 FROM ${submissionChanges} change
+      JOIN ${planningSubmissions} submission ON submission.id=change.submission_id
       WHERE submission.year=m.year AND submission.member_id=m.id) AS hasHistory,
     NOT EXISTS(SELECT 1 FROM availability_dates d WHERE d.year=m.year AND d.deleted=0 AND d.accepting=1 AND NOT EXISTS(
       SELECT 1 FROM ${planningSubmissions} s JOIN ${planningAnswers} answer ON answer.submission_id=s.id

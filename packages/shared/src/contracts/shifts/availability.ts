@@ -136,6 +136,8 @@ export const availabilityHistoryResponseSchema = v.object({
       id: v.string(),
       date: dateOnlySchema,
       changedAt: instantSchema,
+      changedBy: v.nullable(v.string()),
+      changedByName: v.nullable(v.string()),
       before: availabilityHistoryAnswerSchema,
       after: availabilityHistoryAnswerSchema,
     })
