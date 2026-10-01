@@ -1,3 +1,7 @@
+import {
+  HistoryGestures,
+  useHistoryGestures,
+} from "@/features/chat/components/message/history-gestures"
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { ArrowDown, LoaderCircle } from "lucide-react"
@@ -74,17 +78,19 @@ export function ChatMessages({
     history.markRead,
     history.query.data !== undefined
   )
-  const {
-    viewport: scrollViewport,
-    content: scrollContent,
-    onScroll: onHistoryScroll,
-    showLatest,
-    latest: scrollLatest,
-  } = scroll
-  const selectedMessage = rows.find(
-    (message) => message.id === menu?.message.id
+  const gestures = useHistoryGestures(scroll.viewport)
+  const menuMessageId = menu?.message.id
+  const selectedMessage = useMemo(
+    () =>
+      menuMessageId
+        ? rows.find((message) => message.id === menuMessageId)
+        : undefined,
+    [rows, menuMessageId]
   )
-  const firstUnread = unreadMessage(rows, history.initialRead, member.id)
+  const firstUnread = useMemo(
+    () => unreadMessage(rows, history.initialRead, member.id),
+    [rows, history.initialRead, member.id]
+  )
   const setReplyTarget = useReplyTarget(history, scroll, active, offline)
   const { target, setTarget } = useMessageTarget()
   const pathname = useRouterState({
@@ -176,58 +182,83 @@ export function ChatMessages({
         className={`flex min-h-0 flex-1 flex-col [--chat-gutter:1rem] [--composer-bottom:calc(var(--app-bottom-bar-height)-50px)] ${composerSpacing}`}
       >
         <div className="relative min-h-0 flex-1">
-          <section
-            ref={scrollViewport}
-            data-chat-history
-            onScroll={onHistoryScroll}
-            aria-label="メッセージ履歴"
-            className="absolute inset-0 touch-pan-y [scrollbar-width:none] overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none]"
-          >
-            <div
-              ref={scrollContent}
-              className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-overlap)+1rem)]"
+          <HistoryGestures value={gestures}>
+            <section
+              ref={scroll.viewport}
+              data-chat-history
+              aria-label="メッセージ履歴"
+              className="absolute inset-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] [scrollbar-width:none]"
             >
-              <div ref={older} aria-hidden />
-              <ol aria-label="メッセージ" className="min-w-0">
-                {rows.map((message, index) => (
-                  <ChatMessageRow
-                    key={message.id}
-                    message={message}
-                    previous={rows[index - 1]}
-                    room={room}
-                    memberId={member.id}
-                    offline={offline}
-                    unread={message.id === firstUnread?.id}
-                    editing={edit.editing?.id === message.id}
-                    menuOpen={
-                      menu?.open === true && menu.message.id === message.id
-                    }
-                    actions={{
-                      onMenu: () => setMenu({ message, open: true }),
-                      onReply: () => replyTo(message),
-                      onEdit: () => editMessage(message),
-                      onDelete: () => removeMessage(message),
-                      onRetry: () => {
-                        if (offline || !navigator.onLine) setBlockedSend(true)
-                        else store.retry(message.id)
-                      },
-                      onCancel: () => store.cancel(message.id),
-                      onOpenReply: (id) => setReplyTarget(id),
-                      onOpenImage: (image, sequence) =>
-                        void navigate({
-                          to: "/chat/$roomId",
-                          params: { roomId: room.id },
-                          search: { image, message: sequence },
-                          state: { chatOverlay: "image" },
-                          resetScroll: false,
-                        }),
-                    }}
-                    uploads={uploads}
-                  />
-                ))}
-              </ol>
-            </div>
-          </section>
+              <div
+                ref={scroll.content}
+                className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-overlap)+1rem)]"
+              >
+                <div ref={older} aria-hidden />
+                <ol
+                  aria-label="メッセージ"
+                  className="relative min-w-0"
+                  style={{ height: scroll.view.total }}
+                  onFocusCapture={(event) => {
+                    scroll.read()
+                    const row =
+                      event.target.closest<HTMLElement>("[data-message-id]")
+                    scroll.view.focus(row?.dataset.messageId ?? null)
+                  }}
+                  onBlurCapture={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget))
+                      scroll.view.focus(null)
+                  }}
+                >
+                  {scroll.view.items.map((item) => {
+                    const index = item.index
+                    const message = rows[index]
+                    if (!message) return null
+                    return (
+                      <ChatMessageRow
+                        key={message.id}
+                        measure={scroll.view.measure}
+                        index={index}
+                        count={rows.length}
+                        top={item.start - scroll.view.padding}
+                        message={message}
+                        previous={rows[index - 1]}
+                        room={room}
+                        memberId={member.id}
+                        offline={offline}
+                        unread={message.id === firstUnread?.id}
+                        editing={edit.editing?.id === message.id}
+                        menuOpen={
+                          menu?.open === true && menu.message.id === message.id
+                        }
+                        actions={{
+                          onMenu: () => setMenu({ message, open: true }),
+                          onReply: () => replyTo(message),
+                          onEdit: () => editMessage(message),
+                          onDelete: () => removeMessage(message),
+                          onRetry: () => {
+                            if (offline || !navigator.onLine)
+                              setBlockedSend(true)
+                            else store.retry(message.id)
+                          },
+                          onCancel: () => store.cancel(message.id),
+                          onOpenReply: (id) => setReplyTarget(id),
+                          onOpenImage: (image, sequence) =>
+                            void navigate({
+                              to: "/chat/$roomId",
+                              params: { roomId: room.id },
+                              search: { image, message: sequence },
+                              state: { chatOverlay: "image" },
+                              resetScroll: false,
+                            }),
+                        }}
+                        uploads={uploads}
+                      />
+                    )
+                  })}
+                </ol>
+              </div>
+            </section>
+          </HistoryGestures>
           {history.query.isFetchingNextPage && (
             <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center">
               <output
@@ -240,13 +271,13 @@ export function ChatMessages({
           )}
         </div>
         <div className="relative z-10 -mt-[var(--composer-overlap)] shrink-0">
-          {showLatest && (
+          {scroll.showLatest && (
             <Button
               variant="outline"
               size="icon"
               aria-label="最新のメッセージへ"
               className="absolute right-[var(--chat-gutter)] bottom-[calc(100%+var(--chat-gutter))] size-9 rounded-full bg-background shadow-sm dark:bg-background dark:hover:bg-muted"
-              onClick={scrollLatest}
+              onClick={scroll.latest}
             >
               <ArrowDown className="size-4" />
             </Button>
