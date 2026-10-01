@@ -115,8 +115,12 @@ describe("directory sign-in", () => {
       expect(
         db.prepare("SELECT choice FROM availability_day_answers").get()?.choice
       ).toBe("all")
+      db.exec(`CREATE TABLE membership_updates (member_id TEXT);
+        CREATE TRIGGER track_membership_update AFTER UPDATE ON year_memberships
+        BEGIN INSERT INTO membership_updates VALUES (NEW.member_id); END;`)
       const again = await signIn(db, taro)
       await expect(again.json()).resolves.toEqual({ created: false })
+      expect(db.prepare("SELECT * FROM membership_updates").all()).toEqual([])
       expect(db.prepare("SELECT COUNT(*) AS n FROM user").get()?.n).toBe(1)
       expect(db.prepare("SELECT COUNT(*) AS n FROM app_users").get()?.n).toBe(1)
     } finally {

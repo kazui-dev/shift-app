@@ -5,15 +5,6 @@ export const planningMembers = `(SELECT m.id,m.display_name,m.student_id,m.user_
   SELECT s.id,d.display_name,d.student_id,NULL,d.year
   FROM directory_availability_submissions s JOIN student_directory d ON d.id=s.entry_id AND d.status='active')`
 
-export const planningRoles = `(SELECT member_id,role_id FROM member_year_roles
-  UNION
-  SELECT s.id,b.role_id FROM directory_availability_submissions s
-  JOIN student_directory d ON d.id=s.entry_id AND d.status='active' JOIN bureaus b ON b.id=d.bureau_id WHERE b.role_id IS NOT NULL
-  UNION
-  SELECT s.id,duty.role_id FROM directory_availability_submissions s
-  JOIN student_directory d ON d.id=s.entry_id AND d.status='active' JOIN directory_duties dd ON dd.entry_id=d.id
-  JOIN duties duty ON duty.id=dd.duty_id WHERE duty.role_id IS NOT NULL)`
-
 export const planningSubmissions = `(SELECT id,year,member_id,status,submitted_at FROM availability_submissions
   UNION ALL
   SELECT s.id,d.year,s.id,CASE WHEN s.submitted_at IS NULL THEN 'draft' ELSE 'submitted' END,s.submitted_at

@@ -1,3 +1,4 @@
+import { recordD1 } from "../../../lib/d1-metrics"
 import { Hono } from "hono"
 import * as v from "valibot"
 
@@ -33,6 +34,7 @@ roomsApp.get("/rooms", async (c) => {
     )
     .bind(c.get("member").id, year)
     .all<RoomRow>()
+    .then((query) => recordD1("chat.rooms", query))
   return c.json({ rooms: rooms.results.map(roomJson) })
 })
 

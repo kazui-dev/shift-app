@@ -1,3 +1,4 @@
+import { recordD1 } from "../../../lib/d1-metrics"
 import { yearRoom, roomStatements } from "../../chat/services/chat-creation"
 import { Hono } from "hono"
 import * as v from "valibot"
@@ -52,6 +53,7 @@ yearLifecycleApp.get("/", async (c) => {
       member.id
     )
     .all<YearRow & { canManage: number }>()
+    .then((query) => recordD1("years.list", query))
   return c.json({
     years: result.results.map((year) => ({
       ...year,
