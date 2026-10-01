@@ -1,3 +1,5 @@
+import { roleSelection } from "../../services/role-list"
+import { recordD1 } from "../../../../lib/d1-metrics"
 import { roleAuthority } from "../../../../auth/authorization/role-authority"
 import { Hono } from "hono"
 import * as v from "valibot"
@@ -24,25 +26,7 @@ yearRolesApp.get("/:year/roles", async (c) => {
   }
 
   const roles = await c.env.shift_app
-    .prepare(
-      `SELECT
-         role.id,
-         role.position,
-         role.name,
-         role.color,
-         GROUP_CONCAT(permission.permission) AS permissions,
-         (SELECT COUNT(*) FROM member_year_roles membership
-          JOIN year_memberships year_membership
-            ON year_membership.member_id = membership.member_id
-           AND year_membership.year = role.year
-           AND year_membership.status = 'active'
-          WHERE membership.role_id = role.id) AS memberCount
-       FROM year_roles role
-       LEFT JOIN year_role_permissions permission ON permission.role_id = role.id
-       WHERE role.year = ?
-       GROUP BY role.id
-       ORDER BY role.position DESC, lower(role.name)`
-    )
+    .prepare(roleSelection)
     .bind(year)
     .all<{
       id: string
@@ -52,6 +36,7 @@ yearRolesApp.get("/:year/roles", async (c) => {
       permissions: string | null
       memberCount: number
     }>()
+    .then((query) => recordD1("roles.list", query))
 
   const authority = await roleAuthority(c.env.shift_app, c.get("member"), year)
   return c.json({

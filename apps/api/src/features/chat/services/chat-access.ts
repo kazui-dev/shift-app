@@ -1,4 +1,4 @@
-import { memberPermissions } from "./chat-permissions"
+import { memberPermissions, memberRoomPermissions } from "./chat-permissions"
 import { looksAfterShift } from "./private-messages"
 export type RoomRow = {
   id: string
@@ -23,7 +23,7 @@ export type RoomRow = {
  * are others' messages, still standing, after the member's read position,
  * leaving out private messages the member may not read.
  */
-export const roomSelection = `${memberPermissions} SELECT r.id,r.year,r.name,r.created_by AS createdBy,r.created_at AS createdAt,r.updated_at AS updatedAt,r.allow_exit AS allowExit,link.activity_id AS activityId,act.starts_at AS activityStartsAt,act.ends_at AS activityEndsAt,
+const roomProjection = ` SELECT r.id,r.year,r.name,r.created_by AS createdBy,r.created_at AS createdAt,r.updated_at AS updatedAt,r.allow_exit AS allowExit,link.activity_id AS activityId,act.starts_at AS activityStartsAt,act.ends_at AS activityEndsAt,
  COALESCE(e.can_post,0) AS canPost,COALESCE(e.can_manage,0) AS canManage,COALESCE(p.muted,0) AS muted,COALESCE(p.last_read,0) AS lastRead,r.last_sequence AS lastSequence,
  (SELECT COUNT(*) FROM chat_message_index i WHERE i.room_id=r.id AND i.sequence>COALESCE(p.last_read,0) AND i.member_id<>ym.member_id AND i.deleted=0
  AND (i.private_to IS NULL OR i.private_to=ym.member_id OR ${looksAfterShift("ym.member_id", "r.id")})) AS unreadCount
@@ -33,6 +33,8 @@ export const roomSelection = `${memberPermissions} SELECT r.id,r.year,r.name,r.c
  LEFT JOIN chat_permissions e ON e.room_id=r.id AND e.member_id=ym.member_id
  LEFT JOIN chat_room_preferences p ON p.room_id=r.id AND p.member_id=ym.member_id
  WHERE e.can_read=1`
+export const roomSelection = `${memberPermissions}${roomProjection}`
+
 export function roomJson(room: RoomRow) {
   return {
     ...room,
@@ -58,7 +60,9 @@ export async function findAccessibleRoom(
   memberId: string
 ) {
   return env.shift_app
-    .prepare(`${roomSelection} AND r.id=?`)
+    .prepare(
+      `${memberRoomPermissions}${roomProjection} AND r.id=(SELECT room_id FROM chat_scope)`
+    )
     .bind(memberId, id)
     .first<RoomRow>()
 }

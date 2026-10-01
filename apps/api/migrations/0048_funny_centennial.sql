@@ -1,0 +1,1 @@
+CREATE INDEX `shift_slots_activity_deleted_startsAt_idx` ON `shift_slots` (`activity_id`,`deleted`,`starts_at`);

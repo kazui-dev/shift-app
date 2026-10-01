@@ -1,3 +1,4 @@
+import { recordD1 } from "../../../../lib/d1-metrics"
 import { planningAssignments } from "../../../directory/services/directory-work"
 import {
   activityRoom,
@@ -54,6 +55,7 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
     )
     .bind(year, canManage ? 1 : 0, c.get("member").id, c.get("member").id)
     .all<ActivityRow>()
+    .then((query) => recordD1("activities.list", query))
   const requirements = await c.env.shift_app
     .prepare(`SELECT r.activity_id AS activityId, r.id, r.starts_at AS startsAt, r.ends_at AS endsAt, r.required_count AS requiredCount
       FROM shift_requirements r JOIN activities a ON a.id=r.activity_id WHERE a.year=? ORDER BY r.starts_at, r.id`)
@@ -65,6 +67,7 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
       endsAt: number
       requiredCount: number
     }>()
+    .then((query) => recordD1("activities.requirements", query))
   const responsibles = await c.env.shift_app
     .prepare(`SELECT ar.activity_id AS activityId,
       CASE WHEN ar.target_type='role' THEN role.name ELSE member.display_name END AS name
@@ -75,6 +78,7 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
       WHERE activity.year=? ORDER BY ar.target_type, ar.target_id`)
     .bind(year)
     .all<{ activityId: string; name: string | null }>()
+    .then((query) => recordD1("activities.responsibles", query))
   return c.json({
     activities: result.results.map((activity) => ({
       ...serializeActivity(activity),
