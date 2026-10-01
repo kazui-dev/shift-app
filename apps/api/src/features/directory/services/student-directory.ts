@@ -1,3 +1,4 @@
+import { recordD1 } from "../../../lib/d1-metrics"
 import { and, eq, sql } from "drizzle-orm"
 import type { DrizzleD1Database } from "drizzle-orm/d1"
 
@@ -154,7 +155,10 @@ export async function applyDirectoryPlacement(
     .onConflictDoUpdate({
       target: [yearMemberships.year, yearMemberships.memberId],
       set: { status: "active", updatedAt: now },
+      setWhere: sql`${yearMemberships.status} <> 'active'`,
     })
+    .run()
+    .then((query) => recordD1("directory.membership", query))
 
   if (entry.roleIds.length === 0) return
   await db

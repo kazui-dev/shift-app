@@ -24,6 +24,11 @@ export const shiftSlots = sqliteTable(
     deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
+    index("shift_slots_activity_deleted_startsAt_idx").on(
+      table.activityId,
+      table.deleted,
+      table.startsAt
+    ),
     check("shift_slots_time_check", sql`${table.startsAt} < ${table.endsAt}`),
   ]
 )
