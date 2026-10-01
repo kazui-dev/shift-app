@@ -101,6 +101,7 @@ export const availabilityDrafts = sqliteTable(
       .notNull()
       .references(() => appUsers.id, { onDelete: "cascade" }),
     answers: text("answers").notNull(),
+    revision: integer("revision"),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.year, table.memberId] })]
@@ -137,6 +138,8 @@ export const availabilitySubmissionChanges = sqliteTable(
       enum: ["all", "times", "no"],
     }).notNull(),
     afterTimes: text("after_times").notNull(),
+    changedBy: text("changed_by"),
+    changedByName: text("changed_by_name"),
     changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
   },
   (table) => [
@@ -157,6 +160,7 @@ export const directoryAvailabilitySubmissions = sqliteTable(
       .unique()
       .references(() => studentDirectory.id, { onDelete: "cascade" }),
     submittedAt: integer("submitted_at", { mode: "timestamp_ms" }),
+    revision: integer("revision").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   }
@@ -203,6 +207,36 @@ export const directoryAvailabilityWindows = sqliteTable(
     check(
       "directory_windows_time_order_check",
       sql`${table.startsAt} < ${table.endsAt}`
+    ),
+  ]
+)
+
+export const directoryAvailabilitySubmissionChanges = sqliteTable(
+  "directory_availability_submission_changes",
+  {
+    id: text("id").primaryKey(),
+    submissionId: text("submission_id")
+      .notNull()
+      .references(() => directoryAvailabilitySubmissions.id, {
+        onDelete: "cascade",
+      }),
+    date: text("date").notNull(),
+    beforeChoice: text("before_choice", {
+      enum: ["all", "times", "no", "unanswered"],
+    }).notNull(),
+    beforeTimes: text("before_times").notNull(),
+    afterChoice: text("after_choice", {
+      enum: ["all", "times", "no"],
+    }).notNull(),
+    afterTimes: text("after_times").notNull(),
+    changedBy: text("changed_by"),
+    changedByName: text("changed_by_name"),
+    changedAt: integer("changed_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    index("directory_availability_changes_submission_changed_idx").on(
+      table.submissionId,
+      table.changedAt
     ),
   ]
 )

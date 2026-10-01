@@ -18,6 +18,7 @@ export const keys = {
   activityEditor: key("activity-editor"),
   assignments: key("assignments"),
   assignmentMonth: key("assignments", "month"),
+  memberAvailability: key("member-availability"),
   availability: key("availability"),
   availabilityDates: key("availability-dates"),
   availabilitySubmissions: key("availability-submissions"),

@@ -22,6 +22,7 @@ const reconnectKeys = [
   keys.availabilityDates,
   keys.availabilitySubmissions,
   keys.availabilityHistory,
+  keys.memberAvailability,
 ]
 
 function invalidate(client: QueryClient, cacheKeys: unknown[][]) {
@@ -53,11 +54,14 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
       invalidate(client, [
         keys.availability(event.year),
         keys.availabilityDates(event.year),
+        keys.memberAvailability(event.year),
         keys.availabilitySubmissions(event.year),
       ])
       return
     case "availability_submitted":
       invalidate(client, [
+        keys.availability(event.year),
+        keys.memberAvailability(event.year),
         keys.availabilitySubmissions(event.year),
         keys.availabilityHistory(event.year),
       ])

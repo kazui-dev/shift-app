@@ -1,3 +1,4 @@
+import { MemberAvailabilityEditor } from "./member-availability-editor"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Bell } from "lucide-react"
@@ -22,6 +23,10 @@ export function AvailabilityProgress({
   const submissions = useQuery(availabilitySubmissionsQuery(year))
   const [search, setSearch] = useState("")
   const [status, setStatus] = useState("")
+  const [editing, setEditing] = useState<{
+    memberId: string
+    displayName: string
+  } | null>(null)
   const [historyMemberId, setHistoryMemberId] = useState<string | null>(null)
   const progress = submissions.data?.progress ?? []
   const filtered = progress.filter(
@@ -95,19 +100,23 @@ export function AvailabilityProgress({
               <span className="min-w-0 flex-1 truncate text-sm">
                 {item.displayName}
               </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={`${item.displayName}のシフト希望を編集`}
+                onClick={() => setEditing(item)}
+              >
                 {item.complete ? "提出済み" : "未提出"}
-              </span>
-              {item.hasHistory && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`${item.displayName}の変更履歴`}
-                  onClick={() => setHistoryMemberId(item.memberId)}
-                >
-                  履歴
-                </Button>
-              )}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!item.hasHistory}
+                size="sm"
+                aria-label={`${item.displayName}の変更履歴`}
+                onClick={() => setHistoryMemberId(item.memberId)}
+              >
+                履歴
+              </Button>
             </li>
           ))}
           {!submissions.isPending && filtered.length === 0 && (
@@ -116,6 +125,14 @@ export function AvailabilityProgress({
             </li>
           )}
         </ul>
+      )}
+      {editing && (
+        <MemberAvailabilityEditor
+          year={year}
+          memberId={editing.memberId}
+          name={editing.displayName}
+          onClose={() => setEditing(null)}
+        />
       )}
       {historyMemberId && (
         <AvailabilityHistory

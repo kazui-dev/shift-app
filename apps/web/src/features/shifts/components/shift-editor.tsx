@@ -54,7 +54,7 @@ export function ShiftEditor({
     () =>
       view.filters ?? {
         search: "",
-        includeUnavailable: true,
+        includeUnavailable: false,
         role:
           source.candidateRoleIds.length === 1
             ? (source.candidateRoleIds[0] ?? "")

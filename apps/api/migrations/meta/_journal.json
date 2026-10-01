@@ -330,6 +330,13 @@
       "when": 1790741511895,
       "tag": "0046_last_ender_wiggin",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "6",
+      "when": 1790852367262,
+      "tag": "0047_lush_silk_fever",
+      "breakpoints": true
     }
   ]
 }

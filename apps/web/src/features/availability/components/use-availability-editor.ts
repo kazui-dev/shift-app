@@ -6,8 +6,11 @@ import {
   type FormDate,
 } from "@workspace/shared/availability"
 import { useQueryClient } from "@tanstack/react-query"
-import { replaceAvailability } from "@/features/availability/api/availability"
-import { errorMessage } from "@/lib/http/client"
+import {
+  getAvailability,
+  replaceAvailability,
+} from "@/features/availability/api/availability"
+import { ApiError, errorMessage } from "@/lib/http/client"
 import { answerError } from "@/features/availability/components/answer-status"
 
 export function useAvailabilityEditor(
@@ -15,27 +18,48 @@ export function useAvailabilityEditor(
   year: number,
   dates: FormDate[],
   initial: DayAnswer[],
-  submitted: DayAnswer[]
+  submitted: DayAnswer[],
+  initialRevision: number
 ) {
+  const [conflicted, setConflicted] = useState(false)
   const client = useQueryClient()
   const key = `availability-recovery:${user}:${year}`
-  const [answers, setAnswers] = useState(() => {
+  const [recovery] = useState(() => {
     try {
       const raw = localStorage.getItem(key)
       const saved = raw
-        ? v.parse(v.array(dayAnswerSchema), JSON.parse(raw))
-        : initial
-      return dates.flatMap((date) => {
+        ? v.parse(
+            v.union([
+              v.array(dayAnswerSchema),
+              v.object({
+                answers: v.array(dayAnswerSchema),
+                revision: v.pipe(v.number(), v.integer(), v.minValue(0)),
+              }),
+            ]),
+            JSON.parse(raw)
+          )
+        : null
+      const recovered = Array.isArray(saved)
+        ? saved
+        : (saved?.answers ?? initial)
+      // Legacy recovery has no base version; use zero so it cannot overwrite a later submission.
+      const baseRevision = Array.isArray(saved)
+        ? 0
+        : (saved?.revision ?? initialRevision)
+      const recoveredAnswers = dates.flatMap((date) => {
         const answer =
-          (date.accepting ? saved : initial).find(
+          (date.accepting ? recovered : initial).find(
             (item) => item.date === date.date
           ) ?? initial.find((item) => item.date === date.date)
         return answer ? [answer] : []
       })
+      return { answers: recoveredAnswers, revision: baseRevision }
     } catch {
-      return initial
+      return { answers: initial, revision: initialRevision }
     }
   })
+  const revision = useRef(recovery.revision)
+  const [answers, setAnswers] = useState(recovery.answers)
   const [sent, setSent] = useState(submitted)
   const [status, setStatus] = useState("保存済み")
   const [error, setError] = useState<string | null>(null)
@@ -65,14 +89,24 @@ export function useAvailabilityEditor(
             setStatus("保存済み")
           return
         }
+        const recoveryJson = JSON.stringify({
+          answers: current,
+          revision: revision.current,
+        })
         const result = await replaceAvailability(year, {
           answers: current,
           submit: publish,
+          revision: revision.current,
         })
+        if (publish) {
+          revision.current = result.revision
+        }
         confirmed.current = json
         client.setQueryData(["availability", year], result)
         try {
-          if (localStorage.getItem(key) === json) localStorage.removeItem(key)
+          const stored = localStorage.getItem(key)
+          if (stored === recoveryJson || stored === json)
+            localStorage.removeItem(key)
         } catch {
           /* Server copy is saved. */
         }
@@ -85,6 +119,8 @@ export function useAvailabilityEditor(
       })
       .catch((failure: unknown) => {
         if (active.current) {
+          if (failure instanceof ApiError && failure.status === 409)
+            setConflicted(true)
           setStatus("保存できませんでした")
           setError(errorMessage(failure))
         }
@@ -105,7 +141,10 @@ export function useAvailabilityEditor(
     const json = JSON.stringify(answers)
     if (!pending.current && json === confirmed.current) return undefined
     try {
-      localStorage.setItem(key, json)
+      localStorage.setItem(
+        key,
+        JSON.stringify({ answers, revision: revision.current })
+      )
     } catch {
       /* Server autosave remains available. */
     }
@@ -164,7 +203,28 @@ export function useAvailabilityEditor(
       if (active.current) setSubmitting(false)
     }
   }
+  async function reload() {
+    clearTimeout(timer.current)
+    setSubmitting(true)
+    try {
+      await writes.current.catch(() => {})
+      const current = await getAvailability(year)
+      await replaceAvailability(year, {
+        answers: current.submitted,
+        submit: false,
+        revision: current.revision,
+      })
+      confirmed.current = JSON.stringify(latest.current)
+      localStorage.removeItem(key)
+      window.location.reload()
+    } catch (failure) {
+      setError(errorMessage(failure))
+      setSubmitting(false)
+    }
+  }
   return {
+    conflicted,
+    reload,
     answers,
     sent,
     status,

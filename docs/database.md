@@ -20,7 +20,7 @@
 
 ## 活動・希望・割当・勤怠
 
-[activities.ts](../packages/db/src/schema/activities.ts) は年度内の活動と責任者、履歴、候補 role、通知設定を持つ。[availability.ts](../packages/db/src/schema/availability.ts) は希望の提出、入力可能日、時間帯、下書き、日別回答と再提出時の変更履歴を持つ。`availability_submission_changes` は変更された日だけ、変更前後の回答と日時を保存する。初回提出と同内容の再提出では行を作らず、導入前の変更は埋め戻さない。[shifts.ts](../packages/db/src/schema/shifts.ts) は活動内の勤務時間 `shift_slots`、利用者への `shift_assignments`、時間帯ごとの必要人数 `shift_requirements`、勤怠の現在値と変更履歴を持つ。割当の勤務時間は slot に置き、必要人数は勤務枠・割当から独立させる。取消済み割当は監査のため保持する。
+[activities.ts](../packages/db/src/schema/activities.ts) は年度内の活動と責任者、履歴、候補 role、通知設定を持つ。[availability.ts](../packages/db/src/schema/availability.ts) は希望の提出、入力可能日、時間帯、下書き、日別回答と再提出時の変更履歴を持つ。`availability_submission_changes` は変更された日だけ、変更前後の回答、日時、変更者の ID と当時の表示名を保存する。本人の初回提出と同内容の再提出では行を作らない。提出状況から保存した場合は未回答からの入力も履歴に残す。導入前の変更・変更者は埋め戻さない。本人の下書きには編集元の提出版を保持し、別の人の保存後に古い下書きを提出すると競合になる。[shifts.ts](../packages/db/src/schema/shifts.ts) は活動内の勤務時間 `shift_slots`、利用者への `shift_assignments`、時間帯ごとの必要人数 `shift_requirements`、勤怠の現在値と変更履歴を持つ。割当の勤務時間は slot に置き、必要人数は勤務枠・割当から独立させる。取消済み割当は監査のため保持する。
 
 名簿上の人をアカウント作成前に扱う `directory_availability_*` と `directory_shift_assignments` もある。アカウントの希望・割当とは別の保存先なので、統合時の扱いは [compatibility.md](compatibility.md) と実装で確認する。
 
