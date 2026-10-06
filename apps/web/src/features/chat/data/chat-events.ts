@@ -1,3 +1,4 @@
+import { closeReadNotifications } from "@/features/notifications/lib/notification-events"
 import type { InfiniteData, QueryClient } from "@tanstack/react-query"
 import { keys, roomKeys } from "../../../app/data/keys"
 import type { ChatEvent } from "@workspace/shared/communications"
@@ -79,6 +80,7 @@ export function applyChatEvent(
     return
   }
   if (event.type === "preferences_changed") {
+    closeReadNotifications(id, event.lastRead)
     // The server's count holds for its read position, unless a later one is known.
     updateRoom(client, id, (room) =>
       event.lastRead >= room.lastRead
