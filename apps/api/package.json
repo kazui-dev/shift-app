@@ -13,7 +13,7 @@
     "snapshot:refresh": "bash scripts/refresh-production-snapshot.sh"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.6.29",
+    "@better-auth/drizzle-adapter": "1.7.7",
     "@workspace/db": "workspace:*",
     "@workspace/shared": "workspace:*",
     "better-auth": "1.6.29",
