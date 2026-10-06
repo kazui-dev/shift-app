@@ -176,8 +176,9 @@ export function ShiftSettings({
                   />
                 </label>
                 <Button
+                  size="sm"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   onClick={() =>
                     onChange({
                       ...value,
@@ -197,6 +198,7 @@ export function ShiftSettings({
               </p>
             )}
             <Button
+              size="sm"
               type="button"
               variant="outline"
               disabled={
@@ -328,6 +330,8 @@ export function ShiftSettings({
           </fieldset>
           <div className="flex justify-end border-t pt-4 sm:col-span-2">
             <Button
+              size="sm"
+              variant="outline"
               type="submit"
               disabled={pending || !dirty || !validRange || !validRequirements}
             >

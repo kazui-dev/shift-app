@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useHistoryView } from "@/features/chat/components/message/use-history-view"
 import {
   MessageScroll,
   type ScrollPosition,
@@ -20,8 +21,16 @@ export function useMessageScroll(
   markRead: () => void,
   loaded: boolean
 ) {
-  const viewport = useRef<HTMLElement>(null)
-  const content = useRef<HTMLDivElement>(null)
+  const firstUnread = useMemo(
+    () => unreadMessage(rows, initialRead, memberId),
+    [rows, initialRead, memberId]
+  )
+  const view = useHistoryView(roomId, rows)
+  const { viewport, content } = view
+  const currentView = useRef(view)
+  useLayoutEffect(() => {
+    currentView.current = view
+  })
   const controller = useRef<MessageScroll | null>(null)
   const followNext = useRef(false)
   const [status, setStatus] = useState<ScrollStatus>({
@@ -33,8 +42,6 @@ export function useMessageScroll(
     const list = viewport.current,
       body = content.current
     if (!list || !body || !active) return undefined
-    const offset = (element: Element) =>
-      element.getBoundingClientRect().top - list.getBoundingClientRect().top
     const scroll = new MessageScroll(
       {
         top: () => list.scrollTop,
@@ -42,25 +49,11 @@ export function useMessageScroll(
         extent: () => list.scrollHeight,
         move: (top, smooth) =>
           list.scrollTo({ top, behavior: smooth ? "smooth" : "instant" }),
-        anchor: () => {
-          const top = list.getBoundingClientRect().top
-          for (const row of body.querySelectorAll<HTMLElement>(
-            "[data-message-id]"
-          )) {
-            if (
-              row.getBoundingClientRect().bottom > top &&
-              row.dataset.messageId
-            )
-              return { id: row.dataset.messageId, offset: offset(row) }
-          }
-          return null
-        },
-        locate: (id) => {
-          const row = body.querySelector(
-            `[data-message-id="${CSS.escape(id)}"]`
-          )
-          return row ? offset(row) : null
-        },
+        anchor: () => currentView.current.anchor(),
+        locate: (id) => currentView.current.locate(id),
+        measured: (id) => currentView.current.measured(id),
+        nearest: (index, sequence) =>
+          currentView.current.nearest(index, sequence),
       },
       (next) =>
         setStatus((previous) =>
@@ -71,7 +64,9 @@ export function useMessageScroll(
         ),
       positions.get(roomId)
     )
-    list.tabIndex = 0
+    // Capture before the virtualizer flushes newly visible rows.
+    const capture = () => scroll.scroll()
+    list.addEventListener("scroll", capture, true)
     controller.current = scroll
     let touch: { x: number; y: number } | null = null
     const start = (event: TouchEvent) => {
@@ -89,8 +84,10 @@ export function useMessageScroll(
       if (event.deltaY) scroll.read()
     }
     const key = (event: KeyboardEvent) => {
+      const control = event.target instanceof Element ? event.target : null
       if (
-        event.target === list &&
+        !control?.closest('input,textarea,select,[contenteditable="true"]') &&
+        !(event.key === " " && control?.closest('button,[role="button"]')) &&
         [
           "ArrowUp",
           "ArrowDown",
@@ -100,15 +97,43 @@ export function useMessageScroll(
           "PageDown",
           " ",
         ].includes(event.key)
-      )
-        scroll.read()
+      ) {
+        event.preventDefault()
+        const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
+          .matches
+        if (event.key === "End") {
+          scroll.latest(smooth)
+          return
+        }
+        const backward =
+          event.key === "ArrowUp" ||
+          event.key === "PageUp" ||
+          (event.key === " " && event.shiftKey)
+        const distance = event.key.startsWith("Arrow")
+          ? 40
+          : list.clientHeight * 0.9
+        const top =
+          event.key === "Home"
+            ? 0
+            : Math.max(
+                0,
+                Math.min(
+                  list.scrollTop + distance * (backward ? -1 : 1),
+                  list.scrollHeight - list.clientHeight
+                )
+              )
+        const anchor = currentView.current.anchorAt(top)
+        if (anchor) scroll.target(anchor.id, smooth, anchor.offset)
+      }
     }
+    const pointer = () => scroll.interrupt()
+    list.addEventListener("pointerdown", pointer)
     list.addEventListener("touchstart", start, { passive: true })
     list.addEventListener("touchmove", move, { passive: true })
     list.addEventListener("wheel", wheel, { passive: true })
     list.addEventListener("keydown", key)
     const resize = new ResizeObserver(() => {
-      if (body.querySelector("[data-message-id]")) scroll.layout()
+      if (currentView.current.items.length) scroll.layout()
     })
     resize.observe(list)
     resize.observe(body)
@@ -120,13 +145,15 @@ export function useMessageScroll(
         if (oldest !== undefined) positions.delete(oldest)
       }
       resize.disconnect()
+      list.removeEventListener("scroll", capture, true)
+      list.removeEventListener("pointerdown", pointer)
       list.removeEventListener("touchstart", start)
       list.removeEventListener("touchmove", move)
       list.removeEventListener("wheel", wheel)
       list.removeEventListener("keydown", key)
       controller.current = null
     }
-  }, [roomId, active])
+  }, [roomId, active, viewport, content])
 
   // Observe the committed UI, including outgoing rows, rather than query data.
   useLayoutEffect(() => {
@@ -137,24 +164,18 @@ export function useMessageScroll(
       scroll.follow()
       followNext.current = false
     }
-    const firstUnread = unreadMessage(rows, initialRead, memberId)
-    const unread = firstUnread
-      ? list.querySelector(`[data-message-id="${CSS.escape(firstUnread.id)}"]`)
-      : null
-    scroll.layout(
-      unread
-        ? list.scrollTop +
-            unread.getBoundingClientRect().top -
-            list.getBoundingClientRect().top
-        : undefined
-    )
-  }, [rows, active, initialRead, memberId, loaded])
+    if (!view.items.length) return
+    const unread = firstUnread ? view.locate(firstUnread.id) : null
+    scroll.layout(unread === null ? undefined : list.scrollTop + unread)
+  }, [rows, active, firstUnread, loaded, view, viewport])
 
   useEffect(() => {
     if (status.atBottom && controller.current?.isAtBottom()) markRead()
   }, [markRead, status.atBottom])
 
   return {
+    isTargeting: (id: string) => controller.current?.isTargeting(id) ?? false,
+    finishTarget: (id: string) => controller.current?.finishTarget(id),
     arrived: (id: string) => controller.current?.arrived(id) ?? false,
     target: (id: string) =>
       controller.current?.target(
@@ -163,8 +184,10 @@ export function useMessageScroll(
       ) ?? false,
     viewport,
     content,
+    view,
+    interrupt: () => controller.current?.interrupt(),
+    read: () => controller.current?.read(),
     ...status,
-    onScroll: () => controller.current?.scroll(),
     follow: () => {
       followNext.current = true
     },

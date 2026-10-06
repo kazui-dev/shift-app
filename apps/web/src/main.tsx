@@ -1,3 +1,4 @@
+import { listenNotificationNavigation } from "@/features/notifications/lib/notification-events"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import {
@@ -70,6 +71,10 @@ async function start(root: HTMLElement) {
   await persistQueryClientRestore(persistOptions).catch(() => undefined)
   persistQueryClientSubscribe(persistOptions)
   await load()
+  const stopNotificationNavigation = listenNotificationNavigation((path) =>
+    router.navigate({ to: path })
+  )
+  import.meta.hot?.dispose(stopNotificationNavigation)
   createRoot(root).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>

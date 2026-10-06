@@ -30,6 +30,10 @@ export type MessageRowActions = {
 
 export function ChatMessageRow({
   message,
+  measure,
+  index,
+  count,
+  top,
   previous,
   room,
   memberId,
@@ -41,6 +45,10 @@ export function ChatMessageRow({
   actions,
 }: {
   message: MessageRow
+  measure: (element: HTMLLIElement | null) => void
+  index: number
+  count: number
+  top: number
   previous: MessageRow | undefined
   room: ChatRoom
   memberId: string
@@ -70,10 +78,15 @@ export function ChatMessageRow({
   )
   return (
     <li
+      ref={measure}
+      data-index={index}
+      aria-posinset={index + 1}
+      aria-setsize={count}
+      style={{ position: "absolute", top, width: "100%" }}
       data-message-id={message.id}
       data-sequence={message.sequence ?? undefined}
       data-delivery={message.status}
-      className={grouped ? "py-0.5" : "mt-4 py-0.5 first:mt-0"}
+      className={grouped || !previous ? "py-0.5" : "pt-4.5 pb-0.5"}
     >
       {newDay && (
         <div className="mb-5 flex items-center gap-3 text-xs text-muted-foreground">

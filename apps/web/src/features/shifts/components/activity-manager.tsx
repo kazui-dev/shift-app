@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { activitiesQuery } from "@/features/shifts/data/activities"
-import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { SelectField } from "@/components/select-field"
 import {
@@ -77,23 +77,32 @@ export function ActivityManager({
             { value: "inactive", label: "無効" },
           ]}
         />
-        <Link
-          className={`${buttonVariants({ variant: "outline", size: "sm" })} ml-auto shrink-0`}
-          to="/manage/shifts/availability"
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          nativeButton={false}
+          render={<Link to="/manage/shifts/availability" />}
         >
           シフト希望フォーム
-        </Link>
-        <Link
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-          to="/manage/shifts/new"
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link to="/manage/shifts/new" />}
         >
           シフトを作成
-        </Link>
+        </Button>
       </div>
       {query.isError && (
         <p role="alert">
           シフトを取得できませんでした。
-          <Button variant="ghost" onClick={() => void query.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void query.refetch()}
+          >
             再試行
           </Button>
         </p>

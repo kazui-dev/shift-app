@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { ArrowUp, ArrowDown } from "lucide-react"
-import { Button, buttonVariants } from "@workspace/ui/components/button"
+import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
 import { rolesQuery } from "@/features/years/data/years"
@@ -90,13 +90,19 @@ export function YearRoleManager({
           {reordering ? "並べ替えを終了" : "並べ替え"}
         </Button>
         {canCreate && !ordering && !reordering ? (
-          <Link
-            to="/manage/roles/$year/new"
-            params={{ year: String(year) }}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                to="/manage/roles/$year/new"
+                params={{ year: String(year) }}
+              />
+            }
           >
             ロールを作成
-          </Link>
+          </Button>
         ) : (
           <Button variant="outline" size="sm" disabled>
             ロールを作成
@@ -109,7 +115,11 @@ export function YearRoleManager({
       {query.isError && (
         <p role="alert">
           ロールを取得できませんでした。
-          <Button variant="ghost" onClick={() => void query.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void query.refetch()}
+          >
             再試行
           </Button>
         </p>
@@ -171,14 +181,20 @@ export function YearRoleManager({
                 </Button>
               </div>
             ) : (
-              <Link
-                to="/manage/roles/$year/$roleId"
-                params={{ year: String(year), roleId: item.id }}
-                className={buttonVariants({ variant: "outline", size: "sm" })}
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={
+                  <Link
+                    to="/manage/roles/$year/$roleId"
+                    params={{ year: String(year), roleId: item.id }}
+                  />
+                }
                 aria-label={`${item.name}を${editable(item.position) ? "編集" : "表示"}`}
               >
                 {editable(item.position) ? "編集" : "表示"}
-              </Link>
+              </Button>
             )}
           </li>
         ))}

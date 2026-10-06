@@ -195,6 +195,7 @@ function MemberAnswers({
         <div className="flex justify-end gap-2">
           {conflicted && (
             <Button
+              size="sm"
               type="button"
               variant="outline"
               onClick={() => void reload()}
@@ -203,6 +204,8 @@ function MemberAnswers({
             </Button>
           )}
           <Button
+            size="sm"
+            variant="outline"
             type="submit"
             disabled={pending || conflicted || !answers.length}
           >

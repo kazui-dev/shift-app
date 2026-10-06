@@ -74,6 +74,15 @@ export default defineConfig({
     },
     overrides: [
       {
+        files: [
+          "apps/web/src/features/chat/components/message/use-history-view.ts",
+        ],
+        rules: {
+          // TanStack Virtual owns mutable measurements; this hook opts out of compiler memoization.
+          "react/incompatible-library": "off",
+        },
+      },
+      {
         files: ["apps/api/**/*.ts"],
         env: {
           worker: true,

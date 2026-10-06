@@ -37,6 +37,7 @@ export async function deliverMessage(
   ])
   // Live delivery and push share one resolved audience.
   const audience = await messageAudience(env, room.id, privateTo)
+  const [enriched] = await withMemberImages(env, [message])
   if (updated && updated.meta.changes > 0)
     defer(
       notifyRoomMessage(
@@ -45,10 +46,14 @@ export async function deliverMessage(
         room.id,
         senderId,
         room.name,
-        content || "画像が送信されました"
+        content || "画像が送信されました",
+        {
+          senderName: message.memberDisplayName,
+          icon: enriched?.memberImage ?? null,
+          sequence: message.sequence,
+        }
       )
     )
-  const [enriched] = await withMemberImages(env, [message])
   if (enriched)
     defer(
       liveDirectory(env).publish(audience.members, {

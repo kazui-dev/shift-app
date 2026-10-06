@@ -61,7 +61,14 @@ export function AttendanceCorrection({
             onChange={(e) => setReason(e.target.value)}
           />
         </label>
-        <Button disabled={pending || !reason.trim()}>記録</Button>
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          disabled={pending || !reason.trim()}
+        >
+          記録
+        </Button>
       </form>
     </ResponsiveDialog>
   )

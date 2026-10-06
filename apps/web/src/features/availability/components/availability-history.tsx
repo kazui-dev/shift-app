@@ -42,7 +42,11 @@ export function AvailabilityHistory({
         <DialogTitle>{name}さんの変更履歴</DialogTitle>
         {history.isPending && <p>読み込み中…</p>}
         {history.isError && (
-          <Button variant="outline" onClick={() => void history.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void history.refetch()}
+          >
             履歴を再読み込み
           </Button>
         )}

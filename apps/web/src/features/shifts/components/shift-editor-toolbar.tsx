@@ -41,7 +41,7 @@ export function ShiftEditorToolbar({
       />
       <div className="flex items-center justify-end gap-1">
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label="元に戻す"
           disabled={!canUndo || pending || navigating}
@@ -50,7 +50,7 @@ export function ShiftEditorToolbar({
           <Undo2 />
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label="やり直す"
           disabled={!canRedo || pending || navigating}
@@ -59,7 +59,7 @@ export function ShiftEditorToolbar({
           <Redo2 />
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           className="hidden md:inline-flex"
           disabled={navigating}
@@ -68,6 +68,7 @@ export function ShiftEditorToolbar({
           出勤・連絡
         </Button>
         <Button
+          variant="outline"
           size="sm"
           disabled={pending || navigating || (!dirty && !conflicted)}
           onClick={onSave}
@@ -81,7 +82,7 @@ export function ShiftEditorToolbar({
                 : "保存済み"}
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label="シフトの操作"
           disabled={navigating}

@@ -1,6 +1,7 @@
+import { closeReadNotifications } from "@/features/notifications/lib/notification-events"
 import { readRoom } from "@/features/chat/data/chat-cache"
 import { messagesQuery } from "@/features/chat/data/chat"
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import {
   updateChatPreferences,
@@ -10,6 +11,9 @@ import {
 type Room = Awaited<ReturnType<typeof getChatRoom>>["room"]
 export function useMessages(room: Room, offline: boolean, active: boolean) {
   const client = useQueryClient()
+  useEffect(() => {
+    if (active && !offline) closeReadNotifications(room.id, room.lastRead)
+  }, [active, offline, room.id, room.lastRead])
   const [initialRead] = useState(room.lastRead)
   const readSequence = useRef(room.lastRead)
   const query = useInfiniteQuery({

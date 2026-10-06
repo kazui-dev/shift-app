@@ -13,5 +13,7 @@
 | [0006 Vite+ 1.0 の React Compiler 指摘を解消する](0006-vite-plus-1-lint.md)              | 採用 | 実装済み           |
 | [0007 Dependabot PR を develop に集約する](0007-dependabot-develop.md)                   | 採用 | 実装済み           |
 
+| [0008 チャットの取得済み履歴と描画する行を分離する](0008-chat-history-virtualization.md) | 採用 | 実装済み・実機性能は未確認 |
+
 画面・業務の要件と未実装の設計課題は
 [管理・シフト業務の設計](../design/management.md)を参照する。

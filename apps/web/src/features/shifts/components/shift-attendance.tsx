@@ -95,6 +95,7 @@ export function ShiftAttendance({
                 <div className="flex flex-wrap gap-1">
                   {data.canManage && standing && !a.attendance?.resolvedAt && (
                     <Button
+                      variant="outline"
                       size="sm"
                       disabled={pending}
                       onClick={() =>
@@ -109,7 +110,7 @@ export function ShiftAttendance({
                   {data.canManage && !standing && (
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => setCorrecting(a)}
                     >
                       {a.attendance?.checkInStatus === "pending"
@@ -120,7 +121,7 @@ export function ShiftAttendance({
                   {(a.own || data.canManage) && a.attendance && (
                     <Button
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => setHistory(a.id)}
                     >
                       履歴

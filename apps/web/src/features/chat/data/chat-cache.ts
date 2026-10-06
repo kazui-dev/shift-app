@@ -1,3 +1,4 @@
+import { closeReadNotifications } from "@/features/notifications/lib/notification-events"
 import type { QueryClient } from "@tanstack/react-query"
 import { keys, roomKeys } from "../../../app/data/keys"
 import type {
@@ -84,8 +85,10 @@ function changeRoom(
 }
 
 /** Marks a room read through a message, as the server now records. */
-export const readRoom = (client: QueryClient, id: string, sequence: number) =>
+export const readRoom = (client: QueryClient, id: string, sequence: number) => {
   changeRoom(client, id, (room) => roomReadThrough(room, sequence))
+  closeReadNotifications(id, sequence)
+}
 
 /** Returns false when a missing sequence requires recovery from the server. */
 export function receiveMessage(

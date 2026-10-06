@@ -91,7 +91,11 @@ function RolePage({
         ) : query.isError ? (
           <p role="alert">
             ロールを取得できませんでした。
-            <Button variant="ghost" onClick={() => void query.refetch()}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void query.refetch()}
+            >
               再試行
             </Button>
           </p>

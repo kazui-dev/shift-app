@@ -167,14 +167,16 @@ export async function notifyRoomMessage(
   roomId: string,
   senderId: string,
   name: string,
-  content: string
+  content: string,
+  message: { senderName: string; icon: string | null; sequence: number }
 ) {
   const subscriptions = devices.filter((device) => device.memberId !== senderId)
   const payload = JSON.stringify({
     title: name,
-    body: content,
+    body: `${message.senderName}：${content}`,
+    icon: message.icon ?? "/icon-192.png",
     tag: `chat-${roomId}`,
-    data: { url: `/chat/${roomId}` },
+    data: { url: `/chat/${roomId}`, roomId, sequence: message.sequence },
   })
   const started = Date.now()
   const results = await Promise.all(
