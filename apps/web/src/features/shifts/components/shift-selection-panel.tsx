@@ -75,7 +75,7 @@ export function ShiftSelectionPanel({
           {member?.displayName}
         </h2>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label={
             expanded ? "編集パネルを小さくする" : "編集パネルを広げる"
@@ -86,7 +86,7 @@ export function ShiftSelectionPanel({
           {expanded ? <ChevronDown /> : <ChevronUp />}
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label="編集パネルを閉じる"
           onClick={onClose}
@@ -146,9 +146,8 @@ export function ShiftSelectionPanel({
           )}
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-xs text-muted-foreground"
             disabled={pending || adding}
             onClick={() => setAdding(true)}
           >
@@ -275,7 +274,7 @@ function ShiftTimeRow({
         />
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label={
             value.slotId

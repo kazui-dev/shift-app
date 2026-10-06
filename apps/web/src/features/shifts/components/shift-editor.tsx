@@ -196,7 +196,7 @@ export function ShiftEditor({
               .join("、")}
           </span>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             className="hidden md:inline-flex"
             onClick={() =>

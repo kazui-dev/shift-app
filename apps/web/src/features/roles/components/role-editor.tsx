@@ -142,10 +142,15 @@ export function RoleEditor({
               未保存の変更
             </span>
           )}
-          <Button type="button" variant="outline" onClick={close}>
+          <Button size="sm" type="button" variant="outline" onClick={close}>
             キャンセル
           </Button>
-          <Button type="submit" disabled={pending || !dirty || !name.trim()}>
+          <Button
+            size="sm"
+            variant="outline"
+            type="submit"
+            disabled={pending || !dirty || !name.trim()}
+          >
             {pending ? "保存中…" : role ? "保存" : "作成"}
           </Button>
         </div>
@@ -153,8 +158,9 @@ export function RoleEditor({
       {role && canEdit && (
         <div className="border-t pt-5">
           <Button
+            size="sm"
             type="button"
-            variant="ghost"
+            variant="outline"
             disabled={pending}
             onClick={() => setDeleting(true)}
           >

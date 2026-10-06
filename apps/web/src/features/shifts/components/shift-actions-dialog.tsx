@@ -36,15 +36,16 @@ export function ShiftActionsDialog({
     >
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={onSettings}>
+          <Button size="sm" variant="outline" onClick={onSettings}>
             <Settings2 />
             シフトの設定
           </Button>
-          <Button variant="outline" onClick={onAttendance}>
+          <Button size="sm" variant="outline" onClick={onAttendance}>
             出勤・連絡
           </Button>
         </div>
         <Button
+          size="sm"
           variant="outline"
           disabled={pending || dirty || !active}
           onClick={onNotify}
@@ -70,10 +71,17 @@ export function ShiftActionsDialog({
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
-          <Button disabled={pending || dirty || !date}>複製</Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending || dirty || !date}
+          >
+            複製
+          </Button>
         </form>
         <Button
-          variant="ghost"
+          size="sm"
+          variant="outline"
           className="text-destructive"
           disabled={pending || dirty}
           onClick={onDelete}

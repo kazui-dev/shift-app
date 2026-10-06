@@ -67,7 +67,11 @@ export function UserManager({
       {users.isError && (
         <p role="alert" className="text-sm">
           ユーザーを読み込めませんでした。
-          <Button variant="ghost" onClick={() => void users.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void users.refetch()}
+          >
             再読み込み
           </Button>
         </p>
@@ -243,6 +247,8 @@ function UserDetail({
                 onChange={(event) => setReason(event.target.value)}
               />
               <Button
+                size="sm"
+                variant="outline"
                 disabled={pending || !reason.trim()}
                 onClick={() =>
                   void run(() =>

@@ -231,6 +231,8 @@ export function AddMembers({
           </details>
         )}
         <Button
+          size="sm"
+          variant="outline"
           disabled={
             pending ||
             !selected.length ||

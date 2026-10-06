@@ -197,6 +197,8 @@ export function CreateShift({ year }: { year: number }) {
             </details>
             <div className="flex justify-end border-t pt-4">
               <Button
+                size="sm"
+                variant="outline"
                 type="submit"
                 disabled={pending || !validRange || responsibles.length === 0}
               >

@@ -16,7 +16,11 @@ export function DiscordLinkRequestManager() {
     return (
       <div role="alert">
         申請を読み込めませんでした。
-        <Button variant="ghost" onClick={() => void requests.refetch()}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void requests.refetch()}
+        >
           再読み込み
         </Button>
       </div>
@@ -42,7 +46,7 @@ export function AuditLogManager() {
     return (
       <div role="alert">
         操作履歴を読み込めませんでした。
-        <Button variant="ghost" onClick={() => void logs.refetch()}>
+        <Button size="sm" variant="outline" onClick={() => void logs.refetch()}>
           再読み込み
         </Button>
       </div>
