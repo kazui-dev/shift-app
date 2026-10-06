@@ -62,6 +62,7 @@ export function AttendanceCorrection({
           />
         </label>
         <Button
+          type="submit"
           size="sm"
           variant="outline"
           disabled={pending || !reason.trim()}

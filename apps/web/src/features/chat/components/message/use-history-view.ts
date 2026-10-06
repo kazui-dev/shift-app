@@ -15,6 +15,8 @@ const measurements = new Map<string, VirtualItem[]>()
 
 /** Coordinates belong to the virtualizer; all scroll writes belong to MessageScroll. */
 export function useHistoryView(roomId: string, rows: MessageRow[]) {
+  "use no memo"
+  // TanStack Virtual exposes mutable measurements; compiler memoization is unsafe.
   const viewport = useRef<HTMLElement>(null)
   const content = useRef<HTMLDivElement>(null)
   const [padding, setPadding] = useState(16)
@@ -61,6 +63,7 @@ export function useHistoryView(roomId: string, rows: MessageRow[]) {
   const items = virtualizer.getVirtualItems()
   const total = virtualizer.getTotalSize()
   useLayoutEffect(() => {
+    if (viewport.current) viewport.current.tabIndex = 0
     const body = content.current
     if (!body) return undefined
     const resize = new ResizeObserver(() =>

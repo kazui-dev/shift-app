@@ -1,5 +1,6 @@
 import { HistoryGestures } from "@/features/chat/components/message/history-gestures"
 import {
+  useCallback,
   useContext,
   useEffect,
   useEffectEvent,
@@ -80,13 +81,13 @@ export function MessageActions({
   const available =
     pending ||
     (!offline && (permission.reply || permission.edit || permission.delete))
-  function cancelPress() {
+  const cancelPress = useCallback(() => {
     if (press.current?.timer) clearTimeout(press.current.timer)
     if (releaseTimer.current) clearTimeout(releaseTimer.current)
     releaseTimer.current = null
     press.current = null
     setPressed(false)
-  }
+  }, [])
   const reset = useEffectEvent((event: PointerEvent) => {
     consumed.current = false
     cancelPress()
@@ -182,7 +183,7 @@ export function MessageActions({
       cancelPress()
       gestures.delete(element)
     }
-  }, [available, editing, gestures])
+  }, [available, editing, gestures, cancelPress])
 
   return (
     <article

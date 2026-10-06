@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import { toast } from "@workspace/ui/lib/toast"
 import type { useMessages } from "@/features/chat/components/message/use-history"
 import type { useMessageScroll } from "@/features/chat/components/message/use-scroll"
@@ -9,33 +16,36 @@ export function useReplyTarget(
   active: boolean,
   offline: boolean
 ) {
-  const [replyTarget, setReplyTarget] = useState<string | null>(null)
+  const [requestVersion, setRequestVersion] = useState(0)
   const requested = useRef<string | null>(null)
   const arrival = useRef<(() => void) | null>(null)
   const highlight = useRef<Animation | null>(null)
   const latestScroll = useRef(scroll)
-  latestScroll.current = scroll
+  useLayoutEffect(() => {
+    latestScroll.current = scroll
+  })
   const currentScroll = useEffectEvent(() => scroll)
   const select = useCallback((id: string | null) => {
     latestScroll.current.interrupt()
     arrival.current?.()
     highlight.current?.cancel()
     requested.current = id
-    setReplyTarget(id)
+    setRequestVersion((version) => version + 1)
   }, [])
 
   useEffect(() => {
-    if (!active) select(null)
+    if (!active) requested.current = null
     return () => {
       arrival.current?.()
       highlight.current?.cancel()
     }
-  }, [active, select])
+  }, [active])
 
   // This listener also cancels a jump while older pages are still loading.
   useEffect(() => {
     const list = scroll.viewport.current
-    if (!replyTarget || !active || !list) return undefined
+    if (requestVersion === 0 || !requested.current || !active || !list)
+      return undefined
     const cancel = () => {
       currentScroll().interrupt()
       select(null)
@@ -50,10 +60,12 @@ export function useReplyTarget(
       list.removeEventListener("pointerdown", cancel)
       list.removeEventListener("keydown", cancel, true)
     }
-  }, [replyTarget, active, scroll.viewport, select])
+  }, [requestVersion, active, scroll.viewport, select])
 
   useEffect(() => {
-    if (!replyTarget || !active || arrival.current) return
+    const replyTarget = requested.current
+    if (requestVersion === 0 || !replyTarget || !active || arrival.current)
+      return
     if (scroll.target(replyTarget)) {
       let frame = 0
       let settled = 0
@@ -105,7 +117,6 @@ export function useReplyTarget(
             { duration: 1280, easing: "linear" }
           ) ?? null
         requested.current = null
-        setReplyTarget(null)
       }
       frame = requestAnimationFrame(check)
     } else if (!history.query.isFetchingNextPage) {
@@ -116,8 +127,8 @@ export function useReplyTarget(
             toast.error("メッセージを読み込めませんでした。")
           }
         })
-      } else select(null)
+      } else requested.current = null
     }
-  }, [replyTarget, active, scroll, history.query, offline, select])
+  }, [requestVersion, active, scroll, history.query, offline, select])
   return select
 }

@@ -78,7 +78,8 @@ export function ChatMessages({
     history.markRead,
     history.query.data !== undefined
   )
-  const gestures = useHistoryGestures(scroll.viewport)
+  const { viewport, content, view, showLatest, latest, read } = scroll
+  const gestures = useHistoryGestures(viewport)
   const menuMessageId = menu?.message.id
   const selectedMessage = useMemo(
     () =>
@@ -104,7 +105,7 @@ export function ChatMessages({
   }, [target, room.id, pathname, setReplyTarget, setTarget])
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = history.query
   useEffect(() => {
-    const list = scroll.viewport.current,
+    const list = viewport.current,
       sentinel = older.current
     if (!list || !sentinel || !active || offline || !hasNextPage)
       return undefined
@@ -119,7 +120,7 @@ export function ChatMessages({
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [
-    scroll.viewport,
+    viewport,
     active,
     offline,
     hasNextPage,
@@ -184,42 +185,42 @@ export function ChatMessages({
         <div className="relative min-h-0 flex-1">
           <HistoryGestures value={gestures}>
             <section
-              ref={scroll.viewport}
+              ref={viewport}
               data-chat-history
               aria-label="メッセージ履歴"
-              className="absolute inset-0 touch-pan-y overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none] [scrollbar-width:none]"
+              className="absolute inset-0 touch-pan-y [scrollbar-width:none] overflow-y-auto overscroll-x-contain overscroll-y-auto [overflow-anchor:none]"
             >
               <div
-                ref={scroll.content}
+                ref={content}
                 className="px-[var(--chat-gutter)] pt-4 pb-[calc(var(--composer-overlap)+1rem)]"
               >
                 <div ref={older} aria-hidden />
                 <ol
                   aria-label="メッセージ"
                   className="relative min-w-0"
-                  style={{ height: scroll.view.total }}
+                  style={{ height: view.total }}
                   onFocusCapture={(event) => {
-                    scroll.read()
+                    read()
                     const row =
                       event.target.closest<HTMLElement>("[data-message-id]")
-                    scroll.view.focus(row?.dataset.messageId ?? null)
+                    view.focus(row?.dataset.messageId ?? null)
                   }}
                   onBlurCapture={(event) => {
                     if (!event.currentTarget.contains(event.relatedTarget))
-                      scroll.view.focus(null)
+                      view.focus(null)
                   }}
                 >
-                  {scroll.view.items.map((item) => {
+                  {view.items.map((item) => {
                     const index = item.index
                     const message = rows[index]
                     if (!message) return null
                     return (
                       <ChatMessageRow
                         key={message.id}
-                        measure={scroll.view.measure}
+                        measure={view.measure}
                         index={index}
                         count={rows.length}
-                        top={item.start - scroll.view.padding}
+                        top={item.start - view.padding}
                         message={message}
                         previous={rows[index - 1]}
                         room={room}
@@ -271,13 +272,13 @@ export function ChatMessages({
           )}
         </div>
         <div className="relative z-10 -mt-[var(--composer-overlap)] shrink-0">
-          {scroll.showLatest && (
+          {showLatest && (
             <Button
               variant="outline"
               size="icon"
               aria-label="最新のメッセージへ"
               className="absolute right-[var(--chat-gutter)] bottom-[calc(100%+var(--chat-gutter))] size-9 rounded-full bg-background shadow-sm dark:bg-background dark:hover:bg-muted"
-              onClick={scroll.latest}
+              onClick={latest}
             >
               <ArrowDown className="size-4" />
             </Button>

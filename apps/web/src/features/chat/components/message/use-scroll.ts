@@ -28,7 +28,9 @@ export function useMessageScroll(
   const view = useHistoryView(roomId, rows)
   const { viewport, content } = view
   const currentView = useRef(view)
-  currentView.current = view
+  useLayoutEffect(() => {
+    currentView.current = view
+  })
   const controller = useRef<MessageScroll | null>(null)
   const followNext = useRef(false)
   const [status, setStatus] = useState<ScrollStatus>({
@@ -62,7 +64,6 @@ export function useMessageScroll(
         ),
       positions.get(roomId)
     )
-    list.tabIndex = 0
     // Capture before the virtualizer flushes newly visible rows.
     const capture = () => scroll.scroll()
     list.addEventListener("scroll", capture, true)
@@ -163,11 +164,10 @@ export function useMessageScroll(
       scroll.follow()
       followNext.current = false
     }
-    const unread = firstUnread
-      ? currentView.current.locate(firstUnread.id)
-      : null
+    if (!view.items.length) return
+    const unread = firstUnread ? view.locate(firstUnread.id) : null
     scroll.layout(unread === null ? undefined : list.scrollTop + unread)
-  }, [rows, active, firstUnread, loaded, view.total, view.revision, viewport])
+  }, [rows, active, firstUnread, loaded, view, viewport])
 
   useEffect(() => {
     if (status.atBottom && controller.current?.isAtBottom()) markRead()
