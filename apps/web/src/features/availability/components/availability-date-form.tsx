@@ -112,10 +112,10 @@ export function AvailabilityDateForm({
           />
         </label>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
             キャンセル
           </Button>
-          <Button type="submit" size="sm" disabled={invalid}>
+          <Button variant="outline" type="submit" size="sm" disabled={invalid}>
             保存
           </Button>
         </div>

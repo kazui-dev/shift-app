@@ -70,7 +70,11 @@ export function YearSettingsPanel({
       {years.isError && (
         <p role="alert">
           年度を読み込めませんでした。
-          <Button variant="ghost" onClick={() => void years.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void years.refetch()}
+          >
             再読み込み
           </Button>
         </p>
@@ -116,6 +120,7 @@ export function YearSettingsPanel({
           />
         </label>
         <Button
+          size="sm"
           type="submit"
           variant="outline"
           disabled={pending || years.isPending || exists}

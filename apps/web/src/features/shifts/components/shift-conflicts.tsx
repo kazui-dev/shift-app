@@ -88,6 +88,8 @@ export function ShiftConflicts({
           <p className="text-sm">変更した箇所の重複はありません。</p>
         )}
         <Button
+          size="sm"
+          variant="outline"
           disabled={merged.conflicts.length > 0}
           onClick={() => onMerge(merged.plan)}
         >

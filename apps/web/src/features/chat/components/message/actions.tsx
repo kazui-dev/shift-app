@@ -1,5 +1,7 @@
+import { HistoryGestures } from "@/features/chat/components/message/history-gestures"
 import {
   useCallback,
+  useContext,
   useEffect,
   useEffectEvent,
   useRef,
@@ -50,6 +52,7 @@ export function MessageActions({
   onReply: () => void
   children: ReactNode
 }) {
+  const gestures = useContext(HistoryGestures)
   const mobile = useMediaQuery("(max-width: 767px)")
   const [pressed, setPressed] = useState(false)
   const root = useRef<HTMLElement>(null)
@@ -85,28 +88,15 @@ export function MessageActions({
     press.current = null
     setPressed(false)
   }, [])
-  useEffect(() => {
-    const reset = () => {
-      consumed.current = false
-    }
-    document.addEventListener("pointerdown", reset, true)
-    return () => {
-      cancelPress()
-      document.removeEventListener("pointerdown", reset, true)
-    }
-  }, [cancelPress])
-  useEffect(() => {
-    if (!opened || mobile) return undefined
-    const close = (event: PointerEvent) => {
-      if (event.target instanceof Node && !root.current?.contains(event.target))
-        setOpened(false)
-    }
-    document.addEventListener("pointerdown", close)
-    return () => document.removeEventListener("pointerdown", close)
-  }, [opened, mobile])
+  const reset = useEffectEvent((event: PointerEvent) => {
+    consumed.current = false
+    cancelPress()
+    if (event.target instanceof Node && !root.current?.contains(event.target))
+      setOpened(false)
+  })
   useEffect(() => {
     const element = root.current
-    if (!element || editing) return undefined
+    if (!element || !gestures || editing) return undefined
     const down = (event: PointerEvent) => {
       consumed.current = false
       cancelPress()
@@ -179,24 +169,22 @@ export function MessageActions({
         setOpened(false)
       }
     }
-    element.addEventListener("pointerdown", down)
-    element.addEventListener("pointermove", move)
-    element.addEventListener("pointerup", up)
-    element.addEventListener("pointercancel", cancelPress)
-    element.addEventListener("contextmenu", context)
-    element.addEventListener("click", click, true)
-    element.addEventListener("keydown", key)
+    gestures.set(element, {
+      reset,
+      pointerdown: down,
+      pointermove: move,
+      pointerup: up,
+      pointercancel: cancelPress,
+      contextmenu: context,
+      click,
+      keydown: key,
+    })
     return () => {
       cancelPress()
-      element.removeEventListener("pointerdown", down)
-      element.removeEventListener("pointermove", move)
-      element.removeEventListener("pointerup", up)
-      element.removeEventListener("pointercancel", cancelPress)
-      element.removeEventListener("contextmenu", context)
-      element.removeEventListener("click", click, true)
-      element.removeEventListener("keydown", key)
+      gestures.delete(element)
     }
-  }, [available, editing, cancelPress])
+  }, [available, editing, gestures, cancelPress])
+
   return (
     <article
       ref={root}

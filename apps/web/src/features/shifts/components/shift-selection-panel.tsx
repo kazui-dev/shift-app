@@ -75,7 +75,7 @@ export function ShiftSelectionPanel({
           {member?.displayName}
         </h2>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label={
             expanded ? "編集パネルを小さくする" : "編集パネルを広げる"
@@ -86,7 +86,7 @@ export function ShiftSelectionPanel({
           {expanded ? <ChevronDown /> : <ChevronUp />}
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label="編集パネルを閉じる"
           onClick={onClose}
@@ -146,9 +146,8 @@ export function ShiftSelectionPanel({
           )}
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-xs text-muted-foreground"
             disabled={pending || adding}
             onClick={() => setAdding(true)}
           >
@@ -184,17 +183,17 @@ function ShiftTimeRow({
   onRemove: () => void
 }) {
   const [from, setFrom] = useState(
-    value.slotId ? japanInputValue(value.startsAt) : ""
+    value.slotId ? japanInputValue(value.startsAt).slice(11) : ""
   )
   const [to, setTo] = useState(
-    value.slotId ? japanInputValue(value.endsAt) : ""
+    value.slotId ? japanInputValue(value.endsAt).slice(11) : ""
   )
   function commit() {
     if (!from && !to) return
     if (
       value.slotId &&
-      from === japanInputValue(value.startsAt) &&
-      to === japanInputValue(value.endsAt)
+      from === japanInputValue(value.startsAt).slice(11) &&
+      to === japanInputValue(value.endsAt).slice(11)
     )
       return
     if (
@@ -236,8 +235,8 @@ function ShiftTimeRow({
               ? `${japanInputValue(value.startsAt)}からのシフトの開始`
               : "追加するシフトの開始"
           }
-          type="text"
-          maxLength={5}
+          type="time"
+          step={60}
           value={from}
           disabled={pending}
           onBlur={(event) => {
@@ -259,8 +258,8 @@ function ShiftTimeRow({
               ? `${japanInputValue(value.startsAt)}からのシフトの終了`
               : "追加するシフトの終了"
           }
-          type="text"
-          maxLength={5}
+          type="time"
+          step={60}
           value={to}
           disabled={pending}
           onBlur={(event) => {
@@ -275,7 +274,7 @@ function ShiftTimeRow({
         />
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           aria-label={
             value.slotId

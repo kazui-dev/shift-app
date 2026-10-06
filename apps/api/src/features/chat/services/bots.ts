@@ -100,7 +100,12 @@ export async function postBotMessage(
       input.roomId,
       input.about.memberId,
       bot.displayName,
-      input.notification
+      input.notification,
+      {
+        senderName: bot.displayName,
+        icon: "/bot-attendance.webp",
+        sequence: message.sequence,
+      }
     ),
   ])
   return message

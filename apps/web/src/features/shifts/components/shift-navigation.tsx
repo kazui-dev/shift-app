@@ -62,7 +62,7 @@ export function ShiftNavigation({
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon-sm"
         aria-label="前の日"
         disabled={disabled || loading || index <= 0}
@@ -82,7 +82,7 @@ export function ShiftNavigation({
         onValueChange={move}
       />
       <Button
-        variant="ghost"
+        variant="outline"
         size="icon-sm"
         aria-label="次の日"
         disabled={disabled || loading || index >= dates.length - 1}

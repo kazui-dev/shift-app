@@ -63,7 +63,7 @@ export function AvailabilitySchedule({
           <h2 className="text-sm font-medium">受付日程</h2>
           <div className="flex gap-2">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               disabled={
                 pending || !dates.data?.dates.some((date) => date.accepting)
@@ -79,6 +79,7 @@ export function AvailabilitySchedule({
               受付を通知
             </Button>
             <Button
+              variant="outline"
               size="sm"
               disabled={adding}
               onClick={() => setExpanded([newDate])}
@@ -89,7 +90,11 @@ export function AvailabilitySchedule({
           </div>
         </div>
         {dates.isError ? (
-          <Button variant="outline" onClick={() => void dates.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void dates.refetch()}
+          >
             日程を再読み込み
           </Button>
         ) : (
@@ -152,7 +157,7 @@ export function AvailabilitySchedule({
                     </AccordionContent>
                   </div>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon-sm"
                     className="mt-4"
                     aria-label={`${date.date}を削除`}

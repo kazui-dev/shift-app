@@ -133,7 +133,11 @@ export function MemberManager({
       {roster.isError && (
         <p role="alert" className="text-sm">
           メンバーを読み込めませんでした。
-          <Button variant="ghost" onClick={() => void roster.refetch()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void roster.refetch()}
+          >
             再読み込み
           </Button>
         </p>
@@ -142,12 +146,12 @@ export function MemberManager({
         <p className="text-sm text-muted-foreground">読み込み中…</p>
       )}
       {selected.length > 0 && (
-        <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
+        <div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2 text-sm">
           <span className="mr-auto">{selected.length}人選択中</span>
-          <Button variant="ghost" size="sm" onClick={() => setSelected([])}>
+          <Button variant="outline" size="sm" onClick={() => setSelected([])}>
             選択を解除
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => edit(selected)}>
+          <Button variant="outline" size="sm" onClick={() => edit(selected)}>
             ロールを変更
           </Button>
         </div>
@@ -217,7 +221,7 @@ export function MemberManager({
                 "ロールを設定"}
             </button>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={() => setLeaving(member.id)}
             >
@@ -301,6 +305,8 @@ export function MemberManager({
               </label>
             ))}
             <Button
+              size="sm"
+              variant="outline"
               disabled={pending || add.length + remove.length === 0}
               onClick={() => void apply()}
             >

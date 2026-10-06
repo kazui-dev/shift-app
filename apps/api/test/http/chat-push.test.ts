@@ -3,15 +3,19 @@ import { expect, it, vi } from "vite-plus/test"
 
 import { d1Binding, migrated } from "../support/sqlite"
 
-const sent: { endpoint: string; options: { urgency?: string } }[] = []
+const sent: {
+  endpoint: string
+  options: { urgency?: string }
+  payload: string
+}[] = []
 vi.mock("web-push", () => ({
   default: {
     sendNotification: (
       subscription: { endpoint: string },
-      _payload: string,
+      payload: string,
       options: { urgency?: string }
     ) => {
-      sent.push({ endpoint: subscription.endpoint, options })
+      sent.push({ endpoint: subscription.endpoint, options, payload })
       return Promise.resolve()
     },
     WebPushError: class extends Error {},
@@ -33,7 +37,8 @@ app.post("/rooms/:roomId/messages", async (c) => {
     roomId,
     "m1",
     "全体連絡",
-    "こんにちは"
+    "こんにちは",
+    { senderName: "送信者", icon: "/profile.webp", sequence: 12 }
   )
   return c.json({ members: audience.members.toSorted() })
 })
@@ -84,6 +89,13 @@ it("resolves the room once, notifying every device of its unmuted members and no
       "https://push.test/laptop",
       "https://push.test/phone",
     ])
+    expect(JSON.parse(sent[0]?.payload ?? "null")).toEqual({
+      title: "全体連絡",
+      body: "送信者：こんにちは",
+      icon: "/profile.webp",
+      tag: "chat-room",
+      data: { url: "/chat/room", roomId: "room", sequence: 12 },
+    })
     // A held message is worthless by the time the shift starts.
     expect(sent.every((item) => item.options.urgency === "high")).toBe(true)
   } finally {

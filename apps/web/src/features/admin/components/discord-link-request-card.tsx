@@ -61,6 +61,7 @@ export function DiscordLinkRequestCard({
       />
       <div className="flex gap-2">
         <Button
+          variant="outline"
           size="sm"
           disabled={
             request.targetsCurrentAdmin || !reason.trim() || pending !== null

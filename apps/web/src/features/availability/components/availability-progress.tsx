@@ -48,7 +48,7 @@ export function AvailabilityProgress({
           </span>
         </h2>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           disabled={
             pending ||
@@ -89,7 +89,11 @@ export function AvailabilityProgress({
         <p className="text-sm text-muted-foreground">読み込み中…</p>
       )}
       {submissions.isError ? (
-        <Button variant="outline" onClick={() => void submissions.refetch()}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => void submissions.refetch()}
+        >
           提出状況を再読み込み
         </Button>
       ) : (
