@@ -1,3 +1,4 @@
+import type { ActivityFilters } from "./activity-filters"
 import { createContext, useContext } from "react"
 
 export type MemberFilters = {
@@ -9,6 +10,7 @@ export type MemberFilters = {
 
 export type ShiftView = {
   filters?: MemberFilters
+  listFilters?: ActivityFilters
   scrollTop: number
 }
 export const ShiftViewContext = createContext<Map<number, ShiftView> | null>(
