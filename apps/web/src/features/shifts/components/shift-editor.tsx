@@ -1,3 +1,4 @@
+import { BulkAssignmentDialog } from "./bulk-assignment-dialog"
 import { keys } from "@/app/data/keys"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
@@ -42,6 +43,10 @@ export function ShiftEditor({
 }) {
   const client = useQueryClient()
   const navigate = useNavigate()
+  const [acknowledged, setAcknowledged] = useState<EditorData["availability"]>(
+    []
+  )
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [actions, setActions] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [latest, setLatest] = useState<EditorData | null>(null)
@@ -102,7 +107,10 @@ export function ShiftEditor({
     return null
   }
   async function save(confirmed = false) {
-    if (hasUnavailableAssignments(plan, data.availability) && !confirmed) {
+    if (
+      hasUnavailableAssignments(plan, data.availability, acknowledged) &&
+      !confirmed
+    ) {
       setWarning(true)
       return
     }
@@ -175,6 +183,8 @@ export function ShiftEditor({
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
         <MemberFilterBar
+          onBulkAssign={() => setBulkOpen(true)}
+          disabled={pending}
           filters={filters}
           roles={data.roles}
           onChange={setFilters}
@@ -240,6 +250,17 @@ export function ShiftEditor({
           )}
         </div>
       </div>
+      {bulkOpen && (
+        <BulkAssignmentDialog
+          data={data}
+          plan={plan}
+          onApply={(next, accepted) => {
+            update(next)
+            setAcknowledged((current) => [...current, ...accepted])
+          }}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
       {actions && (
         <ShiftActionsDialog
           dirty={dirty}
