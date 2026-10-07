@@ -1,3 +1,4 @@
+import { TimeGuides } from "./time-guides"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { japanTime } from "@workspace/shared/japan-time"
 import { useRef, useState, type MouseEvent } from "react"
@@ -8,7 +9,7 @@ import type { timeScale } from "./time-scale"
 
 export function TimeGridRow({
   member,
-  submitted,
+  status,
   availability,
   otherAssignments,
   slots,
@@ -20,7 +21,7 @@ export function TimeGridRow({
   onMember,
 }: {
   member: EditorData["members"][number]
-  submitted: boolean
+  status: "available" | "unavailable" | "unanswered"
   availability: EditorData["availability"]
   otherAssignments: EditorData["otherAssignments"]
   slots: ActivityEditorInput["slots"]
@@ -31,8 +32,7 @@ export function TimeGridRow({
   onCommit: (selection: ShiftSelection) => void
   onMember: (memberId: string) => void
 }) {
-  const { start, end, duration, hours, minuteAt, range, position, resize } =
-    scale
+  const { start, end, minuteAt, range, position, resize } = scale
   const drag = useRef<{
     memberId: string
     minute: number
@@ -83,13 +83,14 @@ export function TimeGridRow({
   }
   return (
     <div
-      className={`flex h-[76px] border-t border-border/70 ${selected ? "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]" : "bg-background"}`}
+      className={`flex h-14 border-t border-border/70 ${selected ? "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]" : "bg-background"}`}
     >
       <button
         type="button"
         onClick={() => onMember(member.id)}
         aria-label={`${member.displayName}のシフトを編集`}
-        className="sticky left-0 z-10 flex w-48 shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm sm:w-56"
+        data-shift-member={member.id}
+        className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm"
       >
         <MemberAvatar
           name={member.displayName}
@@ -98,45 +99,21 @@ export function TimeGridRow({
         />
         <span className="min-w-0">
           <span className="block truncate">{member.displayName}</span>
-          {submitted &&
-            !availability.some(
-              (window) =>
-                window.memberId === member.id &&
-                Date.parse(window.startsAt) < end &&
-                Date.parse(window.endsAt) > start
-            ) && (
-              <span className="block text-xs font-normal text-muted-foreground">
-                参加不可
-              </span>
-            )}
-          {!submitted && (
+          {status === "unavailable" && (
+            <span className="block text-xs font-normal text-muted-foreground">
+              参加不可
+            </span>
+          )}
+          {status === "unanswered" && (
             <span className="block text-xs font-normal text-muted-foreground">
               未回答
             </span>
           )}
         </span>
       </button>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-2 text-right text-sm md:hidden">
-        {slots.map((slot) => (
-          <p key={slot.id}>
-            {japanTime(slot.startsAt)}〜{japanTime(slot.endsAt)}
-          </p>
-        ))}
-        {slots.length === 0 && (
-          <p className="text-muted-foreground">勤務なし</p>
-        )}
-        <p className="truncate text-xs text-muted-foreground">
-          シフト希望：
-          {availability
-            .map(
-              (item) => `${japanTime(item.startsAt)}〜${japanTime(item.endsAt)}`
-            )
-            .join("、") || (submitted ? "参加不可" : "未回答")}
-        </p>
-      </div>
       <button
         type="button"
-        className="relative mx-6 hidden min-w-0 flex-1 overflow-hidden bg-inherit text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring md:block"
+        className="relative mx-6 block min-w-0 flex-1 overflow-hidden bg-inherit text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         aria-label={`${member.displayName}の勤務時間を変更`}
         onClick={(event) => click(event, member.id)}
         onPointerDown={(event) => {
@@ -186,22 +163,14 @@ export function TimeGridRow({
           setPreview(null)
         }}
       >
-        {hours.map((hour) => (
-          <span
-            key={hour}
-            className="pointer-events-none absolute inset-y-0 z-[1] border-l border-border/70"
-            style={{ left: `${((hour - start) / duration) * 100}%` }}
-          />
-        ))}
+        <TimeGuides scale={scale} />
         {availability.map((window) => (
           <span
             key={window.startsAt}
-            className="absolute top-2 z-[2] h-[25px] truncate rounded bg-muted px-2 py-1 text-xs leading-[17px] text-foreground tabular-nums"
+            className="absolute top-[9px] h-9 rounded-sm bg-muted"
             style={position(window.startsAt, window.endsAt)}
             title={`参加可能 ${japanTime(window.startsAt)}〜${japanTime(window.endsAt)}`}
-          >
-            {japanTime(window.startsAt)}〜{japanTime(window.endsAt)}
-          </span>
+          ></span>
         ))}
         {otherAssignments
           .filter(
@@ -211,7 +180,7 @@ export function TimeGridRow({
           .map((item) => (
             <span
               key={`${item.startsAt}-${item.endsAt}`}
-              className="absolute top-[39px] z-[2] h-[25px] truncate rounded border border-border bg-background px-[9px] py-1 text-xs leading-[17px] text-muted-foreground"
+              className="absolute top-[17px] z-[2] h-5 truncate rounded border border-border bg-background px-[9px] text-xs leading-[17px] text-muted-foreground"
               style={position(item.startsAt, item.endsAt)}
               title={item.name}
             >
@@ -225,7 +194,7 @@ export function TimeGridRow({
             <span
               key={slot.id}
               data-slot-id={slot.id}
-              className="absolute top-[39px] z-[2] h-[25px] truncate rounded py-1 pr-[14px] pl-[14px] text-xs leading-[17px] text-foreground tabular-nums"
+              className="absolute top-[17px] z-[2] h-5 truncate rounded pr-[14px] pl-[14px] text-xs leading-[17px] text-foreground tabular-nums"
               style={{
                 ...position(shown.startsAt, shown.endsAt),
                 backgroundColor: `color-mix(in oklab, ${color} 22%, var(--background))`,
@@ -254,7 +223,7 @@ export function TimeGridRow({
         {preview && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute top-[37px] z-[3] h-[29px] rounded border border-dashed border-foreground/50 bg-foreground/5"
+            className="pointer-events-none absolute top-[15px] z-[3] h-6 rounded border border-dashed border-foreground/50 bg-foreground/5"
             style={position(preview.startsAt, preview.endsAt)}
           />
         )}

@@ -191,6 +191,8 @@ export function localApi(): Plugin {
                 answers: [],
                 submitted: [],
                 submittedAt: null,
+                revision: 0,
+                draftRevision: null,
               })
               return
             }

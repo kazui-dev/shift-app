@@ -5,6 +5,7 @@ import {
 } from "../../directory/services/directory-work"
 import {
   planningAvailability,
+  planningAvailabilityAnswers,
   planningMemberRoles,
 } from "../../directory/services/planning-inputs"
 import { toIso } from "../../../lib/http"
@@ -38,6 +39,7 @@ export async function readActivityEditor(db: D1Database, id: string) {
     roles,
     memberRoles,
     availability,
+    availabilityAnswers,
     others,
   ] = await Promise.all([
     db
@@ -119,6 +121,11 @@ export async function readActivityEditor(db: D1Database, id: string) {
       }>()
       .then((query) => recordD1("activity.editor.availability", query)),
     db
+      .prepare(planningAvailabilityAnswers)
+      .bind(activity.year)
+      .all<{ memberId: string; date: string; choice: "all" | "times" | "no" }>()
+      .then((query) => recordD1("activity.editor.availability_answers", query)),
+    db
       .prepare(
         `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id JOIN activities act ON act.id = s.activity_id WHERE a.status = 'active' AND act.id <> ? AND act.year = ?`
       )
@@ -171,6 +178,7 @@ export async function readActivityEditor(db: D1Database, id: string) {
             },
           ]
     ),
+    availabilityAnswers: availabilityAnswers.results,
     submittedMemberIds: [
       ...new Set(availability.results.map((item) => item.memberId)),
     ],

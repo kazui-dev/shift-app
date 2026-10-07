@@ -27,11 +27,11 @@ it("marks every hour plus both ends, hiding marks that crowd an end", () => {
   ])
 })
 
-it("snaps a pointer to five minutes and never leaves the shift", () => {
+it("snaps a pointer to one minute and never leaves the shift", () => {
   expect(scale.minuteAt(0, 0, 150)).toBe(0)
   expect(scale.minuteAt(-40, 0, 150)).toBe(0)
   expect(scale.minuteAt(1000, 0, 150)).toBe(150)
-  expect(scale.minuteAt(7, 0, 150)).toBe(5)
+  expect(scale.minuteAt(7, 0, 150)).toBe(7)
 })
 
 it("keeps a dragged range at least a minute long and inside the shift", () => {
@@ -67,8 +67,88 @@ it("moves one slot edge without collapsing the slot", () => {
     memberIds: [],
   }
   expect(scale.resize(slot, "start", 150).startsAt).toBe(
-    "2026-09-13T01:55:00.000Z"
+    "2026-09-13T01:59:00.000Z"
   )
-  expect(scale.resize(slot, "end", 0).endsAt).toBe("2026-09-13T01:05:00.000Z")
+  expect(scale.resize(slot, "end", 0).endsAt).toBe("2026-09-13T01:01:00.000Z")
   expect(scale.resize(slot, "end", 120).startsAt).toBe(slot.startsAt)
+})
+
+it("keeps unavailable members visible and filters by search and roles", async () => {
+  const { gridMembers } = await import("./time-scale")
+  const { makeEditors } = await import("../../../../dev/fixtures")
+  const data = makeEditors()[0]
+  if (!data) throw new Error("Missing editor fixture")
+  const plan = {
+    ...data.activity,
+    slots: data.slots,
+    requirements: data.requirements,
+    responsibles: data.responsibles,
+    candidateRoleIds: data.roles.map((role) => role.id),
+  }
+  const all = gridMembers(data, plan, {
+    includeUnavailable: true,
+    includeUnanswered: true,
+    search: "",
+    role: "",
+  })
+  expect(all).toHaveLength(data.members.length)
+  expect(
+    gridMembers({ ...data, availability: [], submittedMemberIds: [] }, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "",
+      role: "",
+    })
+  ).toEqual(all)
+  const member = data.members[0]
+  const role = data.roles[0]
+  if (!member || !role) throw new Error("Missing member fixture")
+  expect(
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: member.studentId,
+      role: "",
+    })
+  ).toEqual([member])
+  expect(
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "absent",
+      role: "",
+    })
+  ).toEqual([])
+  expect(
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "",
+      role: role.id,
+    })
+  ).toEqual(
+    data.members.filter((item) =>
+      item.roles.some((value) => value.id === role.id)
+    )
+  )
+  expect(
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "",
+      role: "candidates",
+    })
+  ).toHaveLength(all.length)
+  expect(
+    gridMembers(
+      data,
+      { ...plan, candidateRoleIds: [] },
+      {
+        includeUnavailable: true,
+        includeUnanswered: true,
+        search: "",
+        role: "candidates",
+      }
+    )
+  ).toEqual([])
 })

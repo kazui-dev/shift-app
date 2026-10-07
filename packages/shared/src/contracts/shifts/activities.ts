@@ -144,6 +144,13 @@ export const activityEditorResponseSchema = v.object({
     })
   ),
   submittedMemberIds: v.array(v.string()),
+  availabilityAnswers: v.array(
+    v.object({
+      memberId: v.string(),
+      date: v.string(),
+      choice: v.picklist(["all", "times", "no"]),
+    })
+  ),
   otherAssignments: v.array(
     v.object({
       memberId: v.string(),

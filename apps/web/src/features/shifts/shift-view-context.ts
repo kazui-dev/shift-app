@@ -4,6 +4,7 @@ export type MemberFilters = {
   search: string
   role: string
   includeUnavailable: boolean
+  includeUnanswered: boolean
 }
 
 export type ShiftView = {

@@ -118,6 +118,20 @@ export function makeEditors(): Editor[] {
               ]
         )
       ),
+      availabilityAnswers: members.flatMap((member, i) =>
+        dates.flatMap((answerDate, di) =>
+          (i + di) % 13 === 7
+            ? []
+            : [
+                {
+                  memberId: member.id,
+                  date: answerDate,
+                  choice:
+                    (i + di) % 17 === 8 ? ("no" as const) : ("times" as const),
+                },
+              ]
+        )
+      ),
       submittedMemberIds: members
         .filter((_, i) => i % 13 !== 7)
         .map((m) => m.id),
