@@ -58,6 +58,12 @@ function chatPermissions(scope: Scope, oneRoom = false) {
  LEFT JOIN activity_chat_rooms link ON link.room_id=r.id
  LEFT JOIN activities a ON a.id=link.activity_id
  WHERE ${scope === "room" || oneRoom ? `t.room_id=${room} AND ` : ""}NOT EXISTS(SELECT 1 FROM chat_room_exits x WHERE x.room_id=r.id AND x.member_id=s.member_id)
+ AND (link.activity_id IS NULL
+ OR (s.target_type='permission' AND s.target_id='shift.manage')
+ OR (s.target_type='access_level' AND s.target_id='system_admin') OR EXISTS(
+   SELECT 1 FROM shift_assignments assigned JOIN shift_slots slot ON slot.id=assigned.slot_id
+   WHERE slot.activity_id=link.activity_id AND slot.deleted=0
+   AND assigned.member_id=s.member_id AND assigned.status='active'))
  GROUP BY t.room_id,s.member_id HAVING MAX(t.can_read OR t.can_post OR t.can_manage)=1
 )`
 }

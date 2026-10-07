@@ -1,5 +1,4 @@
 import { useId, useState } from "react"
-import { Check } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -10,8 +9,6 @@ import {
 } from "@workspace/shared/japan-time"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
-import { SelectField } from "@/components/select-field"
-import { MemberAvatar } from "@/features/members/components/member-avatar"
 import type { EditorData } from "../editor-data"
 import {
   assignMembers,
@@ -21,10 +18,12 @@ import {
 
 export function BulkAssignmentDialog({
   data,
+  memberIds: selected,
   plan,
   onApply,
   onClose,
 }: {
+  memberIds: string[]
   data: EditorData
   plan: ActivityEditorInput
   onApply: (
@@ -34,8 +33,6 @@ export function BulkAssignmentDialog({
   onClose: () => void
 }) {
   const fieldId = useId()
-  const [selected, setSelected] = useState<string[]>([])
-  const [search, setSearch] = useState("")
   const [from, setFrom] = useState(japanInputValue(plan.startsAt).slice(11, 16))
   const [to, setTo] = useState(japanInputValue(plan.endsAt).slice(11, 16))
   const [review, setReview] = useState<AssignmentWindow | null>(null)
@@ -45,19 +42,6 @@ export function BulkAssignmentDialog({
   const included = rows.filter(
     (row) => !row.blocked && !excluded.includes(row.memberId)
   )
-  const term = search.trim().toLocaleLowerCase()
-  const members = data.members.filter((member) =>
-    `${member.displayName} ${member.studentId}`
-      .toLocaleLowerCase()
-      .includes(term)
-  )
-  function toggle(id: string) {
-    setSelected((current) =>
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id]
-    )
-  }
   function confirm() {
     const start = japanLocalDateTime(
       `${japanDateTime(plan.startsAt).date}T${from}`
@@ -201,81 +185,6 @@ export function BulkAssignmentDialog({
                 onChange={(event) => setTo(event.target.value)}
               />
             </label>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setSelected(data.members.map((member) => member.id))
-              }
-            >
-              全メンバー
-            </Button>
-            <SelectField
-              aria-label="選択するロール"
-              value=""
-              className="min-w-36 flex-1"
-              options={[
-                { value: "", label: "ロールを追加" },
-                ...data.roles.map((role) => ({
-                  value: role.id,
-                  label: role.name,
-                })),
-              ]}
-              onValueChange={(role) =>
-                setSelected((current) => [
-                  ...new Set([
-                    ...current,
-                    ...data.members
-                      .filter((member) =>
-                        member.roles.some((item) => item.id === role)
-                      )
-                      .map((member) => member.id),
-                  ]),
-                ])
-              }
-            />
-            <Button variant="ghost" size="sm" onClick={() => setSelected([])}>
-              選択解除
-            </Button>
-          </div>
-          <Input
-            aria-label="割当メンバーを検索"
-            placeholder="名前・学籍番号で検索"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <div className="grid max-h-[35dvh] grid-cols-2 gap-1 overflow-y-auto">
-            {members.map((member) => (
-              <button
-                type="button"
-                key={member.id}
-                aria-pressed={selected.includes(member.id)}
-                aria-label={`${member.displayName}を選択`}
-                onClick={() => toggle(member.id)}
-                className="flex min-w-0 items-center gap-2 rounded-md p-2 text-left text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-              >
-                <span className="relative shrink-0">
-                  <MemberAvatar
-                    name={member.displayName}
-                    image={member.image}
-                    className="size-8 text-xs"
-                  />
-                  {selected.includes(member.id) && (
-                    <span className="absolute -right-1 -bottom-1 rounded-full bg-primary p-0.5 text-primary-foreground ring-2 ring-background">
-                      <Check className="size-3" />
-                    </span>
-                  )}
-                </span>
-                <span className="truncate">{member.displayName}</span>
-              </button>
-            ))}
-            {!members.length && (
-              <p className="col-span-2 py-4 text-sm text-muted-foreground">
-                条件に合うメンバーがいません。
-              </p>
-            )}
           </div>
           {error && (
             <p role="alert" className="text-xs text-destructive">

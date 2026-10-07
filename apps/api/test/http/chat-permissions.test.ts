@@ -1,4 +1,5 @@
 import { chatApp } from "../../src/features/chat/routes/index"
+import { activitiesApp } from "../../src/features/activities/routes/activities"
 import { activityActionsApp } from "../../src/features/activities/routes/activity-actions"
 import { DatabaseSync } from "node:sqlite"
 import { Hono } from "hono"
@@ -68,7 +69,12 @@ function fixture() {
   const published = vi.fn<(recipients: string[], event: unknown) => void>()
   const tasks: Promise<unknown>[] = []
   const env = {
-    CHAT_ROOMS: { getByName: () => ({ sendMessage: async () => delivered }) },
+    CHAT_ROOMS: {
+      getByName: () => ({
+        sendMessage: async () => delivered,
+        deleteMessages: async () => {},
+      }),
+    },
     CHAT_DIRECTORY: {
       getByName: () => ({ publish: published, broadcast: async () => {} }),
     },
@@ -85,6 +91,7 @@ function fixture() {
     await next()
   })
   app.route("/activities", activityActionsApp)
+  app.route("/editor-activities", activitiesApp)
   app.route("/chat", chatApp)
   app.route("/chat", chatApp)
   app.route("/me/chat-memberships", chatMembershipsApp)
@@ -187,6 +194,17 @@ it("applies role, responsibility and assignment changes to the same recipient se
   )
   expect(id).not.toBe(activity)
   f.as(member)
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  f.db
+    .prepare(
+      "INSERT INTO shift_slots(id,activity_id,starts_at,ends_at) VALUES('responsible-slot',?,100,200)"
+    )
+    .run(activity)
+  f.db
+    .prepare(
+      "INSERT INTO shift_assignments(id,slot_id,member_id,status,created_by,created_at,updated_at) VALUES('responsible-assignment','responsible-slot',?,'active',?,0,0)"
+    )
+    .run(member, admin)
   expect(await (await f.request(`/chat/rooms/${id}`)).json()).toMatchObject({
     room: { canManage: true, canPost: false, activityId: activity },
   })
@@ -221,6 +239,122 @@ it("applies role, responsibility and assignment changes to the same recipient se
       .map((r) => r.member_id)
   ).toEqual(expect.arrayContaining([admin, member]))
   expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  f.db.exec(
+    "UPDATE shift_assignments SET status='cancelled' WHERE id='responsible-assignment'"
+  )
+  f.as(member)
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  expect(
+    f.db
+      .prepare(`${roomPermissions} SELECT member_id FROM chat_permissions`)
+      .all(id)
+  ).toEqual([{ member_id: admin }])
+})
+
+it("requires working assignments for responsible-role members across lists, direct access and recipients", async () => {
+  const f = fixture()
+  f.db
+    .prepare(
+      `INSERT INTO activities(id,year,name,place,activity_type,starts_at,ends_at,color,created_by,updated_by,created_at,updated_at) VALUES(?,2026,'受付','入口','勤務',100,500,'#888888',?,?,0,0)`
+    )
+    .run(activity, admin, admin)
+  f.db
+    .prepare(
+      "INSERT INTO year_roles(id,year,name,color,created_at,updated_at) VALUES(?,2026,'局','#888888',0,0)"
+    )
+    .run(role)
+  for (const person of [member, other])
+    f.db
+      .prepare("INSERT INTO member_year_roles VALUES(?,?,0)")
+      .run(person, role)
+  f.db
+    .prepare("INSERT INTO activity_responsibles VALUES(?,'role',?)")
+    .run(activity, role)
+  const id = f.create(
+    activityRoom({ id: activity, year: 2026, name: "受付", createdBy: admin })
+  )
+  f.db
+    .prepare(
+      "INSERT INTO shift_slots(id,activity_id,starts_at,ends_at) VALUES('work',?,100,200)"
+    )
+    .run(activity)
+  f.db
+    .prepare(
+      "INSERT INTO shift_assignments(id,slot_id,member_id,status,created_by,created_at,updated_at) VALUES('work-assignment','work',?,'active',?,0,0)"
+    )
+    .run(member, admin)
+  f.as(other)
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  expect(await (await f.request("/chat/rooms?year=2026")).json()).toEqual({
+    rooms: [],
+  })
+  f.as(member)
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(200)
+  expect(await (await f.request("/chat/rooms?year=2026")).json()).toMatchObject(
+    { rooms: [expect.objectContaining({ id })] }
+  )
+  expect(
+    f.db
+      .prepare(
+        `${roomPermissions} SELECT member_id FROM chat_permissions ORDER BY member_id`
+      )
+      .all(id)
+  ).toEqual([{ member_id: admin }, { member_id: member }])
+  f.db.exec("UPDATE shift_slots SET deleted=1 WHERE id='work'")
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  expect(
+    f.db
+      .prepare(`${roomPermissions} SELECT member_id FROM chat_permissions`)
+      .all(id)
+  ).toEqual([{ member_id: admin }])
+})
+
+it("deletes a shift with its assignments and chat, preserving an audit record", async () => {
+  const f = fixture()
+  f.db
+    .prepare(
+      `INSERT INTO activities(id,year,name,place,activity_type,starts_at,ends_at,color,created_by,updated_by,created_at,updated_at) VALUES(?,2026,'受付','入口','勤務',100,500,'#888888',?,?,0,0)`
+    )
+    .run(activity, admin, admin)
+  f.db
+    .prepare("INSERT INTO activity_responsibles VALUES(?,'member',?)")
+    .run(activity, admin)
+  f.db
+    .prepare(
+      "INSERT INTO shift_slots(id,activity_id,starts_at,ends_at) VALUES('work',?,100,200)"
+    )
+    .run(activity)
+  f.db
+    .prepare(
+      "INSERT INTO shift_assignments(id,slot_id,member_id,status,created_by,created_at,updated_at) VALUES('work-assignment','work',?,'active',?,0,0)"
+    )
+    .run(member, admin)
+  const id = f.create(
+    activityRoom({ id: activity, year: 2026, name: "受付", createdBy: admin })
+  )
+  f.as(member)
+  expect(
+    (await f.request(`/editor-activities/${activity}`, "DELETE")).status
+  ).toBe(403)
+  f.as(admin)
+  expect(
+    (await f.request(`/editor-activities/${activity}`, "DELETE")).status
+  ).toBe(204)
+  expect(f.db.prepare("SELECT id FROM shift_assignments").all()).toEqual([])
+  expect(f.db.prepare("SELECT id FROM shift_slots").all()).toEqual([])
+  expect(f.db.prepare("SELECT id FROM activities").all()).toEqual([])
+  expect(f.db.prepare("SELECT id FROM chat_rooms WHERE id=?").all(id)).toEqual(
+    []
+  )
+  expect(
+    f.db
+      .prepare('SELECT "after" FROM activity_history WHERE activity_id=?')
+      .get(activity)
+  ).toEqual({ after: JSON.stringify({ deleted: true }) })
+  expect((await f.request(`/chat/rooms/${id}`)).status).toBe(404)
+  expect(
+    (await f.request(`/editor-activities/${activity}`, "DELETE")).status
+  ).toBe(404)
 })
 
 it("treats the year room as editable grants, validates scopes, and preserves a manager", async () => {
