@@ -1,3 +1,5 @@
+import { memberAvailability } from "./member-availability"
+import type { MemberFilters } from "../shift-view-context"
 import type { CSSProperties } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { ShiftSelection } from "./shift-selection-panel"
@@ -108,11 +110,16 @@ export function timeScale(startsAt: string, endsAt: string) {
 export function gridMembers(
   data: EditorData,
   plan: ActivityEditorInput,
-  filters: { search: string; role: string }
+  filters: MemberFilters
 ) {
   const term = filters.search.trim().toLocaleLowerCase()
-  return data.members.filter(
-    (member) =>
+  return data.members.filter((member) => {
+    const status = memberAvailability(data, plan, member.id)
+    return (
+      (status === "available" ||
+        (status === "unavailable"
+          ? filters.includeUnavailable
+          : filters.includeUnanswered)) &&
       `${member.displayName} ${member.studentId}`
         .toLocaleLowerCase()
         .includes(term) &&
@@ -122,5 +129,6 @@ export function gridMembers(
             ? plan.candidateRoleIds.includes(item.id)
             : item.id === filters.role
         ))
-  )
+    )
+  })
 }

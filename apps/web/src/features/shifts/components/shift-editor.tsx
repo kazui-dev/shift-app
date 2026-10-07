@@ -52,6 +52,8 @@ export function ShiftEditor({
     () =>
       view.filters ?? {
         search: "",
+        includeUnavailable: false,
+        includeUnanswered: false,
         role:
           source.candidateRoleIds.length === 1
             ? (source.candidateRoleIds[0] ?? "")
@@ -66,7 +68,6 @@ export function ShiftEditor({
   }
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [pending, setPending] = useState(false)
-  const [showAvailability, setShowAvailability] = useState(true)
   const [warning, setWarning] = useState(false)
   const {
     plan,
@@ -177,8 +178,6 @@ export function ShiftEditor({
           filters={filters}
           roles={data.roles}
           onChange={setFilters}
-          showAvailability={showAvailability}
-          onShowAvailability={setShowAvailability}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <fieldset
@@ -190,7 +189,8 @@ export function ShiftEditor({
               plan={plan}
               role={filters.role}
               search={filters.search}
-              showAvailability={showAvailability}
+              includeUnavailable={filters.includeUnavailable}
+              includeUnanswered={filters.includeUnanswered}
               selection={selection}
               onSelect={setSelection}
               onCommit={(value) => {

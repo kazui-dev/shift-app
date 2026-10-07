@@ -1,3 +1,4 @@
+import { memberAvailability } from "./member-availability"
 import { useId, useLayoutEffect, useRef, useState } from "react"
 import { Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
@@ -99,7 +100,8 @@ export function ShiftSelectionPanel({
                   `${japanTime(item.startsAt)}–${japanTime(item.endsAt)}`
               )
               .join("、") ||
-              (data.submittedMemberIds.includes(selection.memberId)
+              (memberAvailability(data, selection, selection.memberId) !==
+              "unanswered"
                 ? "参加不可"
                 : "未回答")}
           </p>

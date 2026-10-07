@@ -8,11 +8,7 @@ export function MemberFilterBar({
   filters,
   roles,
   onChange,
-  showAvailability,
-  onShowAvailability,
 }: {
-  showAvailability: boolean
-  onShowAvailability: (show: boolean) => void
   filters: MemberFilters
   roles: EditorData["roles"]
   onChange: (filters: MemberFilters) => void
@@ -21,7 +17,7 @@ export function MemberFilterBar({
     <div className="flex flex-wrap items-center gap-2">
       <label
         htmlFor="manage-member-search"
-        className="relative min-w-0 flex-1 sm:max-w-56"
+        className="relative min-w-0 flex-1 basis-full sm:max-w-56 sm:basis-auto"
       >
         <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
         <Input
@@ -48,10 +44,22 @@ export function MemberFilterBar({
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
-          checked={showAvailability}
-          onChange={(e) => onShowAvailability(e.target.checked)}
+          checked={filters.includeUnavailable}
+          onChange={(e) =>
+            onChange({ ...filters, includeUnavailable: e.target.checked })
+          }
         />
-        希望
+        参加不可
+      </label>
+      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={filters.includeUnanswered}
+          onChange={(e) =>
+            onChange({ ...filters, includeUnanswered: e.target.checked })
+          }
+        />
+        未回答
       </label>
     </div>
   )

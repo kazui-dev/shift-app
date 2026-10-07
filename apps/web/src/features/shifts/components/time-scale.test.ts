@@ -85,10 +85,17 @@ it("keeps unavailable members visible and filters by search and roles", async ()
     responsibles: data.responsibles,
     candidateRoleIds: data.roles.map((role) => role.id),
   }
-  const all = gridMembers(data, plan, { search: "", role: "" })
+  const all = gridMembers(data, plan, {
+    includeUnavailable: true,
+    includeUnanswered: true,
+    search: "",
+    role: "",
+  })
   expect(all).toHaveLength(data.members.length)
   expect(
     gridMembers({ ...data, availability: [], submittedMemberIds: [] }, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
       search: "",
       role: "",
     })
@@ -97,22 +104,51 @@ it("keeps unavailable members visible and filters by search and roles", async ()
   const role = data.roles[0]
   if (!member || !role) throw new Error("Missing member fixture")
   expect(
-    gridMembers(data, plan, { search: member.studentId, role: "" })
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: member.studentId,
+      role: "",
+    })
   ).toEqual([member])
-  expect(gridMembers(data, plan, { search: "absent", role: "" })).toEqual([])
-  expect(gridMembers(data, plan, { search: "", role: role.id })).toEqual(
+  expect(
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "absent",
+      role: "",
+    })
+  ).toEqual([])
+  expect(
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "",
+      role: role.id,
+    })
+  ).toEqual(
     data.members.filter((item) =>
       item.roles.some((value) => value.id === role.id)
     )
   )
   expect(
-    gridMembers(data, plan, { search: "", role: "candidates" })
+    gridMembers(data, plan, {
+      includeUnavailable: true,
+      includeUnanswered: true,
+      search: "",
+      role: "candidates",
+    })
   ).toHaveLength(all.length)
   expect(
     gridMembers(
       data,
       { ...plan, candidateRoleIds: [] },
-      { search: "", role: "candidates" }
+      {
+        includeUnavailable: true,
+        includeUnanswered: true,
+        search: "",
+        role: "candidates",
+      }
     )
   ).toEqual([])
 })

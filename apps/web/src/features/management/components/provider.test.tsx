@@ -11,7 +11,12 @@ vi.mock("@/features/management/use-management-year", () => ({
 function Remember({ year }: { year: number }) {
   const view = useShiftView(year)
   view.save({
-    filters: { search: "鈴木", role: "all" },
+    filters: {
+      search: "鈴木",
+      role: "all",
+      includeUnavailable: false,
+      includeUnanswered: false,
+    },
     scrollTop: 760,
   })
   return null
