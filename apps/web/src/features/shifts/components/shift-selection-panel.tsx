@@ -1,22 +1,18 @@
-import { useState } from "react"
-import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react"
+import { useId, useLayoutEffect, useRef, useState } from "react"
+import { Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { toast } from "@workspace/ui/lib/toast"
 import { Input } from "@workspace/ui/components/input"
-import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import {
   japanDateTime,
   japanInputValue,
   japanLocalDateTime,
+  japanTime,
 } from "@workspace/shared/japan-time"
+import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { EditorData } from "../editor-data"
+import type { Assignment } from "./assign-member"
 
-export type ShiftSelection = {
-  memberId: string
-  slotId: string | null
-  startsAt: string
-  endsAt: string
-}
+export type ShiftSelection = Assignment
 export function ShiftSelectionPanel({
   selection,
   slots,
@@ -38,137 +34,123 @@ export function ShiftSelectionPanel({
   onApply: (selection: ShiftSelection) => string | null
   onRemove: (slotId: string) => void
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const [adding, setAdding] = useState(false)
+  const dialog = useRef<HTMLDialogElement>(null)
   const member = data.members.find((item) => item.id === selection.memberId)
   const shifts = slots.filter((slot) =>
     slot.memberIds.includes(selection.memberId)
   )
-  const all = [
-    ...shifts,
-    ...data.otherAssignments.filter(
-      (item) => item.memberId === selection.memberId
-    ),
-  ]
-  const dayStart = japanLocalDateTime(`${japanDateTime(startsAt).date}T00:00`)
-  const minutes = (from: number, to: number) =>
-    all.reduce(
-      (total, item) =>
-        total +
-        Math.max(
-          0,
-          Math.min(to, Date.parse(item.endsAt)) -
-            Math.max(from, Date.parse(item.startsAt))
-        ) /
-          60000,
-      0
-    )
-  const duration = (value: number) =>
-    `${Math.floor(value / 60)}時間${value % 60 ? `${value % 60}分` : ""}`
+  const [adding, setAdding] = useState(selection.slotId === null)
+  useLayoutEffect(() => {
+    const element = dialog.current
+    if (!element) return undefined
+    const anchor =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    element.showModal()
+    const place = () => {
+      const rect = anchor?.getBoundingClientRect()
+      const width = element.offsetWidth,
+        height = element.offsetHeight
+      const center = window.innerWidth <= 640 || !rect
+      element.style.left = `${center ? (window.innerWidth - width) / 2 : Math.max(16, Math.min(rect.left, window.innerWidth - width - 16))}px`
+      element.style.top = `${Math.max(16, center ? (window.innerHeight - height) / 2 : rect.bottom + height + 8 < window.innerHeight ? rect.bottom + 8 : rect.top - height - 8)}px`
+    }
+    place()
+    const observer = new ResizeObserver(place)
+    observer.observe(element)
+    window.addEventListener("resize", place)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("resize", place)
+      element.close()
+      requestAnimationFrame(() => {
+        if (!element.open && anchor?.isConnected)
+          anchor.focus({ preventScroll: true })
+      })
+    }
+  }, [])
+  const available = data.availability.filter(
+    (item) => item.memberId === selection.memberId
+  )
   return (
-    <aside
-      aria-label="シフトの編集パネル"
-      className="flex min-h-0 min-w-0 shrink-0 flex-col border-t bg-background xl:h-full xl:w-72 xl:border-t-0 xl:border-l"
+    <dialog
+      ref={dialog}
+      className="shift-time-dialog"
+      aria-labelledby="shift-time-title"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
     >
-      <header className="flex min-h-12 shrink-0 items-center gap-2 px-4">
-        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
-          {member?.displayName}
-        </h2>
+      <div className="mb-4 flex items-start justify-between gap-2">
+        <div>
+          <h3 id="shift-time-title" className="text-sm font-semibold">
+            {member?.displayName}{" "}
+            <span className="font-normal text-muted-foreground">
+              勤務を編集
+            </span>
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            希望：
+            {available
+              .map(
+                (item) =>
+                  `${japanTime(item.startsAt)}–${japanTime(item.endsAt)}`
+              )
+              .join("、") ||
+              (data.submittedMemberIds.includes(selection.memberId)
+                ? "参加不可"
+                : "未回答")}
+          </p>
+        </div>
         <Button
           variant="outline"
           size="icon-sm"
-          aria-label={
-            expanded ? "編集パネルを小さくする" : "編集パネルを広げる"
-          }
-          className="xl:hidden"
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? <ChevronDown /> : <ChevronUp />}
-        </Button>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          aria-label="編集パネルを閉じる"
+          aria-label="勤務時間の編集を閉じる"
           onClick={onClose}
         >
           <X />
         </Button>
-      </header>
-      <div
-        className={`min-h-0 space-y-4 overflow-y-auto px-4 pb-4 ${expanded ? "max-h-[55dvh]" : "max-h-[30dvh]"} xl:max-h-none`}
-      >
-        <div className="space-y-2 text-xs text-muted-foreground">
-          <p>希望時間</p>
-          {data.availability
-            .filter((item) => item.memberId === selection.memberId)
-            .map((item) => (
-              <p key={item.startsAt}>
-                {japanInputValue(item.startsAt)}〜{japanInputValue(item.endsAt)}
-              </p>
-            ))}
-          {!data.submittedMemberIds.includes(selection.memberId) && (
-            <p>未回答</p>
-          )}
-        </div>
-        <div className="space-y-2 border-t pt-3">
-          <p className="text-xs text-muted-foreground">シフト</p>
-          {shifts.map((slot) => (
-            <ShiftTimeRow
-              key={`${slot.id}-${slot.startsAt}-${slot.endsAt}`}
-              value={{
-                memberId: selection.memberId,
-                slotId: slot.id,
-                startsAt: slot.startsAt,
-                endsAt: slot.endsAt,
-              }}
-              pending={pending}
-              onApply={onApply}
-              onRemove={() => onRemove(slot.id)}
-            />
-          ))}
-          {adding && (
-            <ShiftTimeRow
-              key="new"
-              value={{
-                memberId: selection.memberId,
-                slotId: null,
-                startsAt,
-                endsAt,
-              }}
-              pending={pending}
-              onApply={(value) => {
-                const error = onApply(value)
-                if (!error) setAdding(false)
-                return error
-              }}
-              onRemove={() => setAdding(false)}
-            />
-          )}
+      </div>
+      <div className="space-y-4">
+        {shifts.map((slot) => (
+          <ShiftTimeRow
+            key={`${slot.id}-${slot.startsAt}-${slot.endsAt}`}
+            value={{ ...slot, memberId: selection.memberId, slotId: slot.id }}
+            pending={pending}
+            onApply={onApply}
+            onClose={onClose}
+            onRemove={() => onRemove(slot.id)}
+          />
+        ))}
+        {adding && (
+          <ShiftTimeRow
+            value={{
+              ...selection,
+              slotId: null,
+              startsAt: selection.startsAt || startsAt,
+              endsAt: selection.endsAt || endsAt,
+            }}
+            pending={pending}
+            onApply={onApply}
+            onClose={onClose}
+            onRemove={() => setAdding(false)}
+          />
+        )}
+        {!adding && (
           <Button
-            type="button"
             variant="outline"
             size="sm"
-            disabled={pending || adding}
+            disabled={pending}
             onClick={() => setAdding(true)}
           >
-            <Plus className="size-3.5" />
-            追加
+            <Plus />
+            勤務を追加
           </Button>
-        </div>
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer">合計時間</summary>
-          <p className="mt-2">
-            当日：{duration(minutes(dayStart, dayStart + 86400000))}
-          </p>
-          <p className="mt-1">
-            年度：
-            {duration(
-              minutes(Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY)
-            )}
-          </p>
-        </details>
+        )}
       </div>
-    </aside>
+    </dialog>
   )
 }
 function ShiftTimeRow({
@@ -176,120 +158,102 @@ function ShiftTimeRow({
   pending,
   onApply,
   onRemove,
+  onClose,
 }: {
   value: ShiftSelection
   pending: boolean
   onApply: (selection: ShiftSelection) => string | null
   onRemove: () => void
+  onClose: () => void
 }) {
-  const [from, setFrom] = useState(
-    value.slotId ? japanInputValue(value.startsAt).slice(11) : ""
-  )
-  const [to, setTo] = useState(
-    value.slotId ? japanInputValue(value.endsAt).slice(11) : ""
-  )
+  const id = useId()
+  const [from, setFrom] = useState(japanInputValue(value.startsAt).slice(11))
+  const [to, setTo] = useState(japanInputValue(value.endsAt).slice(11))
+  const [error, setError] = useState<string | null>(null)
   function commit() {
-    if (!from && !to) return
-    if (
-      value.slotId &&
-      from === japanInputValue(value.startsAt).slice(11) &&
-      to === japanInputValue(value.endsAt).slice(11)
-    )
-      return
-    if (
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(from) ||
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(to)
-    ) {
-      toast.error("時刻は09:00の形式で入力してください。", { id: "shift-time" })
-      return
-    }
     const start = japanLocalDateTime(
       `${japanDateTime(value.startsAt).date}T${from}`
     )
     const end = japanLocalDateTime(`${japanDateTime(value.endsAt).date}T${to}`)
-    if (start >= end) {
-      toast.error("終了は開始より後にしてください。", { id: "shift-time" })
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+      setError("終了は開始より後にしてください。")
       return
     }
-    const error = onApply({
-      ...value,
-      startsAt: new Date(start).toISOString(),
-      endsAt: new Date(end).toISOString(),
-    })
-    if (error) toast.error(error, { id: "shift-time" })
-    else toast.dismiss("shift-time")
+    setError(
+      onApply({
+        ...value,
+        startsAt: new Date(start).toISOString(),
+        endsAt: new Date(end).toISOString(),
+      })
+    )
   }
   return (
     <form
       data-slot-editor={value.slotId}
-      className="space-y-1"
       onSubmit={(event) => {
         event.preventDefault()
         commit()
       }}
+      className="space-y-3 border-t pt-3"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_2rem] items-center gap-2">
-        <Input
-          aria-label={
-            value.slotId
-              ? `${japanInputValue(value.startsAt)}からのシフトの開始`
-              : "追加するシフトの開始"
-          }
-          type="time"
-          step={60}
-          value={from}
-          disabled={pending}
-          onBlur={(event) => {
-            if (
-              !(event.relatedTarget instanceof Node) ||
-              !event.currentTarget.form?.contains(event.relatedTarget)
-            )
-              commit()
-          }}
-          onChange={(event) => setFrom(event.target.value)}
-          className="min-w-0 tabular-nums"
-        />
-        <span aria-hidden="true" className="text-xs text-muted-foreground">
-          〜
-        </span>
-        <Input
-          aria-label={
-            value.slotId
-              ? `${japanInputValue(value.startsAt)}からのシフトの終了`
-              : "追加するシフトの終了"
-          }
-          type="time"
-          step={60}
-          value={to}
-          disabled={pending}
-          onBlur={(event) => {
-            if (
-              !(event.relatedTarget instanceof Node) ||
-              !event.currentTarget.form?.contains(event.relatedTarget)
-            )
-              commit()
-          }}
-          onChange={(event) => setTo(event.target.value)}
-          className="min-w-0 tabular-nums"
-        />
+      <fieldset disabled={pending} className="flex items-end gap-2">
+        <label
+          htmlFor={`${id}-start`}
+          className="min-w-0 flex-1 text-xs text-muted-foreground"
+        >
+          開始
+          <Input
+            id={`${id}-start`}
+            aria-label="勤務の開始"
+            type="time"
+            step={60}
+            required
+            value={from}
+            onChange={(event) => setFrom(event.target.value)}
+            className="mt-2 h-11 text-base text-foreground"
+          />
+        </label>
+        <span className="pb-3">–</span>
+        <label
+          htmlFor={`${id}-end`}
+          className="min-w-0 flex-1 text-xs text-muted-foreground"
+        >
+          終了
+          <Input
+            id={`${id}-end`}
+            aria-label="勤務の終了"
+            type="time"
+            step={60}
+            required
+            value={to}
+            onChange={(event) => setTo(event.target.value)}
+            className="mt-2 h-11 text-base text-foreground"
+          />
+        </label>
+      </fieldset>
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex justify-between gap-2">
         <Button
           type="button"
           variant="outline"
-          size="icon-sm"
-          aria-label={
-            value.slotId
-              ? `${japanInputValue(value.startsAt)}〜${japanInputValue(value.endsAt)}のシフトを削除`
-              : "追加を取り消す"
-          }
+          size="sm"
           disabled={pending}
           onClick={onRemove}
         >
-          {value.slotId ? (
-            <Trash2 className="size-3.5" />
-          ) : (
-            <X className="size-3.5" />
-          )}
+          {value.slotId ? "割当を外す" : "追加を取り消す"}
         </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            取消
+          </Button>
+          <Button type="submit" variant="outline" size="sm" disabled={pending}>
+            適用
+          </Button>
+        </div>
       </div>
     </form>
   )

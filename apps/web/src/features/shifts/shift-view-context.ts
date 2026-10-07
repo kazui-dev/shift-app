@@ -3,7 +3,6 @@ import { createContext, useContext } from "react"
 export type MemberFilters = {
   search: string
   role: string
-  includeUnavailable: boolean
 }
 
 export type ShiftView = {

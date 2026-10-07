@@ -1,0 +1,63 @@
+.shift-timeline {
+  --shift-name-width: 192px;
+}
+.shift-name {
+  width: var(--shift-name-width);
+}
+.shift-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+}
+.shift-tick::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  height: 7px;
+  border-left: 1px solid var(--muted-foreground);
+}
+.shift-tick > span {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.shift-tick:first-child > span {
+  transform: none;
+}
+.shift-tick:last-child > span {
+  transform: translateX(-100%);
+}
+.shift-time-dialog {
+  position: fixed;
+  margin: 0;
+  width: 364px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  color-scheme: light;
+  box-shadow:
+    0 12px 40px #0002,
+    0 2px 8px #0001;
+}
+.dark .shift-time-dialog {
+  color-scheme: dark;
+}
+.shift-time-dialog::backdrop {
+  background: transparent;
+}
+@media (max-width: 640px) {
+  .shift-timeline {
+    --shift-name-width: 136px;
+  }
+  .shift-time-dialog::backdrop {
+    background: #0003;
+  }
+}

@@ -8,18 +8,25 @@ export function MemberFilterBar({
   filters,
   roles,
   onChange,
+  showAvailability,
+  onShowAvailability,
 }: {
+  showAvailability: boolean
+  onShowAvailability: (show: boolean) => void
   filters: MemberFilters
   roles: EditorData["roles"]
   onChange: (filters: MemberFilters) => void
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label htmlFor="manage-member-search" className="relative w-full md:w-64">
+      <label
+        htmlFor="manage-member-search"
+        className="relative min-w-0 flex-1 sm:max-w-56"
+      >
         <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
         <Input
           id="manage-member-search"
-          className="pl-9"
+          className="h-9 pl-9"
           aria-label="名前・学籍番号で検索"
           placeholder="名前・学籍番号で検索"
           value={filters.search}
@@ -38,18 +45,13 @@ export function MemberFilterBar({
         ]}
         onValueChange={(role) => onChange({ ...filters, role })}
       />
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
-          checked={filters.includeUnavailable}
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              includeUnavailable: event.target.checked,
-            })
-          }
+          checked={showAvailability}
+          onChange={(e) => onShowAvailability(e.target.checked)}
         />
-        参加不可・未回答も表示
+        希望
       </label>
     </div>
   )

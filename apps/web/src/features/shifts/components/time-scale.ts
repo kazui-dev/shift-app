@@ -3,7 +3,7 @@ import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { EditorData } from "../editor-data"
 
-const STEP = 300_000
+const STEP = 60_000
 
 /** Maps the shift's window onto the grid: minutes, hour marks and widths. */
 export function timeScale(startsAt: string, endsAt: string) {
@@ -33,7 +33,7 @@ export function timeScale(startsAt: string, endsAt: string) {
         hour === end ||
         (hour - start >= 1_800_000 && end - hour >= 1_800_000)
     ),
-    /** The minute of the shift under a pointer, snapped to five minutes. */
+    /** The minute of the shift under a pointer, snapped to one minute. */
     minuteAt: (x: number, left: number, width: number) =>
       Math.max(
         0,
@@ -65,7 +65,7 @@ export function timeScale(startsAt: string, endsAt: string) {
         width: `${Math.max(0, ((right - left) / duration) * 100)}%`,
       }
     },
-    /** Moves one edge of a slot, keeping it at least five minutes long. */
+    /** Moves one edge of a slot, keeping it at least one minute long. */
     resize: (
       slot: ActivityEditorInput["slots"][number],
       edge: string,
@@ -108,19 +108,11 @@ export function timeScale(startsAt: string, endsAt: string) {
 export function gridMembers(
   data: EditorData,
   plan: ActivityEditorInput,
-  filters: { search: string; role: string; includeUnavailable: boolean },
-  window: { start: number; end: number }
+  filters: { search: string; role: string }
 ) {
   const term = filters.search.trim().toLocaleLowerCase()
   return data.members.filter(
     (member) =>
-      (filters.includeUnavailable ||
-        data.availability.some(
-          (item) =>
-            item.memberId === member.id &&
-            Date.parse(item.startsAt) < window.end &&
-            Date.parse(item.endsAt) > window.start
-        )) &&
       `${member.displayName} ${member.studentId}`
         .toLocaleLowerCase()
         .includes(term) &&
