@@ -1,3 +1,4 @@
+import { Check } from "lucide-react"
 import { TimeGuides } from "./time-guides"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { japanTime } from "@workspace/shared/japan-time"
@@ -8,6 +9,7 @@ import type { ShiftSelection } from "./shift-selection-panel"
 import type { timeScale } from "./time-scale"
 
 export function TimeGridRow({
+  bulkSelected,
   member,
   status,
   availability,
@@ -20,6 +22,7 @@ export function TimeGridRow({
   onCommit,
   onMember,
 }: {
+  bulkSelected?: boolean | undefined
   member: EditorData["members"][number]
   status: "available" | "unavailable" | "unanswered"
   availability: EditorData["availability"]
@@ -58,6 +61,10 @@ export function TimeGridRow({
     }
   }
   function click(event: MouseEvent<HTMLButtonElement>, memberId: string) {
+    if (bulkSelected !== undefined) {
+      onMember(memberId)
+      return
+    }
     if (suppressClick.current) {
       suppressClick.current = false
       pointerSlot.current = null
@@ -88,15 +95,27 @@ export function TimeGridRow({
       <button
         type="button"
         onClick={() => onMember(member.id)}
-        aria-label={`${member.displayName}のシフトを編集`}
+        aria-label={
+          bulkSelected === undefined
+            ? `${member.displayName}のシフトを編集`
+            : `${member.displayName}を選択`
+        }
+        aria-pressed={bulkSelected}
         data-shift-member={member.id}
         className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm"
       >
-        <MemberAvatar
-          name={member.displayName}
-          image={member.image}
-          className="size-6 text-[10px]"
-        />
+        <span className="relative shrink-0">
+          <MemberAvatar
+            name={member.displayName}
+            image={member.image}
+            className="size-6 text-[10px]"
+          />
+          {bulkSelected && (
+            <span className="absolute -right-1 -bottom-1 rounded-full bg-primary p-0.5 text-primary-foreground ring-2 ring-background">
+              <Check className="size-2.5" />
+            </span>
+          )}
+        </span>
         <span className="min-w-0">
           <span className="block truncate">{member.displayName}</span>
           {status === "unavailable" && (
@@ -114,9 +133,14 @@ export function TimeGridRow({
       <button
         type="button"
         className="relative mx-6 block min-w-0 flex-1 overflow-hidden bg-inherit text-left outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-        aria-label={`${member.displayName}の勤務時間を変更`}
+        aria-label={
+          bulkSelected === undefined
+            ? `${member.displayName}の勤務時間を変更`
+            : `${member.displayName}を選択`
+        }
         onClick={(event) => click(event, member.id)}
         onPointerDown={(event) => {
+          if (bulkSelected !== undefined) return
           const edge =
             event.target instanceof Element
               ? (event.target

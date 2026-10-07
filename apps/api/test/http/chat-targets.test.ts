@@ -77,15 +77,7 @@ describe("migrated chat and calendar queries", () => {
       })
       const rooms = await app.request("/chat/rooms?year=2026", {}, env)
       expect(rooms.status).toBe(200)
-      expect(await rooms.json()).toMatchObject({
-        rooms: expect.arrayContaining([
-          expect.objectContaining({
-            activityId: "a",
-            activityStartsAt: new Date(100).toISOString(),
-            activityEndsAt: new Date(500).toISOString(),
-          }),
-        ]),
-      })
+      expect(await rooms.json()).toEqual({ rooms: [] })
       db.exec("UPDATE activities SET active=0 WHERE id='a'")
       const inactive = await app.request("/chat/targets?year=2026", {}, env)
       expect(await inactive.json()).toMatchObject({
@@ -113,6 +105,16 @@ describe("migrated chat and calendar queries", () => {
         INSERT INTO shift_slots(id,activity_id,starts_at,ends_at) VALUES ('s','a',100,200);
         INSERT INTO shift_assignments(id,slot_id,member_id,status,created_by,created_at,updated_at) VALUES ('sa','s','m','active','m',0,0);
         UPDATE activities SET active=1 WHERE id='a';`)
+      const assignedRooms = await app.request("/chat/rooms?year=2026", {}, env)
+      expect(await assignedRooms.json()).toMatchObject({
+        rooms: expect.arrayContaining([
+          expect.objectContaining({
+            activityId: "a",
+            activityStartsAt: new Date(100).toISOString(),
+            activityEndsAt: new Date(500).toISOString(),
+          }),
+        ]),
+      })
       const memberships = await app.request("/chat/targets?year=2026", {}, env)
       expect(await memberships.json()).toMatchObject({
         targets: expect.arrayContaining([

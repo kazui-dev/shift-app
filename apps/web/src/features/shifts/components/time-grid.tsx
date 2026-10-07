@@ -17,6 +17,7 @@ import { gridMembers, timeScale } from "./time-scale"
 import { useShiftView } from "@/features/shifts/shift-view-context"
 
 export function TimeGrid({
+  bulkSelection,
   data,
   plan,
   role,
@@ -28,6 +29,9 @@ export function TimeGrid({
   onCommit,
   onMember,
 }: {
+  bulkSelection?:
+    | { memberIds: string[]; toggle: (memberId: string) => void }
+    | undefined
   data: EditorData
   plan: ActivityEditorInput
   role: string
@@ -271,6 +275,7 @@ export function TimeGrid({
           {visible.map((row) => (
             <TimeGridRow
               key={row.member.id}
+              bulkSelected={bulkSelection?.memberIds.includes(row.member.id)}
               {...row}
               color={plan.color}
               scale={scale}
@@ -278,6 +283,10 @@ export function TimeGrid({
               onSelect={onSelect}
               onCommit={onCommit}
               onMember={(memberId) => {
+                if (bulkSelection) {
+                  bulkSelection.toggle(memberId)
+                  return
+                }
                 if (candidatesOnly && periodDetail)
                   onSelect({
                     memberId,

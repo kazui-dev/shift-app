@@ -1,3 +1,5 @@
+import { Button } from "@workspace/ui/components/button"
+import { gridMembers } from "./time-scale"
 import { BulkAssignmentDialog } from "./bulk-assignment-dialog"
 import { keys } from "@/app/data/keys"
 import { ShiftConflicts } from "./shift-conflicts"
@@ -46,6 +48,7 @@ export function ShiftEditor({
   const [acknowledged, setAcknowledged] = useState<EditorData["availability"]>(
     []
   )
+  const [bulkMembers, setBulkMembers] = useState<string[] | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [actions, setActions] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -183,12 +186,68 @@ export function ShiftEditor({
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
         <MemberFilterBar
-          onBulkAssign={() => setBulkOpen(true)}
+          onBulkAssign={() => {
+            setSelection(null)
+            setBulkMembers((current) => (current === null ? [] : null))
+          }}
           disabled={pending}
           filters={filters}
           roles={data.roles}
           onChange={setFilters}
         />
+        {bulkMembers !== null && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="tabular-nums">{bulkMembers.length}人選択</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setBulkMembers(data.members.map((member) => member.id))
+              }
+            >
+              全メンバー
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setBulkMembers((current) => [
+                  ...new Set([
+                    ...(current ?? []),
+                    ...gridMembers(data, plan, filters).map(
+                      (member) => member.id
+                    ),
+                  ]),
+                ])
+              }
+            >
+              表示中を選択
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBulkMembers([])}
+            >
+              選択解除
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto"
+              onClick={() => setBulkMembers(null)}
+            >
+              取消
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!bulkMembers.length || pending}
+              onClick={() => setBulkOpen(true)}
+            >
+              時間を指定
+            </Button>
+          </div>
+        )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <fieldset
             disabled={pending}
@@ -196,6 +255,19 @@ export function ShiftEditor({
           >
             <TimeGrid
               data={data}
+              bulkSelection={
+                bulkMembers === null
+                  ? undefined
+                  : {
+                      memberIds: bulkMembers,
+                      toggle: (memberId) =>
+                        setBulkMembers((current) =>
+                          current?.includes(memberId)
+                            ? current.filter((id) => id !== memberId)
+                            : [...(current ?? []), memberId]
+                        ),
+                    }
+              }
               plan={plan}
               role={filters.role}
               search={filters.search}
@@ -250,12 +322,14 @@ export function ShiftEditor({
           )}
         </div>
       </div>
-      {bulkOpen && (
+      {bulkOpen && bulkMembers !== null && (
         <BulkAssignmentDialog
+          memberIds={bulkMembers}
           data={data}
           plan={plan}
           onApply={(next, accepted) => {
             update(next)
+            setBulkMembers(null)
             setAcknowledged((current) => [...current, ...accepted])
           }}
           onClose={() => setBulkOpen(false)}
@@ -290,6 +364,7 @@ export function ShiftEditor({
               await navigate({
                 to: "/manage/shifts/$shiftId",
                 params: { shiftId: copy.id },
+                ignoreBlocker: true,
               })
             })
           }
@@ -301,14 +376,31 @@ export function ShiftEditor({
       )}
       {deleting && (
         <ConfirmDialog
-          title="シフトを削除しますか"
+          title={`「${data.activity.name}」を削除しますか`}
+          description="勤務の割当と、このシフトのチャットも削除されます。元に戻せません。"
           confirmLabel="削除する"
           onCancel={() => setDeleting(false)}
           onConfirm={() => {
             setDeleting(false)
             void action(async () => {
               await deleteActivity(data.activity.id)
-              await navigate({ to: "/manage/shifts" })
+              await Promise.all([
+                client.invalidateQueries({
+                  queryKey: keys.activities(data.activity.year),
+                }),
+                client.invalidateQueries({ queryKey: keys.assignments() }),
+                client.invalidateQueries({ queryKey: keys.chatRooms() }),
+              ])
+              await navigate({
+                to: "/manage/shifts",
+                replace: true,
+                ignoreBlocker: true,
+              })
+              client.removeQueries({
+                queryKey: keys.activityEditor(data.activity.id),
+                exact: true,
+              })
+              toast.success("シフトを削除しました。")
             })
           }}
         />

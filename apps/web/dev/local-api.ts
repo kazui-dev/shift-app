@@ -261,6 +261,11 @@ export function localApi(): Plugin {
               (e) => e.activity.id === path.split("/")[3]
             )
             if (editor && /^\/api\/activities\/[^/]+$/.test(path)) {
+              if (req.method === "DELETE") {
+                editors.splice(editors.indexOf(editor), 1)
+                send(null, 204)
+                return
+              }
               if (req.method === "PUT") {
                 const parsed = v.safeParse(activityEditorInputSchema, input)
                 if (!parsed.success) {

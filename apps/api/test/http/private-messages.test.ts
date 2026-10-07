@@ -96,7 +96,12 @@ function fixture() {
   db.exec(
     `INSERT INTO shift_slots(id,activity_id,starts_at,ends_at) VALUES('slot','${shift}',100,200)`
   )
-  for (const [n, member] of [reporter, participant].entries())
+  for (const [n, member] of [
+    responsible,
+    roleResponsible,
+    reporter,
+    participant,
+  ].entries())
     db.prepare(
       `INSERT INTO shift_assignments(id,slot_id,member_id,status,created_by,created_at,updated_at) VALUES(?,'slot',?,'active',?,0,0)`
     ).run(`assignment-${n}`, member, admin)
