@@ -41,3 +41,41 @@ it("requires a warning when a saved assignment is no longer fully within availab
   expect(hasUnavailableAssignments(plan, [])).toBe(true)
   expect(hasUnavailableAssignments({ ...plan, slots: [] }, [])).toBe(false)
 })
+
+it("does not repeat an accepted warning, but warns again for a changed time or member", () => {
+  const acknowledged = [
+    {
+      memberId: "member",
+      startsAt: "2026-09-13T09:00:00+09:00",
+      endsAt: "2026-09-13T12:00:00+09:00",
+    },
+  ]
+  expect(hasUnavailableAssignments(plan, [], acknowledged)).toBe(false)
+  expect(
+    hasUnavailableAssignments(
+      plan,
+      [],
+      acknowledged.map((item) => ({ ...item, memberId: "other" }))
+    )
+  ).toBe(true)
+  expect(
+    hasUnavailableAssignments(
+      plan,
+      [],
+      acknowledged.map((item) => ({
+        ...item,
+        startsAt: "2026-09-13T10:00:00+09:00",
+      }))
+    )
+  ).toBe(true)
+  expect(
+    hasUnavailableAssignments(
+      plan,
+      [],
+      acknowledged.map((item) => ({
+        ...item,
+        endsAt: "2026-09-13T11:00:00+09:00",
+      }))
+    )
+  ).toBe(true)
+})

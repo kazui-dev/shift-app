@@ -1,11 +1,10 @@
+import { BulkAssignmentDialog } from "./bulk-assignment-dialog"
 import { keys } from "@/app/data/keys"
-import { japanTime } from "@workspace/shared/japan-time"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { Button } from "@workspace/ui/components/button"
 import { toast } from "@workspace/ui/lib/toast"
 import {
   getActivity,
@@ -44,6 +43,10 @@ export function ShiftEditor({
 }) {
   const client = useQueryClient()
   const navigate = useNavigate()
+  const [acknowledged, setAcknowledged] = useState<EditorData["availability"]>(
+    []
+  )
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [actions, setActions] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [latest, setLatest] = useState<EditorData | null>(null)
@@ -55,6 +58,7 @@ export function ShiftEditor({
       view.filters ?? {
         search: "",
         includeUnavailable: false,
+        includeUnanswered: false,
         role:
           source.candidateRoleIds.length === 1
             ? (source.candidateRoleIds[0] ?? "")
@@ -69,7 +73,6 @@ export function ShiftEditor({
   }
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [pending, setPending] = useState(false)
-  const [navigationPending, setNavigationPending] = useState(false)
   const [warning, setWarning] = useState(false)
   const {
     plan,
@@ -100,11 +103,14 @@ export function ShiftEditor({
     const result = assignMember(plan, value, data.otherAssignments)
     if ("error" in result) return result.error
     update({ ...plan, slots: result.slots })
-    setSelection({ ...value, slotId: result.slotId })
+    setSelection(null)
     return null
   }
   async function save(confirmed = false) {
-    if (hasUnavailableAssignments(plan, data.availability) && !confirmed) {
+    if (
+      hasUnavailableAssignments(plan, data.availability, acknowledged) &&
+      !confirmed
+    ) {
       setWarning(true)
       return
     }
@@ -160,7 +166,6 @@ export function ShiftEditor({
         activity={data.activity}
         dirty={dirty}
         pending={pending}
-        navigating={navigationPending}
         conflicted={conflicted}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -175,49 +180,19 @@ export function ShiftEditor({
             : void save()
         }
         onActions={() => setActions(true)}
-        onNavigationPendingChange={setNavigationPending}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <span>
-            {japanTime(plan.startsAt)}〜{japanTime(plan.endsAt)}
-          </span>
-          <span>{plan.place || "場所未設定"}</span>
-          <span className="text-muted-foreground">
-            責任者：
-            {plan.responsibles
-              .map(
-                (r) =>
-                  (r.targetType === "member"
-                    ? data.members.find((m) => m.id === r.targetId)?.displayName
-                    : data.roles.find((role) => role.id === r.targetId)
-                        ?.name) ?? "未設定"
-              )
-              .join("、")}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden md:inline-flex"
-            onClick={() =>
-              void navigate({
-                to: "/manage/shifts/$shiftId/settings",
-                params: { shiftId: data.activity.id },
-              })
-            }
-          >
-            基本情報を編集
-          </Button>
-        </div>
         <MemberFilterBar
+          onBulkAssign={() => setBulkOpen(true)}
+          disabled={pending}
           filters={filters}
           roles={data.roles}
           onChange={setFilters}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden xl:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <fieldset
-            disabled={pending || navigationPending}
-            className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 xl:pr-4"
+            disabled={pending}
+            className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
           >
             <TimeGrid
               data={data}
@@ -225,31 +200,35 @@ export function ShiftEditor({
               role={filters.role}
               search={filters.search}
               includeUnavailable={filters.includeUnavailable}
+              includeUnanswered={filters.includeUnanswered}
               selection={selection}
               onSelect={setSelection}
               onCommit={(value) => {
                 const error = applySelection(value)
                 if (error) toast.error(error)
               }}
-              onMember={(memberId) =>
+              onMember={(memberId) => {
+                const slot = plan.slots.find((item) =>
+                  item.memberIds.includes(memberId)
+                )
                 setSelection({
                   memberId,
-                  slotId: null,
-                  startsAt: plan.startsAt,
-                  endsAt: plan.endsAt,
+                  slotId: slot?.id ?? null,
+                  startsAt: slot?.startsAt ?? plan.startsAt,
+                  endsAt: slot?.endsAt ?? plan.endsAt,
                 })
-              }
+              }}
             />
           </fieldset>
           {selection && (
             <ShiftSelectionPanel
-              key={selection.memberId}
+              key={`${selection.memberId}-${selection.slotId ?? "new"}`}
               selection={selection}
               slots={plan.slots}
               startsAt={plan.startsAt}
               endsAt={plan.endsAt}
               data={data}
-              pending={pending || navigationPending}
+              pending={pending}
               onClose={() => setSelection(null)}
               onApply={applySelection}
               onRemove={(slotId) => {
@@ -271,6 +250,17 @@ export function ShiftEditor({
           )}
         </div>
       </div>
+      {bulkOpen && (
+        <BulkAssignmentDialog
+          data={data}
+          plan={plan}
+          onApply={(next, accepted) => {
+            update(next)
+            setAcknowledged((current) => [...current, ...accepted])
+          }}
+          onClose={() => setBulkOpen(false)}
+        />
+      )}
       {actions && (
         <ShiftActionsDialog
           dirty={dirty}

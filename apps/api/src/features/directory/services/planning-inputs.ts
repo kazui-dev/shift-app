@@ -26,3 +26,17 @@ export const planningMemberRoles = `
  JOIN directory_duties dd ON dd.entry_id=d.id JOIN duties duty ON duty.id=dd.duty_id
  JOIN year_roles r ON r.id=duty.role_id
  WHERE d.year=?1 AND d.status='active' AND r.year=?1`
+
+/** Current submitted day answers, keeping each identity source paired. */
+export const planningAvailabilityAnswers = `
+ SELECT s.member_id AS memberId,d.date,a.choice
+ FROM availability_submissions s
+ JOIN availability_day_answers a ON a.submission_id=s.id
+ JOIN availability_dates d ON d.id=a.date_id AND d.version=a.date_version AND d.deleted=0 AND d.year=s.year
+ WHERE s.year=?1 AND s.status='submitted'
+ UNION ALL
+ SELECT s.id,d.date,a.choice
+ FROM student_directory m JOIN directory_availability_submissions s ON s.entry_id=m.id
+ JOIN directory_availability_day_answers a ON a.submission_id=s.id
+ JOIN availability_dates d ON d.id=a.date_id AND d.version=a.date_version AND d.deleted=0 AND d.year=m.year
+ WHERE m.year=?1 AND m.status='active' AND s.submitted_at IS NOT NULL`

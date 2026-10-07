@@ -97,3 +97,7 @@ Workerだけ戻しても新しい索引・ビュー・トリガーは旧SQLか�
 ## 通知の送信者表示と既読連動
 
 Push payloadに任意の`icon`と`data.roomId`・`data.sequence`を追加する。旧Service Workerは追加項目を無視でき、新Service Workerも旧payloadを表示できる。メッセージ番号のない旧通知は既読判定で消さない。新Service Workerからの画面移動要求に旧クライアントが応答しない場合は別ウィンドウを開く。DB migrationは不要。
+
+## シフト編集の日別回答
+
+編集応答に `availabilityAnswers`（現行版の日別提出回答）を追加する。旧画面用の `submittedMemberIds` は維持する。保存入力とDBは変更しない。WebとAPIは同時に配信し、更新前の画面は追加項目を無視できる。

@@ -39,6 +39,7 @@ it("initializes both time inputs with HH:mm so either endpoint can be edited alo
         roles: [],
         availability: [],
         submittedMemberIds: [],
+        availabilityAnswers: [],
         otherAssignments: [],
       }}
       pending={false}

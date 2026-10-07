@@ -18,24 +18,8 @@ export function assignMember(
   value: Assignment,
   otherAssignments: Window[]
 ): { error: string } | { slots: Slot[]; slotId: string } {
-  const start = Date.parse(value.startsAt),
-    end = Date.parse(value.endsAt)
-  if (start < Date.parse(plan.startsAt) || end > Date.parse(plan.endsAt))
-    return { error: "シフトの開始・終了の範囲内で指定してください。" }
-  const overlaps = (window: { startsAt: string; endsAt: string }) =>
-    Date.parse(window.startsAt) < end && Date.parse(window.endsAt) > start
-  if (
-    otherAssignments.some(
-      (item) => item.memberId === value.memberId && overlaps(item)
-    ) ||
-    plan.slots.some(
-      (slot) =>
-        slot.id !== value.slotId &&
-        slot.memberIds.includes(value.memberId) &&
-        overlaps(slot)
-    )
-  )
-    return { error: "この時間には別のシフトがあります。" }
+  const error = assignmentError(plan, value, otherAssignments)
+  if (error) return { error }
   const original = plan.slots.find((slot) => slot.id === value.slotId)
   const destination = plan.slots.find(
     (slot) => slot.startsAt === value.startsAt && slot.endsAt === value.endsAt
@@ -70,4 +54,32 @@ export function assignMember(
     slots: slots.sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     slotId,
   }
+}
+
+export function assignmentError(
+  plan: ActivityEditorInput,
+  value: Assignment,
+  otherAssignments: Window[]
+): string | null {
+  const start = Date.parse(value.startsAt),
+    end = Date.parse(value.endsAt)
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end)
+    return "終了は開始より後にしてください。"
+  if (start < Date.parse(plan.startsAt) || end > Date.parse(plan.endsAt))
+    return "シフトの開始・終了の範囲内で指定してください。"
+  const overlaps = (window: { startsAt: string; endsAt: string }) =>
+    Date.parse(window.startsAt) < end && Date.parse(window.endsAt) > start
+  if (
+    otherAssignments.some(
+      (item) => item.memberId === value.memberId && overlaps(item)
+    ) ||
+    plan.slots.some(
+      (slot) =>
+        slot.id !== value.slotId &&
+        slot.memberIds.includes(value.memberId) &&
+        overlaps(slot)
+    )
+  )
+    return "この時間には別のシフトがあります。"
+  return null
 }

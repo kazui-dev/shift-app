@@ -11,19 +11,8 @@ import {
   japanDateWeekday,
 } from "@workspace/shared/japan-time"
 
-function requirementLabel(activity: {
-  requirements: { startsAt: string; endsAt: string; requiredCount: number }[]
-}) {
-  return activity.requirements
-    .map(
-      (item) =>
-        `${japanTime(item.startsAt)}–${japanTime(item.endsAt)} ${item.requiredCount}人`
-    )
-    .join(" / ")
-}
-
 const columns =
-  "@4xl:grid-cols-[6rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.5fr)_2.5rem]"
+  "@4xl:grid-cols-[6rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem]"
 
 export function ActivityManager({
   year,
@@ -125,7 +114,6 @@ export function ActivityManager({
                   <span>シフト</span>
                   <span>担当</span>
                   <span>場所</span>
-                  <span>必要人数</span>
                   <span>状態</span>
                 </div>
                 <ul className="divide-y">
@@ -159,13 +147,6 @@ export function ActivityManager({
                         >
                           <span className="@4xl:hidden">場所：</span>
                           {item.place || "—"}
-                        </span>
-                        <span
-                          className="block min-w-0 text-xs break-words text-muted-foreground"
-                          title={requirementLabel(item)}
-                        >
-                          <span className="@4xl:hidden">必要人数：</span>
-                          {requirementLabel(item) || "—"}
                         </span>
                         <span className="block text-xs text-muted-foreground">
                           {item.active ? "有効" : "無効"}

@@ -90,6 +90,7 @@ it("excludes an inactive directory listing while retaining its answers", async (
         members: [{ id: "admin" }],
         slots: [{ memberIds: [] }],
         submittedMemberIds: [],
+        availabilityAnswers: [],
       })
       return c.text("ok")
     })
@@ -159,6 +160,9 @@ it("saves directory allocations and transfers them when a real member is created
         members: [{ id: "submission" }, { id: "admin" }],
         slots: [{ memberIds: ["submission"] }],
         submittedMemberIds: ["submission"],
+        availabilityAnswers: [
+          { memberId: "submission", date: "2026-10-31", choice: "all" },
+        ],
       })
       expect(db.prepare("SELECT id FROM app_users").all()).toEqual([
         { id: "admin" },
@@ -206,6 +210,17 @@ it("saves directory allocations and transfers them when a real member is created
           .get()?.n
       ).toBe(0)
       expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([])
+      expect(
+        (await readActivityEditor(binding, "work"))?.availabilityAnswers
+      ).toEqual([{ memberId: "new-member", date: "2026-10-31", choice: "all" }])
+      db.exec("UPDATE availability_dates SET version=2 WHERE id='day'")
+      expect(
+        (await readActivityEditor(binding, "work"))?.availabilityAnswers
+      ).toEqual([])
+      db.exec("UPDATE availability_day_answers SET date_version=2,choice='no'")
+      expect(
+        (await readActivityEditor(binding, "work"))?.availabilityAnswers
+      ).toEqual([{ memberId: "new-member", date: "2026-10-31", choice: "no" }])
       await expect(
         saveShiftPlan(
           binding,
