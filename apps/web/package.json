@@ -14,8 +14,8 @@
     "preview": "vp run build && vp preview"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.102.8",
-    "@tanstack/react-query-persist-client": "^5.102.8",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-query-persist-client": "^5.104.1",
     "@tanstack/react-router": "^1.170.39",
     "@tanstack/react-virtual": "^3.14.13",
     "@workspace/shared": "workspace:*",
