@@ -11,6 +11,7 @@ import type { timeScale } from "./time-scale"
 export function TimeGridRow({
   bulkSelected,
   member,
+  duties,
   status,
   availability,
   otherAssignments,
@@ -24,6 +25,7 @@ export function TimeGridRow({
 }: {
   bulkSelected?: boolean | undefined
   member: EditorData["members"][number]
+  duties: string[]
   status: "available" | "unavailable" | "unanswered"
   availability: EditorData["availability"]
   otherAssignments: EditorData["otherAssignments"]
@@ -102,7 +104,7 @@ export function TimeGridRow({
         }
         aria-pressed={bulkSelected}
         data-shift-member={member.id}
-        className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm"
+        className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-2 text-left text-sm sm:px-3"
       >
         <span className="relative shrink-0">
           <MemberAvatar
@@ -117,15 +119,24 @@ export function TimeGridRow({
           )}
         </span>
         <span className="min-w-0">
-          <span className="block truncate">{member.displayName}</span>
-          {status === "unavailable" && (
-            <span className="block text-xs font-normal text-muted-foreground">
-              参加不可
+          <span className="flex items-baseline gap-1.5 leading-5">
+            <span className="min-w-0 truncate">{member.displayName}</span>
+            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+              {member.studentId}
             </span>
-          )}
-          {status === "unanswered" && (
-            <span className="block text-xs font-normal text-muted-foreground">
-              未回答
+          </span>
+          {(status !== "available" || duties.length > 0) && (
+            <span
+              className="block truncate text-[11px] leading-4 text-muted-foreground"
+              title={duties.join("・") || undefined}
+            >
+              {[
+                status === "unavailable" && "参加不可",
+                status === "unanswered" && "未回答",
+                duties.join("・"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </span>
           )}
         </span>

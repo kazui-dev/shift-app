@@ -29,7 +29,7 @@
 }
 @media (max-width: 640px) {
   .shift-timeline {
-    --shift-name-width: 136px;
+    --shift-name-width: 168px;
   }
   .shift-time-dialog::backdrop {
     background: #0003;
