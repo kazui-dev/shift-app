@@ -105,8 +105,14 @@ export function TimeGrid({
     Math.max(0, members.length - 1),
     Math.max(0, Math.floor(scrollTop / 56) - 5)
   )
+  const duties = new Set(
+    data.roles.filter((item) => item.duty).map((item) => item.id)
+  )
   const visible = members.slice(first, first + 30).map((member) => ({
     member,
+    duties: member.roles
+      .filter((item) => duties.has(item.id))
+      .map((item) => item.name),
     status: memberAvailability(data, plan, member.id),
     availability: data.availability.filter(
       (window) => window.memberId === member.id

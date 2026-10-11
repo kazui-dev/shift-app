@@ -134,7 +134,12 @@ export const activityEditorResponseSchema = v.object({
   requirements: v.array(requirementSchema),
   members: v.array(yearMemberResponseSchema),
   roles: v.array(
-    v.object({ id: v.string(), name: v.string(), color: v.string() })
+    v.object({
+      id: v.string(),
+      name: v.string(),
+      color: v.string(),
+      duty: v.boolean(),
+    })
   ),
   availability: v.array(
     v.object({
