@@ -74,6 +74,7 @@ export function AvailabilityProgress({
           onChange={(event) => setSearch(event.target.value)}
         />
         <SelectField
+          size="default"
           aria-label="提出状況で絞り込み"
           className="w-auto"
           value={status}

@@ -67,9 +67,9 @@ export function ChatMessageRow({
     <Button
       type="button"
       variant="destructive"
-      size="icon-xs"
+      size="icon-2xs"
       aria-label="送信できませんでした。操作を表示"
-      className="size-5 rounded-full"
+      className="rounded-full"
       data-open-actions
       onPointerDown={(event) => event.preventDefault()}
     >

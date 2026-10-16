@@ -227,9 +227,9 @@ export function ChatComposer({
           <Button
             type="button"
             variant="ghost"
-            size="icon-sm"
+            size="icon-compact"
             disabled={disabled}
-            className={`absolute bottom-2 left-2 size-8 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted`}
+            className={`absolute bottom-2 left-2 rounded-full text-muted-foreground transition-none active:scale-95 active:bg-muted data-[pressed=true]:scale-95 data-[pressed=true]:bg-muted`}
             data-pressed={pressed || pickerOpen}
             onPointerDown={(event) => {
               event.preventDefault()
@@ -307,8 +307,8 @@ export function ChatComposer({
           <Button
             type="submit"
             onPointerDown={(event) => event.preventDefault()}
-            size="icon-sm"
-            className={`absolute right-2 bottom-2 size-8 rounded-full transition-colors ${!editing && !draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
+            size="icon-compact"
+            className={`absolute right-2 bottom-2 rounded-full transition-colors ${!editing && !draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
             aria-label={editing ? "保存" : "送信"}
             disabled={disabled || saving || !sendable}
           >

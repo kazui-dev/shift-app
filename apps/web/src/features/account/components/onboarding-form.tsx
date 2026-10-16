@@ -81,8 +81,9 @@ export function OnboardingForm({
           <Field>
             <FieldLabel htmlFor="student-id">学籍番号（英字大文字）</FieldLabel>
             <Input
+              controlSize="lg"
               id="student-id"
-              className="h-11 font-mono"
+              className="font-mono"
               placeholder="26AJ000"
               required
               value={studentId}
@@ -92,8 +93,8 @@ export function OnboardingForm({
           <Field>
             <FieldLabel htmlFor="display-name">氏名（スペースなし）</FieldLabel>
             <Input
+              controlSize="lg"
               id="display-name"
-              className="h-11"
               maxLength={80}
               placeholder="電大太郎"
               required

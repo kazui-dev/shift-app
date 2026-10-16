@@ -52,7 +52,7 @@ export function ActivityManager({
         <Input
           aria-label="シフトを検索"
           placeholder="シフト名・担当・場所で検索"
-          className="h-9 w-full sm:max-w-80"
+          className="w-full sm:max-w-80"
           value={search}
           onChange={(event) => {
             view.save({ search: event.target.value })
@@ -101,7 +101,8 @@ export function ActivityManager({
         ))}
         <SelectField
           aria-label="シフトの状態"
-          className="h-9 w-auto"
+          size="default"
+          className="w-auto"
           value={status}
           onValueChange={(value) => {
             view.save({ filter: value })

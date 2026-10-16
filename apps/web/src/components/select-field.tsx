@@ -13,6 +13,7 @@ export function SelectField({
   onValueChange,
   disabled,
   className,
+  size = "lg",
   ...props
 }: {
   value: string | number
@@ -21,6 +22,7 @@ export function SelectField({
   disabled?: boolean
   id?: string
   "aria-label"?: string
+  size?: "default" | "md" | "lg"
   className?: string
 }) {
   const items = options.map((option) => ({
@@ -38,8 +40,9 @@ export function SelectField({
     >
       <SelectTrigger
         {...props}
+        size={size}
         className={cn(
-          "h-11 w-full min-w-0 rounded-lg bg-background px-3 text-base",
+          "w-full min-w-0 rounded-lg bg-background px-3 text-base",
           className
         )}
       >

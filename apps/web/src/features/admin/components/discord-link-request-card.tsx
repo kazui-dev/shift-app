@@ -53,7 +53,7 @@ export function DiscordLinkRequestCard({
         </p>
       </div>
       <Input
-        className="h-11"
+        controlSize="lg"
         maxLength={240}
         placeholder="本人確認の方法、または拒否理由"
         value={reason}

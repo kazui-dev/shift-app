@@ -205,6 +205,7 @@ function ShiftTimeRow({
         >
           開始
           <Input
+            controlSize="lg"
             id={`${id}-start`}
             aria-label="勤務の開始"
             type="time"
@@ -212,7 +213,7 @@ function ShiftTimeRow({
             required
             value={from}
             onChange={(event) => setFrom(event.target.value)}
-            className="mt-2 h-11 text-base text-foreground"
+            className="mt-2 text-base text-foreground"
           />
         </label>
         <span className="pb-3">–</span>
@@ -222,6 +223,7 @@ function ShiftTimeRow({
         >
           終了
           <Input
+            controlSize="lg"
             id={`${id}-end`}
             aria-label="勤務の終了"
             type="time"
@@ -229,7 +231,7 @@ function ShiftTimeRow({
             required
             value={to}
             onChange={(event) => setTo(event.target.value)}
-            className="mt-2 h-11 text-base text-foreground"
+            className="mt-2 text-base text-foreground"
           />
         </label>
       </fieldset>

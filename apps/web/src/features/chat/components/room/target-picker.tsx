@@ -146,9 +146,9 @@ export function TargetPicker({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="icon"
+                    size="icon-sm"
                     aria-label="メンバーを絞り込む"
-                    className={`size-9 ${filters.length ? "bg-muted" : ""}`}
+                    className={filters.length ? "bg-muted" : ""}
                   />
                 }
               >
