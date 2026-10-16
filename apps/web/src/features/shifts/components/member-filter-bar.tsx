@@ -27,7 +27,7 @@ export function MemberFilterBar({
         <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
         <Input
           id="manage-member-search"
-          className="h-9 pl-9"
+          className="pl-9"
           aria-label="名前・学籍番号で検索"
           placeholder="名前・学籍番号で検索"
           value={filters.search}
@@ -37,6 +37,7 @@ export function MemberFilterBar({
         />
       </label>
       <SelectField
+        size="default"
         aria-label="表示するロール"
         value={filters.role}
         className="min-w-36 flex-1 sm:w-auto sm:flex-none"

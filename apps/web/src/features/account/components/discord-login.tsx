@@ -64,8 +64,8 @@ export function DiscordLogin({ enabled }: { enabled: boolean }) {
       <Button
         className={
           error
-            ? "h-11 w-full bg-destructive text-white shadow-xs hover:bg-destructive/90"
-            : "h-11 w-full bg-[#5865f2] text-white hover:bg-[#4752c4]"
+            ? "w-full bg-destructive text-white shadow-xs hover:bg-destructive/90"
+            : "w-full bg-[#5865f2] text-white hover:bg-[#4752c4]"
         }
         size="lg"
         disabled={!enabled || pending}
