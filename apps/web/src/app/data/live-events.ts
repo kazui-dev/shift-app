@@ -15,6 +15,7 @@ import { refreshMemberships } from "./sync"
 /** What a missed event could have changed outside chat. */
 const reconnectKeys = [
   keys.activities,
+  keys.shiftOverview,
   keys.assignments,
   keys.shiftAttendance,
   keys.attendanceEvents,
@@ -38,6 +39,7 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
       // Shift rooms follow assignments, so chat access may have moved too.
       invalidate(client, [
         keys.activities(),
+        keys.shiftOverview(),
         keys.assignments(),
         keys.shiftAttendance(),
         keys.chatRooms(),
@@ -47,12 +49,14 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
     case "attendance_changed":
       invalidate(client, [
         keys.shiftAttendance(event.activityId),
+        keys.shiftOverview(),
         keys.attendanceEvents(),
       ])
       return
     case "availability_changed":
       invalidate(client, [
         keys.availability(event.year),
+        keys.shiftOverview(event.year),
         keys.availabilityDates(event.year),
         keys.memberAvailability(event.year),
         keys.availabilitySubmissions(event.year),
@@ -61,6 +65,7 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
     case "availability_submitted":
       invalidate(client, [
         keys.availability(event.year),
+        keys.shiftOverview(event.year),
         keys.memberAvailability(event.year),
         keys.availabilitySubmissions(event.year),
         keys.availabilityHistory(event.year),

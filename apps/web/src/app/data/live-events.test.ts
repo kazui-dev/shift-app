@@ -38,12 +38,14 @@ it("refreshes only what each change touches", () => {
   )
   expect(invalidated()).toEqual([
     keys.shiftAttendance(shift),
+    keys.shiftOverview(),
     keys.attendanceEvents(),
   ])
   invalidate.mockClear()
   applyLiveEvent(client, { type: "availability_submitted", year: 2026 }, "me")
   expect(invalidated()).toEqual([
     keys.availability(2026),
+    keys.shiftOverview(2026),
     keys.memberAvailability(2026),
     keys.availabilitySubmissions(2026),
     keys.availabilityHistory(2026),
@@ -52,6 +54,7 @@ it("refreshes only what each change touches", () => {
   applyLiveEvent(client, { type: "availability_changed", year: 2026 }, "me")
   expect(invalidated()).toEqual([
     keys.availability(2026),
+    keys.shiftOverview(2026),
     keys.availabilityDates(2026),
     keys.memberAvailability(2026),
     keys.availabilitySubmissions(2026),
