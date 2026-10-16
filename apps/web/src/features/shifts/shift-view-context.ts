@@ -9,6 +9,8 @@ export type MemberFilters = {
 }
 
 export type ShiftView = {
+  mode?: "list" | "overview"
+  overview?: import("./components/overview-model").OverviewFilters
   filters?: MemberFilters
   listFilters?: ActivityFilters
   scrollTop: number

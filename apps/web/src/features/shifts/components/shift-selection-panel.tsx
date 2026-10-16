@@ -1,5 +1,6 @@
+import { ShiftTimeDialog } from "./shift-time-dialog"
 import { memberAvailability } from "./member-availability"
-import { useId, useLayoutEffect, useRef, useState } from "react"
+import { useId, useState } from "react"
 import { Plus, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -35,55 +36,16 @@ export function ShiftSelectionPanel({
   onApply: (selection: ShiftSelection) => string | null
   onRemove: (slotId: string) => void
 }) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const member = data.members.find((item) => item.id === selection.memberId)
   const shifts = slots.filter((slot) =>
     slot.memberIds.includes(selection.memberId)
   )
   const [adding, setAdding] = useState(selection.slotId === null)
-  useLayoutEffect(() => {
-    const element = dialog.current
-    if (!element) return undefined
-    const anchor =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null
-    element.showModal()
-    const place = () => {
-      const rect = anchor?.getBoundingClientRect()
-      const width = element.offsetWidth,
-        height = element.offsetHeight
-      const center = window.innerWidth <= 640 || !rect
-      element.style.left = `${center ? (window.innerWidth - width) / 2 : Math.max(16, Math.min(rect.left, window.innerWidth - width - 16))}px`
-      element.style.top = `${Math.max(16, center ? (window.innerHeight - height) / 2 : rect.bottom + height + 8 < window.innerHeight ? rect.bottom + 8 : rect.top - height - 8)}px`
-    }
-    place()
-    const observer = new ResizeObserver(place)
-    observer.observe(element)
-    window.addEventListener("resize", place)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("resize", place)
-      element.close()
-      requestAnimationFrame(() => {
-        if (!element.open && anchor?.isConnected)
-          anchor.focus({ preventScroll: true })
-      })
-    }
-  }, [])
   const available = data.availability.filter(
     (item) => item.memberId === selection.memberId
   )
   return (
-    <dialog
-      ref={dialog}
-      className="shift-time-dialog"
-      aria-labelledby="shift-time-title"
-      onCancel={(event) => {
-        event.preventDefault()
-        onClose()
-      }}
-    >
+    <ShiftTimeDialog titleId="shift-time-title" onClose={onClose}>
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
           <h3 id="shift-time-title" className="text-sm font-semibold">
@@ -152,7 +114,7 @@ export function ShiftSelectionPanel({
           </Button>
         )}
       </div>
-    </dialog>
+    </ShiftTimeDialog>
   )
 }
 function ShiftTimeRow({

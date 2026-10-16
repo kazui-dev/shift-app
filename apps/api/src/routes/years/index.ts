@@ -1,3 +1,4 @@
+import { shiftOverviewApp } from "../../features/shifts/routes/overview"
 import { memberRolesApp } from "../../features/roles/routes/years/member-roles"
 import { Hono } from "hono"
 
@@ -21,3 +22,5 @@ yearsApp.route("/", availabilitySubmissionsApp)
 yearsApp.route("/", yearMembershipsApp)
 
 yearsApp.route("/", memberRolesApp)
+
+yearsApp.route("/", shiftOverviewApp)

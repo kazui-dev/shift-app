@@ -1,0 +1,81 @@
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+  body.printing-shift-overview {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  body.printing-shift-overview * {
+    visibility: hidden;
+  }
+  body.printing-shift-overview:has(.overview-print) #root,
+  body.printing-shift-overview:has(.overview-print)
+    #root
+    *:has(.overview-print) {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  body.printing-shift-overview .overview-print {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    color: #000;
+    background: #fff;
+    font-size: 9pt;
+  }
+  body.printing-shift-overview .overview-print * {
+    visibility: visible;
+  }
+  .overview-print h1 {
+    font-size: 14pt;
+    margin-bottom: 3mm;
+  }
+  .overview-print p {
+    margin-bottom: 2mm;
+  }
+  .overview-print .overview-scroll {
+    overflow: visible;
+  }
+  .overview-print .overview-grid {
+    min-width: 0 !important;
+    width: 100%;
+  }
+  .overview-print .overview-row {
+    break-inside: avoid;
+  }
+  .overview-print .sticky {
+    position: static;
+  }
+  .overview-print * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .overview-print .shift-name {
+    width: 36mm;
+  }
+  .overview-print .overview-writing {
+    width: 36mm;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 8.8mm,
+      #ddd 8.8mm,
+      #ddd 9mm
+    );
+  }
+  .overview-print .overview-row {
+    height: 18mm;
+  }
+  .overview-print .mx-6 {
+    margin-inline: 3mm;
+  }
+  .overview-print .text-xs {
+    font-size: 8pt;
+  }
+}
