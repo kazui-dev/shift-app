@@ -114,7 +114,7 @@ export function RoomList({
             placeholder="チャットを検索"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            className="h-9 border-transparent bg-muted/40 pl-8 text-sm shadow-none"
+            className="border-transparent bg-muted/40 pl-8 text-sm shadow-none"
           />
         </div>
         {!offline && (

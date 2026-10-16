@@ -61,7 +61,7 @@ export function YearRoleManager({
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
         <Input
-          className="h-9 w-full sm:max-w-80"
+          className="w-full sm:max-w-80"
           aria-label="ロールを検索"
           placeholder="ロール名で検索"
           disabled={reordering}

@@ -275,9 +275,9 @@ export function ChatMessages({
           {showLatest && (
             <Button
               variant="outline"
-              size="icon"
+              size="icon-sm"
               aria-label="最新のメッセージへ"
-              className="absolute right-[var(--chat-gutter)] bottom-[calc(100%+var(--chat-gutter))] size-9 rounded-full bg-background shadow-sm dark:bg-background dark:hover:bg-muted"
+              className="absolute right-[var(--chat-gutter)] bottom-[calc(100%+var(--chat-gutter))] rounded-full bg-background shadow-sm dark:bg-background dark:hover:bg-muted"
               onClick={latest}
             >
               <ArrowDown className="size-4" />

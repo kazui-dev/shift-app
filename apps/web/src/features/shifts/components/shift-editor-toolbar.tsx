@@ -46,7 +46,6 @@ export function ShiftEditorToolbar({
         <Button
           variant="outline"
           size="icon-sm"
-          className="size-9 sm:size-10"
           aria-label="元に戻す"
           disabled={!canUndo || pending}
           onClick={onUndo}
@@ -56,7 +55,6 @@ export function ShiftEditorToolbar({
         <Button
           variant="outline"
           size="icon-sm"
-          className="size-9 sm:size-10"
           aria-label="やり直す"
           disabled={!canRedo || pending}
           onClick={onRedo}
@@ -66,7 +64,7 @@ export function ShiftEditorToolbar({
         <Button
           variant="outline"
           size="sm"
-          className="size-9 px-0 sm:w-auto sm:px-3"
+          className="w-9 px-0 sm:w-auto sm:px-3"
 
           disabled={pending}
           onClick={onAttendance}
@@ -77,7 +75,7 @@ export function ShiftEditorToolbar({
         <Button
           variant="outline"
           size="sm"
-          className="size-9 px-0 sm:w-auto sm:px-3"
+          className="w-9 px-0 sm:w-auto sm:px-3"
           disabled={pending || (!dirty && !conflicted)}
           onClick={onSave}
         >
@@ -95,7 +93,7 @@ export function ShiftEditorToolbar({
         <Button
           variant="outline"
           size="sm"
-          className="size-9 px-0 sm:w-auto sm:px-3"
+          className="w-9 px-0 sm:w-auto sm:px-3"
           aria-label="シフトの詳細と操作"
           disabled={pending}
           onClick={onActions}

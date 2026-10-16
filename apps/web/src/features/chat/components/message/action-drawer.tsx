@@ -88,7 +88,9 @@ export function MessageActionDrawer({
         <div className="flex flex-col gap-1 p-3">
           {message?.status === "failed" && (
             <DrawerClose
-              render={<Button variant="ghost" className="h-12 justify-start" />}
+              render={
+                <Button variant="ghost" size="xl" className="justify-start" />
+              }
               onClick={onRetry}
             >
               <RotateCw />
@@ -100,7 +102,8 @@ export function MessageActionDrawer({
               render={
                 <Button
                   variant="ghost"
-                  className="h-12 justify-start text-destructive"
+                  size="xl"
+                  className="justify-start text-destructive"
                 />
               }
               onClick={onCancel}
@@ -112,7 +115,9 @@ export function MessageActionDrawer({
           {permission?.reply && (
             <DrawerClose
               disabled={disabled}
-              render={<Button variant="ghost" className="h-12 justify-start" />}
+              render={
+                <Button variant="ghost" size="xl" className="justify-start" />
+              }
               onClick={onReply}
             >
               <CornerUpLeft />
@@ -122,7 +127,9 @@ export function MessageActionDrawer({
           {permission?.edit && (
             <DrawerClose
               disabled={disabled}
-              render={<Button variant="ghost" className="h-12 justify-start" />}
+              render={
+                <Button variant="ghost" size="xl" className="justify-start" />
+              }
               onClick={onEdit}
             >
               <Pencil />
@@ -131,7 +138,9 @@ export function MessageActionDrawer({
           )}
           {!pending && message?.content && !message.deleted && (
             <DrawerClose
-              render={<Button variant="ghost" className="h-12 justify-start" />}
+              render={
+                <Button variant="ghost" size="xl" className="justify-start" />
+              }
               onClick={onCopy}
             >
               <Copy />
@@ -145,7 +154,8 @@ export function MessageActionDrawer({
               render={
                 <Button
                   variant="ghost"
-                  className="h-12 justify-start text-destructive"
+                  size="xl"
+                  className="justify-start text-destructive"
                 />
               }
               onClick={onDelete}

@@ -71,7 +71,8 @@ export function MonthSwitcher({
                 inert={month !== currentMonth}
               >
                 <Button
-                  className="h-10 w-full font-semibold"
+                  size="sm"
+                  className="w-full font-semibold"
                   variant="ghost"
                   aria-label={`${monthLabel(month)}、日付を選択`}
                   onClick={openPicker}

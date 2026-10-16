@@ -79,17 +79,11 @@ export function AvatarStep({ onDone }: { onDone: () => void }) {
         />
       )}
       <div className="flex flex-col gap-2">
-        <Button className="h-11" size="lg" disabled={pending} onClick={confirm}>
+        <Button size="lg" disabled={pending} onClick={confirm}>
           {pending && <LoaderCircle className="animate-spin" />}
           設定
         </Button>
-        <Button
-          className="h-11"
-          size="lg"
-          variant="outline"
-          disabled={pending}
-          onClick={onDone}
-        >
+        <Button size="lg" variant="outline" disabled={pending} onClick={onDone}>
           スキップ
         </Button>
       </div>
