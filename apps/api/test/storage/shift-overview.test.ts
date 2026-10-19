@@ -13,6 +13,14 @@ it("restricts the overview to the responsible's shifts and rejects ordinary memb
       INSERT INTO user (id,name,email) VALUES ('10000000-0000-4000-8000-000000000001','Admin','a@example.test'),('10000000-0000-4000-8000-000000000002','Lead','l@example.test'),('10000000-0000-4000-8000-000000000003','Staff','s@example.test');
       INSERT INTO app_users VALUES ('10000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','Admin','26AJ001','system_admin',0,0),('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002','Lead','26AJ002','member',0,0),('10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000003','Staff','26AJ003','member',0,0);
       INSERT OR IGNORE INTO year_memberships (year,member_id,status,created_at,updated_at) VALUES (2026,'10000000-0000-4000-8000-000000000001','active',0,0),(2026,'10000000-0000-4000-8000-000000000002','active',0,0),(2026,'10000000-0000-4000-8000-000000000003','active',0,0);`)
+    db.exec(`INSERT INTO year_roles (id,year,name,color,position,created_at,updated_at) VALUES
+      ('20000000-0000-4000-8000-000000000001',2026,'広報局','#000000',2,0,0),
+      ('20000000-0000-4000-8000-000000000002',2026,'web班','#000000',1,0,0);
+      INSERT INTO bureaus (id,year,name,role_id,created_at) VALUES ('bureau',2026,'広報局','20000000-0000-4000-8000-000000000001',0);
+      INSERT INTO duties (id,bureau_id,name,role_id,created_at) VALUES ('duty','bureau','web班','20000000-0000-4000-8000-000000000002',0);
+      INSERT INTO member_year_roles (member_id,role_id,created_at) VALUES
+      ('10000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000001',0),
+      ('10000000-0000-4000-8000-000000000003','20000000-0000-4000-8000-000000000002',0);`)
     const day = Date.parse("2026-10-29T00:00:00+09:00")
     const hour = 3_600_000
     for (const [id, from, to] of [
@@ -68,6 +76,12 @@ it("restricts the overview to the responsible's shifts and rejects ordinary memb
     const lead = await request("10000000-0000-4000-8000-000000000002")
     expect(lead.status).toBe(200)
     const scoped = v.parse(shiftOverviewResponseSchema, await lead.json())
+    expect(scoped.roles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "広報局", duty: false }),
+        expect.objectContaining({ name: "web班", duty: true }),
+      ])
+    )
     expect(scoped.canEdit).toBe(false)
     expect(scoped.activities.map((a) => a.id)).toEqual(["own"])
     expect(scoped.assignments.map((a) => a.id)).toEqual(["own"])

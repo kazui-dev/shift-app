@@ -11,13 +11,14 @@ export const dates = ["2026-11-01", "2026-11-02", "2026-11-03"]
 const at = (date: string, hour: number) =>
   new Date(`${date}T${String(hour).padStart(2, "0")}:00:00+09:00`).toISOString()
 export const roles: InferOutput<typeof yearRoleResponseSchema>[] = [
+  "野外ステージ",
+  "web班",
   "受付班",
-  "企画班",
-  "運営班",
+  "広報局",
 ].map((name, index) => ({
   id: uuid(900 + index),
   year: 2026,
-  position: 3 - index,
+  position: 4 - index,
   name,
   color: "#64748B",
   permissions: [],
@@ -70,7 +71,9 @@ export const members: Editor["members"] = Array.from(
     image: null,
     displayName: `${family[i % 16]} ${given[(i * 7 + Math.floor(i / 16)) % 20]}`,
     studentId: `26EC${String(i + 1).padStart(3, "0")}`,
-    roles: roles.filter((_role, n) => n === i % 3),
+    roles: roles.filter(
+      (_role, n) => n === i % 3 || n === 3 || (i % 5 === 0 && n === (i + 1) % 3)
+    ),
   })
 )
 export function makeEditors(): Editor[] {
@@ -94,7 +97,7 @@ export function makeEditors(): Editor[] {
         { targetType: "role" as const, targetId: uuid(900 + job) },
       ],
       members,
-      roles,
+      roles: roles.map((role) => ({ ...role, duty: role.name !== "広報局" })),
       requirements: [],
       slots: Array.from({ length: 6 }, (_, n) => ({
         id: uuid(10000 + day * 100 + job * 10 + n),

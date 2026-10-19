@@ -268,3 +268,34 @@ it("rejects cross-year and overlapping directory assignments without creating me
     db.close()
   }
 })
+
+it("marks the roles that duties grant in the activity editor", async () => {
+  const db = migrated()
+  try {
+    db.exec(`INSERT INTO operating_years VALUES (2026,0,0);
+      INSERT INTO user (id,name,email) VALUES ('u','Admin','admin@example.test');
+      INSERT INTO app_users VALUES ('admin','u','Admin','26AJ002','system_admin',0,0);
+      INSERT INTO activities (id,year,name,place,activity_type,starts_at,ends_at,color,created_by,updated_by,created_at,updated_at)
+      VALUES ('work',2026,'受付','本館','shift',1000,5000,'#000000','admin','admin',0,0);
+      INSERT INTO year_roles (id,year,name,color,position,created_at,updated_at) VALUES
+        ('bureau-role',2026,'広報局','#000000',2,0,0),('duty-role',2026,'web班','#000000',1,0,0);
+      INSERT INTO bureaus (id,year,name,role_id,created_at) VALUES ('bureau',2026,'広報局','bureau-role',0);
+      INSERT INTO duties (id,bureau_id,name,role_id,created_at) VALUES ('duty','bureau','web班','duty-role',0);`)
+    const app = new Hono<{ Bindings: CloudflareBindings }>()
+    app.get("/", async (c) => {
+      await expect(
+        readActivityEditor(c.env.shift_app, "work")
+      ).resolves.toMatchObject({
+        roles: [
+          { id: "bureau-role", duty: false },
+          { id: "duty-role", duty: true },
+        ],
+      })
+      return c.text("ok")
+    })
+    const result = await app.request("/", {}, { shift_app: d1Binding(db) })
+    expect(await result.text()).toBe("ok")
+  } finally {
+    db.close()
+  }
+})

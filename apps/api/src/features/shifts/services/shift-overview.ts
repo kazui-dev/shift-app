@@ -69,9 +69,17 @@ export async function readShiftOverview(
           image: string | null
         }>(),
       db
-        .prepare(planningMemberRoles)
+        .prepare(
+          `SELECT r.*, r.id IN (SELECT role_id FROM duties) AS duty FROM (${planningMemberRoles}) r`
+        )
         .bind(year)
-        .all<{ memberId: string; id: string; name: string; color: string }>(),
+        .all<{
+          memberId: string
+          id: string
+          name: string
+          color: string
+          duty: number
+        }>(),
       db.prepare(planningAvailability).bind(year).all<{
         memberId: string
         startsAt: number | null
@@ -123,7 +131,10 @@ export async function readShiftOverview(
     })),
     roles: [
       ...new Map(
-        visibleRoles.map(({ id, name, color }) => [id, { id, name, color }])
+        visibleRoles.map(({ id, name, color, duty }) => [
+          id,
+          { id, name, color, duty: duty === 1 },
+        ])
       ).values(),
     ],
     availability: availability.results.flatMap((w) => {

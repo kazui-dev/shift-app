@@ -1,3 +1,4 @@
+import { ShiftMemberLabel } from "./shift-member-label"
 import { TimeGuides } from "./time-guides"
 import "./time-grid.css"
 import type { ShiftOverview } from "@workspace/shared/shifts"
@@ -41,6 +42,9 @@ export function OverviewGrid({
   const lateCount = rows
     .flatMap((row) => row.assignments)
     .filter((assignment) => assignment.attendance?.state === "late").length
+  const duties = new Set(
+    data.roles.filter((role) => role.duty).map((role) => role.id)
+  )
   const activities = new Map(data.activities.map((a) => [a.id, a]))
   return (
     <section
@@ -91,7 +95,7 @@ export function OverviewGrid({
           >
             <button
               type="button"
-              className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-3 text-left text-sm"
+              className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-left text-sm sm:px-3"
               aria-label={`${member.displayName}のシフトを確認`}
               onClick={() => {
                 const assignment = assignments[0]
@@ -116,14 +120,13 @@ export function OverviewGrid({
                 image={member.image}
                 className="size-6 text-[10px]"
               />
-              <span className="min-w-0 truncate">
-                {member.displayName}
-                {printing && (
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    {member.studentId}
-                  </span>
-                )}
-              </span>
+              <ShiftMemberLabel
+                name={member.displayName}
+                studentId={member.studentId}
+                duties={member.roles
+                  .filter((role) => duties.has(role.id))
+                  .map((role) => role.name)}
+              />
             </button>
             <div className="relative mx-6 min-w-0 flex-1">
               <TimeGuides scale={scale} stepMinutes={30} />
