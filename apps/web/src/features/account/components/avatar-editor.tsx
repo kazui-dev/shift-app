@@ -256,8 +256,8 @@ export function AvatarEditor({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-8 px-6 pb-[calc(2rem+env(safe-area-inset-bottom))]">
           <Button
             variant="ghost"
-            size="icon"
-            className="pointer-events-auto size-14 rounded-full bg-white/10 text-white hover:bg-white/20"
+            size="icon-2xl"
+            className="pointer-events-auto rounded-full bg-white/10 text-white hover:bg-white/20"
             aria-label="やめる"
             disabled={busy}
             onClick={onCancel}
@@ -265,8 +265,8 @@ export function AvatarEditor({
             <X className="size-6" />
           </Button>
           <Button
-            size="icon"
-            className="pointer-events-auto size-14 rounded-full"
+            size="icon-2xl"
+            className="pointer-events-auto rounded-full"
             aria-label="この位置で決定"
             disabled={!frame || busy}
             onClick={() => void confirm()}

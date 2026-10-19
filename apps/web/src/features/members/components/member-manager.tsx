@@ -93,7 +93,7 @@ export function MemberManager({
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
         <Input
-          className="h-9 w-full sm:max-w-80"
+          className="w-full sm:max-w-80"
           aria-label="メンバーを検索"
           placeholder="名前・学籍番号で検索"
           value={search}
@@ -104,7 +104,8 @@ export function MemberManager({
         />
         <SelectField
           aria-label="ロールで絞り込み"
-          className="h-9 w-auto"
+          size="default"
+          className="w-auto"
           value={filter}
           onValueChange={(value) => {
             view.save({ filter: value })

@@ -4,7 +4,7 @@ import { BulkAssignmentDialog } from "./bulk-assignment-dialog"
 import { keys } from "@/app/data/keys"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "@workspace/ui/lib/toast"
@@ -56,6 +56,11 @@ export function ShiftEditor({
   const [conflicted, setConflicted] = useState(false)
   const [selection, setSelection] = useState<ShiftSelection | null>(null)
   const view = useShiftView(source.activity.year)
+  const viewport = useRef<HTMLDivElement>(null)
+  const initialScrollTop = useRef(view.scrollTop)
+  useLayoutEffect(() => {
+    if (viewport.current) viewport.current.scrollTop = initialScrollTop.current
+  }, [])
   const [filters, storeFilters] = useState<MemberFilters>(
     () =>
       view.filters ?? {
@@ -71,7 +76,8 @@ export function ShiftEditor({
       }
   )
   function setFilters(value: MemberFilters) {
-    view.save({ filters: value })
+    if (viewport.current) viewport.current.scrollTop = 0
+    view.save({ filters: value, scrollTop: 0 })
     storeFilters(value)
   }
   const [attendanceOpen, setAttendanceOpen] = useState(false)
@@ -164,7 +170,13 @@ export function ShiftEditor({
     }
   }
   return (
-    <>
+    <div
+      ref={viewport}
+      className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto"
+      onScroll={(event) =>
+        view.save({ scrollTop: event.currentTarget.scrollTop })
+      }
+    >
       <ShiftEditorToolbar
         activity={data.activity}
         dirty={dirty}
@@ -184,7 +196,7 @@ export function ShiftEditor({
         }
         onActions={() => setActions(true)}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4 sm:px-6">
+      <div className="space-y-3 px-4 pb-4 sm:px-6">
         <MemberFilterBar
           onBulkAssign={() => {
             setSelection(null)
@@ -248,11 +260,8 @@ export function ShiftEditor({
             </Button>
           </div>
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <fieldset
-            disabled={pending}
-            className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
-          >
+        <div className="min-w-0">
+          <fieldset disabled={pending} className="min-w-0">
             <TimeGrid
               data={data}
               bulkSelection={
@@ -437,6 +446,6 @@ export function ShiftEditor({
           }}
         />
       )}
-    </>
+    </div>
   )
 }

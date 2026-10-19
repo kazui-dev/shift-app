@@ -18,7 +18,8 @@ export function ManagementYearSelect({
     <SelectField
       aria-label="管理する年度"
       disabled={disabled}
-      className="h-10 w-full text-sm"
+      size="md"
+      className="w-full text-sm"
       value={years.year}
       onValueChange={(value) => years.selectYear(Number(value))}
       options={years.years.map((item) => ({

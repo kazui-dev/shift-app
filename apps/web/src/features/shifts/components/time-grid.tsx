@@ -7,14 +7,12 @@ import {
   japanLocalDateTime,
   japanTime,
 } from "@workspace/shared/japan-time"
-import { useRef, useState, useLayoutEffect } from "react"
+import { useState } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { EditorData } from "../editor-data"
 import { TimeGridRow } from "./time-grid-row"
 import { gridMembers, timeScale } from "./time-scale"
-
-import { useShiftView } from "@/features/shifts/shift-view-context"
 
 export function TimeGrid({
   bulkSelection,
@@ -43,23 +41,6 @@ export function TimeGrid({
   onCommit: (selection: ShiftSelection) => void
   onMember: (memberId: string) => void
 }) {
-  const view = useShiftView(data.activity.year)
-  const viewport = useRef<HTMLDivElement>(null)
-  const [scrollTop, setScrollTop] = useState(() => view.scrollTop)
-  useLayoutEffect(() => {
-    if (viewport.current) viewport.current.scrollTop = view.scrollTop
-  }, [view])
-  const lastFilter = useRef(
-    `${search}|${role}|${includeUnavailable}|${includeUnanswered}`
-  )
-  useLayoutEffect(() => {
-    const key = `${search}|${role}|${includeUnavailable}|${includeUnanswered}`
-    if (lastFilter.current === key) return
-    lastFilter.current = key
-    if (viewport.current) viewport.current.scrollTop = 0
-    view.save({ scrollTop: 0 })
-    setScrollTop(0)
-  }, [search, role, includeUnavailable, includeUnanswered, view])
   const scale = timeScale(plan.startsAt, plan.endsAt)
   const { start, duration, labels } = scale
   const periods = staffing(plan)
@@ -101,14 +82,10 @@ export function TimeGrid({
       )
     )
   })
-  const first = Math.min(
-    Math.max(0, members.length - 1),
-    Math.max(0, Math.floor(scrollTop / 56) - 5)
-  )
   const duties = new Set(
     data.roles.filter((item) => item.duty).map((item) => item.id)
   )
-  const visible = members.slice(first, first + 30).map((member) => ({
+  const visible = members.map((member) => ({
     member,
     duties: member.roles
       .filter((item) => duties.has(item.id))
@@ -123,7 +100,7 @@ export function TimeGrid({
     slots: plan.slots.filter((slot) => slot.memberIds.includes(member.id)),
   }))
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
+    <div className="relative min-w-0">
       {periodDetail && selectedTime !== null && (
         <div className="absolute top-[68px] left-2 z-30 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-x-2 gap-y-2 rounded-md border bg-popover py-2 pr-9 pl-2 text-xs shadow-sm">
           <input
@@ -181,15 +158,7 @@ export function TimeGrid({
           </button>
         </div>
       )}
-      <div
-        ref={viewport}
-        onScroll={(event) => {
-          const top = event.currentTarget.scrollTop
-          setScrollTop(top)
-          view.save({ scrollTop: top })
-        }}
-        className="shift-timeline min-h-0 max-w-full min-w-0 flex-1 overflow-auto border-y"
-      >
+      <div className="shift-timeline max-w-full min-w-0 overflow-x-auto border-y">
         <div
           style={{
             minWidth: `max(680px, calc(var(--shift-name-width) + ${Math.ceil(duration / 3_600_000) * 64 + 48}px))`,
@@ -277,7 +246,6 @@ export function TimeGrid({
               条件に合うメンバーがいません。
             </p>
           )}
-          <div style={{ height: first * 56 }} />
           {visible.map((row) => (
             <TimeGridRow
               key={row.member.id}
@@ -304,11 +272,6 @@ export function TimeGrid({
               }}
             />
           ))}
-          <div
-            style={{
-              height: Math.max(0, members.length - first - visible.length) * 56,
-            }}
-          />
         </div>
       </div>
     </div>

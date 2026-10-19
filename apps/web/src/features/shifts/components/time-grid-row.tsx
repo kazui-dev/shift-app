@@ -1,3 +1,4 @@
+import { ShiftMemberLabel } from "./shift-member-label"
 import { Check } from "lucide-react"
 import { TimeGuides } from "./time-guides"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
@@ -24,8 +25,8 @@ export function TimeGridRow({
   onMember,
 }: {
   bulkSelected?: boolean | undefined
-  member: EditorData["members"][number]
   duties: string[]
+  member: EditorData["members"][number]
   status: "available" | "unavailable" | "unanswered"
   availability: EditorData["availability"]
   otherAssignments: EditorData["otherAssignments"]
@@ -118,28 +119,12 @@ export function TimeGridRow({
             </span>
           )}
         </span>
-        <span className="min-w-0">
-          <span className="flex items-baseline gap-1.5 leading-5">
-            <span className="min-w-0 truncate">{member.displayName}</span>
-            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-              {member.studentId}
-            </span>
-          </span>
-          {(status !== "available" || duties.length > 0) && (
-            <span
-              className="block truncate text-[11px] leading-4 text-muted-foreground"
-              title={duties.join("・") || undefined}
-            >
-              {[
-                status === "unavailable" && "参加不可",
-                status === "unanswered" && "未回答",
-                duties.join("・"),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          )}
-        </span>
+        <ShiftMemberLabel
+          name={member.displayName}
+          studentId={member.studentId}
+          duties={duties}
+          status={status}
+        />
       </button>
       <button
         type="button"

@@ -48,7 +48,7 @@ export function UserManager({
     <div className="space-y-4">
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
         <Input
-          className="h-9 sm:max-w-80"
+          className="sm:max-w-80"
           placeholder="名前・学籍番号で検索"
           aria-label="ユーザーを検索"
           value={search}

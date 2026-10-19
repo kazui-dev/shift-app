@@ -102,7 +102,9 @@ export function AccountSettings() {
           <DrawerTitle className="sr-only">アイコンの操作</DrawerTitle>
           <div className="flex flex-col gap-1 p-3">
             <DrawerClose
-              render={<Button variant="ghost" className="h-12 justify-start" />}
+              render={
+                <Button variant="ghost" size="xl" className="justify-start" />
+              }
               onClick={picker.open}
             >
               <ImagePlus />
@@ -113,7 +115,8 @@ export function AccountSettings() {
                 render={
                   <Button
                     variant="ghost"
-                    className="h-12 justify-start text-destructive"
+                    size="xl"
+                    className="justify-start text-destructive"
                   />
                 }
                 onClick={() => void run(removeAvatar)}
