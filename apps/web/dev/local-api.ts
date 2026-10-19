@@ -1,6 +1,7 @@
 import * as v from "valibot"
 import type { Plugin } from "vite-plus"
 import {
+  shiftOverviewResponseSchema,
   activityEditorInputSchema,
   createActivityInputSchema,
   updateRoleInputSchema,
@@ -208,6 +209,46 @@ export function localApi(): Plugin {
                 })),
                 submissions: [],
               })
+              return
+            }
+            if (path === "/api/years/2026/shift-overview") {
+              const date = new URL(
+                req.url ?? "/",
+                "http://localhost"
+              ).searchParams.get("date")
+              const selected = editors.filter(
+                (entry) => entry.activity.startsAt.slice(0, 10) === date
+              )
+              const first = selected[0]
+              send(
+                v.parse(shiftOverviewResponseSchema, {
+                  canEdit: true,
+                  members,
+                  roles: first?.roles ?? [],
+                  availability:
+                    first?.availability.filter(
+                      (window) => window.startsAt.slice(0, 10) === date
+                    ) ?? [],
+                  availabilityAnswers:
+                    first?.availabilityAnswers.filter(
+                      (answer) => answer.date === date
+                    ) ?? [],
+                  activities: selected.map((entry) => entry.activity),
+                  assignments: selected.flatMap((entry) =>
+                    entry.slots.flatMap((slot) =>
+                      slot.memberIds.map((memberId) => ({
+                        id: `${slot.id}-${memberId}`,
+                        slotId: slot.id,
+                        activityId: entry.activity.id,
+                        memberId,
+                        startsAt: slot.startsAt,
+                        endsAt: slot.endsAt,
+                        attendance: null,
+                      }))
+                    )
+                  ),
+                })
+              )
               return
             }
             if (path === "/api/years/2026/activities") {

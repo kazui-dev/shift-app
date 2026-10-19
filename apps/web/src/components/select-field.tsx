@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react"
 import {
   Select,
   SelectContent,
@@ -25,6 +26,10 @@ export function SelectField({
   size?: "default" | "md" | "lg"
   className?: string
 }) {
+  const [container, setContainer] = useState<HTMLDialogElement | null>(null)
+  const triggerRef = useCallback((element: HTMLButtonElement | null) => {
+    setContainer(element?.closest("dialog") ?? null)
+  }, [])
   const items = options.map((option) => ({
     value: String(option.value),
     label: option.label,
@@ -39,6 +44,7 @@ export function SelectField({
       }}
     >
       <SelectTrigger
+        ref={triggerRef}
         {...props}
         size={size}
         className={cn(
@@ -48,7 +54,11 @@ export function SelectField({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent alignItemWithTrigger={false} align="start">
+      <SelectContent
+        container={container}
+        alignItemWithTrigger={false}
+        align="start"
+      >
         {items.map((item) => (
           <SelectItem
             key={item.value}
