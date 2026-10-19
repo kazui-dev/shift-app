@@ -101,10 +101,10 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .then((query) => recordD1("activity.editor.members", query)),
     db
       .prepare(
-        "SELECT id, name, color FROM year_roles WHERE year = ? ORDER BY position DESC"
+        "SELECT id, name, color, id IN (SELECT role_id FROM duties) AS duty FROM year_roles WHERE year = ? ORDER BY position DESC"
       )
       .bind(activity.year)
-      .all<{ id: string; name: string; color: string }>()
+      .all<{ id: string; name: string; color: string; duty: number }>()
       .then((query) => recordD1("activity.editor.roles", query)),
     db
       .prepare(planningMemberRoles)
@@ -166,7 +166,7 @@ export async function readActivityEditor(db: D1Database, id: string) {
         .filter((r) => r.memberId === member.id)
         .map(({ id: roleId, name, color }) => ({ id: roleId, name, color })),
     })),
-    roles: roles.results,
+    roles: roles.results.map((role) => ({ ...role, duty: role.duty === 1 })),
     availability: availability.results.flatMap((item) =>
       item.startsAt === null || item.endsAt === null
         ? []

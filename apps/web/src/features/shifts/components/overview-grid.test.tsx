@@ -8,13 +8,19 @@ it("renders every filtered member in the page flow and adds writing fields only 
     id: `member-${i}`,
     displayName: `Staff ${i}`,
     studentId: `26AJ${i}`,
-    roles: [],
+    roles: [
+      { id: "duty", name: "web班", color: "#000000" },
+      { id: "bureau", name: "広報局", color: "#000000" },
+    ],
     image: null,
   }))
   const data: ShiftOverview = {
     canEdit: false,
     members,
-    roles: [],
+    roles: [
+      { id: "duty", name: "web班", color: "#000000", duty: true },
+      { id: "bureau", name: "広報局", color: "#000000", duty: false },
+    ],
     availability: [],
     availabilityAnswers: [],
     activities: [],
@@ -33,12 +39,14 @@ it("renders every filtered member in the page flow and adds writing fields only 
         onInspect={() => {}}
       />
     )
+  expect(render(false)).toContain("web班")
+  expect(render(false)).not.toContain("広報局")
   expect(render(false)).toContain("Staff 34")
   expect(render(false)).not.toContain("の手書き欄")
   const printed = render(true)
   expect(printed).toContain("Staff 34")
   expect(printed).toContain("26AJ34")
-  expect(render(false)).not.toContain("26AJ34")
+  expect(render(false)).toContain("26AJ34")
   expect(printed.match(/の手書き欄/g)).toHaveLength(35)
   expect(printed).toContain("記録・修正")
 })

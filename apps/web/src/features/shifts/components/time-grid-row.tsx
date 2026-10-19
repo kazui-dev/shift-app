@@ -1,3 +1,4 @@
+import { ShiftMemberLabel } from "./shift-member-label"
 import { Check } from "lucide-react"
 import { TimeGuides } from "./time-guides"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
@@ -11,6 +12,7 @@ import type { timeScale } from "./time-scale"
 export function TimeGridRow({
   bulkSelected,
   member,
+  duties,
   status,
   availability,
   otherAssignments,
@@ -23,6 +25,7 @@ export function TimeGridRow({
   onMember,
 }: {
   bulkSelected?: boolean | undefined
+  duties: string[]
   member: EditorData["members"][number]
   status: "available" | "unavailable" | "unanswered"
   availability: EditorData["availability"]
@@ -102,7 +105,7 @@ export function TimeGridRow({
         }
         aria-pressed={bulkSelected}
         data-shift-member={member.id}
-        className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-3 text-left text-sm"
+        className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-2 text-left text-sm sm:px-3"
       >
         <span className="relative shrink-0">
           <MemberAvatar
@@ -116,19 +119,12 @@ export function TimeGridRow({
             </span>
           )}
         </span>
-        <span className="min-w-0">
-          <span className="block truncate">{member.displayName}</span>
-          {status === "unavailable" && (
-            <span className="block text-xs font-normal text-muted-foreground">
-              参加不可
-            </span>
-          )}
-          {status === "unanswered" && (
-            <span className="block text-xs font-normal text-muted-foreground">
-              未回答
-            </span>
-          )}
-        </span>
+        <ShiftMemberLabel
+          name={member.displayName}
+          studentId={member.studentId}
+          duties={duties}
+          status={status}
+        />
       </button>
       <button
         type="button"
