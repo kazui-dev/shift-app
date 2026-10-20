@@ -34,6 +34,7 @@ type ResponsiveOverlayProps = {
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
+  headerActions?: React.ReactNode
   children: React.ReactNode
   className?: string
   bodyClassName?: string
@@ -46,6 +47,7 @@ function DrawerView({
   onOpenChange,
   title,
   description,
+  headerActions,
   children,
   className,
   initialFocus,
@@ -69,6 +71,7 @@ function DrawerView({
         <DrawerHeader className="gap-2 border-b px-5 py-3 group-data-[swipe-axis=y]/drawer-popup:text-left">
           <div className="flex items-center gap-3">
             <DrawerTitle className="min-w-0 flex-1">{title}</DrawerTitle>
+            {headerActions}
             <DrawerClose
               render={
                 <Button variant="ghost" size="icon-sm" aria-label="閉じる" />
@@ -107,6 +110,7 @@ export function ResponsiveDialog(props: ResponsiveOverlayProps) {
         <DialogHeader className="gap-2 border-b px-5 py-3">
           <div className="flex items-center gap-3">
             <DialogTitle className="min-w-0 flex-1">{props.title}</DialogTitle>
+            {props.headerActions}
             <DialogClose
               render={
                 <Button variant="ghost" size="icon-sm" aria-label="閉じる" />
@@ -149,6 +153,7 @@ export function ResponsiveSheet(props: ResponsiveOverlayProps) {
         <SheetHeader className="gap-2 border-b px-6 py-3">
           <div className="flex items-center gap-3">
             <SheetTitle className="min-w-0 flex-1">{props.title}</SheetTitle>
+            {props.headerActions}
             <SheetClose
               render={
                 <Button variant="ghost" size="icon-sm" aria-label="閉じる" />

@@ -6,6 +6,7 @@ import {
   Undo2,
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
+import { ManagementHeaderActions } from "@/features/management/components/header-actions"
 import type { EditorData } from "../editor-data"
 import { japanDateWeekday, japanTime } from "@workspace/shared/japan-time"
 
@@ -72,24 +73,25 @@ export function ShiftEditorToolbar({
           <ClipboardCheck className="sm:hidden" />
           <span className="sr-only sm:not-sr-only">出勤・連絡</span>
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-9 px-0 sm:w-auto sm:px-3"
-          disabled={pending || (!dirty && !conflicted)}
-          onClick={onSave}
-        >
-          <Save className="sm:hidden" />
-          <span className="sr-only sm:not-sr-only">
-            {pending
-              ? "保存中"
-              : conflicted
-                ? "競合を確認"
-                : dirty
-                  ? "変更を保存"
-                  : "保存済み"}
-          </span>
-        </Button>
+        <ManagementHeaderActions>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending || (!dirty && !conflicted)}
+            onClick={onSave}
+          >
+            <Save />
+            <span>
+              {pending
+                ? "保存中"
+                : conflicted
+                  ? "競合を確認"
+                  : dirty
+                    ? "変更を保存"
+                    : "保存済み"}
+            </span>
+          </Button>
+        </ManagementHeaderActions>
         <Button
           variant="outline"
           size="sm"

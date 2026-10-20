@@ -6,6 +6,8 @@ import {
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import type { EditorData } from "../editor-data"
+import { useId } from "react"
+import { ManagementHeaderActions } from "@/features/management/components/header-actions"
 
 export function ShiftSettings({
   value,
@@ -22,6 +24,7 @@ export function ShiftSettings({
   onChange: (plan: ActivityEditorInput) => void
   onSubmit: () => void
 }) {
+  const formId = useId()
   const validRange = Date.parse(value.endsAt) > Date.parse(value.startsAt)
   const requirements = value.requirements
   const ordered = [...requirements].sort((a, b) =>
@@ -49,7 +52,19 @@ export function ShiftSettings({
   }
   return (
     <section aria-label="シフトの基本情報" className="mx-auto max-w-4xl">
+      <ManagementHeaderActions>
+        <Button
+          size="sm"
+          variant="outline"
+          type="submit"
+          form={formId}
+          disabled={pending || !dirty || !validRange || !validRequirements}
+        >
+          {pending ? "保存中" : dirty ? "変更を保存" : "保存済み"}
+        </Button>
+      </ManagementHeaderActions>
       <form
+        id={formId}
         onSubmit={(event) => {
           event.preventDefault()
           if (validRange && validRequirements && dirty && !pending) onSubmit()
@@ -328,16 +343,6 @@ export function ShiftSettings({
               </label>
             ))}
           </fieldset>
-          <div className="flex justify-end border-t pt-4 sm:col-span-2">
-            <Button
-              size="sm"
-              variant="outline"
-              type="submit"
-              disabled={pending || !dirty || !validRange || !validRequirements}
-            >
-              {pending ? "保存中…" : "変更を保存"}
-            </Button>
-          </div>
         </fieldset>
       </form>
     </section>
