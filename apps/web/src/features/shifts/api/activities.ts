@@ -43,11 +43,16 @@ export const saveActivity = (id: string, input: ActivityEditorInput) =>
     { method: "PUT", body: JSON.stringify(input) }
   )
 
-export const copyActivity = (id: string, date: string) =>
+export const copyActivity = (
+  id: string,
+  date: string,
+  startsAt: string,
+  endsAt: string
+) =>
   apiJson(
     `/api/activities/${encodeURIComponent(id)}/copies`,
     v.object({ id: v.pipe(v.string(), v.uuid()) }),
-    { method: "POST", body: JSON.stringify({ date }) }
+    { method: "POST", body: JSON.stringify({ date, startsAt, endsAt }) }
   )
 export const deleteActivity = (id: string) =>
   apiVoid(`/api/activities/${encodeURIComponent(id)}`, { method: "DELETE" })

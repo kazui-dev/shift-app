@@ -346,6 +346,8 @@ export function ShiftEditor({
       )}
       {actions && (
         <ShiftActionsDialog
+          startsAt={plan.startsAt}
+          endsAt={plan.endsAt}
           dirty={dirty}
           pending={pending}
           active={plan.active}
@@ -367,9 +369,14 @@ export function ShiftEditor({
               toast.success("更新を通知しました。")
             })
           }
-          onCopy={(date) =>
+          onCopy={(date, startsAt, endsAt) =>
             void action(async () => {
-              const copy = await copyActivity(data.activity.id, date)
+              const copy = await copyActivity(
+                data.activity.id,
+                date,
+                startsAt,
+                endsAt
+              )
               await navigate({
                 to: "/manage/shifts/$shiftId",
                 params: { shiftId: copy.id },

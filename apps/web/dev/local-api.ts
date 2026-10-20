@@ -1,4 +1,6 @@
 import * as v from "valibot"
+import { updateAccessLevelInputSchema } from "../../../packages/shared/src/contracts/auth"
+import { roomSettingsInputSchema } from "../../../packages/shared/src/contracts/communications"
 import type { Plugin } from "vite-plus"
 import {
   shiftOverviewResponseSchema,
@@ -12,6 +14,44 @@ import { dates, makeEditors, members, roles, uuid } from "./fixtures"
 // This server owns every /api request. Unknown requests fail closed, never proxy.
 export function localApi(): Plugin {
   const editors = makeEditors()
+  const access = new Map<string, "member" | "leader" | "system_admin">()
+  let roomSettings: v.InferOutput<typeof roomSettingsInputSchema> = {
+    name: "検証用チャット",
+    allowExit: true,
+    targets: [
+      {
+        targetType: "access_level",
+        targetId: "system_admin",
+        canRead: true,
+        canPost: true,
+        canManage: true,
+      },
+      {
+        targetType: "role",
+        targetId: uuid(900),
+        canRead: true,
+        canPost: true,
+        canManage: false,
+      },
+    ],
+  }
+  const room = () => ({
+    ...roomSettings,
+    id: uuid(800),
+    year: 2026,
+    activityId: null,
+    activityStartsAt: null,
+    activityEndsAt: null,
+    canPost: true,
+    canManage: true,
+    muted: false,
+    lastRead: 0,
+    lastSequence: 0,
+    unreadCount: 0,
+    createdBy: uuid(1),
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+  })
   let formDates = dates.map((date) => ({
     id: crypto.randomUUID(),
     date,
@@ -55,6 +95,98 @@ export function localApi(): Plugin {
         req.on("end", () => {
           try {
             const input: unknown = body ? JSON.parse(body) : null
+            if (
+              path.startsWith("/api/admin/users/") &&
+              req.method === "PATCH"
+            ) {
+              const parsed = v.safeParse(updateAccessLevelInputSchema, input)
+              if (!parsed.success) return fail()
+              access.set(
+                path.split("/").at(-1) ?? "",
+                parsed.output.accessLevel
+              )
+              send({ ok: true })
+              return
+            }
+            if (
+              path === "/api/years/2026/memberships" &&
+              req.method === "PATCH"
+            ) {
+              const parsed = v.safeParse(
+                v.object({
+                  memberIds: v.array(v.string()),
+                  addRoleIds: v.array(v.string()),
+                  removeRoleIds: v.array(v.string()),
+                }),
+                input
+              )
+              if (!parsed.success) return fail()
+              for (const member of members) {
+                if (!parsed.output.memberIds.includes(member.id)) continue
+                member.roles = [
+                  ...member.roles.filter(
+                    (r) => !parsed.output.removeRoleIds.includes(r.id)
+                  ),
+                  ...roles
+                    .filter(
+                      (r) =>
+                        parsed.output.addRoleIds.includes(r.id) &&
+                        !member.roles.some((existing) => existing.id === r.id)
+                    )
+                    .map((r) => ({ id: r.id, name: r.name, color: r.color })),
+                ]
+              }
+              send({ ok: true })
+              return
+            }
+            if (path === `/api/chat/rooms/${uuid(800)}/settings`) {
+              if (req.method === "PUT") {
+                const parsed = v.safeParse(roomSettingsInputSchema, input)
+                if (!parsed.success) return fail()
+                roomSettings = parsed.output
+              }
+              send(roomSettings)
+              return
+            }
+            if (path === `/api/chat/rooms/${uuid(800)}`) {
+              send({ room: room() })
+              return
+            }
+            if (path === `/api/chat/rooms/${uuid(800)}/messages`) {
+              send({ messages: [], hasMore: false })
+              return
+            }
+            if (path === `/api/chat/rooms/${uuid(800)}/members`) {
+              send({ members: [] })
+              return
+            }
+            if (path === "/api/chat/targets") {
+              send({
+                targets: roles.map((r) => ({
+                  targetType: "role",
+                  targetId: r.id,
+                  displayName: r.name,
+                })),
+              })
+              return
+            }
+            if (path.startsWith("/api/years/2025/")) {
+              send(
+                path.endsWith("/roster")
+                  ? { members: [] }
+                  : path.endsWith("/activities")
+                    ? { activities: [] }
+                    : {
+                        roles: [],
+                        authority: {
+                          systemAdmin: true,
+                          position: null,
+                          permissions: [],
+                        },
+                      }
+              )
+              return
+            }
             if (path === "/api/account") {
               send({
                 status: "active",
@@ -79,7 +211,9 @@ export function localApi(): Plugin {
                   image: null,
                   years: [2026],
                   discordLinked: index % 3 !== 0,
-                  accessLevel: index === 0 ? "system_admin" : "member",
+                  accessLevel:
+                    access.get(member.id) ??
+                    (index === 0 ? "system_admin" : "member"),
                   isCurrentUser: index === 0,
                   sessionCount: 1,
                   createdAt: 1780000000000,
@@ -100,7 +234,10 @@ export function localApi(): Plugin {
             }
             if (path === "/api/years") {
               send({
-                years: [{ year: 2026, isDefault: true, canManage: true }],
+                years: [
+                  { year: 2026, isDefault: true, canManage: true },
+                  { year: 2025, isDefault: false, canManage: true },
+                ],
               })
               return
             }
@@ -122,7 +259,7 @@ export function localApi(): Plugin {
               return
             }
             if (path === "/api/chat/rooms") {
-              send({ rooms: [] })
+              send({ rooms: [room()] })
               return
             }
             if (path === "/api/years/2026/roster") {
@@ -301,6 +438,64 @@ export function localApi(): Plugin {
             const editor = editors.find(
               (e) => e.activity.id === path.split("/")[3]
             )
+            if (editor && path.endsWith("/copies") && req.method === "POST") {
+              const parsed = v.safeParse(
+                v.object({
+                  date: v.string(),
+                  startsAt: v.pipe(v.string(), v.isoTimestamp()),
+                  endsAt: v.pipe(v.string(), v.isoTimestamp()),
+                }),
+                input
+              )
+              if (!parsed.success) return fail()
+              const start = Date.parse(parsed.output.startsAt),
+                end = Date.parse(parsed.output.endsAt)
+              const delta = start - Date.parse(editor.activity.startsAt)
+              const copy = structuredClone(editor)
+              copy.activity = {
+                ...copy.activity,
+                id: crypto.randomUUID(),
+                version: 1,
+                startsAt: parsed.output.startsAt,
+                endsAt: parsed.output.endsAt,
+              }
+              copy.slots = copy.slots
+                .filter(
+                  (s) =>
+                    Date.parse(s.startsAt) + delta < end &&
+                    Date.parse(s.endsAt) + delta > start
+                )
+                .map((s) => ({
+                  ...s,
+                  id: crypto.randomUUID(),
+                  startsAt: new Date(
+                    Math.max(start, Date.parse(s.startsAt) + delta)
+                  ).toISOString(),
+                  endsAt: new Date(
+                    Math.min(end, Date.parse(s.endsAt) + delta)
+                  ).toISOString(),
+                  memberIds: [],
+                }))
+              copy.requirements = copy.requirements
+                .filter(
+                  (s) =>
+                    Date.parse(s.startsAt) + delta < end &&
+                    Date.parse(s.endsAt) + delta > start
+                )
+                .map((s) => ({
+                  ...s,
+                  id: crypto.randomUUID(),
+                  startsAt: new Date(
+                    Math.max(start, Date.parse(s.startsAt) + delta)
+                  ).toISOString(),
+                  endsAt: new Date(
+                    Math.min(end, Date.parse(s.endsAt) + delta)
+                  ).toISOString(),
+                }))
+              editors.push(copy)
+              send({ id: copy.activity.id }, 201)
+              return
+            }
             if (editor && /^\/api\/activities\/[^/]+$/.test(path)) {
               if (req.method === "DELETE") {
                 editors.splice(editors.indexOf(editor), 1)

@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { toast } from "@workspace/ui/lib/toast"
 import { ShiftTimeDialog } from "./shift-time-dialog"
 import { X } from "lucide-react"
 import { overviewAttendance } from "./overview-model"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { SelectField } from "@/components/select-field"
-import { keys } from "@/app/data/keys"
-import { ApiError, errorMessage } from "@/lib/http/client"
 import {
   japanInputValue,
   japanDateTime,
@@ -17,29 +14,29 @@ import {
 } from "@workspace/shared/japan-time"
 import type { ShiftOverview } from "@workspace/shared/shifts"
 import { activityQuery } from "../data/activities"
-import { saveActivity } from "../api/activities"
 import { planOf } from "./use-shift-plan"
 import { assignMember } from "./assign-member"
-import { useManagement } from "@/features/management/management-context"
+import type { OverviewDrafts, OverviewDraft } from "./overview-draft"
 import type { OverviewSelection } from "./overview-model"
 
 export function OverviewEditor({
   selection,
+  drafts,
+  onApply,
   data,
   onClose,
 }: {
+  drafts: OverviewDrafts
+  onApply: (id: string, draft: OverviewDraft) => void
   selection: OverviewSelection
   data: ShiftOverview
   onClose: () => void
 }) {
-  const client = useQueryClient()
-  const { setDirty } = useManagement()
   const [activityId, setActivityId] = useState(selection.activityId)
   const [from, setFrom] = useState(japanInputValue(selection.startsAt))
   const [to, setTo] = useState(japanInputValue(selection.endsAt))
-  const [pending, setPending] = useState(false)
   const [error, setError] = useState("")
-  const [conflict, setConflict] = useState(false)
+
   const [confirm, setConfirm] = useState<"save" | "remove" | null>(null)
   const query = useQuery({
     ...activityQuery(activityId),
@@ -47,10 +44,6 @@ export function OverviewEditor({
     staleTime: 0,
     refetchOnMount: "always",
   })
-  useEffect(() => {
-    setDirty(true)
-    return () => setDirty(false)
-  }, [setDirty])
   const sameDay =
     japanDateTime(selection.startsAt).date ===
     japanDateTime(selection.endsAt).date
@@ -58,10 +51,9 @@ export function OverviewEditor({
     (a) => a.slotId === selection.slotId && a.memberId === selection.memberId
   )
   const member = data.members.find((m) => m.id === selection.memberId)
-  async function save(remove = false, confirmed = false) {
+  function apply(remove = false, confirmed = false) {
     const source = query.data
-    if (!source || query.isFetching || query.isError || conflict || pending)
-      return
+    if (!source || query.isFetching || query.isError) return
     const start = japanLocalDateTime(from),
       end = japanLocalDateTime(to)
     if (
@@ -71,7 +63,8 @@ export function OverviewEditor({
       setError("開始・終了日時を確認してください。")
       return
     }
-    const original = source.slots.find(
+    const current = drafts[activityId]?.plan ?? planOf(source)
+    const original = current.slots.find(
       (s) =>
         s.id === selection.slotId && s.memberIds.includes(selection.memberId)
     )
@@ -79,7 +72,16 @@ export function OverviewEditor({
       setError("この勤務は変更または解除されています。一覧を更新してください。")
       return
     }
-    let plan = planOf(source)
+    if (
+      !remove &&
+      original &&
+      Date.parse(original.startsAt) === start &&
+      Date.parse(original.endsAt) === end
+    ) {
+      onClose()
+      return
+    }
+    let plan = current
     if (remove) {
       if (!confirmed) {
         setConfirm("remove")
@@ -104,7 +106,11 @@ export function OverviewEditor({
         startsAt: new Date(start).toISOString(),
         endsAt: new Date(end).toISOString(),
       }
-      const assigned = assignMember(plan, value, source.otherAssignments)
+      const assigned = assignMember(
+        plan,
+        value,
+        data.assignments.filter((a) => a.activityId !== activityId)
+      )
       if ("error" in assigned) {
         setError(assigned.error)
         return
@@ -124,50 +130,26 @@ export function OverviewEditor({
       plan = { ...plan, slots: assigned.slots }
     }
     setConfirm(null)
-    setPending(true)
-    setError("")
-    try {
-      const saved = await saveActivity(activityId, plan)
-      client.setQueryData(keys.activityEditor(activityId), saved)
-      await Promise.all(
-        [
-          keys.shiftOverview(),
-          keys.activities(),
-          keys.assignments(),
-          keys.shiftAttendance(activityId),
-          keys.chatRooms(),
-        ].map((queryKey) => client.invalidateQueries({ queryKey }))
-      )
-      toast.success(remove ? "割当を解除しました。" : "保存しました。")
-      onClose()
-    } catch (e) {
-      setError(errorMessage(e))
-      setConflict(e instanceof ApiError && e.code === "SHIFT_CHANGED")
-    } finally {
-      setPending(false)
-    }
+    onApply(activityId, { base: planOf(source), plan })
+    onClose()
   }
+
   if (confirm)
     return (
       <ConfirmDialog
         title={
           confirm === "remove"
             ? "この勤務の割当を解除しますか"
-            : "希望時間外の勤務を保存しますか"
+            : "希望時間外の勤務を反映しますか"
         }
-        confirmLabel={confirm === "remove" ? "解除する" : "保存する"}
+        confirmLabel={confirm === "remove" ? "解除する" : "反映する"}
         onCancel={() => setConfirm(null)}
-        onConfirm={() => void save(confirm === "remove", true)}
+        onConfirm={() => apply(confirm === "remove", true)}
       />
     )
 
   return (
-    <ShiftTimeDialog
-      titleId="overview-time-title"
-      onClose={() => {
-        if (!pending) onClose()
-      }}
-    >
+    <ShiftTimeDialog titleId="overview-time-title" onClose={onClose}>
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
           <h3 id="overview-time-title" className="text-sm font-semibold">
@@ -189,7 +171,6 @@ export function OverviewEditor({
           variant="outline"
           size="icon-sm"
           aria-label="勤務時間の編集を閉じる"
-          disabled={pending}
           onClick={onClose}
         >
           <X />
@@ -201,7 +182,7 @@ export function OverviewEditor({
           <SelectField
             aria-label="追加するシフト"
             value={activityId}
-            disabled={!!selection.slotId || pending}
+            disabled={!!selection.slotId}
             options={[
               { value: "", label: "シフトを選択" },
               ...data.activities.map((a) => ({
@@ -247,7 +228,6 @@ export function OverviewEditor({
                 className="mt-2 text-base text-foreground"
                 step={60}
                 value={sameDay ? field.value.slice(11) : field.value}
-                disabled={pending}
                 onChange={(e) =>
                   field.set(
                     sameDay
@@ -264,63 +244,28 @@ export function OverviewEditor({
             {error}
           </p>
         )}
-        {conflict && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              void query.refetch().then((result) => {
-                if (result.isSuccess) {
-                  setConflict(false)
-                  setError(
-                    "最新の勤務を取得しました。時間を確認して再度保存してください。"
-                  )
-                }
-              })
-            }
-          >
-            最新の勤務を確認
-          </Button>
-        )}
         <div className="flex justify-between gap-2">
           {selection.slotId && (
             <Button
               variant="outline"
               size="sm"
-              disabled={
-                pending ||
-                query.isFetching ||
-                query.isError ||
-                conflict ||
-                !query.data
-              }
-              onClick={() => void save(true)}
+              disabled={query.isFetching || query.isError || !query.data}
+              onClick={() => apply(true)}
             >
               割当を外す
             </Button>
           )}
           <div className="ml-auto flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={onClose}
-            >
+            <Button variant="outline" size="sm" onClick={onClose}>
               取消
             </Button>
             <Button
               variant="outline"
               size="sm"
-              disabled={
-                pending ||
-                query.isFetching ||
-                query.isError ||
-                conflict ||
-                !query.data
-              }
-              onClick={() => void save()}
+              disabled={query.isFetching || query.isError || !query.data}
+              onClick={() => apply()}
             >
-              {pending ? "保存中" : "保存"}
+              反映
             </Button>
           </div>
         </div>
