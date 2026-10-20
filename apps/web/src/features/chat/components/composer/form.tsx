@@ -194,6 +194,17 @@ export function ChatComposer({
         {mode && (
           <div className="flex items-center gap-3 px-4 pt-2 text-xs text-muted-foreground">
             <span className="min-w-0 flex-1 truncate">{mode.label}</span>
+            {editing && (
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                disabled={disabled || saving || !sendable}
+                onPointerDown={(event) => event.preventDefault()}
+              >
+                {saving ? "保存中…" : "保存"}
+              </Button>
+            )}
             <Button
               type="button"
               variant="secondary"
@@ -304,16 +315,18 @@ export function ChatComposer({
             rows={1}
             className={`${textClass} pointer-events-none invisible absolute inset-x-2 top-2 h-0 w-[calc(100%-1rem)] overflow-hidden`}
           />
-          <Button
-            type="submit"
-            onPointerDown={(event) => event.preventDefault()}
-            size="icon-compact"
-            className={`absolute right-2 bottom-2 rounded-full transition-colors ${!editing && !draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
-            aria-label={editing ? "保存" : "送信"}
-            disabled={disabled || saving || !sendable}
-          >
-            <SendHorizontal />
-          </Button>
+          {!editing && (
+            <Button
+              type="submit"
+              onPointerDown={(event) => event.preventDefault()}
+              size="icon-compact"
+              className={`absolute right-2 bottom-2 rounded-full transition-colors ${!draft.content.trim() && !draft.files.length ? "invisible" : ""}`}
+              aria-label="送信"
+              disabled={disabled || saving || !sendable}
+            >
+              <SendHorizontal />
+            </Button>
+          )}
         </div>
       </form>
     </div>

@@ -6,7 +6,7 @@ import {
   useBlocker,
   useNavigate,
 } from "@tanstack/react-router"
-import { PageHeader } from "@workspace/ui/components/page-header"
+import { ManagementPage } from "@/features/management/components/page"
 import { Button } from "@workspace/ui/components/button"
 import { EmptyState } from "@/app/page-layout"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -68,21 +68,24 @@ function RolePage({
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHeader className="sm:px-6">
-        <Link
-          to="/manage/roles"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← ロール一覧
-        </Link>
-        <h2 className="min-w-0 flex-1 truncate text-base font-medium">
-          {roleId === null ? "ロールを作成" : (role?.name ?? "ロール")}
-        </h2>
-        {Number.isSafeInteger(year) && (
-          <span className="text-sm text-muted-foreground">{year}年度</span>
-        )}
-      </PageHeader>
+    <ManagementPage
+      header={
+        <>
+          <Link
+            to="/manage/roles"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← ロール一覧
+          </Link>
+          <h2 className="min-w-0 flex-1 truncate text-base font-medium">
+            {roleId === null ? "ロールを作成" : (role?.name ?? "ロール")}
+          </h2>
+          {Number.isSafeInteger(year) && (
+            <span className="text-sm text-muted-foreground">{year}年度</span>
+          )}
+        </>
+      }
+    >
       <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
         {!allowed ? (
           <EmptyState>管理できない年度です</EmptyState>
@@ -125,6 +128,6 @@ function RolePage({
           onConfirm={() => blocker.proceed()}
         />
       )}
-    </section>
+    </ManagementPage>
   )
 }

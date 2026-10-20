@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom"
 import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -13,12 +14,14 @@ import { errorMessage } from "@/lib/http/client"
 /** The inline editor an availability date row expands into. */
 export function AvailabilityDateForm({
   year,
+  actionsTarget,
   initial,
   onSaved,
   onCancel,
   onDirtyChange,
 }: {
   year: number
+  actionsTarget: HTMLDivElement | null
   initial?: FormDate
   onSaved: () => void
   onCancel: () => void
@@ -61,7 +64,22 @@ export function AvailabilityDateForm({
     }
   }
   return (
-    <form onSubmit={(event) => void save(event)}>
+    <form id={`${fieldId}-form`} onSubmit={(event) => void save(event)}>
+      {actionsTarget &&
+        createPortal(
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              type="submit"
+              form={`${fieldId}-form`}
+              size="sm"
+              disabled={pending || invalid}
+            >
+              保存
+            </Button>
+          </div>,
+          actionsTarget
+        )}
       <fieldset disabled={pending} className="space-y-6">
         {!initial && (
           <div className="space-y-2.5">
@@ -111,12 +129,16 @@ export function AvailabilityDateForm({
             onCheckedChange={setAccepting}
           />
         </label>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+        <div className="flex justify-end">
+          {" "}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            disabled={pending}
+          >
             キャンセル
-          </Button>
-          <Button variant="outline" type="submit" size="sm" disabled={invalid}>
-            保存
           </Button>
         </div>
       </fieldset>

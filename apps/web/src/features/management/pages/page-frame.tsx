@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react"
 import { useBlocker } from "@tanstack/react-router"
-import { PageHeader } from "@workspace/ui/components/page-header"
+import { ManagementPage } from "../components/page"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { useManagement, useManagementScreenView } from "../management-context"
 
@@ -29,11 +29,14 @@ export function ManagementPageFrame({
     withResolver: true,
   })
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHeader className="sm:px-6">
-        {headerLeading}
-        <h2 className="flex-1 text-base font-medium">{title}</h2>
-      </PageHeader>
+    <ManagementPage
+      header={
+        <>
+          {headerLeading}
+          <h2 className="flex-1 text-base font-medium">{title}</h2>
+        </>
+      }
+    >
       <div
         ref={viewport}
         onScroll={(event) => {
@@ -51,6 +54,6 @@ export function ManagementPageFrame({
           onConfirm={() => blocker.proceed()}
         />
       )}
-    </section>
+    </ManagementPage>
   )
 }

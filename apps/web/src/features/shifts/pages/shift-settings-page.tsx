@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { getRouteApi, Link, useBlocker } from "@tanstack/react-router"
-import { PageHeader } from "@workspace/ui/components/page-header"
+import { ManagementPage } from "@/features/management/components/page"
 import { toast } from "@workspace/ui/lib/toast"
 import { keys } from "@/app/data/keys"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -74,20 +74,23 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHeader className="sm:px-6">
-        <Link
-          to="/manage/shifts/$shiftId"
-          params={{ shiftId: id }}
-          className="max-w-28 truncate text-sm text-muted-foreground hover:text-foreground sm:max-w-56"
-        >
-          ← {source.activity.name}
-        </Link>
-        <h2 className="flex-1 text-base font-medium">基本情報</h2>
-        <span className="text-sm text-muted-foreground">
-          {source.activity.year}年度
-        </span>
-      </PageHeader>
+    <ManagementPage
+      header={
+        <>
+          <Link
+            to="/manage/shifts/$shiftId"
+            params={{ shiftId: id }}
+            className="max-w-28 truncate text-sm text-muted-foreground hover:text-foreground sm:max-w-56"
+          >
+            ← {source.activity.name}
+          </Link>
+          <h2 className="flex-1 text-base font-medium">基本情報</h2>
+          <span className="text-sm text-muted-foreground">
+            {source.activity.year}年度
+          </span>
+        </>
+      }
+    >
       <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
         <ShiftSettings
           value={value}
@@ -136,6 +139,6 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
           }}
         />
       )}
-    </section>
+    </ManagementPage>
   )
 }
