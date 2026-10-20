@@ -1,3 +1,7 @@
+import {
+  japanInputValue,
+  japanLocalDateTime,
+} from "@workspace/shared/japan-time"
 import { useState } from "react"
 import { Settings2 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
@@ -5,6 +9,8 @@ import { Input } from "@workspace/ui/components/input"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 
 export function ShiftActionsDialog({
+  startsAt,
+  endsAt,
   dirty,
   pending,
   active,
@@ -15,6 +21,8 @@ export function ShiftActionsDialog({
   onCopy,
   onDelete,
 }: {
+  startsAt: string
+  endsAt: string
   dirty: boolean
   pending: boolean
   active: boolean
@@ -22,10 +30,12 @@ export function ShiftActionsDialog({
   onSettings: () => void
   onAttendance: () => void
   onNotify: () => void
-  onCopy: (date: string) => void
+  onCopy: (date: string, startsAt: string, endsAt: string) => void
   onDelete: () => void
 }) {
   const [date, setDate] = useState("")
+  const [start, setStart] = useState(japanInputValue(startsAt).slice(11))
+  const [end, setEnd] = useState(japanInputValue(endsAt).slice(11))
   return (
     <ResponsiveDialog
       open
@@ -58,10 +68,18 @@ export function ShiftActionsDialog({
           </p>
         )}
         <form
-          className="flex items-center gap-2"
+          className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault()
-            onCopy(date)
+            const from = japanLocalDateTime(`${date}T${start}`)
+            let to = japanLocalDateTime(`${date}T${end}`)
+            if (to <= from) to += 86_400_000
+            if (Number.isFinite(from) && Number.isFinite(to))
+              onCopy(
+                date,
+                new Date(from).toISOString(),
+                new Date(to).toISOString()
+              )
           }}
         >
           <Input
@@ -71,10 +89,25 @@ export function ShiftActionsDialog({
             value={date}
             onChange={(event) => setDate(event.target.value)}
           />
+          <Input
+            type="time"
+            aria-label="複製先の開始"
+            required
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+          />
+          <Input
+            type="time"
+            aria-label="複製先の終了"
+            required
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+          />
           <Button
+            type="submit"
             size="sm"
             variant="outline"
-            disabled={pending || dirty || !date}
+            disabled={pending || dirty || !date || !start || !end}
           >
             複製
           </Button>
