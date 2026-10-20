@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react"
 import { flushSync } from "react-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
+  Undo2,
+  Redo2,
+  Save,
   Printer,
   RefreshCw,
   Search,
@@ -26,6 +29,9 @@ import {
 } from "./overview-model"
 import { useShiftView } from "../shift-view-context"
 import "./overview.css"
+import { useManagement } from "@/features/management/management-context"
+import { useOverviewDraft } from "./use-overview-draft"
+import { projectOverview } from "./overview-draft"
 
 export function ShiftOverview({
   year,
@@ -83,6 +89,8 @@ function ShiftOverviewContent({
   navigation: ReactNode
   initialDate: string
 }) {
+  const draft = useOverviewDraft()
+  const { setDirty } = useManagement()
   const pickerRef = useRef<HTMLInputElement>(null)
   const view = useShiftView(year)
   const [filters, setFilters] = useState<OverviewFilters>(
@@ -96,6 +104,10 @@ function ShiftOverviewContent({
   )
   const [selection, setSelection] = useState<OverviewSelection | null>(null)
   const [attendance, setAttendance] = useState<string | null>(null)
+  useEffect(() => {
+    setDirty(draft.dirty || draft.pending || selection !== null)
+    return () => setDirty(false)
+  }, [draft.dirty, draft.pending, selection, setDirty])
   const [printing, setPrinting] = useState(false)
   useEffect(() => {
     const done = () => {
@@ -115,6 +127,8 @@ function ShiftOverviewContent({
   }, [])
   const query = useQuery(overviewQuery(year, filters.date))
   const data = query.data
+    ? projectOverview(query.data, draft.drafts)
+    : undefined
   const rows = data ? overviewRows(data, filters) : []
   function change(patch: Partial<OverviewFilters>) {
     const next = { ...filters, ...patch }
@@ -124,11 +138,46 @@ function ShiftOverviewContent({
   return (
     <div className="space-y-4">
       <ShiftViewToolbar navigation={navigation}>
+        {data?.canEdit && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="元に戻す"
+              disabled={!draft.canUndo || draft.pending}
+              onClick={draft.undo}
+            >
+              <Undo2 />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="やり直す"
+              disabled={!draft.canRedo || draft.pending}
+              onClick={draft.redo}
+            >
+              <Redo2 />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!draft.dirty || draft.pending}
+              onClick={() => void draft.save()}
+            >
+              <Save />
+              {draft.pending
+                ? "保存中"
+                : draft.dirty
+                  ? "保存（未保存）"
+                  : "保存済み"}
+            </Button>
+          </>
+        )}
         <Button
           variant="ghost"
           size="icon-sm"
           aria-label="全体シフトを更新"
-          disabled={query.isFetching}
+          disabled={query.isFetching || draft.pending}
           onClick={() => void query.refetch()}
         >
           <RefreshCw />
@@ -147,6 +196,14 @@ function ShiftOverviewContent({
           印刷・PDF
         </Button>
       </ShiftViewToolbar>
+      {draft.error && (
+        <p
+          role="alert"
+          className="text-sm whitespace-pre-line text-destructive"
+        >
+          {draft.error} 未保存の変更は残っています。再度保存してください。
+        </p>
+      )}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative flex items-center gap-1">
           <Button
@@ -265,7 +322,9 @@ function ShiftOverviewContent({
               rows={rows}
               date={filters.date}
               now={now}
-              onSelect={setSelection}
+              onSelect={(value) => {
+                if (!draft.pending) setSelection(value)
+              }}
               onInspect={setAttendance}
             />
           ) : (
@@ -312,6 +371,8 @@ function ShiftOverviewContent({
           )}
           {selection && data.canEdit && (
             <OverviewEditor
+              drafts={draft.drafts}
+              onApply={draft.update}
               selection={selection}
               data={data}
               onClose={() => setSelection(null)}

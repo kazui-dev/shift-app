@@ -32,7 +32,11 @@ activityActionsApp.post(
   announce({ type: "shifts_changed" }),
   async (c) => {
     const input = v.safeParse(
-      v.object({ date: v.pipe(v.string(), v.isoDate()) }),
+      v.object({
+        date: v.pipe(v.string(), v.isoDate()),
+        startsAt: v.optional(v.pipe(v.string(), v.isoTimestamp())),
+        endsAt: v.optional(v.pipe(v.string(), v.isoTimestamp())),
+      }),
       await readJson(c.req.raw)
     )
     if (!input.success) return apiError(c, errors.dateRequired)
@@ -62,7 +66,20 @@ activityActionsApp.post(
     const date = new Date(Date.parse(old.activity.startsAt) + 9 * 3600000)
       .toISOString()
       .slice(0, 10)
-    const delta = japanDateStart(input.output.date) - japanDateStart(date)
+    const dayDelta = japanDateStart(input.output.date) - japanDateStart(date)
+    const start = input.output.startsAt
+      ? Date.parse(input.output.startsAt)
+      : Date.parse(old.activity.startsAt) + dayDelta
+    const end = input.output.endsAt
+      ? Date.parse(input.output.endsAt)
+      : Date.parse(old.activity.endsAt) + dayDelta
+    if (
+      start >= end ||
+      start < japanDateStart(input.output.date) ||
+      start >= japanDateStart(input.output.date) + 86_400_000
+    )
+      return apiError(c, errors.dateRequired)
+    const delta = start - Date.parse(old.activity.startsAt)
     try {
       await c.env.shift_app.batch([
         c.env.shift_app
@@ -74,8 +91,8 @@ activityActionsApp.post(
             old.activity.name,
             old.activity.place,
             old.activity.activityType,
-            Date.parse(old.activity.startsAt) + delta,
-            Date.parse(old.activity.endsAt) + delta,
+            start,
+            end,
             old.activity.color,
             old.activity.notes,
             actor.id,
@@ -103,32 +120,44 @@ activityActionsApp.post(
             .prepare("INSERT INTO activity_candidate_roles VALUES (?,?)")
             .bind(id, roleId)
         ),
-        ...old.slots.map((slot) =>
-          c.env.shift_app
-            .prepare(
-              "INSERT INTO shift_slots (id,activity_id,starts_at,ends_at,capacity) VALUES (?,?,?,?,?)"
-            )
-            .bind(
-              crypto.randomUUID(),
-              id,
-              Date.parse(slot.startsAt) + delta,
-              Date.parse(slot.endsAt) + delta,
-              slot.capacity
-            )
-        ),
-        ...old.requirements.map((item) =>
-          c.env.shift_app
-            .prepare(
-              "INSERT INTO shift_requirements (id,activity_id,starts_at,ends_at,required_count) VALUES (?,?,?,?,?)"
-            )
-            .bind(
-              crypto.randomUUID(),
-              id,
-              Date.parse(item.startsAt) + delta,
-              Date.parse(item.endsAt) + delta,
-              item.requiredCount
-            )
-        ),
+        ...old.slots
+          .filter(
+            (slot) =>
+              Date.parse(slot.startsAt) + delta < end &&
+              Date.parse(slot.endsAt) + delta > start
+          )
+          .map((slot) =>
+            c.env.shift_app
+              .prepare(
+                "INSERT INTO shift_slots (id,activity_id,starts_at,ends_at,capacity) VALUES (?,?,?,?,?)"
+              )
+              .bind(
+                crypto.randomUUID(),
+                id,
+                Math.max(start, Date.parse(slot.startsAt) + delta),
+                Math.min(end, Date.parse(slot.endsAt) + delta),
+                slot.capacity
+              )
+          ),
+        ...old.requirements
+          .filter(
+            (item) =>
+              Date.parse(item.startsAt) + delta < end &&
+              Date.parse(item.endsAt) + delta > start
+          )
+          .map((item) =>
+            c.env.shift_app
+              .prepare(
+                "INSERT INTO shift_requirements (id,activity_id,starts_at,ends_at,required_count) VALUES (?,?,?,?,?)"
+              )
+              .bind(
+                crypto.randomUUID(),
+                id,
+                Math.max(start, Date.parse(item.startsAt) + delta),
+                Math.min(end, Date.parse(item.endsAt) + delta),
+                item.requiredCount
+              )
+          ),
         c.env.shift_app
           .prepare("UPDATE activities SET active=1 WHERE id=?")
           .bind(id),
