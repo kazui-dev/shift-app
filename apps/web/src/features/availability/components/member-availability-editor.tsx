@@ -1,7 +1,8 @@
+import { createPortal } from "react-dom"
 import * as v from "valibot"
 import { managedAnswersInputSchema } from "@workspace/shared/availability"
 import { answerError } from "./answer-status"
-import { useState } from "react"
+import { useId, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { DayAnswer, FormDate } from "@workspace/shared/availability"
 import { Button } from "@workspace/ui/components/button"
@@ -31,6 +32,8 @@ export function MemberAvailabilityEditor({
   name: string
   onClose: () => void
 }) {
+  const formId = useId()
+  const [actions, setActions] = useState<HTMLSpanElement | null>(null)
   const query = useQuery({
     queryKey: keys.memberAvailability(year, memberId),
     queryFn: () => getMemberAvailability(year, memberId),
@@ -51,12 +54,22 @@ export function MemberAvailabilityEditor({
         className="flex h-[min(85dvh,42rem)] flex-col gap-0 overflow-hidden p-0"
         showCloseButton={!pending}
       >
-        <header className="shrink-0 px-6 pt-6 pr-16 pb-4">
-          <DialogTitle>{name}さんのシフト希望</DialogTitle>
+        <header className="flex shrink-0 items-center gap-3 border-b px-6 py-4 pr-16">
+          <DialogTitle className="min-w-0 flex-1">
+            {name}さんのシフト希望
+          </DialogTitle>
+          {!query.data && (
+            <Button size="sm" variant="outline" disabled>
+              保存
+            </Button>
+          )}
+          <span ref={setActions} />
         </header>
         {query.data ? (
           <MemberAnswers
             key={`${memberId}:${generation}`}
+            actions={actions}
+            formId={formId}
             year={year}
             memberId={memberId}
             initialData={query.data}
@@ -84,9 +97,6 @@ export function MemberAvailabilityEditor({
                 </Button>
               )}
             </div>
-            <footer className="flex shrink-0 justify-end border-t px-6 py-4">
-              <Button disabled>保存</Button>
-            </footer>
           </div>
         )}
       </DialogContent>
@@ -94,6 +104,8 @@ export function MemberAvailabilityEditor({
   )
 }
 function MemberAnswers({
+  actions,
+  formId,
   year,
   memberId,
   initialData,
@@ -102,6 +114,8 @@ function MemberAnswers({
   onClose,
   reload,
 }: {
+  actions: HTMLSpanElement | null
+  formId: string
   year: number
   memberId: string
   initialData: Form
@@ -170,12 +184,26 @@ function MemberAnswers({
   }
   return (
     <form
+      id={formId}
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
       onSubmit={(event) => {
         event.preventDefault()
         void save()
       }}
     >
+      {actions &&
+        createPortal(
+          <Button
+            size="sm"
+            variant="outline"
+            type="submit"
+            form={formId}
+            disabled={pending || conflicted || !answers.length}
+          >
+            {pending ? "保存中" : "保存"}
+          </Button>,
+          actions
+        )}
       <div className="relative min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto overscroll-contain px-6 py-2">
         <AvailabilityFields
           dates={data.dates}
@@ -186,33 +214,27 @@ function MemberAnswers({
           onUpdate={update}
         />
       </div>
-      <footer className="shrink-0 border-t px-6 py-4">
-        {error && (
-          <p role="alert" className="mb-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          {conflicted && (
-            <Button
-              size="sm"
-              type="button"
-              variant="outline"
-              onClick={() => void reload()}
-            >
-              再読み込み
-            </Button>
+      {(error || conflicted) && (
+        <footer className="shrink-0 border-t px-6 py-4">
+          {error && (
+            <p role="alert" className="mb-3 text-sm text-destructive">
+              {error}
+            </p>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            type="submit"
-            disabled={pending || conflicted || !answers.length}
-          >
-            {pending ? "保存中" : "保存"}
-          </Button>
-        </div>
-      </footer>
+          <div className="flex justify-end gap-2">
+            {conflicted && (
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={() => void reload()}
+              >
+                再読み込み
+              </Button>
+            )}
+          </div>
+        </footer>
+      )}
     </form>
   )
 }

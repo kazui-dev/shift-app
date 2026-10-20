@@ -30,6 +30,7 @@ import {
 import { useShiftView } from "../shift-view-context"
 import "./overview.css"
 import { useManagement } from "@/features/management/management-context"
+import { ManagementHeaderActions } from "@/features/management/components/header-actions"
 import { useOverviewDraft } from "./use-overview-draft"
 import { projectOverview } from "./overview-draft"
 
@@ -158,19 +159,21 @@ function ShiftOverviewContent({
             >
               <Redo2 />
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!draft.dirty || draft.pending}
-              onClick={() => void draft.save()}
-            >
-              <Save />
-              {draft.pending
-                ? "保存中"
-                : draft.dirty
-                  ? "保存（未保存）"
-                  : "保存済み"}
-            </Button>
+            <ManagementHeaderActions>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!draft.dirty || draft.pending}
+                onClick={() => void draft.save()}
+              >
+                <Save />
+                {draft.pending
+                  ? "保存中"
+                  : draft.dirty
+                    ? "保存（未保存）"
+                    : "保存済み"}
+              </Button>
+            </ManagementHeaderActions>
           </>
         )}
         <Button

@@ -104,70 +104,30 @@ export function AvailabilitySchedule({
             onValueChange={(value) => setExpanded(value.map(String))}
           >
             {adding && (
-              <AccordionItem value={newDate}>
-                <AccordionTrigger className="px-1">新しい日程</AccordionTrigger>
-                <AccordionContent className="px-1">
-                  <AvailabilityDateForm
-                    year={year}
-                    onDirtyChange={trackDirty}
-                    onSaved={() => setExpanded([])}
-                    onCancel={() => setExpanded([])}
-                  />
-                </AccordionContent>
-              </AccordionItem>
+              <ScheduleDate
+                year={year}
+                onDirtyChange={trackDirty}
+                onClose={() => setExpanded([])}
+              />
             )}
             {dates.data?.dates.map((date) => (
-              <AccordionItem key={date.date} value={date.date}>
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    aria-label={`${date.date}を選択`}
-                    className="mt-6"
-                    disabled={pending}
-                    checked={selected.includes(date.date)}
-                    onCheckedChange={(checked) =>
-                      setSelected((values) =>
-                        checked
-                          ? [...values, date.date]
-                          : values.filter((value) => value !== date.date)
-                      )
-                    }
-                  />
-                  <div className="min-w-0 flex-1">
-                    <AccordionTrigger className="w-full items-center gap-3 px-1 hover:no-underline">
-                      <span className="block min-w-0 flex-1 space-y-1">
-                        <span className="block text-sm font-medium">
-                          {japanFullDate(date.date)}
-                        </span>
-                        <span className="block text-xs font-normal text-muted-foreground tabular-nums">
-                          {clock(date.startsMinute)}〜{clock(date.endsMinute)}{" "}
-                          <span className="ml-2">
-                            {date.accepting ? "受付中" : "受付終了"}
-                          </span>
-                        </span>
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-1">
-                      <AvailabilityDateForm
-                        year={year}
-                        initial={date}
-                        onDirtyChange={trackDirty}
-                        onSaved={() => setExpanded([])}
-                        onCancel={() => setExpanded([])}
-                      />
-                    </AccordionContent>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    className="mt-4"
-                    aria-label={`${date.date}を削除`}
-                    disabled={pending}
-                    onClick={() => setRemoving(date)}
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              </AccordionItem>
+              <ScheduleDate
+                key={date.date}
+                year={year}
+                date={date}
+                pending={pending}
+                selected={selected.includes(date.date)}
+                onSelect={(checked) =>
+                  setSelected((values) =>
+                    checked
+                      ? [...values, date.date]
+                      : values.filter((value) => value !== date.date)
+                  )
+                }
+                onRemove={() => setRemoving(date)}
+                onDirtyChange={trackDirty}
+                onClose={() => setExpanded([])}
+              />
             ))}
             {dates.data?.dates.length === 0 && !adding && (
               <p className="py-8 text-center text-sm text-muted-foreground">
@@ -229,5 +189,78 @@ export function AvailabilitySchedule({
         />
       )}
     </>
+  )
+}
+
+function ScheduleDate({
+  year,
+  date,
+  pending = false,
+  selected = false,
+  onSelect,
+  onRemove,
+  onDirtyChange,
+  onClose,
+}: {
+  year: number
+  date?: FormDate
+  pending?: boolean
+  selected?: boolean
+  onSelect?: (checked: boolean) => void
+  onRemove?: () => void
+  onDirtyChange: (key: string, dirty: boolean) => void
+  onClose: () => void
+}) {
+  const [actions, setActions] = useState<HTMLDivElement | null>(null)
+  return (
+    <AccordionItem value={date?.date ?? newDate}>
+      <div className="sticky top-0 z-10 flex items-center gap-3 bg-background [&>h3]:min-w-0 [&>h3]:flex-1">
+        {date && (
+          <Checkbox
+            aria-label={`${date.date}を選択`}
+            disabled={pending}
+            checked={selected}
+            onCheckedChange={(checked) => onSelect?.(checked)}
+          />
+        )}
+        <AccordionTrigger className="min-w-0 flex-1 items-center gap-3 px-1 hover:no-underline">
+          <span className="block min-w-0 flex-1 space-y-1">
+            <span className="block text-sm font-medium">
+              {date ? japanFullDate(date.date) : "新しい日程"}
+            </span>
+            {date && (
+              <span className="block text-xs font-normal text-muted-foreground tabular-nums">
+                {clock(date.startsMinute)}〜{clock(date.endsMinute)}{" "}
+                <span className="ml-2">
+                  {date.accepting ? "受付中" : "受付終了"}
+                </span>
+              </span>
+            )}
+          </span>
+        </AccordionTrigger>
+        <div ref={setActions} className="shrink-0 empty:hidden" />
+        {date && (
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label={`${date.date}を削除`}
+            disabled={pending}
+            onClick={onRemove}
+          >
+            <Trash2 />
+          </Button>
+        )}
+      </div>
+      <AccordionContent className={date ? "pr-1 pl-9" : "px-1"}>
+        <AvailabilityDateForm
+          year={year}
+          {...(date ? { initial: date } : {})}
+          actionsTarget={actions}
+          onDirtyChange={onDirtyChange}
+          onSaved={onClose}
+          onCancel={onClose}
+        />
+      </AccordionContent>
+    </AccordionItem>
   )
 }

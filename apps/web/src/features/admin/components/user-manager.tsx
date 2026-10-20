@@ -179,6 +179,23 @@ function UserDetail({
       className="data-[side=right]:w-[26rem] data-[side=right]:sm:max-w-[26rem]"
       title={user.displayName}
       description={user.studentId}
+      headerActions={
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={pending || !dirty || !reason.trim()}
+          onClick={() =>
+            void run(() =>
+              updateAdminAccessLevel(user.id, {
+                accessLevel: level,
+                reason,
+              })
+            )
+          }
+        >
+          {pending ? "保存中…" : "権限を保存"}
+        </Button>
+      }
       onOpenChange={(nextOpen) => {
         if (!nextOpen && !pending) {
           if (dirty) setDiscarding(true)
@@ -239,29 +256,12 @@ function UserDetail({
             }))}
           />
           {level !== user.accessLevel && (
-            <>
-              <Input
-                aria-label="変更理由"
-                placeholder="変更理由"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending || !reason.trim()}
-                onClick={() =>
-                  void run(() =>
-                    updateAdminAccessLevel(user.id, {
-                      accessLevel: level,
-                      reason,
-                    })
-                  )
-                }
-              >
-                {pending ? "保存中…" : "権限を保存"}
-              </Button>
-            </>
+            <Input
+              aria-label="変更理由"
+              placeholder="変更理由"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
           )}
         </section>
       </div>

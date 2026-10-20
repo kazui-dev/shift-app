@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useId, useState, type FormEvent } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import type { ShiftPermission } from "@workspace/shared/shifts"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
+import { ManagementHeaderActions } from "@/features/management/components/header-actions"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   createYearRole,
@@ -30,6 +31,7 @@ export function RoleEditor({
   onDirtyChange: (dirty: boolean) => void
   onClose: () => void
 }) {
+  const formId = useId()
   const client = useQueryClient()
   const [name, setName] = useState(role?.name ?? "")
   const [color, setColor] = useState(role?.color ?? "#64748B")
@@ -54,6 +56,7 @@ export function RoleEditor({
   }
   async function save(event: FormEvent) {
     event.preventDefault()
+    if (!canEdit || pending || !dirty || !name.trim()) return
     setPending(true)
     try {
       const input = { name, color, permissions: grants }
@@ -73,7 +76,22 @@ export function RoleEditor({
     }
   }
   return (
-    <form onSubmit={save} className="mx-auto max-w-2xl min-w-0 space-y-6">
+    <form
+      id={formId}
+      onSubmit={save}
+      className="mx-auto max-w-2xl min-w-0 space-y-6"
+    >
+      <ManagementHeaderActions>
+        <Button
+          size="sm"
+          variant="outline"
+          type="submit"
+          form={formId}
+          disabled={!canEdit || pending || !dirty || !name.trim()}
+        >
+          {pending ? "保存中…" : role ? "保存" : "作成"}
+        </Button>
+      </ManagementHeaderActions>
       {!canEdit && (
         <p className="text-sm text-muted-foreground">
           このロールを編集する権限がありません。
@@ -144,14 +162,6 @@ export function RoleEditor({
           )}
           <Button size="sm" type="button" variant="outline" onClick={close}>
             キャンセル
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            type="submit"
-            disabled={pending || !dirty || !name.trim()}
-          >
-            {pending ? "保存中…" : role ? "保存" : "作成"}
           </Button>
         </div>
       </fieldset>
