@@ -55,7 +55,7 @@ export function SelectField({
         <SelectValue />
       </SelectTrigger>
       <SelectContent
-        container={container}
+        container={container ?? undefined}
         alignItemWithTrigger={false}
         align="start"
       >
