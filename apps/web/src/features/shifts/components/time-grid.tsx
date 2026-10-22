@@ -1,3 +1,6 @@
+import { memberSelectionKeys } from "./assignment-removal"
+import { AssignmentSelectAll } from "./assignment-selection"
+import type { AssignmentSelection } from "./use-assignment-selection"
 import { TimeGuides } from "./time-guides"
 import { memberAvailability } from "./member-availability"
 import { staffing } from "./staffing"
@@ -15,7 +18,7 @@ import { TimeGridRow } from "./time-grid-row"
 import { gridMembers, timeScale } from "./time-scale"
 
 export function TimeGrid({
-  bulkSelection,
+  assignmentSelection,
   data,
   plan,
   role,
@@ -27,9 +30,7 @@ export function TimeGrid({
   onCommit,
   onMember,
 }: {
-  bulkSelection?:
-    | { memberIds: string[]; toggle: (memberId: string) => void }
-    | undefined
+  assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
   plan: ActivityEditorInput
   role: string
@@ -101,63 +102,67 @@ export function TimeGrid({
   }))
   return (
     <div className="relative min-w-0">
-      {periodDetail && selectedTime !== null && (
-        <div className="absolute top-[68px] left-2 z-30 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-x-2 gap-y-2 rounded-md border bg-popover py-2 pr-9 pl-2 text-xs shadow-sm">
-          <input
-            type="time"
-            step={60}
-            aria-label="確認時刻"
-            value={japanInputValue(selectedTime).slice(11, 16)}
-            onChange={(event) => {
-              const at = japanLocalDateTime(
-                `${japanInputValue(selectedTime).slice(0, 10)}T${event.currentTarget.value}`
-              )
-              if (
-                Number.isFinite(at) &&
-                at >= start &&
-                at < Date.parse(plan.endsAt)
-              ) {
-                setSelectedTime(at)
-                setCandidatesOnly(false)
-              }
-            }}
-            className="h-9 w-28 rounded-md border bg-background px-2 text-sm tabular-nums"
-          />
-          <output aria-live="polite" className="tabular-nums">
-            <span
-              className={periodDetail.shortage ? "text-destructive" : undefined}
-            >
-              配置 {periodDetail.assigned}人
-            </span>
-            <span className="ml-2 text-muted-foreground">
-              / 必要{" "}
-              {periodDetail.required === null
-                ? "未設定"
-                : `${periodDetail.required}人`}
-            </span>
-          </output>
-          {periodDetail.shortage && (
+      {periodDetail &&
+        selectedTime !== null &&
+        !assignmentSelection?.active && (
+          <div className="absolute top-[68px] left-2 z-30 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-x-2 gap-y-2 rounded-md border bg-popover py-2 pr-9 pl-2 text-xs shadow-sm">
+            <input
+              type="time"
+              step={60}
+              aria-label="確認時刻"
+              value={japanInputValue(selectedTime).slice(11, 16)}
+              onChange={(event) => {
+                const at = japanLocalDateTime(
+                  `${japanInputValue(selectedTime).slice(0, 10)}T${event.currentTarget.value}`
+                )
+                if (
+                  Number.isFinite(at) &&
+                  at >= start &&
+                  at < Date.parse(plan.endsAt)
+                ) {
+                  setSelectedTime(at)
+                  setCandidatesOnly(false)
+                }
+              }}
+              className="h-9 w-28 rounded-md border bg-background px-2 text-sm tabular-nums"
+            />
+            <output aria-live="polite" className="tabular-nums">
+              <span
+                className={
+                  periodDetail.shortage ? "text-destructive" : undefined
+                }
+              >
+                配置 {periodDetail.assigned}人
+              </span>
+              <span className="ml-2 text-muted-foreground">
+                / 必要{" "}
+                {periodDetail.required === null
+                  ? "未設定"
+                  : `${periodDetail.required}人`}
+              </span>
+            </output>
+            {periodDetail.shortage && (
+              <button
+                type="button"
+                className="underline underline-offset-4"
+                onClick={() => setCandidatesOnly(!candidatesOnly)}
+              >
+                {candidatesOnly ? "全員を表示" : "候補を表示"}
+              </button>
+            )}
             <button
               type="button"
-              className="underline underline-offset-4"
-              onClick={() => setCandidatesOnly(!candidatesOnly)}
+              className="absolute top-0 right-0 flex size-9 items-center justify-center"
+              aria-label="人数の詳細を閉じる"
+              onClick={() => {
+                setSelectedTime(null)
+                setCandidatesOnly(false)
+              }}
             >
-              {candidatesOnly ? "全員を表示" : "候補を表示"}
+              ×
             </button>
-          )}
-          <button
-            type="button"
-            className="absolute top-0 right-0 flex size-9 items-center justify-center"
-            aria-label="人数の詳細を閉じる"
-            onClick={() => {
-              setSelectedTime(null)
-              setCandidatesOnly(false)
-            }}
-          >
-            ×
-          </button>
-        </div>
-      )}
+          </div>
+        )}
       <div className="shift-timeline max-w-full min-w-0 overflow-x-auto border-y">
         <div
           style={{
@@ -167,6 +172,20 @@ export function TimeGrid({
           <div className="sticky top-0 z-20 bg-background">
             <div className="flex h-10">
               <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3 text-xs text-muted-foreground">
+                {assignmentSelection && (
+                  <AssignmentSelectAll
+                    selection={{
+                      ...assignmentSelection,
+                      available: members.flatMap((member) =>
+                        memberSelectionKeys(
+                          data.activity.id,
+                          member.id,
+                          plan.slots
+                        )
+                      ),
+                    }}
+                  />
+                )}
                 メンバー
               </div>
               <div className="relative mx-6 min-w-0 flex-1 text-xs text-muted-foreground">
@@ -222,6 +241,7 @@ export function TimeGrid({
                 ))}
                 <input
                   type="range"
+                  disabled={assignmentSelection?.active}
                   aria-label="配置人数を確認する時刻"
                   aria-valuetext={`${japanTime(selectedTime ?? start)}、配置${periods.find((period) => Date.parse(period.startsAt) <= (selectedTime ?? start) && (selectedTime ?? start) < Date.parse(period.endsAt))?.assigned ?? 0}人`}
                   min={start}
@@ -249,7 +269,8 @@ export function TimeGrid({
           {visible.map((row) => (
             <TimeGridRow
               key={row.member.id}
-              bulkSelected={bulkSelection?.memberIds.includes(row.member.id)}
+              activityId={data.activity.id}
+              assignmentSelection={assignmentSelection}
               {...row}
               color={plan.color}
               scale={scale}
@@ -257,10 +278,6 @@ export function TimeGrid({
               onSelect={onSelect}
               onCommit={onCommit}
               onMember={(memberId) => {
-                if (bulkSelection) {
-                  bulkSelection.toggle(memberId)
-                  return
-                }
                 if (candidatesOnly && periodDetail)
                   onSelect({
                     memberId,

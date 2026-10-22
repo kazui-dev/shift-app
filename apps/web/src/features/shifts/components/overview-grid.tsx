@@ -1,3 +1,9 @@
+import {
+  AssignmentRowCheckbox,
+  AssignmentSelectAll,
+} from "./assignment-selection"
+import { assignmentKey } from "./assignment-removal"
+import type { AssignmentSelection } from "./use-assignment-selection"
 import { ShiftMemberLabel } from "./shift-member-label"
 import { TimeGuides } from "./time-guides"
 import "./time-grid.css"
@@ -13,6 +19,7 @@ import {
 } from "./overview-model"
 
 export function OverviewGrid({
+  assignmentSelection,
   data,
   date,
   rows,
@@ -21,6 +28,7 @@ export function OverviewGrid({
   onInspect,
   printing = false,
 }: {
+  assignmentSelection?: AssignmentSelection | undefined
   printing?: boolean
   data: ShiftOverview
   date: string
@@ -59,13 +67,33 @@ export function OverviewGrid({
       >
         <div className="sticky top-0 z-20 flex h-10 bg-background text-xs text-muted-foreground">
           <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3">
-            メンバー <span className="ml-2 tabular-nums">{rows.length}人</span>
-            <span
-              className="ml-2 tabular-nums"
-              title="表示中の勤務で遅刻として記録された件数"
-            >
-              遅刻 {lateCount}件
-            </span>
+            {assignmentSelection ? (
+              <>
+                <AssignmentSelectAll selection={assignmentSelection} />
+                <span className="leading-4">
+                  <span className="block tabular-nums">
+                    メンバー {rows.length}人
+                  </span>
+                  <span
+                    className="block text-[11px] tabular-nums"
+                    title="表示中の勤務で遅刻として記録された件数"
+                  >
+                    遅刻 {lateCount}件
+                  </span>
+                </span>
+              </>
+            ) : (
+              <>
+                メンバー{" "}
+                <span className="ml-2 tabular-nums">{rows.length}人</span>
+                <span
+                  className="ml-2 tabular-nums"
+                  title="表示中の勤務で遅刻として記録された件数"
+                >
+                  遅刻 {lateCount}件
+                </span>
+              </>
+            )}
           </div>
           <div className="relative mx-6 flex-1">
             {marks
@@ -93,42 +121,55 @@ export function OverviewGrid({
             key={member.id}
             className="overview-row flex h-14 border-t border-border/70 bg-background"
           >
-            <button
-              type="button"
-              className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-left text-sm sm:px-3"
-              aria-label={`${member.displayName}のシフトを確認`}
-              onClick={() => {
-                const assignment = assignments[0]
-                if (!data.canEdit) {
-                  if (assignment) onInspect(assignment.activityId)
-                  return
-                }
-                onSelect({
-                  memberId: member.id,
-                  activityId: assignment?.activityId ?? "",
-                  slotId: assignment?.slotId ?? null,
-                  startsAt:
-                    assignment?.startsAt ?? new Date(start).toISOString(),
-                  endsAt:
-                    assignment?.endsAt ??
-                    new Date(Math.min(end, start + 3_600_000)).toISOString(),
-                })
-              }}
+            <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-sm sm:px-3">
+              {assignmentSelection && (
+                <AssignmentRowCheckbox
+                  selection={assignmentSelection}
+                  keys={assignments.map(assignmentKey)}
+                  name={member.displayName}
+                />
+              )}
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                aria-label={`${member.displayName}のシフトを確認`}
+                disabled={assignmentSelection?.active}
+                onClick={() => {
+                  const assignment = assignments[0]
+                  if (!data.canEdit) {
+                    if (assignment) onInspect(assignment.activityId)
+                    return
+                  }
+                  onSelect({
+                    memberId: member.id,
+                    activityId: assignment?.activityId ?? "",
+                    slotId: assignment?.slotId ?? null,
+                    startsAt:
+                      assignment?.startsAt ?? new Date(start).toISOString(),
+                    endsAt:
+                      assignment?.endsAt ??
+                      new Date(Math.min(end, start + 3_600_000)).toISOString(),
+                  })
+                }}
+              >
+                <MemberAvatar
+                  name={member.displayName}
+                  image={member.image}
+                  className={`size-6 text-[10px] ${assignmentSelection ? "hidden sm:flex" : ""}`}
+                />
+                <ShiftMemberLabel
+                  name={member.displayName}
+                  studentId={member.studentId}
+                  duties={member.roles
+                    .filter((role) => duties.has(role.id))
+                    .map((role) => role.name)}
+                />
+              </button>
+            </div>
+            <div
+              data-selection-surface
+              className="relative mx-6 min-w-0 flex-1"
             >
-              <MemberAvatar
-                name={member.displayName}
-                image={member.image}
-                className="size-6 text-[10px]"
-              />
-              <ShiftMemberLabel
-                name={member.displayName}
-                studentId={member.studentId}
-                duties={member.roles
-                  .filter((role) => duties.has(role.id))
-                  .map((role) => role.name)}
-              />
-            </button>
-            <div className="relative mx-6 min-w-0 flex-1">
               <TimeGuides scale={scale} stepMinutes={30} />
               {data.availability
                 .filter((w) => w.memberId === member.id)
@@ -140,7 +181,7 @@ export function OverviewGrid({
                     style={position(w.startsAt, w.endsAt)}
                   />
                 ))}
-              {data.canEdit && (
+              {data.canEdit && !assignmentSelection?.active && (
                 <button
                   className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
                   aria-label={`${member.displayName}に勤務を追加`}
@@ -174,26 +215,36 @@ export function OverviewGrid({
               {assignments.map((a) => {
                 const activity = activities.get(a.activityId)
                 const label = overviewAttendance(a)
+                const key = assignmentKey(a)
                 return (
                   <button
                     key={a.id}
-                    className="absolute top-[17px] z-[2] h-5 truncate rounded px-[9px] text-left text-xs leading-[17px] text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-ring"
+                    type="button"
+                    data-assignment-key={key}
+                    aria-pressed={
+                      assignmentSelection?.active
+                        ? assignmentSelection.keys.includes(key)
+                        : undefined
+                    }
+                    className={`absolute top-[17px] z-[2] h-5 truncate rounded px-[9px] text-left text-xs leading-[17px] text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-ring`}
                     style={{
                       ...position(a.startsAt, a.endsAt),
-                      backgroundColor: `color-mix(in oklab, ${activity?.color ?? "#64748B"} 22%, var(--background))`,
+                      backgroundColor: `color-mix(in oklab, ${activity?.color ?? "#64748B"} ${assignmentSelection?.keys.includes(key) ? 60 : 22}%, var(--background))`,
                     }}
                     title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
                     aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
                     onClick={() =>
-                      data.canEdit
-                        ? onSelect({
-                            memberId: member.id,
-                            activityId: a.activityId,
-                            slotId: a.slotId,
-                            startsAt: a.startsAt,
-                            endsAt: a.endsAt,
-                          })
-                        : onInspect(a.activityId)
+                      assignmentSelection?.active
+                        ? assignmentSelection.toggle(key)
+                        : data.canEdit
+                          ? onSelect({
+                              memberId: member.id,
+                              activityId: a.activityId,
+                              slotId: a.slotId,
+                              startsAt: a.startsAt,
+                              endsAt: a.endsAt,
+                            })
+                          : onInspect(a.activityId)
                     }
                   >
                     {activity?.name}

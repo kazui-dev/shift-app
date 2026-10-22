@@ -37,6 +37,17 @@ export function useOverviewDraft() {
     )
     setPending(false)
   }
+  function updateMany(updates: OverviewDrafts) {
+    setHistory((current) => {
+      const next = { ...current.present }
+      for (const [id, draft] of Object.entries(updates)) {
+        const base = current.present[id]?.base ?? draft.base
+        if (JSON.stringify(base) === JSON.stringify(draft.plan)) delete next[id]
+        else next[id] = { base, plan: draft.plan }
+      }
+      return change(current, next)
+    })
+  }
   return {
     drafts: history.present,
     pending,
@@ -46,14 +57,8 @@ export function useOverviewDraft() {
     canRedo: history.future.length > 0,
     undo: () => setHistory((current) => undo(current)),
     redo: () => setHistory((current) => redo(current)),
-    update: (id: string, draft: OverviewDraft) =>
-      setHistory((current) => {
-        const next = { ...current.present }
-        const base = current.present[id]?.base ?? draft.base
-        if (JSON.stringify(base) === JSON.stringify(draft.plan)) delete next[id]
-        else next[id] = { base, plan: draft.plan }
-        return change(current, next)
-      }),
+    update: (id: string, draft: OverviewDraft) => updateMany({ [id]: draft }),
+    updateMany,
     save,
   }
 }

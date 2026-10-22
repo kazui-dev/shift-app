@@ -1,3 +1,13 @@
+import { useAssignmentSelection } from "./use-assignment-selection"
+import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "@workspace/ui/lib/toast"
+import { errorMessage } from "@/lib/http/client"
+import { activityQuery } from "../data/activities"
+import { assignmentKey, prepareAssignmentRemoval } from "./assignment-removal"
+import {
+  AssignmentSelectionArea,
+  AssignmentSelectionToolbar,
+} from "./assignment-selection"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { flushSync } from "react-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -13,7 +23,7 @@ import {
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { japanDateTime } from "@workspace/shared/japan-time"
+import { japanDateTime, japanTime } from "@workspace/shared/japan-time"
 import { activitiesQuery } from "../data/activities"
 import { overviewQuery } from "../data/overview"
 import { ShiftViewToolbar } from "./shift-view-toolbar"
@@ -91,6 +101,9 @@ function ShiftOverviewContent({
   initialDate: string
 }) {
   const draft = useOverviewDraft()
+  const client = useQueryClient()
+  const [removing, setRemoving] = useState(false)
+  const pending = draft.pending || removing
   const { setDirty } = useManagement()
   const pickerRef = useRef<HTMLInputElement>(null)
   const view = useShiftView(year)
@@ -106,9 +119,9 @@ function ShiftOverviewContent({
   const [selection, setSelection] = useState<OverviewSelection | null>(null)
   const [attendance, setAttendance] = useState<string | null>(null)
   useEffect(() => {
-    setDirty(draft.dirty || draft.pending || selection !== null)
+    setDirty(draft.dirty || pending || selection !== null)
     return () => setDirty(false)
-  }, [draft.dirty, draft.pending, selection, setDirty])
+  }, [draft.dirty, pending, selection, setDirty])
   const [printing, setPrinting] = useState(false)
   useEffect(() => {
     const done = () => {
@@ -131,13 +144,42 @@ function ShiftOverviewContent({
     ? projectOverview(query.data, draft.drafts)
     : undefined
   const rows = data ? overviewRows(data, filters) : []
+  const removable = rows.flatMap((row) => row.assignments)
+  const removal = useAssignmentSelection(
+    JSON.stringify(filters),
+    removable.map(assignmentKey)
+  )
+  async function removeSelected() {
+    if (pending) return
+    setRemoving(true)
+    try {
+      const targets = removable.filter((target) =>
+        removal.keys.includes(assignmentKey(target))
+      )
+      const updates = await prepareAssignmentRemoval(
+        targets,
+        draft.drafts,
+        (id) => client.fetchQuery({ ...activityQuery(id), staleTime: 0 })
+      )
+      draft.updateMany(updates)
+      removal.end()
+      toast.success(
+        `${targets.length}件の勤務を解除しました。保存すると確定します。`
+      )
+    } catch (error) {
+      toast.error(errorMessage(error))
+    } finally {
+      setRemoving(false)
+    }
+  }
   function change(patch: Partial<OverviewFilters>) {
+    removal.end()
     const next = { ...filters, ...patch }
     setFilters(next)
     view.save({ overview: next })
   }
   return (
-    <div className="space-y-4">
+    <fieldset disabled={removing} className="min-w-0 space-y-4">
       <ShiftViewToolbar navigation={navigation}>
         {data?.canEdit && (
           <>
@@ -145,7 +187,7 @@ function ShiftOverviewContent({
               variant="ghost"
               size="icon-sm"
               aria-label="元に戻す"
-              disabled={!draft.canUndo || draft.pending}
+              disabled={!draft.canUndo || pending}
               onClick={draft.undo}
             >
               <Undo2 />
@@ -154,7 +196,7 @@ function ShiftOverviewContent({
               variant="ghost"
               size="icon-sm"
               aria-label="やり直す"
-              disabled={!draft.canRedo || draft.pending}
+              disabled={!draft.canRedo || pending}
               onClick={draft.redo}
             >
               <Redo2 />
@@ -163,11 +205,11 @@ function ShiftOverviewContent({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={!draft.dirty || draft.pending}
+                disabled={!draft.dirty || pending}
                 onClick={() => void draft.save()}
               >
                 <Save />
-                {draft.pending
+                {pending
                   ? "保存中"
                   : draft.dirty
                     ? "保存（未保存）"
@@ -180,7 +222,7 @@ function ShiftOverviewContent({
           variant="ghost"
           size="icon-sm"
           aria-label="全体シフトを更新"
-          disabled={query.isFetching || draft.pending}
+          disabled={query.isFetching || pending}
           onClick={() => void query.refetch()}
         >
           <RefreshCw />
@@ -307,6 +349,23 @@ function ShiftOverviewContent({
           value={filters.activities}
           onChange={(activities) => change({ activities })}
         />
+        {data?.canEdit && (
+          <AssignmentSelectionToolbar
+            selection={removal}
+            details={removable.map((target) => ({
+              key: assignmentKey(target),
+              name:
+                data?.members.find((item) => item.id === target.memberId)
+                  ?.displayName ?? "",
+              activity:
+                data?.activities.find((item) => item.id === target.activityId)
+                  ?.name ?? "",
+              time: `${japanTime(target.startsAt)}〜${japanTime(target.endsAt)}`,
+            }))}
+            pending={pending}
+            onRemove={() => void removeSelected()}
+          />
+        )}
       </div>
       {query.isPending && (
         <p className="py-6 text-sm text-muted-foreground">読み込み中…</p>
@@ -319,17 +378,20 @@ function ShiftOverviewContent({
       {data && !query.isError && (
         <>
           {rows.length ? (
-            <OverviewGrid
-              key={`${filters.date}:${filters.roles.join(",")}:${filters.activities.join(",")}:${filters.search}`}
-              data={data}
-              rows={rows}
-              date={filters.date}
-              now={now}
-              onSelect={(value) => {
-                if (!draft.pending) setSelection(value)
-              }}
-              onInspect={setAttendance}
-            />
+            <AssignmentSelectionArea selection={removal}>
+              <OverviewGrid
+                assignmentSelection={data.canEdit ? removal : undefined}
+                key={`${filters.date}:${filters.roles.join(",")}:${filters.activities.join(",")}:${filters.search}`}
+                data={data}
+                rows={rows}
+                date={filters.date}
+                now={now}
+                onSelect={(value) => {
+                  if (!pending) setSelection(value)
+                }}
+                onInspect={setAttendance}
+              />
+            </AssignmentSelectionArea>
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">
               条件に一致する勤務・メンバーがいません。
@@ -389,6 +451,6 @@ function ShiftOverviewContent({
           )}
         </>
       )}
-    </div>
+    </fieldset>
   )
 }
