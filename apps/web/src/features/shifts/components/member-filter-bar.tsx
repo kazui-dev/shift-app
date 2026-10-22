@@ -1,4 +1,4 @@
-import { Button } from "@workspace/ui/components/button"
+import type { ReactNode } from "react"
 import { Search } from "lucide-react"
 import { Input } from "@workspace/ui/components/input"
 import { SelectField } from "@/components/select-field"
@@ -6,14 +6,12 @@ import type { EditorData } from "../editor-data"
 import type { MemberFilters } from "../shift-view-context"
 
 export function MemberFilterBar({
-  onBulkAssign,
-  disabled,
+  children,
   filters,
   roles,
   onChange,
 }: {
-  onBulkAssign: () => void
-  disabled: boolean
+  children?: ReactNode
   filters: MemberFilters
   roles: EditorData["roles"]
   onChange: (filters: MemberFilters) => void
@@ -67,15 +65,7 @@ export function MemberFilterBar({
         />
         未回答
       </label>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={disabled}
-        onClick={onBulkAssign}
-        className="sm:ml-auto"
-      >
-        一括割当
-      </Button>
+      <div className="sm:ml-auto">{children}</div>
     </div>
   )
 }

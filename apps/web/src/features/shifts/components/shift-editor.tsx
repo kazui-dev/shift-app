@@ -1,4 +1,14 @@
-import { Button } from "@workspace/ui/components/button"
+import { useAssignmentSelection } from "./use-assignment-selection"
+import {
+  assignmentKey,
+  memberSelectionKeys,
+  removeAssignments,
+} from "./assignment-removal"
+import {
+  AssignmentSelectionArea,
+  AssignmentSelectionToolbar,
+} from "./assignment-selection"
+import { japanTime } from "@workspace/shared/japan-time"
 import { gridMembers } from "./time-scale"
 import { BulkAssignmentDialog } from "./bulk-assignment-dialog"
 import { keys } from "@/app/data/keys"
@@ -76,6 +86,7 @@ export function ShiftEditor({
       }
   )
   function setFilters(value: MemberFilters) {
+    removal.end()
     if (viewport.current) viewport.current.scrollTop = 0
     view.save({ filters: value, scrollTop: 0 })
     storeFilters(value)
@@ -108,6 +119,29 @@ export function ShiftEditor({
         Date.parse(window.endsAt) > Date.parse(plan.startsAt)
     ),
   }
+  const visibleMembers = new Set(
+    gridMembers(data, plan, filters).map((member) => member.id)
+  )
+  const removable = plan.slots.flatMap((slot) =>
+    slot.memberIds
+      .filter((memberId) => visibleMembers.has(memberId))
+      .map((memberId) => ({
+        activityId: data.activity.id,
+        slotId: slot.id,
+        memberId,
+      }))
+  )
+  const removal = useAssignmentSelection(
+    `${data.activity.id}:${JSON.stringify(filters)}`,
+    [...visibleMembers].flatMap((memberId) =>
+      memberSelectionKeys(data.activity.id, memberId, plan.slots)
+    )
+  )
+  const selectedMemberIds = [...visibleMembers].filter((memberId) =>
+    memberSelectionKeys(data.activity.id, memberId, plan.slots).some((key) =>
+      removal.keys.includes(key)
+    )
+  )
   function applySelection(value: ShiftSelection): string | null {
     const result = assignMember(plan, value, data.otherAssignments)
     if ("error" in result) return result.error
@@ -198,108 +232,75 @@ export function ShiftEditor({
       />
       <div className="space-y-3 px-4 pb-4 sm:px-6">
         <MemberFilterBar
-          onBulkAssign={() => {
-            setSelection(null)
-            setBulkMembers((current) => (current === null ? [] : null))
-          }}
-          disabled={pending}
           filters={filters}
           roles={data.roles}
           onChange={setFilters}
-        />
-        {bulkMembers !== null && (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="tabular-nums">{bulkMembers.length}人選択</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setBulkMembers(data.members.map((member) => member.id))
+        >
+          <AssignmentSelectionToolbar
+            selection={removal}
+            details={removable.map((target) => {
+              const slot = plan.slots.find((item) => item.id === target.slotId)
+              const member = data.members.find(
+                (item) => item.id === target.memberId
+              )
+              return {
+                key: assignmentKey(target),
+                name: member?.displayName ?? "",
+                activity: data.activity.name,
+                time: slot
+                  ? `${japanTime(slot.startsAt)}〜${japanTime(slot.endsAt)}`
+                  : "",
               }
-            >
-              全メンバー
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setBulkMembers((current) => [
-                  ...new Set([
-                    ...(current ?? []),
-                    ...gridMembers(data, plan, filters).map(
-                      (member) => member.id
-                    ),
-                  ]),
-                ])
-              }
-            >
-              表示中を選択
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setBulkMembers([])}
-            >
-              選択解除
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto"
-              onClick={() => setBulkMembers(null)}
-            >
-              取消
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!bulkMembers.length || pending}
-              onClick={() => setBulkOpen(true)}
-            >
-              時間を指定
-            </Button>
-          </div>
-        )}
+            })}
+            pending={pending}
+            summary={`${selectedMemberIds.length}人選択中`}
+            onAssign={() => {
+              setSelection(null)
+              setBulkMembers(selectedMemberIds)
+              setBulkOpen(true)
+            }}
+            onRemove={() => {
+              const targets = removable.filter((target) =>
+                removal.keys.includes(assignmentKey(target))
+              )
+              update(removeAssignments(plan, targets))
+              toast.success(
+                `${targets.length}件の勤務を解除しました。保存すると確定します。`
+              )
+              removal.end()
+            }}
+          />
+        </MemberFilterBar>
         <div className="min-w-0">
           <fieldset disabled={pending} className="min-w-0">
-            <TimeGrid
-              data={data}
-              bulkSelection={
-                bulkMembers === null
-                  ? undefined
-                  : {
-                      memberIds: bulkMembers,
-                      toggle: (memberId) =>
-                        setBulkMembers((current) =>
-                          current?.includes(memberId)
-                            ? current.filter((id) => id !== memberId)
-                            : [...(current ?? []), memberId]
-                        ),
-                    }
-              }
-              plan={plan}
-              role={filters.role}
-              search={filters.search}
-              includeUnavailable={filters.includeUnavailable}
-              includeUnanswered={filters.includeUnanswered}
-              selection={selection}
-              onSelect={setSelection}
-              onCommit={(value) => {
-                const error = applySelection(value)
-                if (error) toast.error(error)
-              }}
-              onMember={(memberId) => {
-                const slot = plan.slots.find((item) =>
-                  item.memberIds.includes(memberId)
-                )
-                setSelection({
-                  memberId,
-                  slotId: slot?.id ?? null,
-                  startsAt: slot?.startsAt ?? plan.startsAt,
-                  endsAt: slot?.endsAt ?? plan.endsAt,
-                })
-              }}
-            />
+            <AssignmentSelectionArea selection={removal}>
+              <TimeGrid
+                assignmentSelection={removal}
+                data={data}
+                plan={plan}
+                role={filters.role}
+                search={filters.search}
+                includeUnavailable={filters.includeUnavailable}
+                includeUnanswered={filters.includeUnanswered}
+                selection={selection}
+                onSelect={setSelection}
+                onCommit={(value) => {
+                  const error = applySelection(value)
+                  if (error) toast.error(error)
+                }}
+                onMember={(memberId) => {
+                  const slot = plan.slots.find((item) =>
+                    item.memberIds.includes(memberId)
+                  )
+                  setSelection({
+                    memberId,
+                    slotId: slot?.id ?? null,
+                    startsAt: slot?.startsAt ?? plan.startsAt,
+                    endsAt: slot?.endsAt ?? plan.endsAt,
+                  })
+                }}
+              />
+            </AssignmentSelectionArea>
           </fieldset>
           {selection && (
             <ShiftSelectionPanel
@@ -339,6 +340,7 @@ export function ShiftEditor({
           onApply={(next, accepted) => {
             update(next)
             setBulkMembers(null)
+            removal.end()
             setAcknowledged((current) => [...current, ...accepted])
           }}
           onClose={() => setBulkOpen(false)}
