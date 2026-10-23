@@ -30,7 +30,7 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
-    "wrangler": "4.140.0"
+    "wrangler": "4.151.2"
   },
   "engines": {
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
