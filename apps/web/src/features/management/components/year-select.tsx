@@ -16,6 +16,7 @@ export function ManagementYearSelect({
     )
   return (
     <SelectField
+      searchable
       aria-label="管理する年度"
       disabled={disabled}
       size="md"

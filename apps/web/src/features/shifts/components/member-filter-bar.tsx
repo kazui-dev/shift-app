@@ -36,6 +36,7 @@ export function MemberFilterBar({
       </label>
       <SelectField
         size="default"
+        searchable
         aria-label="表示するロール"
         value={filters.role}
         className="min-w-36 flex-1 sm:w-auto sm:flex-none"

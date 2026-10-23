@@ -1,7 +1,6 @@
 import { MemberAvatar } from "@/features/members/components/member-avatar"
-import { useState } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
-import { Input } from "@workspace/ui/components/input"
+import { SearchableList } from "@/components/searchable-list"
 type Targets = ActivityEditorInput["responsibles"]
 export function TargetPicker({
   label,
@@ -16,7 +15,6 @@ export function TargetPicker({
   value: Targets
   onChange: (value: Targets) => void
 }) {
-  const [search, setSearch] = useState("")
   const targets = [
     ...roles.map((role) => ({
       targetType: "role" as const,
@@ -48,55 +46,51 @@ export function TargetPicker({
         </span>
       </summary>
       <div className="mt-3 space-y-2">
-        <Input
-          aria-label={`${label}を検索`}
-          placeholder="検索"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="max-h-48 overflow-auto">
-          {targets
-            .filter((t) => t.name.includes(search))
-            .map((target) => (
-              <label
-                key={`${target.targetType}:${target.targetId}`}
-                className="flex min-h-10 items-center gap-3 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={value.some(
-                    (item) =>
-                      item.targetType === target.targetType &&
-                      item.targetId === target.targetId
-                  )}
-                  onChange={(e) =>
-                    onChange(
-                      e.target.checked
-                        ? [
-                            ...value,
-                            {
-                              targetType: target.targetType,
-                              targetId: target.targetId,
-                            },
-                          ]
-                        : value.filter(
-                            (item) =>
-                              item.targetType !== target.targetType ||
-                              item.targetId !== target.targetId
-                          )
-                    )
-                  }
-                />
-                {target.targetType === "member" && (
-                  <MemberAvatar name={target.name} image={target.image} />
+        <SearchableList
+          label={label}
+          items={targets}
+          getSearchText={(target) => target.name}
+        >
+          {(target) => (
+            <label
+              key={`${target.targetType}:${target.targetId}`}
+              className="flex min-h-10 items-center gap-3 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={value.some(
+                  (item) =>
+                    item.targetType === target.targetType &&
+                    item.targetId === target.targetId
                 )}
-                {target.name}
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {target.targetType === "role" ? "ロール" : "メンバー"}
-                </span>
-              </label>
-            ))}
-        </div>
+                onChange={(e) =>
+                  onChange(
+                    e.target.checked
+                      ? [
+                          ...value,
+                          {
+                            targetType: target.targetType,
+                            targetId: target.targetId,
+                          },
+                        ]
+                      : value.filter(
+                          (item) =>
+                            item.targetType !== target.targetType ||
+                            item.targetId !== target.targetId
+                        )
+                  )
+                }
+              />
+              {target.targetType === "member" && (
+                <MemberAvatar name={target.name} image={target.image} />
+              )}
+              {target.name}
+              <span className="ml-auto text-xs text-muted-foreground">
+                {target.targetType === "role" ? "ロール" : "メンバー"}
+              </span>
+            </label>
+          )}
+        </SearchableList>
       </div>
     </details>
   )

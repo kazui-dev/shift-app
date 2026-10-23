@@ -7,6 +7,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { cn } from "@workspace/ui/lib/utils"
+import { SearchableSelect } from "@workspace/ui/components/searchable-select"
 
 export function SelectField({
   value,
@@ -15,6 +16,7 @@ export function SelectField({
   disabled,
   className,
   size = "lg",
+  searchable = false,
   ...props
 }: {
   value: string | number
@@ -25,6 +27,7 @@ export function SelectField({
   "aria-label"?: string
   size?: "default" | "md" | "lg"
   className?: string
+  searchable?: boolean
 }) {
   const [container, setContainer] = useState<HTMLDialogElement | null>(null)
   const triggerRef = useCallback((element: HTMLButtonElement | null) => {
@@ -34,6 +37,19 @@ export function SelectField({
     value: String(option.value),
     label: option.label,
   }))
+  if (searchable)
+    return (
+      <SearchableSelect
+        {...props}
+        value={String(value)}
+        options={items}
+        onValueChange={onValueChange}
+        searchLabel={`${props["aria-label"] ?? "候補"}を検索`}
+        disabled={disabled ?? false}
+        size={size}
+        className={cn(className)}
+      />
+    )
   return (
     <Select
       value={String(value)}

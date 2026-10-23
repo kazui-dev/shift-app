@@ -17,6 +17,10 @@ API の `routes` は HTTP と認可の構成、`domain` は純粋な判断、`se
 - 入力境界では unknown を狭める。`any`、非 null アサーション、抑制コメント、検証していない cast に逃げない。
 - registry から導入した shadcn/ui の public export を保ち、上流の形に必要な狭い lint 抑制は許容する。
 
+## 選択 UI
+
+ロール・シフト・メンバー・責任者・年度・担当・場所など、データに応じて候補が増える選択 UI には検索欄を付ける。単一選択・複数選択・折りたたみ・常時表示のリストで同じ方針にする。状態・権限・追加／解除など、固定の選択肢には検索欄を付けない。検索は表示候補だけを絞り込み、選択済みの値を解除しない。
+
 ## ツールと生成物
 
 Oxc の lint・format 設定はルートの `vite.config.ts` に置く。別の Oxc 設定を増やさず、Bun、npm、Turborepo、ESLint、Prettier を並行導入しない。Worker の現在の compatibility date が必要な Node.js 互換動作を提供するため、`nodejs_compat` は追加しない。

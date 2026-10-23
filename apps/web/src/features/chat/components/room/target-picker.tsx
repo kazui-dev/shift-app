@@ -32,6 +32,7 @@ export function TargetPicker({
 }) {
   const [kind, setKind] = useState<(typeof kinds)[number]["type"]>("member")
   const [search, setSearch] = useState("")
+  const [filterSearch, setFilterSearch] = useState("")
   const [filters, setFilters] = useState<string[]>([])
   const toggleFilter = (key: string) =>
     setFilters((values) =>
@@ -140,7 +141,7 @@ export function TargetPicker({
             />
           </div>
           {kind === "member" && (
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={() => setFilterSearch("")}>
               <DropdownMenuTrigger
                 render={
                   <Button
@@ -158,6 +159,24 @@ export function TargetPicker({
                 align="end"
                 className="pointer-events-auto max-h-80 w-64"
               >
+                <div className="sticky top-0 z-10 bg-popover p-1 pb-2">
+                  <Input
+                    type="search"
+                    aria-label="絞り込むロール・シフトを検索"
+                    placeholder="ロール・シフトを検索"
+                    value={filterSearch}
+                    onChange={(event) => setFilterSearch(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key !== "Escape" &&
+                        event.key !== "Tab" &&
+                        event.key !== "ArrowDown" &&
+                        event.key !== "ArrowUp"
+                      )
+                        event.stopPropagation()
+                    }}
+                  />
+                </div>
                 {kinds
                   .filter(
                     (group) =>
@@ -167,7 +186,13 @@ export function TargetPicker({
                     <DropdownMenuGroup key={group.type} className="min-h-17">
                       <DropdownMenuLabel>{group.name}</DropdownMenuLabel>
                       {targets
-                        .filter((target) => target.targetType === group.type)
+                        .filter(
+                          (target) =>
+                            target.targetType === group.type &&
+                            target.displayName
+                              .toLocaleLowerCase()
+                              .includes(filterSearch.trim().toLocaleLowerCase())
+                        )
                         .map((target) => (
                           <DropdownMenuCheckboxItem
                             key={targetKey(target)}
