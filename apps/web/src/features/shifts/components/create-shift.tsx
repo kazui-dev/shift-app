@@ -1,3 +1,4 @@
+import { SearchableList } from "@/components/searchable-list"
 import { useRef, useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router"
@@ -174,25 +175,31 @@ export function CreateShift({ year }: { year: number }) {
             <details>
               <summary className="cursor-pointer text-sm">対象のロール</summary>
               <div className="mt-2">
-                {roles.data?.roles.map((role) => (
-                  <label
-                    key={role.id}
-                    className="flex min-h-10 items-center gap-3 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={candidateRoleIds.includes(role.id)}
-                      onChange={(event) =>
-                        setCandidateRoleIds((ids) =>
-                          event.target.checked
-                            ? [...ids, role.id]
-                            : ids.filter((id) => id !== role.id)
-                        )
-                      }
-                    />
-                    {role.name}
-                  </label>
-                ))}
+                <SearchableList
+                  label="対象のロール"
+                  items={roles.data?.roles ?? []}
+                  getSearchText={(role) => role.name}
+                >
+                  {(role) => (
+                    <label
+                      key={role.id}
+                      className="flex min-h-10 items-center gap-3 text-sm"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={candidateRoleIds.includes(role.id)}
+                        onChange={(event) =>
+                          setCandidateRoleIds((ids) =>
+                            event.target.checked
+                              ? [...ids, role.id]
+                              : ids.filter((id) => id !== role.id)
+                          )
+                        }
+                      />
+                      {role.name}
+                    </label>
+                  )}
+                </SearchableList>
               </div>
             </details>
             <div className="flex justify-end border-t pt-4">

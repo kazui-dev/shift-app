@@ -37,5 +37,7 @@ it("associates the header save with the settings form and preserves validation",
   expect(header).not.toContain('disabled=""')
   expect(html.match(/type="submit"/g)).toHaveLength(1)
   expect(html).toContain('required=""')
+  expect(html).toContain('aria-label="責任者を検索"')
+  expect(html).toContain('aria-label="対象のロールを検索"')
   expect(render(true).split("</header>")[0]).toContain('disabled=""')
 })
