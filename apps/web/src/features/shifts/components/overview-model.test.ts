@@ -40,7 +40,7 @@ const data: ShiftOverview = {
     },
   ],
 }
-it("combines member filters with assignment filters without treating roles as shifts", () => {
+it("combines member filters with shifts without treating roles as shifts", () => {
   const filters = {
     date: "2026-10-29",
     roles: [],
@@ -56,10 +56,38 @@ it("combines member filters with assignment filters without treating roles as sh
       ...filters,
       activities: ["missing"],
     })
-  ).toHaveLength(2)
-  expect(
-    overviewRows(data, { ...filters, activities: ["missing"] })[0]?.assignments
   ).toEqual([])
+})
+it("shows members assigned to any selected shift and retains all of their assignments", () => {
+  const assignment = data.assignments[0]
+  if (!assignment) throw new Error("Missing fixture")
+  const other = { ...assignment, id: "b", activityId: "other" }
+  const second = {
+    ...assignment,
+    id: "c",
+    activityId: "second",
+    memberId: "two",
+  }
+  const overview = {
+    ...data,
+    assignments: [assignment, other, second],
+  }
+  const filters = {
+    date: "2026-10-29",
+    roles: [],
+    activities: ["work"],
+    search: "",
+  }
+  expect(overviewRows(overview, filters)).toEqual([
+    { member: data.members[0], assignments: [assignment, other] },
+  ])
+  expect(
+    overviewRows(overview, { ...filters, activities: ["work", "second"] }).map(
+      (row) => row.member.id
+    )
+  ).toEqual(["one", "two"])
+  expect(overviewRows(overview, { ...filters, search: "Two" })).toEqual([])
+  expect(overviewRows(overview, { ...filters, roles: ["missing"] })).toEqual([])
 })
 it("clips overnight work to the selected Japan date and never infers lateness from a missing record", () => {
   expect(overviewRange(data, "2026-10-29")).toEqual({

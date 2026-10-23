@@ -20,16 +20,16 @@ export function overviewRows(data: ShiftOverview, filters: OverviewFilters) {
       (m) =>
         (!filters.roles.length ||
           m.roles.some((r) => filters.roles.includes(r.id))) &&
-        `${m.displayName} ${m.studentId}`.toLocaleLowerCase().includes(term)
+        `${m.displayName} ${m.studentId}`.toLocaleLowerCase().includes(term) &&
+        (!filters.activities.length ||
+          data.assignments.some(
+            (a) =>
+              a.memberId === m.id && filters.activities.includes(a.activityId)
+          ))
     )
     .map((member) => ({
       member,
-      assignments: data.assignments.filter(
-        (a) =>
-          a.memberId === member.id &&
-          (!filters.activities.length ||
-            filters.activities.includes(a.activityId))
-      ),
+      assignments: data.assignments.filter((a) => a.memberId === member.id),
     }))
 }
 export function overviewAttendance(a: ShiftOverview["assignments"][number]) {
