@@ -7,11 +7,6 @@ updates:
     schedule:
       interval: weekly
     ignore:
-      # These versions are coupled to Vite+ and are updated with its catalog.
-      - dependency-name: "@vitest/*"
-        versions: ["*"]
-      - dependency-name: "vitest"
-        versions: ["*"]
       # Match the Node major declared in .node-version.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
