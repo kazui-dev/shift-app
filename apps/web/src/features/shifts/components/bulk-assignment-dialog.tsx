@@ -1,3 +1,4 @@
+import { SearchableList } from "@/components/searchable-list"
 import { useId, useState } from "react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
@@ -82,32 +83,38 @@ export function BulkAssignmentDialog({
             未回答・参加不可・希望時間外も、チェックを残すと割り当てます。勤務が重なる人と割当済みの人は除外します。
           </p>
           <div className="max-h-[40dvh] divide-y overflow-y-auto">
-            {rows.map((row) => (
-              <label
-                key={row.memberId}
-                className="flex items-center gap-3 py-2 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  aria-label={`${row.name}に割り当てる`}
-                  disabled={row.blocked}
-                  checked={!row.blocked && !excluded.includes(row.memberId)}
-                  onChange={(event) =>
-                    setExcluded((current) =>
-                      event.target.checked
-                        ? current.filter((id) => id !== row.memberId)
-                        : [...current, row.memberId]
-                    )
-                  }
-                />
-                <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                {row.reason && (
-                  <span className="text-xs text-muted-foreground">
-                    {row.reason}
-                  </span>
-                )}
-              </label>
-            ))}
+            <SearchableList
+              label="割り当てるメンバー"
+              items={rows}
+              getSearchText={(row) => row.name}
+            >
+              {(row) => (
+                <label
+                  key={row.memberId}
+                  className="flex items-center gap-3 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={`${row.name}に割り当てる`}
+                    disabled={row.blocked}
+                    checked={!row.blocked && !excluded.includes(row.memberId)}
+                    onChange={(event) =>
+                      setExcluded((current) =>
+                        event.target.checked
+                          ? current.filter((id) => id !== row.memberId)
+                          : [...current, row.memberId]
+                      )
+                    }
+                  />
+                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                  {row.reason && (
+                    <span className="text-xs text-muted-foreground">
+                      {row.reason}
+                    </span>
+                  )}
+                </label>
+              )}
+            </SearchableList>
           </div>
           {error && (
             <p role="alert" className="text-xs text-destructive">

@@ -1,3 +1,4 @@
+import { SearchableList } from "@/components/searchable-list"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { keys } from "@/app/data/keys"
 import { membershipsQuery, yearsQuery } from "@/features/years/data/years"
@@ -156,6 +157,7 @@ export function AddMembers({
     >
       <div className="space-y-4">
         <SelectField
+          searchable
           aria-label="追加元"
           value={source}
           onValueChange={(value) => {
@@ -211,23 +213,30 @@ export function AddMembers({
             <p className="text-xs text-muted-foreground">
               選んだロールと、追加するメンバーへの付与を引き継ぎます。同名のロールがある場合はそのロールを使います。
             </p>
-            {sourceRoles.data.roles.map((role) => (
-              <label key={role.id} className="flex items-center gap-2 py-1">
-                <input
-                  type="checkbox"
-                  checked={copyRoleIds.includes(role.id)}
-                  disabled={pending}
-                  onChange={(event) =>
-                    setCopyRoleIds((ids) =>
-                      event.target.checked
-                        ? [...ids, role.id]
-                        : ids.filter((id) => id !== role.id)
-                    )
-                  }
-                />
-                {role.name}
-              </label>
-            ))}
+            <SearchableList
+              key={source}
+              label="引き継ぐロール"
+              items={sourceRoles.data.roles}
+              getSearchText={(role) => role.name}
+            >
+              {(role) => (
+                <label key={role.id} className="flex items-center gap-2 py-1">
+                  <input
+                    type="checkbox"
+                    checked={copyRoleIds.includes(role.id)}
+                    disabled={pending}
+                    onChange={(event) =>
+                      setCopyRoleIds((ids) =>
+                        event.target.checked
+                          ? [...ids, role.id]
+                          : ids.filter((id) => id !== role.id)
+                      )
+                    }
+                  />
+                  {role.name}
+                </label>
+              )}
+            </SearchableList>
           </details>
         )}
         <Button

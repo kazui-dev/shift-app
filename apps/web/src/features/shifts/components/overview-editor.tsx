@@ -180,6 +180,7 @@ export function OverviewEditor({
         <div className="block space-y-2 text-sm">
           シフト
           <SelectField
+            searchable
             aria-label="追加するシフト"
             value={activityId}
             disabled={!!selection.slotId}

@@ -1,3 +1,4 @@
+import { SearchableList } from "@/components/searchable-list"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import {
   japanInputValue,
@@ -264,26 +265,34 @@ export function ShiftSettings({
           </label>
           <fieldset>
             <legend className="mb-2 text-sm">対象のロール</legend>
-            {data.roles.map((role) => (
-              <label
-                key={role.id}
-                className="flex min-h-10 items-center gap-3 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={value.candidateRoleIds.includes(role.id)}
-                  onChange={(e) =>
-                    onChange({
-                      ...value,
-                      candidateRoleIds: e.target.checked
-                        ? [...value.candidateRoleIds, role.id]
-                        : value.candidateRoleIds.filter((id) => id !== role.id),
-                    })
-                  }
-                />
-                {role.name}
-              </label>
-            ))}
+            <SearchableList
+              label="対象のロール"
+              items={data.roles}
+              getSearchText={(role) => role.name}
+            >
+              {(role) => (
+                <label
+                  key={role.id}
+                  className="flex min-h-10 items-center gap-3 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={value.candidateRoleIds.includes(role.id)}
+                    onChange={(e) =>
+                      onChange({
+                        ...value,
+                        candidateRoleIds: e.target.checked
+                          ? [...value.candidateRoleIds, role.id]
+                          : value.candidateRoleIds.filter(
+                              (id) => id !== role.id
+                            ),
+                      })
+                    }
+                  />
+                  {role.name}
+                </label>
+              )}
+            </SearchableList>
           </fieldset>
           <label className="flex items-center justify-between text-sm">
             シフトを無効にする
@@ -295,53 +304,59 @@ export function ShiftSettings({
               }
             />
           </label>
-          <fieldset className="max-h-60 overflow-auto">
+          <fieldset>
             <legend className="mb-2 text-sm">責任者</legend>
-            {[
-              ...data.roles.map((role) => ({
-                targetType: "role" as const,
-                targetId: role.id,
-                name: role.name,
-              })),
-              ...data.members.map((member) => ({
-                targetType: "member" as const,
-                targetId: member.id,
-                name: member.displayName,
-              })),
-            ].map((target) => (
-              <label
-                key={`${target.targetType}-${target.targetId}`}
-                className="flex min-h-10 items-center gap-3 text-sm"
-              >
-                <input
-                  type="checkbox"
-                  checked={value.responsibles.some(
-                    (item) =>
-                      item.targetType === target.targetType &&
-                      item.targetId === target.targetId
-                  )}
-                  onChange={(event) =>
-                    onChange({
-                      ...value,
-                      responsibles: event.target.checked
-                        ? [
-                            ...value.responsibles,
-                            {
-                              targetType: target.targetType,
-                              targetId: target.targetId,
-                            },
-                          ]
-                        : value.responsibles.filter(
-                            (item) =>
-                              item.targetType !== target.targetType ||
-                              item.targetId !== target.targetId
-                          ),
-                    })
-                  }
-                />
-                {target.name}
-              </label>
-            ))}
+            <SearchableList
+              label="責任者"
+              getSearchText={(target) => target.name}
+              items={[
+                ...data.roles.map((role) => ({
+                  targetType: "role" as const,
+                  targetId: role.id,
+                  name: role.name,
+                })),
+                ...data.members.map((member) => ({
+                  targetType: "member" as const,
+                  targetId: member.id,
+                  name: member.displayName,
+                })),
+              ]}
+            >
+              {(target) => (
+                <label
+                  key={`${target.targetType}-${target.targetId}`}
+                  className="flex min-h-10 items-center gap-3 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={value.responsibles.some(
+                      (item) =>
+                        item.targetType === target.targetType &&
+                        item.targetId === target.targetId
+                    )}
+                    onChange={(event) =>
+                      onChange({
+                        ...value,
+                        responsibles: event.target.checked
+                          ? [
+                              ...value.responsibles,
+                              {
+                                targetType: target.targetType,
+                                targetId: target.targetId,
+                              },
+                            ]
+                          : value.responsibles.filter(
+                              (item) =>
+                                item.targetType !== target.targetType ||
+                                item.targetId !== target.targetId
+                            ),
+                      })
+                    }
+                  />
+                  {target.name}
+                </label>
+              )}
+            </SearchableList>
           </fieldset>
         </fieldset>
       </form>

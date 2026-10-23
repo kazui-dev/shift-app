@@ -15,9 +15,7 @@ export function ActivityFilterMenu({
   options,
   value,
   onChange,
-  searchable = false,
 }: {
-  searchable?: boolean
   label: string
   options: { value: string; label: string }[]
   value: string[]
@@ -39,25 +37,23 @@ export function ActivityFilterMenu({
         <ChevronDown className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-72 min-w-44">
-        {searchable && (
-          <div className="sticky top-0 z-10 bg-popover p-1 pb-2">
-            <Input
-              aria-label={`${label}を検索`}
-              placeholder={`${label}を検索`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key !== "Escape" &&
-                  event.key !== "Tab" &&
-                  event.key !== "ArrowDown" &&
-                  event.key !== "ArrowUp"
-                )
-                  event.stopPropagation()
-              }}
-            />
-          </div>
-        )}
+        <div className="sticky top-0 z-10 bg-popover p-1 pb-2">
+          <Input
+            aria-label={`${label}を検索`}
+            placeholder={`${label}を検索`}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key !== "Escape" &&
+                event.key !== "Tab" &&
+                event.key !== "ArrowDown" &&
+                event.key !== "ArrowUp"
+              )
+                event.stopPropagation()
+            }}
+          />
+        </div>
         <DropdownMenuItem onClick={() => onChange([])}>すべて</DropdownMenuItem>
         <DropdownMenuSeparator />
         {filtered.map((option) => (

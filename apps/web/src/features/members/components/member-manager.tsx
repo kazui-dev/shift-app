@@ -1,3 +1,4 @@
+import { SearchableList } from "@/components/searchable-list"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { keys } from "@/app/data/keys"
 import { refreshMemberships } from "@/app/data/sync"
@@ -103,6 +104,7 @@ export function MemberManager({
           }}
         />
         <SelectField
+          searchable
           aria-label="ロールで絞り込み"
           size="default"
           className="w-auto"
@@ -272,39 +274,45 @@ export function MemberManager({
                 {editing.length}人に適用
               </p>
             )}
-            {roles.data?.roles.map((role) => (
-              <label
-                key={role.id}
-                className="flex items-center justify-between gap-3"
-              >
-                <span>{role.name}</span>
-                <SelectField
-                  className="w-auto"
-                  value={
-                    add.includes(role.id)
-                      ? "add"
-                      : remove.includes(role.id)
-                        ? "remove"
-                        : "keep"
-                  }
-                  onValueChange={(value) => {
-                    setAdd((ids) => [
-                      ...ids.filter((id) => id !== role.id),
-                      ...(value === "add" ? [role.id] : []),
-                    ])
-                    setRemove((ids) => [
-                      ...ids.filter((id) => id !== role.id),
-                      ...(value === "remove" ? [role.id] : []),
-                    ])
-                  }}
-                  options={[
-                    { value: "keep", label: "変更しない" },
-                    { value: "add", label: "追加" },
-                    { value: "remove", label: "解除" },
-                  ]}
-                />
-              </label>
-            ))}
+            <SearchableList
+              label="変更するロール"
+              items={roles.data?.roles ?? []}
+              getSearchText={(role) => role.name}
+            >
+              {(role) => (
+                <label
+                  key={role.id}
+                  className="flex items-center justify-between gap-3"
+                >
+                  <span>{role.name}</span>
+                  <SelectField
+                    className="w-auto"
+                    value={
+                      add.includes(role.id)
+                        ? "add"
+                        : remove.includes(role.id)
+                          ? "remove"
+                          : "keep"
+                    }
+                    onValueChange={(value) => {
+                      setAdd((ids) => [
+                        ...ids.filter((id) => id !== role.id),
+                        ...(value === "add" ? [role.id] : []),
+                      ])
+                      setRemove((ids) => [
+                        ...ids.filter((id) => id !== role.id),
+                        ...(value === "remove" ? [role.id] : []),
+                      ])
+                    }}
+                    options={[
+                      { value: "keep", label: "変更しない" },
+                      { value: "add", label: "追加" },
+                      { value: "remove", label: "解除" },
+                    ]}
+                  />
+                </label>
+              )}
+            </SearchableList>
             <Button
               size="sm"
               variant="outline"

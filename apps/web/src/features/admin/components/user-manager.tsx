@@ -1,3 +1,4 @@
+import { SearchableList } from "@/components/searchable-list"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { keys } from "@/app/data/keys"
 import { usersQuery } from "@/features/admin/data/admin"
@@ -211,27 +212,33 @@ function UserDetail({
         <section className="border-t pt-5">
           <h3 className="mb-3 text-sm font-medium">参加年度</h3>
           <div className="divide-y">
-            {years.map((year) => (
-              <label
-                key={year}
-                className="flex min-h-11 items-center gap-3 text-sm"
-              >
-                <input
-                  className="accent-foreground"
-                  type="checkbox"
-                  checked={user.years.includes(year)}
-                  disabled={pending}
-                  onChange={(event) =>
-                    void run(() =>
-                      event.target.checked
-                        ? activateYearMembership(year, user.id)
-                        : deactivateYearMembership(year, user.id)
-                    )
-                  }
-                />
-                {year}年度
-              </label>
-            ))}
+            <SearchableList
+              label="参加年度"
+              items={years}
+              getSearchText={(year) => `${year}年度`}
+            >
+              {(year) => (
+                <label
+                  key={year}
+                  className="flex min-h-11 items-center gap-3 text-sm"
+                >
+                  <input
+                    className="accent-foreground"
+                    type="checkbox"
+                    checked={user.years.includes(year)}
+                    disabled={pending}
+                    onChange={(event) =>
+                      void run(() =>
+                        event.target.checked
+                          ? activateYearMembership(year, user.id)
+                          : deactivateYearMembership(year, user.id)
+                      )
+                    }
+                  />
+                  {year}年度
+                </label>
+              )}
+            </SearchableList>
           </div>
         </section>
         <section className="space-y-3 border-t pt-5">

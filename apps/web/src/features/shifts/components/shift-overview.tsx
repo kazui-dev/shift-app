@@ -332,7 +332,6 @@ function ShiftOverviewContent({
           />
         </label>
         <ActivityFilterMenu
-          searchable
           label="ロール"
           options={
             data?.roles.map((r) => ({ value: r.id, label: r.name })) ?? []
@@ -341,7 +340,6 @@ function ShiftOverviewContent({
           onChange={(roles) => change({ roles })}
         />
         <ActivityFilterMenu
-          searchable
           label="シフト"
           options={
             data?.activities.map((a) => ({ value: a.id, label: a.name })) ?? []
