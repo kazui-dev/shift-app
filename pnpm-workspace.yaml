@@ -8,19 +8,20 @@ allowBuilds:
   workerd: true
 catalog:
   typescript: 7.0.2
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vite-plus: 1.0.0
-  "@vitest/coverage-v8": 5.0.1
-  vitest: 5.0.1
+  vite: npm:@voidzero-dev/vite-plus-core@1.3.0
+  vite-plus: 1.3.0
+  "@vitest/coverage-v8": 5.0.5
+  vitest: 5.0.5
 overrides:
+  "miniflare>undici": "7.30.1"
+  "miniflare>sharp": "0.35.5"
+  "@better-auth/core": "1.6.33"
+  "@esbuild-kit/core-utils@3.3.2>esbuild": "0.25.12"
   vite@*: "catalog:"
   vitest@*: "catalog:"
 peerDependencyRules:
   allowedVersions:
     # vite-plus-core is intentionally aliased as vite; its package version is
     # the Vite+ release rather than the embedded Vite release.
-    vite: "*"
-    vitest: "*"
-  allowAny:
-    - vite
-    - vitest
+    vite: "1.3.0"
+    vitest: "5.0.5"
