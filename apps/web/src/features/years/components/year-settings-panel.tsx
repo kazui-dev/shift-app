@@ -1,3 +1,4 @@
+import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { yearsQuery } from "@/features/years/data/years"
 import { LoadingState } from "@/app/page-layout"
 import { keys } from "@/app/data/keys"
@@ -15,6 +16,7 @@ export function YearSettingsPanel({
 }: {
   onDirtyChange: (dirty: boolean) => void
 }) {
+  const now = useCurrentTime()
   const queryClient = useQueryClient()
   const years = useQuery({ ...yearsQuery })
   const [yearNumber, setYearNumber] = useState<number | null>(null)
@@ -26,7 +28,7 @@ export function YearSettingsPanel({
   const nextYear =
     yearNumber ??
     Math.max(
-      new Date().getFullYear() - 1,
+      now.getFullYear() - 1,
       ...(years.data?.years.map((item) => item.year) ?? [])
     ) + 1
   const exists =

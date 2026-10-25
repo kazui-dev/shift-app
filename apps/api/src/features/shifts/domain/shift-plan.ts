@@ -29,11 +29,12 @@ export function validateShiftPlan(
       ordered.some((item, index) => {
         const from = Date.parse(item.startsAt)
         const to = Date.parse(item.endsAt)
+        const previous = ordered[index - 1]
         return (
           from < start ||
           to > end ||
           from >= to ||
-          (index > 0 && Date.parse(ordered[index - 1]?.endsAt ?? "") > from)
+          (previous !== undefined && Date.parse(previous.endsAt) > from)
         )
       })
     )
