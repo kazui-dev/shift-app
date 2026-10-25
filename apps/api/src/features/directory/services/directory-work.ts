@@ -11,12 +11,18 @@ export const planningSubmissions = `(SELECT id,year,member_id,status,submitted_a
   FROM directory_availability_submissions s JOIN student_directory d ON d.id=s.entry_id AND d.status='active')`
 export const planningAnswers = `(SELECT * FROM availability_day_answers UNION ALL SELECT * FROM directory_availability_day_answers)`
 export const planningWindows = `(SELECT * FROM availability_windows UNION ALL SELECT * FROM directory_availability_windows)`
-export const planningAssignments = `(SELECT id,slot_id,member_id,status FROM shift_assignments
-  UNION ALL SELECT a.id,a.slot_id,s.id,'active' FROM directory_shift_assignments a
-  JOIN directory_availability_submissions s ON s.entry_id=a.entry_id
-  JOIN student_directory d ON d.id=s.entry_id AND d.status='active')`
-
 /** Submitted responses remain inspectable even after a registered member leaves the year. */
 export const planningIdentities = `(SELECT id,display_name,student_id FROM app_users
   UNION ALL SELECT s.id,d.display_name,d.student_id FROM directory_availability_submissions s
   JOIN student_directory d ON d.id=s.entry_id AND d.status='active')`
+
+/** Activity-scoped reads keep slot filtering inside both identity sources. */
+export const activityPlanningAssignments = `SELECT a.id,a.slot_id AS slotId,a.member_id AS memberId
+  FROM shift_slots s JOIN shift_assignments a ON a.slot_id=s.id AND a.status='active'
+  WHERE s.activity_id=?
+  UNION ALL
+  SELECT a.id,a.slot_id AS slotId,submission.id AS memberId
+  FROM shift_slots s JOIN directory_shift_assignments a ON a.slot_id=s.id
+  JOIN directory_availability_submissions submission ON submission.entry_id=a.entry_id
+  JOIN student_directory directory ON directory.id=submission.entry_id AND directory.status='active'
+  WHERE s.activity_id=?`

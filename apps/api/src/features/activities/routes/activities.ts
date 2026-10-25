@@ -12,6 +12,10 @@ import { saveShiftPlan } from "../../shifts/services/save-shift-plan"
 import { validateShiftPlan } from "../../shifts/domain/shift-plan"
 import { announce } from "../../../routes/announce"
 
+// Only submitted slot IDs can collide; include deleted slots in this check too.
+export const inputSlotOwners = `SELECT id,activity_id AS activityId FROM shift_slots
+  WHERE id IN (SELECT value FROM json_each(?))`
+
 export const activitiesApp = new Hono<ApiEnv>()
 activitiesApp.use("/:activityId", async (c, next) => {
   const activity = await c.env.shift_app
@@ -88,7 +92,8 @@ activitiesApp.put(
     if (input.active && !hasResponsible)
       return apiError(c, errors.responsibleRequired)
     const slotIds = await c.env.shift_app
-      .prepare("SELECT id,activity_id AS activityId FROM shift_slots")
+      .prepare(inputSlotOwners)
+      .bind(JSON.stringify(input.slots.map((slot) => slot.id)))
       .all<{ id: string; activityId: string }>()
     if (
       input.slots.some((slot) =>

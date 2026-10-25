@@ -1,4 +1,4 @@
-import { planningAssignments } from "../../directory/services/directory-work"
+import { activityPlanningAssignments } from "../../directory/services/directory-work"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 
 export async function saveShiftPlan(
@@ -10,10 +10,8 @@ export async function saveShiftPlan(
 ) {
   const now = Date.now()
   const previous = await db
-    .prepare(
-      `SELECT a.id, a.slot_id AS slotId, a.member_id AS memberId FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id WHERE s.activity_id = ? AND a.status = 'active'`
-    )
-    .bind(id)
+    .prepare(activityPlanningAssignments)
+    .bind(id, id)
     .all<{ id: string; slotId: string; memberId: string }>()
   const directory = await db
     .prepare(`SELECT survey.id,survey.entry_id AS entryId FROM directory_availability_submissions survey

@@ -1,5 +1,5 @@
 import { recordD1 } from "../../../../lib/d1-metrics"
-import { planningAssignments } from "../../../directory/services/directory-work"
+import { activityListSelection } from "../../services/activity-list-query"
 import {
   activityRoom,
   roomStatements,
@@ -34,25 +34,7 @@ yearActivitiesApp.get("/:year/activities", async (c) => {
   }
   const canManage = await canManageShifts(c.env, c.get("member"), year)
   const result = await c.env.shift_app
-    .prepare(
-      `SELECT
-         activity.id,
-         activity.year,
-         activity.name,
-         activity.active,
-         activity.version,
-         activity.place,
-         activity.activity_type AS activityType,
-         activity.starts_at AS startsAt,
-         activity.ends_at AS endsAt,
-         activity.color,
-         activity.notes,
-         (SELECT COUNT(*) FROM ${planningAssignments} assignment JOIN shift_slots slot ON slot.id = assignment.slot_id
-          WHERE slot.activity_id = activity.id AND assignment.status = 'active') AS assignmentCount
-       FROM activities activity
-       WHERE activity.year = ? AND (? OR EXISTS(SELECT 1 FROM activity_effective_responsibles r WHERE r.activity_id=activity.id AND r.member_id=?) OR (activity.created_by=? AND activity.active=0))
-       ORDER BY activity.starts_at, activity.ends_at, lower(activity.name)`
-    )
+    .prepare(activityListSelection)
     .bind(year, canManage ? 1 : 0, c.get("member").id, c.get("member").id)
     .all<ActivityRow>()
     .then((query) => recordD1("activities.list", query))

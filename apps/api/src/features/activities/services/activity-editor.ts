@@ -1,6 +1,6 @@
 import { recordD1 } from "../../../lib/d1-metrics"
 import {
-  planningAssignments,
+  activityPlanningAssignments,
   planningMembers,
 } from "../../directory/services/directory-work"
 import {
@@ -9,6 +9,19 @@ import {
   planningMemberRoles,
 } from "../../directory/services/planning-inputs"
 import { toIso } from "../../../lib/http"
+// Keep the slot joins inside each branch so the activity/slot indexes can narrow assignments.
+export const otherActivityAssignments = `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name
+  FROM activities act JOIN shift_slots s ON s.activity_id=act.id
+  JOIN shift_assignments a ON a.slot_id=s.id AND a.status='active'
+  WHERE act.id <> ? AND act.year = ?
+  UNION ALL
+  SELECT submission.id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name
+  FROM activities act JOIN shift_slots s ON s.activity_id=act.id
+  JOIN directory_shift_assignments a ON a.slot_id=s.id
+  JOIN directory_availability_submissions submission ON submission.entry_id=a.entry_id
+  JOIN student_directory directory ON directory.id=submission.entry_id AND directory.status='active'
+  WHERE act.id <> ? AND act.year = ?`
+
 export async function readActivityEditor(db: D1Database, id: string) {
   const activity = await db
     .prepare(
@@ -81,10 +94,8 @@ export async function readActivityEditor(db: D1Database, id: string) {
       }>()
       .then((query) => recordD1("activity.editor.requirements", query)),
     db
-      .prepare(
-        `SELECT a.id, a.slot_id AS slotId, a.member_id AS memberId FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id WHERE s.activity_id = ? AND a.status = 'active'`
-      )
-      .bind(id)
+      .prepare(activityPlanningAssignments)
+      .bind(id, id)
       .all<{ id: string; slotId: string; memberId: string }>()
       .then((query) => recordD1("activity.editor.assignments", query)),
     db
@@ -126,10 +137,8 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .all<{ memberId: string; date: string; choice: "all" | "times" | "no" }>()
       .then((query) => recordD1("activity.editor.availability_answers", query)),
     db
-      .prepare(
-        `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name FROM ${planningAssignments} a JOIN shift_slots s ON s.id = a.slot_id JOIN activities act ON act.id = s.activity_id WHERE a.status = 'active' AND act.id <> ? AND act.year = ?`
-      )
-      .bind(id, activity.year)
+      .prepare(otherActivityAssignments)
+      .bind(id, activity.year, id, activity.year)
       .all<{
         memberId: string
         startsAt: number
