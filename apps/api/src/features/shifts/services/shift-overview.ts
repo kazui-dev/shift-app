@@ -1,14 +1,32 @@
 import type { ShiftOverview } from "@workspace/shared/shifts"
-import {
-  planningAssignments,
-  planningMembers,
-} from "../../directory/services/directory-work"
+import { planningMembers } from "../../directory/services/directory-work"
 import {
   planningAvailability,
   planningAvailabilityAnswers,
   planningMemberRoles,
 } from "../../directory/services/planning-inputs"
 import { toIso } from "../../../lib/http"
+
+// Apply visibility and day bounds before combining the two assignment sources.
+export const overviewAssignments = `SELECT * FROM (
+SELECT p.id,p.slot_id AS slotId,s.activity_id AS activityId,p.member_id AS memberId,s.starts_at AS startsAt,s.ends_at AS endsAt,
+      attendance.state,attendance.check_in_status AS checkInStatus,attendance.checked_in_at AS checkedInAt,attendance.expected_at AS expectedAt,attendance.resolved_at AS resolvedAt
+      FROM activities a JOIN shift_slots s ON s.activity_id=a.id
+      JOIN shift_assignments p ON p.slot_id=s.id
+      LEFT JOIN assignment_attendance attendance ON attendance.assignment_id=p.id
+      WHERE a.year=? AND s.starts_at<? AND s.ends_at>? AND p.status='active' AND s.deleted=0
+      AND (? OR EXISTS(SELECT 1 FROM activity_effective_responsibles r WHERE r.activity_id=a.id AND r.member_id=?))
+      UNION ALL
+SELECT p.id,p.slot_id AS slotId,s.activity_id AS activityId,submission.id AS memberId,s.starts_at AS startsAt,s.ends_at AS endsAt,
+      attendance.state,attendance.check_in_status AS checkInStatus,attendance.checked_in_at AS checkedInAt,attendance.expected_at AS expectedAt,attendance.resolved_at AS resolvedAt
+      FROM activities a JOIN shift_slots s ON s.activity_id=a.id
+      JOIN directory_shift_assignments p ON p.slot_id=s.id
+      JOIN directory_availability_submissions submission ON submission.entry_id=p.entry_id
+      JOIN student_directory directory ON directory.id=submission.entry_id AND directory.status='active'
+      LEFT JOIN assignment_attendance attendance ON attendance.assignment_id=p.id
+      WHERE a.year=? AND s.starts_at<? AND s.ends_at>? AND s.deleted=0
+      AND (? OR EXISTS(SELECT 1 FROM activity_effective_responsibles r WHERE r.activity_id=a.id AND r.member_id=?))
+      ) ORDER BY startsAt,endsAt,id`
 
 export async function readShiftOverview(
   db: D1Database,
@@ -36,14 +54,19 @@ export async function readShiftOverview(
           endsAt: number
         }>(),
       db
-        .prepare(`SELECT p.id,p.slot_id AS slotId,s.activity_id AS activityId,p.member_id AS memberId,s.starts_at AS startsAt,s.ends_at AS endsAt,
-      attendance.state,attendance.check_in_status AS checkInStatus,attendance.checked_in_at AS checkedInAt,attendance.expected_at AS expectedAt,attendance.resolved_at AS resolvedAt
-      FROM ${planningAssignments} p JOIN shift_slots s ON s.id=p.slot_id JOIN activities a ON a.id=s.activity_id
-      LEFT JOIN assignment_attendance attendance ON attendance.assignment_id=p.id
-      WHERE a.year=? AND s.starts_at<? AND s.ends_at>? AND p.status='active' AND s.deleted=0
-      AND (? OR EXISTS(SELECT 1 FROM activity_effective_responsibles r WHERE r.activity_id=a.id AND r.member_id=?))
-      ORDER BY s.starts_at,s.ends_at,p.id`)
-        .bind(year, end, start, canEdit ? 1 : 0, actorId)
+        .prepare(overviewAssignments)
+        .bind(
+          year,
+          end,
+          start,
+          canEdit ? 1 : 0,
+          actorId,
+          year,
+          end,
+          start,
+          canEdit ? 1 : 0,
+          actorId
+        )
         .all<{
           id: string
           slotId: string
