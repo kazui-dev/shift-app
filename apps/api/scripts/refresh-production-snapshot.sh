@@ -8,7 +8,7 @@ tables=(
   operating_years year_settings year_roles year_role_permissions
   bureaus duties student_directory directory_duties
   year_memberships member_year_roles user_preferences
-  activities activity_responsibles activity_candidate_roles
+  activities activity_responsibles activity_candidate_roles activity_notices
   availability_dates availability_submissions availability_windows
   availability_drafts availability_day_answers
   directory_availability_submissions directory_availability_day_answers

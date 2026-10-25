@@ -42,6 +42,12 @@ export async function readActivityEditor(db: D1Database, id: string) {
       version: number
     }>()
   if (!activity) return null
+  const notices = await db
+    .prepare(
+      "SELECT id,starts_at AS startsAt,ends_at AS endsAt,content FROM activity_notices WHERE activity_id=? ORDER BY starts_at,id"
+    )
+    .bind(id)
+    .all<{ id: string; startsAt: number; endsAt: number; content: string }>()
   const [
     candidateRoles,
     responsibles,
@@ -148,6 +154,11 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .then((query) => recordD1("activity.editor.other_assignments", query)),
   ])
   return {
+    notices: notices.results.map((notice) => ({
+      ...notice,
+      startsAt: toIso(notice.startsAt),
+      endsAt: toIso(notice.endsAt),
+    })),
     candidateRoleIds: candidateRoles.results.map((item) => item.roleId),
     activity: {
       ...activity,

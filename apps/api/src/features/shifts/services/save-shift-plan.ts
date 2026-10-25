@@ -138,6 +138,24 @@ export async function saveShiftPlan(
         )
     }
   }
+  if (input.notices !== undefined) {
+    statements.push(
+      db.prepare("DELETE FROM activity_notices WHERE activity_id=?").bind(id),
+      ...input.notices.map((notice) =>
+        db
+          .prepare(
+            "INSERT INTO activity_notices (activity_id,id,starts_at,ends_at,content) VALUES (?,?,?,?,?)"
+          )
+          .bind(
+            id,
+            notice.id,
+            Date.parse(notice.startsAt),
+            Date.parse(notice.endsAt),
+            notice.content
+          )
+      )
+    )
+  }
   statements.push(
     db.prepare("DELETE FROM shift_requirements WHERE activity_id=?").bind(id),
     ...input.requirements.map((item) =>

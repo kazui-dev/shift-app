@@ -44,6 +44,30 @@ export const activities = sqliteTable(
   ]
 )
 
+export const activityNotices = sqliteTable(
+  "activity_notices",
+  {
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    id: text("id").notNull(),
+    startsAt: integer("starts_at", { mode: "timestamp_ms" }).notNull(),
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }).notNull(),
+    content: text("content").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.activityId, table.id] }),
+    check(
+      "activity_notices_time_check",
+      sql`${table.startsAt} < ${table.endsAt}`
+    ),
+    check(
+      "activity_notices_content_check",
+      sql`length(trim(${table.content})) BETWEEN 1 AND 2000`
+    ),
+  ]
+)
+
 export const activityResponsibles = sqliteTable(
   "activity_responsibles",
   {

@@ -15,6 +15,7 @@ import {
   calendarTimelineHeight,
 } from "./calendar-layout"
 import { attendanceLabel } from "./assignment-actions"
+import { CalendarNotices } from "@/features/shifts/components/shift-notices"
 
 const hours = Array.from({ length: 25 }, (_, hour) => hour)
 /** How long a card is held before it opens its attendance. */
@@ -173,7 +174,12 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                 )}
               >
                 <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">
+                  <span
+                    className={cn(
+                      "block truncate text-sm font-semibold",
+                      height < 100 && !!assignment.notices?.length && "pr-7"
+                    )}
+                  >
                     {assignment.activityName}
                   </span>
                   {height >= 44 && (
@@ -196,6 +202,13 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                   {attendanceLabel(assignment)}
                 </span>
               </div>
+              {(assignment.notices?.length ?? 0) > 0 && (
+                <CalendarNotices
+                  assignment={assignment}
+                  height={height}
+                  onOpen={() => onAttendance(assignment.id)}
+                />
+              )}
             </div>
           )
         })}

@@ -1,3 +1,6 @@
+import * as v from "valibot"
+import { shiftNoticesSchema } from "@workspace/shared/shifts"
+import { NoticeSettings } from "./notice-settings"
 import { SearchableList } from "@/components/searchable-list"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import {
@@ -26,6 +29,10 @@ export function ShiftSettings({
   onSubmit: () => void
 }) {
   const formId = useId()
+  const validNotices = v.safeParse(
+    shiftNoticesSchema,
+    value.notices ?? []
+  ).success
   const validRange = Date.parse(value.endsAt) > Date.parse(value.startsAt)
   const requirements = value.requirements
   const ordered = [...requirements].sort((a, b) =>
@@ -59,7 +66,13 @@ export function ShiftSettings({
           variant="outline"
           type="submit"
           form={formId}
-          disabled={pending || !dirty || !validRange || !validRequirements}
+          disabled={
+            pending ||
+            !dirty ||
+            !validRange ||
+            !validRequirements ||
+            !validNotices
+          }
         >
           {pending ? "保存中" : dirty ? "変更を保存" : "保存済み"}
         </Button>
@@ -68,7 +81,14 @@ export function ShiftSettings({
         id={formId}
         onSubmit={(event) => {
           event.preventDefault()
-          if (validRange && validRequirements && dirty && !pending) onSubmit()
+          if (
+            validRange &&
+            validRequirements &&
+            validNotices &&
+            dirty &&
+            !pending
+          )
+            onSubmit()
         }}
       >
         <fieldset disabled={pending} className="grid gap-5 sm:grid-cols-2">
@@ -253,6 +273,11 @@ export function ShiftSettings({
               onChange={(e) => onChange({ ...value, color: e.target.value })}
             />
           </label>
+          <NoticeSettings
+            items={value.notices ?? []}
+            activity={value}
+            onChange={(notices) => onChange({ ...value, notices })}
+          />
           <label htmlFor="shift-notes" className="block space-y-2 text-sm">
             備考
             <Input

@@ -18,7 +18,7 @@ function describe(value: unknown, data: EditorData): string {
         "削除された対象"
       )
     if ("startsAt" in value && "endsAt" in value)
-      return `${describe(value.startsAt, data)}〜${describe(value.endsAt, data)}`
+      return `${describe(value.startsAt, data)}〜${describe(value.endsAt, data)}${"content" in value && typeof value.content === "string" ? `：${value.content}` : ""}`
   }
   if (value === undefined) return "削除"
   if (value === null) return "なし"

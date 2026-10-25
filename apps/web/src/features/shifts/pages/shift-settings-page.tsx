@@ -55,6 +55,7 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
       void client.invalidateQueries({
         queryKey: keys.activities(source.activity.year),
       })
+      void client.invalidateQueries({ queryKey: keys.assignmentMonth() })
       const saved = planOf(result)
       setBase(saved)
       setValue(saved)

@@ -32,6 +32,7 @@ import { errorMessage } from "@/lib/http/client"
 import { keys } from "@/app/data/keys"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import { attendanceOpen } from "./assignment-actions"
+import { AttendanceNotices } from "@/features/shifts/components/shift-notices"
 
 type Choice = "late" | "absent"
 
@@ -153,7 +154,12 @@ function AttendanceForm({
   )
 
   return (
-    <div className="space-y-6 px-4 pt-2 pb-8">
+    <div
+      className={cn(
+        "space-y-6 px-4 pt-2 pb-8",
+        "max-h-[80dvh] overflow-y-auto"
+      )}
+    >
       <p className="flex justify-center">
         <span
           className="max-w-full truncate rounded-full px-3 py-1 text-sm"
@@ -165,6 +171,7 @@ function AttendanceForm({
           {japanTime(assignment.endsAt)}
         </span>
       </p>
+      <AttendanceNotices assignment={assignment} />
       <div className="grid grid-cols-3 gap-2">
         <Button
           type="button"
