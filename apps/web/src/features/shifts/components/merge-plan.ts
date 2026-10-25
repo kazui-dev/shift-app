@@ -95,6 +95,7 @@ export function mergePlan(
     endsAt: field("endsAt", "終了日時"),
     color: field("color", "色"),
     notes: field("notes", "備考"),
+    notices: field("notices", "重要な連絡事項"),
     active: field("active", "有効・無効"),
     responsibles: field("responsibles", "責任者"),
     candidateRoleIds: field("candidateRoleIds", "候補のロール"),

@@ -53,12 +53,16 @@ activitiesApp.put(
     const id = c.req.param("activityId")
     const current = await readActivityEditor(c.env.shift_app, id)
     if (!current) return apiError(c, errors.activityNotFound)
-    const input =
+    const compatibleInput =
       body !== null &&
       typeof body === "object" &&
       !Object.hasOwn(body, "requirements")
         ? { ...parsed.output, requirements: current.requirements }
         : parsed.output
+    const input = {
+      ...compatibleInput,
+      notices: parsed.output.notices ?? current.notices,
+    }
     if (current.activity.version !== input.version)
       return apiError(c, errors.shiftStale)
     const checked = validateShiftPlan(

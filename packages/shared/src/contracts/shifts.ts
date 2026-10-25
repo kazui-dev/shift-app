@@ -36,6 +36,7 @@ export {
   activityEditorResponseSchema,
   type ActivityEditorInput,
 } from "./shifts/activities"
+export { shiftNoticesSchema, type ShiftNotice } from "./shifts/notices"
 export {
   availabilityWindowSchema,
   replaceAvailabilityInputSchema,
