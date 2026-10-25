@@ -1,5 +1,5 @@
 import { memo, useRef } from "react"
-import { Clock } from "lucide-react"
+import { Clock, MapPin } from "lucide-react"
 
 import type { CalendarAssignment } from "@/features/shifts/api/assignments"
 import { cn } from "@workspace/ui/lib/utils"
@@ -183,12 +183,23 @@ export const CalendarDayTimeline = memo(function CalendarDayTimeline({
                     {assignment.activityName}
                   </span>
                   {height >= 44 && (
-                    <span className="flex items-center gap-1 text-xs tabular-nums opacity-75">
+                    <span className="flex min-w-0 items-center gap-1 text-xs tabular-nums opacity-75">
                       <Clock aria-hidden="true" className="size-3 shrink-0" />
-                      <span>
+                      <span className="shrink-0">
                         {japanTime(assignment.startsAt)}〜
                         {japanTime(assignment.endsAt)}
                       </span>
+                      {assignment.place && (
+                        <>
+                          <MapPin
+                            aria-hidden="true"
+                            className="ml-1 size-3 shrink-0"
+                          />
+                          <span className="truncate" title={assignment.place}>
+                            {assignment.place}
+                          </span>
+                        </>
+                      )}
                     </span>
                   )}
                 </div>
