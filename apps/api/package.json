@@ -13,20 +13,20 @@
     "snapshot:refresh": "bash scripts/refresh-production-snapshot.sh"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.6.29",
+    "@better-auth/drizzle-adapter": "1.6.33",
     "@workspace/db": "workspace:*",
     "@workspace/shared": "workspace:*",
-    "better-auth": "1.6.29",
-    "drizzle-orm": "^0.45.2",
+    "better-auth": "1.6.33",
+    "drizzle-orm": "^0.45.4",
     "entities": "^8.1.0",
-    "hono": "^4.13.9",
+    "hono": "^4.13.13",
     "valibot": "1.5.0",
     "web-push": "3.6.7"
   },
   "devDependencies": {
-    "@types/node": "^22.20.2",
+    "@types/node": "^22.20.5",
     "@types/web-push": "3.6.4",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "^0.31.11",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
