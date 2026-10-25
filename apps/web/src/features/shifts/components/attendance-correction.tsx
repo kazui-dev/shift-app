@@ -20,7 +20,7 @@ export function AttendanceCorrection({
   onSubmit: (at: string, reason: string) => void
   onCancel: () => void
 }) {
-  const [at, setAt] = useState(
+  const [at, setAt] = useState(() =>
     japanInputValue(
       assignment.attendance?.checkedInAt ?? new Date().toISOString()
     )

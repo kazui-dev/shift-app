@@ -1,3 +1,4 @@
+import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useAssignmentSelection } from "./use-assignment-selection"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@workspace/ui/lib/toast"
@@ -51,6 +52,7 @@ export function ShiftOverview({
   year: number
   navigation: ReactNode
 }) {
+  const now = useCurrentTime()
   const view = useShiftView(year)
   const activities = useQuery({
     ...activitiesQuery(year),
@@ -84,7 +86,7 @@ export function ShiftOverview({
         view.overview?.date ??
         overviewInitialDate(
           activities.data?.activities ?? [],
-          japanDateTime(new Date()).date
+          japanDateTime(now).date
         )
       }
     />

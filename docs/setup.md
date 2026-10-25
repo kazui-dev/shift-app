@@ -4,8 +4,8 @@
 
 ## Requirements
 
-- Node.js 22.23.1（ルート `.node-version` を正とする）
-- Vite+ 1.0.0
+- Node.js 22.23.4（ルート `.node-version` を正とする）
+- Vite+ 1.3.0
 - pnpm 10.33.4（Vite+がルート `package.json` の `packageManager` から解決する）
 - remote resource を作成・変更する場合のみ Cloudflare account
 
@@ -119,7 +119,7 @@ Vite PWA plugin が Service Worker と manifest を生成する。TanStack Query
 
 ### Better Auth（実装済み）
 
-Better Auth 1.6.29 に固定し、Discord の組み込み social provider を拡張して所属確認を行う。認証 schema、onboarding、所属確認のテストを実装済みで、local・本番ともに OAuth callback を確認済み。
+Better Auth 1.6.33 に固定し、Discord の組み込み social provider を拡張して所属確認を行う。認証 schema、onboarding、所属確認のテストを実装済みで、local・本番ともに OAuth callback を確認済み。
 
 初期版の OAuth callback URL:
 
