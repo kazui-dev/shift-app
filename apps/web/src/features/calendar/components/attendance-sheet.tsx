@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { LoaderCircle } from "lucide-react"
+import { LoaderCircle, MapPin } from "lucide-react"
 
 import {
   japanInputValue,
@@ -160,17 +160,25 @@ function AttendanceForm({
         "max-h-[80dvh] overflow-y-auto"
       )}
     >
-      <p className="flex justify-center">
-        <span
-          className="max-w-full truncate rounded-full px-3 py-1 text-sm"
-          style={{
-            backgroundColor: `color-mix(in oklab, ${assignment.color} 14%, var(--background))`,
-          }}
-        >
-          {assignment.activityName} {japanTime(assignment.startsAt)}〜
-          {japanTime(assignment.endsAt)}
-        </span>
-      </p>
+      <div className="space-y-2 text-center">
+        <p className="flex justify-center">
+          <span
+            className="max-w-full truncate rounded-full px-3 py-1 text-sm"
+            style={{
+              backgroundColor: `color-mix(in oklab, ${assignment.color} 14%, var(--background))`,
+            }}
+          >
+            {assignment.activityName} {japanTime(assignment.startsAt)}〜
+            {japanTime(assignment.endsAt)}
+          </span>
+        </p>
+        {assignment.place && (
+          <p className="flex items-start justify-center gap-1.5 text-sm text-muted-foreground">
+            <MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <span className="min-w-0 break-words">{assignment.place}</span>
+          </p>
+        )}
+      </div>
       <AttendanceNotices assignment={assignment} />
       <div className="grid grid-cols-3 gap-2">
         <Button
