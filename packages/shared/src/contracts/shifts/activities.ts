@@ -1,6 +1,7 @@
 import * as v from "valibot"
 import { instantSchema, isOrdered, operatingYearSchema } from "./common"
 import { yearMemberResponseSchema } from "./members"
+import { shiftNoticesSchema } from "./notices"
 
 const activityFields = {
   name: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120)),
@@ -107,6 +108,7 @@ const requirementSchema = v.object({
 })
 
 export const activityEditorInputSchema = v.object({
+  notices: v.optional(shiftNoticesSchema),
   ...activityFields,
   version: v.pipe(v.number(), v.integer(), v.minValue(1)),
   active: v.boolean(),
@@ -123,6 +125,7 @@ export const activityEditorInputSchema = v.object({
 })
 
 export const activityEditorResponseSchema = v.object({
+  notices: v.optional(shiftNoticesSchema),
   activity: v.object({
     ...activityResponseSchema.entries,
     active: v.boolean(),

@@ -35,3 +35,7 @@
 ## Push
 
 [notifications.ts](../packages/db/src/schema/notifications.ts) の `notification_devices` は端末ごとの配信設定と購読情報を持つ。OFF はサーバー側の配信停止であり、購読解除とは別。endpoint は capability URL として扱い、ログに出さない。`notification_deliveries` は割当・端末・通知種別ごとの送信 claim を持ち、重複配送を抑える。失敗時の再試行とプロセス停止時の限界は [runtime-behavior.md](design/runtime-behavior.md) を参照する。
+
+## シフトの重要な連絡事項
+
+`activity_notices`はシフト別の表示期間と本文を保持する。`activity_id`と`id`の複合主キーにより別シフトの連絡を上書きしない。シフト削除時に連絡も削除する。通常の備考・チャット・勤怠の既読状態から分離し、シフトと同じ変更履歴・版で保存する。

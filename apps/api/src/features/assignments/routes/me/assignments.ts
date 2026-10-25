@@ -84,11 +84,43 @@ meAssignmentsApp.get("/assignments", async (c) => {
     .bind(member.id, year, endsAt, startsAt)
     .all<AssignmentRow>()
 
+  const notices = assignments.results.length
+    ? await c.env.shift_app
+        .prepare(`SELECT activity_id AS activityId,id,starts_at AS startsAt,ends_at AS endsAt,content FROM activity_notices
+        WHERE activity_id IN (SELECT value FROM json_each(?)) AND starts_at < ? AND ends_at > ? ORDER BY starts_at,id`)
+        .bind(
+          JSON.stringify([
+            ...new Set(assignments.results.map((row) => row.activityId)),
+          ]),
+          endsAt,
+          startsAt
+        )
+        .all<{
+          activityId: string
+          id: string
+          startsAt: number
+          endsAt: number
+          content: string
+        }>()
+    : { results: [] }
   return c.json({
     assignments: assignments.results.map((row) => {
       const assignment = withAttendance(row)
       return {
         ...assignment,
+        notices: notices.results
+          .filter(
+            (notice) =>
+              notice.activityId === row.activityId &&
+              notice.startsAt < row.endsAt &&
+              notice.endsAt > row.startsAt
+          )
+          .map((notice) => ({
+            id: notice.id,
+            startsAt: toIso(notice.startsAt),
+            endsAt: toIso(notice.endsAt),
+            content: notice.content,
+          })),
         startsAt: toIso(assignment.startsAt),
         endsAt: toIso(assignment.endsAt),
       }

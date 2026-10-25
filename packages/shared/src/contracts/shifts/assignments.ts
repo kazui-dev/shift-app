@@ -1,6 +1,7 @@
 import * as v from "valibot"
 import { instantSchema } from "./common"
 import { attendanceSchema } from "./attendance"
+import { shiftNoticesSchema } from "./notices"
 
 export const assignmentResponseSchema = v.object({
   id: v.pipe(v.string(), v.uuid()),
@@ -15,6 +16,7 @@ export const assignmentResponseSchema = v.object({
 })
 
 export const myAssignmentResponseSchema = v.object({
+  notices: v.optional(shiftNoticesSchema),
   ...assignmentResponseSchema.entries,
   activityName: v.string(),
   place: v.string(),

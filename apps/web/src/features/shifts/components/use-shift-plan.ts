@@ -7,6 +7,7 @@ import type { EditorData } from "../editor-data"
 export function planOf(data: EditorData): ActivityEditorInput {
   return {
     ...data.activity,
+    notices: data.notices ?? [],
     slots: data.slots,
     requirements: data.requirements,
     candidateRoleIds: data.candidateRoleIds,
