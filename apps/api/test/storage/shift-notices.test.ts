@@ -187,7 +187,7 @@ it("saves notices atomically with the shift, preserves them for old clients, rej
   }
 })
 
-it("returns only overlapping notices for each own assignment and removes access with inactive membership", async () => {
+it("returns the own activity's notice schedule independently of work and query times, and removes access with inactive membership", async () => {
   const f = fixture()
   try {
     const notice = (n: number, from: number, to: number, content: string) => ({
@@ -200,6 +200,7 @@ it("returns only overlapping notices for each own assignment and removes access 
       notice(30, 1000, 3000, "午前"),
       notice(31, 5000, 7000, "午後"),
       notice(32, 3000, 5000, "境界の間"),
+      notice(33, 20000, 30000, "取得期間外の表示期間"),
     ]
     expect(
       (await f.request(`/activities/${work}`, { ...(await f.plan()), notices }))
@@ -215,7 +216,10 @@ it("returns only overlapping notices for each own assignment and removes access 
       result.assignments.map((assignment) =>
         assignment.notices?.map((item) => item.content)
       )
-    ).toEqual([["午前"], ["午後"]])
+    ).toEqual([
+      ["午前", "境界の間", "午後", "取得期間外の表示期間"],
+      ["午前", "境界の間", "午後", "取得期間外の表示期間"],
+    ])
     f.db
       .prepare(
         "UPDATE year_memberships SET status='inactive' WHERE member_id=?"
