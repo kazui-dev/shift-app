@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { Megaphone, MessageSquare } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import type { CalendarAssignment } from "../api/assignments"
+import { useVisibleNotices } from "./use-visible-notices"
 
 export function CalendarNotices({
   assignment,
@@ -12,7 +13,8 @@ export function CalendarNotices({
   onOpen: () => void
   height: number
 }) {
-  if (!assignment.notices?.length) return null
+  const notices = useVisibleNotices(assignment.notices)
+  if (!notices.length) return null
   if (height < 100)
     return (
       <button
@@ -32,7 +34,7 @@ export function CalendarNotices({
         onClick={onOpen}
         className="pointer-events-auto block w-full space-y-1 text-left"
       >
-        {assignment.notices.map((notice) => (
+        {notices.map((notice) => (
           <span
             key={notice.id}
             className="flex items-start gap-1 px-1 py-1 font-medium text-foreground"
@@ -52,9 +54,10 @@ export function AttendanceNotices({
   assignment: CalendarAssignment
 }) {
   const roomId = assignment.roomId
+  const notices = useVisibleNotices(assignment.notices)
   return (
     <div className="space-y-4">
-      {(assignment.notices ?? []).map((notice) => (
+      {notices.map((notice) => (
         <section
           key={notice.id}
           aria-label="重要な連絡事項"
