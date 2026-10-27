@@ -87,13 +87,11 @@ meAssignmentsApp.get("/assignments", async (c) => {
   const notices = assignments.results.length
     ? await c.env.shift_app
         .prepare(`SELECT activity_id AS activityId,id,starts_at AS startsAt,ends_at AS endsAt,content FROM activity_notices
-        WHERE activity_id IN (SELECT value FROM json_each(?)) AND starts_at < ? AND ends_at > ? ORDER BY starts_at,id`)
+        WHERE activity_id IN (SELECT value FROM json_each(?)) ORDER BY starts_at,id`)
         .bind(
           JSON.stringify([
             ...new Set(assignments.results.map((row) => row.activityId)),
-          ]),
-          endsAt,
-          startsAt
+          ])
         )
         .all<{
           activityId: string
@@ -109,12 +107,7 @@ meAssignmentsApp.get("/assignments", async (c) => {
       return {
         ...assignment,
         notices: notices.results
-          .filter(
-            (notice) =>
-              notice.activityId === row.activityId &&
-              notice.startsAt < row.endsAt &&
-              notice.endsAt > row.startsAt
-          )
+          .filter((notice) => notice.activityId === row.activityId)
           .map((notice) => ({
             id: notice.id,
             startsAt: toIso(notice.startsAt),
