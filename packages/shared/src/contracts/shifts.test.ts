@@ -119,14 +119,41 @@ describe("shift API schemas", () => {
     expect(result.success).toBe(false)
   })
 
-  it("takes late or absent with an optional reason, and check-in with where it was confirmed", () => {
+  it("requires a nonblank reason for late and absent reports, without changing check-in", () => {
+    for (const state of ["late", "absent"]) {
+      for (const reason of [undefined, "", " \n\t　 "]) {
+        expect(
+          v.safeParse(submitAttendanceInputSchema, {
+            state,
+            ...(reason === undefined ? {} : { reason }),
+          }).success
+        ).toBe(false)
+      }
+      expect(
+        v.safeParse(submitAttendanceInputSchema, {
+          state,
+          reason: "a".repeat(1001),
+        }).success
+      ).toBe(false)
+    }
     expect(
-      v.parse(submitAttendanceInputSchema, { state: "late", reason: "   " })
-    ).toEqual({ state: "late", expectedAt: null, reason: "" })
-    expect(v.parse(submitAttendanceInputSchema, { state: "absent" })).toEqual({
-      state: "absent",
-      reason: "",
-    })
+      v.parse(submitAttendanceInputSchema, {
+        state: "late",
+        reason: " 電車遅延 ",
+      })
+    ).toEqual({ state: "late", expectedAt: null, reason: "電車遅延" })
+    expect(
+      v.parse(submitAttendanceInputSchema, {
+        state: "absent",
+        reason: " 体調不良 ",
+      })
+    ).toEqual({ state: "absent", reason: "体調不良" })
+    expect(
+      v.parse(submitAttendanceInputSchema, {
+        state: "present",
+        locationConfirmed: true,
+      })
+    ).toEqual({ state: "present", locationConfirmed: true })
     expect(
       v.safeParse(submitAttendanceInputSchema, {
         state: "present",

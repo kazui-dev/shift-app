@@ -102,7 +102,7 @@ function AttendanceForm({
   }
 
   function send() {
-    if (!choice) return
+    if (locked || !choice || !reason.trim()) return
     setPending("send")
     void run(
       () =>
@@ -140,10 +140,11 @@ function AttendanceForm({
       htmlFor={standIn ? undefined : "attendance-reason"}
       className="block space-y-2.5 text-sm font-medium"
     >
-      理由（任意）
+      理由（必須）
       <Textarea
         id={standIn ? undefined : "attendance-reason"}
         rows={2}
+        required={!standIn}
         maxLength={1000}
         disabled={locked}
         value={reason}
@@ -266,7 +267,7 @@ function AttendanceForm({
         <Button
           type="button"
           size="lg"
-          disabled={locked || !choice}
+          disabled={locked || !choice || !reason.trim()}
           onClick={send}
           className="col-start-2 w-48"
         >
