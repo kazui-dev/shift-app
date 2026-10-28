@@ -1,3 +1,4 @@
+import type { FilterValue } from "@workspace/ui/lib/filters"
 import { createContext, useContext } from "react"
 import type { useManagementYearState } from "@/features/management/use-management-year"
 
@@ -5,6 +6,7 @@ export type ManagementScreenView = {
   scrollTop: number
   search: string
   filter: string
+  filters?: Record<string, FilterValue>
 }
 
 export const ManagementContext = createContext<{

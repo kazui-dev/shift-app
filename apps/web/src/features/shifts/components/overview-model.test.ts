@@ -1,3 +1,4 @@
+import type { FilterValue } from "@workspace/ui/lib/filters"
 import { expect, it } from "vite-plus/test"
 import type { ShiftOverview } from "@workspace/shared/shifts"
 import {
@@ -40,21 +41,22 @@ const data: ShiftOverview = {
     },
   ],
 }
+const f = (values: string[]): FilterValue => ({ values, mode: "include" })
 it("combines member filters with shifts without treating roles as shifts", () => {
   const filters = {
     date: "2026-10-29",
-    roles: [],
-    activities: [],
+    roles: f([]),
+    activities: f([]),
     search: "",
   }
   expect(overviewRows(data, filters)).toHaveLength(2)
   expect(
-    overviewRows(data, { ...filters, roles: ["r1"], search: "26aj001" })
+    overviewRows(data, { ...filters, roles: f(["r1"]), search: "26aj001" })
   ).toHaveLength(1)
   expect(
     overviewRows(data, {
       ...filters,
-      activities: ["missing"],
+      activities: f(["missing"]),
     })
   ).toEqual([])
 })
@@ -74,20 +76,23 @@ it("shows members assigned to any selected shift and retains all of their assign
   }
   const filters = {
     date: "2026-10-29",
-    roles: [],
-    activities: ["work"],
+    roles: f([]),
+    activities: f(["work"]),
     search: "",
   }
   expect(overviewRows(overview, filters)).toEqual([
     { member: data.members[0], assignments: [assignment, other] },
   ])
   expect(
-    overviewRows(overview, { ...filters, activities: ["work", "second"] }).map(
-      (row) => row.member.id
-    )
+    overviewRows(overview, {
+      ...filters,
+      activities: f(["work", "second"]),
+    }).map((row) => row.member.id)
   ).toEqual(["one", "two"])
   expect(overviewRows(overview, { ...filters, search: "Two" })).toEqual([])
-  expect(overviewRows(overview, { ...filters, roles: ["missing"] })).toEqual([])
+  expect(overviewRows(overview, { ...filters, roles: f(["missing"]) })).toEqual(
+    []
+  )
 })
 it("clips overnight work to the selected Japan date and never infers lateness from a missing record", () => {
   expect(overviewRange(data, "2026-10-29")).toEqual({
@@ -141,16 +146,16 @@ it("labels recorded outcomes and retains selected work", () => {
   expect(
     overviewRows(data, {
       date: "2026-10-29",
-      roles: ["missing"],
-      activities: [],
+      roles: f(["missing"]),
+      activities: f([]),
       search: "",
     })
   ).toEqual([])
   expect(
     overviewRows(data, {
       date: "2026-10-29",
-      roles: [],
-      activities: ["work"],
+      roles: f([]),
+      activities: f(["work"]),
       search: "One",
     })
   ).toHaveLength(1)

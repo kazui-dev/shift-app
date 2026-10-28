@@ -11,8 +11,11 @@ import { yearMembershipsApp } from "../../features/members/routes/years/membersh
 import { yearRolesApp } from "../../features/roles/routes/years/roles"
 import { rosterApp } from "../../features/members/routes/years/roster"
 
+import { yearTagsApp } from "../../features/members/routes/years/tags"
+
 export const yearsApp = new Hono<ApiEnv>()
 
+yearsApp.route("/", yearTagsApp)
 yearsApp.route("/", yearLifecycleApp)
 yearsApp.route("/", yearRolesApp)
 yearsApp.route("/", rosterApp)

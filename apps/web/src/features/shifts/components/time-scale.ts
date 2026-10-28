@@ -1,3 +1,4 @@
+import { matchesFilter } from "@workspace/ui/lib/filters"
 import { memberAvailability } from "./member-availability"
 import type { MemberFilters } from "../shift-view-context"
 import type { CSSProperties } from "react"
@@ -116,19 +117,14 @@ export function gridMembers(
   return data.members.filter((member) => {
     const status = memberAvailability(data, plan, member.id)
     return (
-      (status === "available" ||
-        (status === "unavailable"
-          ? filters.includeUnavailable
-          : filters.includeUnanswered)) &&
+      matchesFilter([status], filters.availability) &&
       `${member.displayName} ${member.studentId}`
         .toLocaleLowerCase()
         .includes(term) &&
-      (!filters.role ||
-        member.roles.some((item) =>
-          filters.role === "candidates"
-            ? plan.candidateRoleIds.includes(item.id)
-            : item.id === filters.role
-        ))
+      matchesFilter(
+        member.roles.map((item) => item.id),
+        filters.roles
+      )
     )
   })
 }

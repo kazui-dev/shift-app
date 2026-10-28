@@ -1,13 +1,13 @@
 import { filterActivities } from "../activity-filters"
 import { useShiftView } from "../shift-view-context"
-import { ActivityFilterMenu } from "./activity-filter-menu"
+import { FilterMenu } from "@workspace/ui/components/filter-menu"
+import { emptyFilter, type FilterValue } from "@workspace/ui/lib/filters"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { activitiesQuery } from "@/features/shifts/data/activities"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { SelectField } from "@/components/select-field"
 import {
   japanTime,
   japanDateTime,
@@ -25,16 +25,30 @@ export function ActivityManager({
   view: {
     search: string
     filter: string
-    save: (patch: Partial<{ search: string; filter: string }>) => void
+    filters?: Record<string, FilterValue>
+    save: (
+      patch: Partial<{
+        search: string
+        filter: string
+        filters: Record<string, FilterValue>
+      }>
+    ) => void
   }
 }) {
   const query = useQuery(activitiesQuery(year))
   const [search, setSearch] = useState(() => view.search)
-  const [status, setStatus] = useState(() => view.filter || "all")
+  const [status, setStatus] = useState(
+    () => view.filters?.status ?? emptyFilter()
+  )
   const activities = query.data?.activities ?? []
   const shiftView = useShiftView(year)
   const [filters, setFilters] = useState(
-    () => shiftView.listFilters ?? { dates: [], responsibles: [], places: [] }
+    () =>
+      shiftView.listFilters ?? {
+        dates: emptyFilter(),
+        responsibles: emptyFilter(),
+        places: emptyFilter(),
+      }
   )
   const visible = filterActivities(activities, filters, search, status)
   const dates = [
@@ -87,7 +101,7 @@ export function ActivityManager({
             },
           ] as const
         ).map(({ key, label, options }) => (
-          <ActivityFilterMenu
+          <FilterMenu
             key={key}
             label={label}
             options={options}
@@ -99,17 +113,15 @@ export function ActivityManager({
             }}
           />
         ))}
-        <SelectField
-          aria-label="シフトの状態"
-          size="default"
-          className="w-auto"
+        <FilterMenu
+          label="状態"
+          searchable={false}
           value={status}
-          onValueChange={(value) => {
-            view.save({ filter: value })
+          onChange={(value) => {
             setStatus(value)
+            view.save({ filters: { status: value } })
           }}
           options={[
-            { value: "all", label: "すべての状態" },
             { value: "active", label: "有効" },
             { value: "inactive", label: "無効" },
           ]}

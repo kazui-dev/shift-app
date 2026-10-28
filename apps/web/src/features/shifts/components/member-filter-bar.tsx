@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { Search } from "lucide-react"
 import { Input } from "@workspace/ui/components/input"
-import { SelectField } from "@/components/select-field"
+import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import type { EditorData } from "../editor-data"
 import type { MemberFilters } from "../shift-view-context"
 
@@ -34,38 +34,26 @@ export function MemberFilterBar({
           }
         />
       </label>
-      <SelectField
-        size="default"
-        searchable
-        aria-label="表示するロール"
-        value={filters.role}
-        className="min-w-36 flex-1 sm:w-auto sm:flex-none"
+      <FilterMenu
+        label="ロール"
         options={[
-          { value: "", label: "すべてのロール" },
+          { value: "unset", label: "未設定" },
           ...roles.map((role) => ({ value: role.id, label: role.name })),
         ]}
-        onValueChange={(role) => onChange({ ...filters, role })}
+        value={filters.roles}
+        onChange={(value) => onChange({ ...filters, roles: value })}
       />
-      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={filters.includeUnavailable}
-          onChange={(e) =>
-            onChange({ ...filters, includeUnavailable: e.target.checked })
-          }
-        />
-        参加不可
-      </label>
-      <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={filters.includeUnanswered}
-          onChange={(e) =>
-            onChange({ ...filters, includeUnanswered: e.target.checked })
-          }
-        />
-        未回答
-      </label>
+      <FilterMenu
+        label="希望回答"
+        searchable={false}
+        options={[
+          { value: "available", label: "参加可能" },
+          { value: "unavailable", label: "参加不可" },
+          { value: "unanswered", label: "未回答" },
+        ]}
+        value={filters.availability}
+        onChange={(value) => onChange({ ...filters, availability: value })}
+      />
       <div className="sm:ml-auto">{children}</div>
     </div>
   )

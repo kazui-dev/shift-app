@@ -3,6 +3,9 @@ import { updateAccessLevelInputSchema } from "../../../packages/shared/src/contr
 import { roomSettingsInputSchema } from "../../../packages/shared/src/contracts/communications"
 import type { Plugin } from "vite-plus"
 import {
+  tagInputSchema,
+  memberTagChangesSchema,
+  type YearTag,
   shiftOverviewResponseSchema,
   activityEditorInputSchema,
   createActivityInputSchema,
@@ -14,6 +17,21 @@ import { dates, makeEditors, members, roles, uuid } from "./fixtures"
 // This server owns every /api request. Unknown requests fail closed, never proxy.
 export function localApi(): Plugin {
   const editors = makeEditors()
+  const tagsByYear = new Map<number, YearTag[]>([
+    [
+      2026,
+      [
+        {
+          id: uuid(7001),
+          name: "配布済み",
+          memberIds: [uuid(1), uuid(2), uuid(4)],
+        },
+        { id: uuid(7002), name: "確認待ち", memberIds: [uuid(3), uuid(5)] },
+        { id: uuid(7003), name: "機材返却済み", memberIds: [uuid(1), uuid(4)] },
+      ],
+    ],
+    [2025, []],
+  ])
   const access = new Map<string, "member" | "leader" | "system_admin">()
   let roomSettings: v.InferOutput<typeof roomSettingsInputSchema> = {
     name: "検証用チャット",
@@ -95,6 +113,74 @@ export function localApi(): Plugin {
         req.on("end", () => {
           try {
             const input: unknown = body ? JSON.parse(body) : null
+            const tagPath =
+              /^\/api\/years\/(2025|2026)\/tags(?:\/([^/]+))?$/.exec(path)
+            if (tagPath) {
+              const year = Number(tagPath[1])
+              const id = tagPath[2]
+              const tags = tagsByYear.get(year) ?? []
+              if (req.method === "GET" && !id) {
+                send({ tags })
+                return
+              }
+              const tag = tags.find((item) => item.id === id)
+              if (req.method === "DELETE" && tag) {
+                tagsByYear.set(
+                  year,
+                  tags.filter((item) => item.id !== id)
+                )
+                send(null, 204)
+                return
+              }
+              const parsed = v.safeParse(tagInputSchema, input)
+              if (
+                !parsed.success ||
+                tags.some(
+                  (item) =>
+                    item.name.toLowerCase() ===
+                      parsed.output.name.toLowerCase() && item.id !== id
+                )
+              )
+                return fail()
+              if (req.method === "POST" && !id)
+                tags.push({
+                  id: crypto.randomUUID(),
+                  name: parsed.output.name,
+                  memberIds: [],
+                })
+              else if (req.method === "PUT" && tag)
+                tag.name = parsed.output.name
+              else return fail()
+              send(null, 204)
+              return
+            }
+            if (
+              /^\/api\/years\/(2025|2026)\/member-tags$/.test(path) &&
+              req.method === "PATCH"
+            ) {
+              const parsed = v.safeParse(memberTagChangesSchema, input)
+              if (!parsed.success) return fail()
+              const tags = tagsByYear.get(Number(path.split("/")[3])) ?? []
+              if (
+                [
+                  ...parsed.output.addTagIds,
+                  ...parsed.output.removeTagIds,
+                ].some((id) => !tags.some((item) => item.id === id))
+              )
+                return fail()
+              for (const tag of tags) {
+                if (parsed.output.addTagIds.includes(tag.id))
+                  tag.memberIds = [
+                    ...new Set([...tag.memberIds, ...parsed.output.memberIds]),
+                  ]
+                if (parsed.output.removeTagIds.includes(tag.id))
+                  tag.memberIds = tag.memberIds.filter(
+                    (id) => !parsed.output.memberIds.includes(id)
+                  )
+              }
+              send(null, 204)
+              return
+            }
             if (
               path.startsWith("/api/admin/users/") &&
               req.method === "PATCH"

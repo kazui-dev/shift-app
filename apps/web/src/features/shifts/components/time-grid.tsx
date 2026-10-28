@@ -1,3 +1,4 @@
+import type { FilterValue } from "@workspace/ui/lib/filters"
 import { memberSelectionKeys } from "./assignment-removal"
 import { AssignmentSelectAll } from "./assignment-selection"
 import type { AssignmentSelection } from "./use-assignment-selection"
@@ -21,10 +22,9 @@ export function TimeGrid({
   assignmentSelection,
   data,
   plan,
-  role,
+  roles,
   search,
-  includeUnavailable,
-  includeUnanswered,
+  availability,
   selection,
   onSelect,
   onCommit,
@@ -33,10 +33,9 @@ export function TimeGrid({
   assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
   plan: ActivityEditorInput
-  role: string
+  roles: FilterValue
   search: string
-  includeUnavailable: boolean
-  includeUnanswered: boolean
+  availability: FilterValue
   selection: ShiftSelection | null
   onSelect: (selection: ShiftSelection) => void
   onCommit: (selection: ShiftSelection) => void
@@ -55,9 +54,8 @@ export function TimeGrid({
   )
   const members = gridMembers(data, plan, {
     search,
-    role,
-    includeUnavailable,
-    includeUnanswered,
+    roles,
+    availability,
   }).filter((member) => {
     if (!candidatesOnly || !periodDetail) return true
     const from = Date.parse(periodDetail.startsAt),
