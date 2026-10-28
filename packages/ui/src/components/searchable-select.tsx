@@ -78,9 +78,11 @@ export function SearchableSelect({
                 placeholder={searchLabel}
               />
             </div>
-            <Combobox.Empty className="px-3 py-4 text-sm text-muted-foreground">
-              一致する候補がありません。
-            </Combobox.Empty>
+            {filtered.length === 0 && (
+              <Combobox.Empty className="px-3 py-4 text-sm text-muted-foreground">
+                一致する候補がありません。
+              </Combobox.Empty>
+            )}
             <Combobox.List className="min-h-0 overflow-y-auto p-1">
               {(option: Option) => (
                 <Combobox.Item

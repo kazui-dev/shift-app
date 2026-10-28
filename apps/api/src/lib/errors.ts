@@ -72,6 +72,20 @@ export const errors = {
     "ロール管理権限と、付与する権限が必要です。"
   ),
 
+  // Tags
+  invalidTag: define(
+    422,
+    "INVALID_TAG",
+    "タグ名は1〜100文字で入力してください。"
+  ),
+  invalidTagChanges: define(
+    422,
+    "INVALID_TAG_CHANGES",
+    "タグの変更内容を確認してください。"
+  ),
+  tagNotFound: define(404, "TAG_NOT_FOUND", "タグが見つかりません。"),
+  tagNameExists: define(409, "TAG_NAME_EXISTS", "同じ名前のタグがあります。"),
+
   // Roles
   invalidRole: define(422, "INVALID_ROLE", "ロール設定を確認してください。"),
   invalidRoleOrder: define(

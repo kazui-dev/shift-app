@@ -1,18 +1,11 @@
-import { matchesMemberFilter } from "@/features/chat/components/room/member-filter"
+import { FilterMenu } from "@workspace/ui/components/filter-menu"
+import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
 import { targetKey } from "@/features/chat/components/room/target-key"
 import { useState } from "react"
-import { Search, X, SlidersHorizontal } from "lucide-react"
+import { Search, X } from "lucide-react"
 import type { ChatTargetOption } from "@workspace/shared/communications"
 import { Input } from "@workspace/ui/components/input"
-import { Button } from "@workspace/ui/components/button"
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
-} from "@workspace/ui/components/dropdown-menu"
+
 import { TargetAvatar } from "@/features/chat/components/room/target-avatar"
 
 const kinds = [
@@ -32,26 +25,8 @@ export function TargetPicker({
 }) {
   const [kind, setKind] = useState<(typeof kinds)[number]["type"]>("member")
   const [search, setSearch] = useState("")
-  const [filterSearch, setFilterSearch] = useState("")
-  const [filters, setFilters] = useState<string[]>([])
-  const toggleFilter = (key: string) =>
-    setFilters((values) =>
-      values.includes(key)
-        ? values.filter((value) => value !== key)
-        : [...values, key]
-    )
-  const roleIds = targets
-    .filter(
-      (target) =>
-        target.targetType === "role" && filters.includes(targetKey(target))
-    )
-    .map((target) => target.targetId)
-  const activityIds = targets
-    .filter(
-      (target) =>
-        target.targetType === "activity" && filters.includes(targetKey(target))
-    )
-    .map((target) => target.targetId)
+  const [roleFilters, setRoleFilters] = useState(emptyFilter)
+  const [activityFilters, setActivityFilters] = useState(emptyFilter)
   const toggle = (key: string) =>
     onChange(
       selected.includes(key)
@@ -62,7 +37,8 @@ export function TargetPicker({
     (target) =>
       target.targetType === kind &&
       (target.targetType !== "member" ||
-        matchesMemberFilter(target, roleIds, activityIds)) &&
+        (matchesFilter(target.roleIds, roleFilters) &&
+          matchesFilter(target.activityIds, activityFilters))) &&
       target.displayName
         .toLocaleLowerCase()
         .includes(search.trim().toLocaleLowerCase())
@@ -125,7 +101,7 @@ export function TargetPicker({
             </button>
           ))}
         </fieldset>
-        <div className="flex h-9 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search
               aria-hidden
@@ -141,77 +117,36 @@ export function TargetPicker({
             />
           </div>
           {kind === "member" && (
-            <DropdownMenu onOpenChange={() => setFilterSearch("")}>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="メンバーを絞り込む"
-                    className={filters.length ? "bg-muted" : ""}
-                  />
-                }
-              >
-                <SlidersHorizontal />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="pointer-events-auto max-h-80 w-64"
-              >
-                <div className="sticky top-0 z-10 bg-popover p-1 pb-2">
-                  <Input
-                    type="search"
-                    aria-label="絞り込むロール・シフトを検索"
-                    placeholder="ロール・シフトを検索"
-                    value={filterSearch}
-                    onChange={(event) => setFilterSearch(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key !== "Escape" &&
-                        event.key !== "Tab" &&
-                        event.key !== "ArrowDown" &&
-                        event.key !== "ArrowUp"
-                      )
-                        event.stopPropagation()
-                    }}
-                  />
-                </div>
-                {kinds
-                  .filter(
-                    (group) =>
-                      group.type === "role" || group.type === "activity"
-                  )
-                  .map((group) => (
-                    <DropdownMenuGroup key={group.type} className="min-h-17">
-                      <DropdownMenuLabel>{group.name}</DropdownMenuLabel>
-                      {targets
-                        .filter(
-                          (target) =>
-                            target.targetType === group.type &&
-                            target.displayName
-                              .toLocaleLowerCase()
-                              .includes(filterSearch.trim().toLocaleLowerCase())
-                        )
-                        .map((target) => (
-                          <DropdownMenuCheckboxItem
-                            key={targetKey(target)}
-                            className="min-h-10 cursor-pointer [&_[data-slot=dropdown-menu-checkbox-item-indicator]_svg]:size-3 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:size-4 [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:rounded-sm [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:border [&>[data-slot=dropdown-menu-checkbox-item-indicator]]:border-input"
-                            checked={filters.includes(targetKey(target))}
-                            closeOnClick={false}
-                            onCheckedChange={() =>
-                              toggleFilter(targetKey(target))
-                            }
-                          >
-                            <span className="truncate">
-                              {target.displayName}
-                            </span>
-                          </DropdownMenuCheckboxItem>
-                        ))}
-                    </DropdownMenuGroup>
-                  ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              <FilterMenu
+                label="ロール"
+                options={[
+                  { value: "unset", label: "未設定" },
+                  ...targets
+                    .filter((target) => target.targetType === "role")
+                    .map((target) => ({
+                      value: target.targetId,
+                      label: target.displayName,
+                    })),
+                ]}
+                value={roleFilters}
+                onChange={setRoleFilters}
+              />
+              <FilterMenu
+                label="シフト"
+                options={[
+                  { value: "unset", label: "未設定" },
+                  ...targets
+                    .filter((target) => target.targetType === "activity")
+                    .map((target) => ({
+                      value: target.targetId,
+                      label: target.displayName,
+                    })),
+                ]}
+                value={activityFilters}
+                onChange={setActivityFilters}
+              />
+            </>
           )}
         </div>
         <ul>

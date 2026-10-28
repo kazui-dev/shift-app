@@ -1,3 +1,4 @@
+import { emptyFilter, type FilterValue } from "@workspace/ui/lib/filters"
 import { expect, it } from "vite-plus/test"
 import { makeEditors } from "../../../../dev/fixtures"
 import { memberAvailability } from "./member-availability"
@@ -88,32 +89,46 @@ it("adds each hidden category independently without losing search and role filte
   const { data, plan, id } = fixture()
   const filters = {
     search: "",
-    role: "",
-    includeUnavailable: false,
-    includeUnanswered: false,
+    roles: emptyFilter(),
+    availability: {
+      values: ["available"],
+      mode: "include",
+    } satisfies FilterValue,
   }
   expect(gridMembers(data, plan, filters)).toHaveLength(1)
   data.availabilityAnswers = []
   expect(gridMembers(data, plan, filters)).toEqual([])
   expect(
-    gridMembers(data, plan, { ...filters, includeUnavailable: true })
+    gridMembers(data, plan, {
+      ...filters,
+      availability: { values: ["available", "unavailable"], mode: "include" },
+    })
   ).toEqual([])
   expect(
-    gridMembers(data, plan, { ...filters, includeUnanswered: true })
+    gridMembers(data, plan, {
+      ...filters,
+      availability: { values: ["available", "unanswered"], mode: "include" },
+    })
   ).toHaveLength(1)
   data.availabilityAnswers = [
     { memberId: id, date: "2026-11-01", choice: "no" },
   ]
   expect(
-    gridMembers(data, plan, { ...filters, includeUnanswered: true })
+    gridMembers(data, plan, {
+      ...filters,
+      availability: { values: ["available", "unanswered"], mode: "include" },
+    })
   ).toEqual([])
   expect(
-    gridMembers(data, plan, { ...filters, includeUnavailable: true })
+    gridMembers(data, plan, {
+      ...filters,
+      availability: { values: ["available", "unavailable"], mode: "include" },
+    })
   ).toHaveLength(1)
   expect(
     gridMembers(data, plan, {
       ...filters,
-      includeUnavailable: true,
+      availability: { values: ["available", "unavailable"], mode: "include" },
       search: "absent",
     })
   ).toEqual([])

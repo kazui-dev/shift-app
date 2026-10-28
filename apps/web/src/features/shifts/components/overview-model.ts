@@ -1,9 +1,10 @@
+import { matchesFilter, type FilterValue } from "@workspace/ui/lib/filters"
 import { japanDateTime } from "@workspace/shared/japan-time"
 import type { ShiftOverview } from "@workspace/shared/shifts"
 export type OverviewFilters = {
   date: string
-  roles: string[]
-  activities: string[]
+  roles: FilterValue
+  activities: FilterValue
   search: string
 }
 export type OverviewSelection = {
@@ -18,14 +19,17 @@ export function overviewRows(data: ShiftOverview, filters: OverviewFilters) {
   return data.members
     .filter(
       (m) =>
-        (!filters.roles.length ||
-          m.roles.some((r) => filters.roles.includes(r.id))) &&
+        matchesFilter(
+          m.roles.map((r) => r.id),
+          filters.roles
+        ) &&
         `${m.displayName} ${m.studentId}`.toLocaleLowerCase().includes(term) &&
-        (!filters.activities.length ||
-          data.assignments.some(
-            (a) =>
-              a.memberId === m.id && filters.activities.includes(a.activityId)
-          ))
+        matchesFilter(
+          data.assignments
+            .filter((a) => a.memberId === m.id)
+            .map((a) => a.activityId),
+          filters.activities
+        )
     )
     .map((member) => ({
       member,

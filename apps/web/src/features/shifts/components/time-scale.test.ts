@@ -1,3 +1,4 @@
+import { emptyFilter } from "@workspace/ui/lib/filters"
 import { expect, it } from "vite-plus/test"
 import { timeScale } from "./time-scale"
 
@@ -86,18 +87,16 @@ it("keeps unavailable members visible and filters by search and roles", async ()
     candidateRoleIds: data.roles.map((role) => role.id),
   }
   const all = gridMembers(data, plan, {
-    includeUnavailable: true,
-    includeUnanswered: true,
+    availability: emptyFilter(),
     search: "",
-    role: "",
+    roles: emptyFilter(),
   })
   expect(all).toHaveLength(data.members.length)
   expect(
     gridMembers({ ...data, availability: [], submittedMemberIds: [] }, plan, {
-      includeUnavailable: true,
-      includeUnanswered: true,
+      availability: emptyFilter(),
       search: "",
-      role: "",
+      roles: emptyFilter(),
     })
   ).toEqual(all)
   const member = data.members[0]
@@ -105,26 +104,23 @@ it("keeps unavailable members visible and filters by search and roles", async ()
   if (!member || !role) throw new Error("Missing member fixture")
   expect(
     gridMembers(data, plan, {
-      includeUnavailable: true,
-      includeUnanswered: true,
+      availability: emptyFilter(),
       search: member.studentId,
-      role: "",
+      roles: emptyFilter(),
     })
   ).toEqual([member])
   expect(
     gridMembers(data, plan, {
-      includeUnavailable: true,
-      includeUnanswered: true,
+      availability: emptyFilter(),
       search: "absent",
-      role: "",
+      roles: emptyFilter(),
     })
   ).toEqual([])
   expect(
     gridMembers(data, plan, {
-      includeUnavailable: true,
-      includeUnanswered: true,
+      availability: emptyFilter(),
       search: "",
-      role: role.id,
+      roles: { values: [role.id], mode: "include" },
     })
   ).toEqual(
     data.members.filter((item) =>
@@ -133,10 +129,9 @@ it("keeps unavailable members visible and filters by search and roles", async ()
   )
   expect(
     gridMembers(data, plan, {
-      includeUnavailable: true,
-      includeUnanswered: true,
+      availability: emptyFilter(),
       search: "",
-      role: "candidates",
+      roles: { values: [...plan.candidateRoleIds], mode: "include" },
     })
   ).toHaveLength(all.length)
   expect(
@@ -144,10 +139,9 @@ it("keeps unavailable members visible and filters by search and roles", async ()
       data,
       { ...plan, candidateRoleIds: [] },
       {
-        includeUnavailable: true,
-        includeUnanswered: true,
+        availability: emptyFilter(),
         search: "",
-        role: "candidates",
+        roles: { values: ["missing"], mode: "include" },
       }
     )
   ).toEqual([])
