@@ -74,6 +74,16 @@ it("selects multiple values without closing, retains hidden selections, excludes
     await search("配布")
     expect(document.querySelectorAll('[role="option"]')).toHaveLength(1)
     expect(host.querySelector("output")?.textContent).toContain('"a","b"')
+    await click("配布済み")
+    expect(
+      document.querySelector<HTMLInputElement>('input[aria-label="タグを検索"]')
+        ?.value
+    ).toBe("配布")
+    expect(document.querySelectorAll('[role="option"]')).toHaveLength(1)
+    expect(trigger.getAttribute("aria-expanded")).toBe("true")
+    await click("配布済み")
+    expect(host.querySelector("output")?.textContent).toContain('"a"')
+    expect(host.querySelector("output")?.textContent).toContain('"b"')
     await click("含まない")
     expect(host.querySelector("output")?.textContent).toContain(
       '"mode":"exclude"'
@@ -84,6 +94,26 @@ it("selects multiple values without closing, retains hidden selections, excludes
     expect(host.querySelector("output")?.textContent).toBe(
       JSON.stringify(emptyFilter())
     )
+    expect(trigger.getAttribute("aria-expanded")).toBe("true")
+    const input = document.querySelector<HTMLInputElement>(
+      'input[aria-label="タグを検索"]'
+    )
+    if (!input) throw new Error("Missing search")
+    await act(async () =>
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Escape",
+          code: "Escape",
+          bubbles: true,
+        })
+      )
+    )
+    expect(trigger.getAttribute("aria-expanded")).toBe("false")
+    await act(async () => trigger.click())
+    expect(
+      document.querySelector<HTMLInputElement>('input[aria-label="タグを検索"]')
+        ?.value
+    ).toBe("")
   } finally {
     await act(async () => root.unmount())
     host.remove()
@@ -121,6 +151,11 @@ it("does not reserve empty-state space in the shared single select when options 
     await act(async () => trigger.click())
     expect(document.querySelectorAll('[role="option"]')).toHaveLength(1)
     expect(document.body.textContent).not.toContain("一致する候補")
+    const option = document.querySelector('[role="option"]')
+    if (!(option instanceof HTMLElement))
+      throw new Error("Missing single option")
+    await act(async () => option.click())
+    expect(trigger.getAttribute("aria-expanded")).toBe("false")
   } finally {
     await act(async () => root.unmount())
     host.remove()
