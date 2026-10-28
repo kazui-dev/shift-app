@@ -42,8 +42,15 @@ export function FilterMenu({
         onChange({ ...value, values: selected.map((item) => item.value) })
       }
       inputValue={search}
-      onInputValueChange={setSearch}
-      onOpenChange={(open) => {
+      onInputValueChange={(next, details) => {
+        if (details.reason === "input-clear" && details.isItemPress) return
+        setSearch(next)
+      }}
+      onOpenChange={(open, details) => {
+        if (!open && details.reason === "item-press") {
+          details.cancel()
+          return
+        }
         if (!open) setSearch("")
       }}
       disabled={disabled}
