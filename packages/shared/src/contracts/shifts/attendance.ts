@@ -1,9 +1,11 @@
 import * as v from "valibot"
 import { instantSchema } from "./common"
 
-const attendanceReasonSchema = v.optional(
-  v.pipe(v.string(), v.trim(), v.maxLength(1000)),
-  ""
+const attendanceReasonSchema = v.pipe(
+  v.string(),
+  v.trim(),
+  v.minLength(1, "理由を入力してください。"),
+  v.maxLength(1000)
 )
 
 /** What a member sets for their own shift: checked in, late or absent. */
