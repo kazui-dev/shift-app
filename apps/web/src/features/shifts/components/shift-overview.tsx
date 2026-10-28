@@ -28,7 +28,8 @@ import { japanDateTime, japanTime } from "@workspace/shared/japan-time"
 import { activitiesQuery } from "../data/activities"
 import { overviewQuery } from "../data/overview"
 import { ShiftViewToolbar } from "./shift-view-toolbar"
-import { ActivityFilterMenu } from "./activity-filter-menu"
+import { FilterMenu } from "@workspace/ui/components/filter-menu"
+import { emptyFilter } from "@workspace/ui/lib/filters"
 import { OverviewGrid } from "./overview-grid"
 import { OverviewEditor } from "./overview-editor"
 import { ShiftAttendance } from "./shift-attendance"
@@ -113,8 +114,8 @@ function ShiftOverviewContent({
     () =>
       view.overview ?? {
         date: initialDate,
-        roles: [],
-        activities: [],
+        roles: emptyFilter(),
+        activities: emptyFilter(),
         search: "",
       }
   )
@@ -333,7 +334,7 @@ function ShiftOverviewContent({
             onChange={(e) => change({ search: e.target.value })}
           />
         </label>
-        <ActivityFilterMenu
+        <FilterMenu
           label="ロール"
           options={
             data?.roles.map((r) => ({ value: r.id, label: r.name })) ?? []
@@ -341,7 +342,7 @@ function ShiftOverviewContent({
           value={filters.roles}
           onChange={(roles) => change({ roles })}
         />
-        <ActivityFilterMenu
+        <FilterMenu
           label="シフト"
           options={
             data?.activities.map((a) => ({ value: a.id, label: a.name })) ?? []
@@ -381,7 +382,7 @@ function ShiftOverviewContent({
             <AssignmentSelectionArea selection={removal}>
               <OverviewGrid
                 assignmentSelection={data.canEdit ? removal : undefined}
-                key={`${filters.date}:${filters.roles.join(",")}:${filters.activities.join(",")}:${filters.search}`}
+                key={JSON.stringify(filters)}
                 data={data}
                 rows={rows}
                 date={filters.date}
@@ -401,17 +402,27 @@ function ShiftOverviewContent({
             <section className="overview-print hidden">
               <h1>シフト表 {filters.date}</h1>
               <p>
-                ロール：
-                {filters.roles.length
+                ロール
+                {filters.roles.values.length > 0 &&
+                filters.roles.mode === "exclude"
+                  ? "（含まない）"
+                  : ""}
+                ：
+                {filters.roles.values.length
                   ? data.roles
-                      .filter((r) => filters.roles.includes(r.id))
+                      .filter((r) => filters.roles.values.includes(r.id))
                       .map((r) => r.name)
                       .join("・")
                   : "すべて"}{" "}
-                ／ シフト：
-                {filters.activities.length
+                ／ シフト
+                {filters.activities.values.length > 0 &&
+                filters.activities.mode === "exclude"
+                  ? "（含まない）"
+                  : ""}
+                ：
+                {filters.activities.values.length
                   ? data.activities
-                      .filter((a) => filters.activities.includes(a.id))
+                      .filter((a) => filters.activities.values.includes(a.id))
                       .map((a) => a.name)
                       .join("・")
                   : "すべて"}{" "}

@@ -1,3 +1,4 @@
+import { emptyFilter } from "@workspace/ui/lib/filters"
 import { renderToStaticMarkup } from "react-dom/server"
 import { expect, it, vi } from "vite-plus/test"
 import { ManagementProvider } from "./provider"
@@ -13,9 +14,8 @@ function Remember({ year }: { year: number }) {
   view.save({
     filters: {
       search: "鈴木",
-      role: "all",
-      includeUnavailable: false,
-      includeUnanswered: false,
+      roles: emptyFilter(),
+      availability: { values: ["available"], mode: "include" },
     },
     scrollTop: 760,
   })

@@ -1,3 +1,4 @@
+import { emptyFilter } from "@workspace/ui/lib/filters"
 import { useAssignmentSelection } from "./use-assignment-selection"
 import {
   assignmentKey,
@@ -75,14 +76,10 @@ export function ShiftEditor({
     () =>
       view.filters ?? {
         search: "",
-        includeUnavailable: false,
-        includeUnanswered: false,
-        role:
-          source.candidateRoleIds.length === 1
-            ? (source.candidateRoleIds[0] ?? "")
-            : source.candidateRoleIds.length > 1
-              ? "candidates"
-              : "",
+        availability: { values: ["available"], mode: "include" },
+        roles: source.candidateRoleIds.length
+          ? { values: [...source.candidateRoleIds], mode: "include" }
+          : emptyFilter(),
       }
   )
   function setFilters(value: MemberFilters) {
@@ -278,10 +275,9 @@ export function ShiftEditor({
                 assignmentSelection={removal}
                 data={data}
                 plan={plan}
-                role={filters.role}
+                roles={filters.roles}
                 search={filters.search}
-                includeUnavailable={filters.includeUnavailable}
-                includeUnanswered={filters.includeUnanswered}
+                availability={filters.availability}
                 selection={selection}
                 onSelect={setSelection}
                 onCommit={(value) => {

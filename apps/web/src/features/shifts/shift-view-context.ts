@@ -1,11 +1,11 @@
+import type { FilterValue } from "@workspace/ui/lib/filters"
 import type { ActivityFilters } from "./activity-filters"
 import { createContext, useContext } from "react"
 
 export type MemberFilters = {
   search: string
-  role: string
-  includeUnavailable: boolean
-  includeUnanswered: boolean
+  roles: FilterValue
+  availability: FilterValue
 }
 
 export type ShiftView = {

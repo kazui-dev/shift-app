@@ -5,7 +5,8 @@ import { Bell } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
-import { SelectField } from "@/components/select-field"
+import { FilterMenu } from "@workspace/ui/components/filter-menu"
+import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { notifyAvailability } from "../api/availability"
 import { availabilitySubmissionsQuery } from "../data/availability"
@@ -22,7 +23,7 @@ export function AvailabilityProgress({
 }) {
   const submissions = useQuery(availabilitySubmissionsQuery(year))
   const [search, setSearch] = useState("")
-  const [status, setStatus] = useState("")
+  const [status, setStatus] = useState(emptyFilter)
   const [editing, setEditing] = useState<{
     memberId: string
     displayName: string
@@ -34,8 +35,7 @@ export function AvailabilityProgress({
       `${item.displayName} ${item.studentId}`
         .toLowerCase()
         .includes(search.toLowerCase()) &&
-      (status === "" ||
-        (status === "complete" ? item.complete : !item.complete))
+      matchesFilter([item.complete ? "complete" : "incomplete"], status)
   )
   return (
     <section className="space-y-4">
@@ -73,14 +73,12 @@ export function AvailabilityProgress({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
         />
-        <SelectField
-          size="default"
-          aria-label="提出状況で絞り込み"
-          className="w-auto"
+        <FilterMenu
+          label="提出状況"
+          searchable={false}
           value={status}
-          onValueChange={setStatus}
+          onChange={setStatus}
           options={[
-            { value: "", label: "全員" },
             { value: "incomplete", label: "未提出" },
             { value: "complete", label: "提出済み" },
           ]}

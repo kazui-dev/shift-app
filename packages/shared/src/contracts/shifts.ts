@@ -1,4 +1,10 @@
 export {
+  tagInputSchema,
+  memberTagChangesSchema,
+  yearTagsResponseSchema,
+  type YearTag,
+} from "./shifts/tags"
+export {
   operatingYearSchema,
   dateOnlySchema,
   instantSchema,
