@@ -21,6 +21,7 @@ import { Route as AppChatIndexRouteImport } from './routes/_app.chat.index'
 import { Route as AppChatRoomIdRouteImport } from './routes/_app.chat.$roomId'
 import { Route as AppChatNewRouteImport } from './routes/_app.chat.new'
 import { Route as AppManageIndexRouteImport } from './routes/_app.manage.index'
+import { Route as AppManageAttendanceRouteImport } from './routes/_app.manage.attendance'
 import { Route as AppManageAuditRouteImport } from './routes/_app.manage.audit'
 import { Route as AppManageDiscordLinkRequestsRouteImport } from './routes/_app.manage.discord-link-requests'
 import { Route as AppManageMembersRouteImport } from './routes/_app.manage.members'
@@ -95,6 +96,11 @@ const AppChatNewRoute = AppChatNewRouteImport.update({
 const AppManageIndexRoute = AppManageIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppManageRoute,
+} as any)
+const AppManageAttendanceRoute = AppManageAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
   getParentRoute: () => AppManageRoute,
 } as any)
 const AppManageAuditRoute = AppManageAuditRouteImport.update({
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AppCalendarCalendarRouteWithChildren
   '/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/chat/new': typeof AppChatNewRoute
+  '/manage/attendance': typeof AppManageAttendanceRoute
   '/manage/audit': typeof AppManageAuditRoute
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AppCalendarCalendarRouteWithChildren
   '/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/chat/new': typeof AppChatNewRoute
+  '/manage/attendance': typeof AppManageAttendanceRoute
   '/manage/audit': typeof AppManageAuditRoute
   '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
@@ -257,6 +265,7 @@ export interface FileRoutesById {
   '/_app/_calendar/calendar': typeof AppCalendarCalendarRouteWithChildren
   '/_app/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/_app/chat/new': typeof AppChatNewRoute
+  '/_app/manage/attendance': typeof AppManageAttendanceRoute
   '/_app/manage/audit': typeof AppManageAuditRoute
   '/_app/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/_app/manage/members': typeof AppManageMembersRoute
@@ -288,6 +297,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat/$roomId'
     | '/chat/new'
+    | '/manage/attendance'
     | '/manage/audit'
     | '/manage/discord-link-requests'
     | '/manage/members'
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat/$roomId'
     | '/chat/new'
+    | '/manage/attendance'
     | '/manage/audit'
     | '/manage/discord-link-requests'
     | '/manage/members'
@@ -346,6 +357,7 @@ export interface FileRouteTypes {
     | '/_app/_calendar/calendar'
     | '/_app/chat/$roomId'
     | '/_app/chat/new'
+    | '/_app/manage/attendance'
     | '/_app/manage/audit'
     | '/_app/manage/discord-link-requests'
     | '/_app/manage/members'
@@ -456,6 +468,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/manage/'
       preLoaderRoute: typeof AppManageIndexRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/attendance': {
+      id: '/_app/manage/attendance'
+      path: '/attendance'
+      fullPath: '/manage/attendance'
+      preLoaderRoute: typeof AppManageAttendanceRouteImport
       parentRoute: typeof AppManageRoute
     }
     '/_app/manage/audit': {
@@ -644,6 +663,7 @@ const AppChatRouteWithChildren =
   AppChatRoute._addFileChildren(AppChatRouteChildren)
 
 interface AppManageRouteChildren {
+  AppManageAttendanceRoute: typeof AppManageAttendanceRoute
   AppManageAuditRoute: typeof AppManageAuditRoute
   AppManageDiscordLinkRequestsRoute: typeof AppManageDiscordLinkRequestsRoute
   AppManageMembersRoute: typeof AppManageMembersRoute
@@ -661,6 +681,7 @@ interface AppManageRouteChildren {
 }
 
 const AppManageRouteChildren: AppManageRouteChildren = {
+  AppManageAttendanceRoute: AppManageAttendanceRoute,
   AppManageAuditRoute: AppManageAuditRoute,
   AppManageDiscordLinkRequestsRoute: AppManageDiscordLinkRequestsRoute,
   AppManageMembersRoute: AppManageMembersRoute,

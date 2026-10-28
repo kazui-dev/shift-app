@@ -1,4 +1,5 @@
 export * from "./schema/account"
+export * from "./schema/attendance-settings"
 export * from "./schema/tags"
 export * from "./schema/organization"
 export * from "./schema/activities"

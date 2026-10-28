@@ -113,6 +113,9 @@ function fixture() {
   })
   for (const { sql, params } of roomCommands(room, 100))
     db.prepare(sql).run(...params)
+  db.exec(`INSERT INTO year_attendance_settings VALUES(2026,'selected');
+    INSERT INTO attendance_notice_roles VALUES(2026,'${keepers}'),(2026,'${managers}');
+    INSERT INTO attendance_notice_members VALUES(2026,'${admin}'),(2026,'${responsible}');`)
   return { db, env: { shift_app: d1Binding(db) }, room: room.id }
 }
 
@@ -181,7 +184,7 @@ async function reader(f: ReturnType<typeof fixture>, member: string) {
   return v.parse(readerSchema, await response.json())
 }
 
-it("lets the shift's keepers read private messages, and nobody else", async () => {
+it("lets only the configured members and role holders read private messages", async () => {
   const f = fixture()
   const allowed = await Promise.all(
     everyone.map(async (member) => (await reader(f, member)).reads)
@@ -201,9 +204,9 @@ it("lets the shift's keepers read private messages, and nobody else", async () =
     // Only responsibles hear a notice through a muted room.
     responsibles: [responsible, roleResponsible].toSorted(),
   })
-  // Someone who stops being responsible stops reading, earlier notices too.
+  // Removing a configured reader revokes earlier notices too.
   f.db
-    .prepare("DELETE FROM activity_responsibles WHERE target_id=?")
+    .prepare("DELETE FROM attendance_notice_members WHERE member_id=?")
     .run(responsible)
   expect((await reader(f, responsible)).reads).toBe(false)
 })
@@ -252,4 +255,48 @@ it("reaches a private notice's readers only, ringing muted responsibles but no o
     ].toSorted(),
     devices: ["reporter-phone", "responsible-phone"],
   })
+})
+
+it("grants no implicit access to administrators, responsibles or shift managers", async () => {
+  const f = fixture()
+  f.db.exec(
+    "DELETE FROM attendance_notice_roles; DELETE FROM attendance_notice_members;"
+  )
+  expect(
+    await Promise.all(
+      everyone.map(async (member) => (await reader(f, member)).reads)
+    )
+  ).toEqual(everyone.map(() => false))
+  f.db.exec("DELETE FROM year_attendance_settings")
+  expect((await reader(f, admin)).reads).toBe(false)
+})
+it("supports all room members, preserves room access and revokes access when switching back", async () => {
+  const f = fixture()
+  f.db.exec(
+    "UPDATE year_attendance_settings SET notice_audience='room_members'"
+  )
+  expect((await reader(f, participant)).reads).toBe(true)
+  const audience = await (
+    await app.request(`/rooms/${f.room}/audience/${reporter}`, {}, f.env)
+  ).json()
+  expect(audience).toMatchObject({ members: everyone.toSorted() })
+  f.db.exec(
+    "UPDATE year_attendance_settings SET notice_audience='selected'; DELETE FROM member_year_roles;"
+  )
+  expect((await reader(f, roleResponsible)).reads).toBe(false)
+  expect((await reader(f, manager)).reads).toBe(false)
+  f.db
+    .prepare("UPDATE year_memberships SET status='inactive' WHERE member_id=?")
+    .run(responsible)
+  expect((await reader(f, responsible)).reads).toBe(false)
+  expect((await reader(f, responsible)).unread).toBe(null)
+})
+it("keeps settings isolated by year and rejects non-shift rooms", async () => {
+  const f = fixture()
+  f.db.exec(
+    "INSERT INTO operating_years VALUES(2027,0,0); INSERT INTO year_attendance_settings VALUES(2027,'room_members'); DELETE FROM year_attendance_settings WHERE year=2026;"
+  )
+  expect((await reader(f, participant)).reads).toBe(false)
+  f.db.exec("DELETE FROM activity_chat_rooms")
+  expect((await reader(f, admin)).reads).toBe(false)
 })

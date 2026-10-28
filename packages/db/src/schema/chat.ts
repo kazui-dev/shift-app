@@ -141,7 +141,7 @@ export const chatMessageIndex = sqliteTable(
     memberId: text("member_id").notNull(),
     deleted: integer("deleted", { mode: "boolean" }).notNull().default(false),
     /**
-     * Set on a message only the named member and the shift's responsibles may
+     * Set on a message only the named member and the configured attendance readers may
      * read, so nobody else counts it as unread.
      */
     privateTo: text("private_to"),

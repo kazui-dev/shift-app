@@ -22,6 +22,7 @@ const workItems = [
   { to: "/manage/shifts", label: "シフト" },
   { to: "/manage/members", label: "メンバー" },
   { to: "/manage/roles", label: "ロール" },
+  { to: "/manage/attendance", label: "勤怠設定" },
 ] as const
 const systemItems = [
   { to: "/manage/years", label: "年度" },
