@@ -13,6 +13,14 @@ describe("attendance input boundary", () => {
     '{"state":"present","locationConfirmed":"yes"}',
     '{"state":"late","expectedAt":"soon"}',
     '{"state":"gone"}',
+    '{"state":"late"}',
+    '{"state":"late","reason":""}',
+    '{"state":"late","reason":"  　"}',
+    '{"state":"absent"}',
+    '{"state":"absent","reason":""}',
+    '{"state":"absent","reason":"  　"}',
+    JSON.stringify({ state: "late", reason: "a".repeat(1001) }),
+    JSON.stringify({ state: "absent", reason: "a".repeat(1001) }),
   ])("rejects invalid payload before storage: %s", async (body) => {
     const res = await app.request(url, {
       method: "PUT",
