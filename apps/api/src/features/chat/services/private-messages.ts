@@ -1,33 +1,8 @@
+import { noticeReader } from "../../attendance/services/notice-access"
 import { roomAudience } from "./chat-permissions"
 import type { RoomDevice } from "../../notifications/domain/room-device"
 
 export type Reader = { memberId: string; readsPrivate: boolean }
-
-/**
- * Who may read a private message: the member it concerns, and whoever looks
- * after the room's shift — its current responsibles, members with shift
- * management in the year, and system administrators. Responsibility is read
- * when the message is read, so a new responsible also sees earlier notices.
- */
-
-/**
- * A condition true when `member` looks after the shift of `room`. Both are SQL
- * expressions; the condition is false in rooms that belong to no shift.
- */
-export function looksAfterShift(member: string, room: string) {
-  return `EXISTS(SELECT 1 FROM activity_chat_rooms link
-    JOIN activities shift ON shift.id=link.activity_id
-    JOIN year_memberships keeper ON keeper.year=shift.year AND keeper.member_id=${member} AND keeper.status='active'
-    WHERE link.room_id=${room} AND (
-      EXISTS(SELECT 1 FROM app_users admin WHERE admin.id=${member} AND admin.access_level='system_admin')
-      OR EXISTS(SELECT 1 FROM activity_responsibles responsible WHERE responsible.activity_id=shift.id
-        AND ((responsible.target_type='member' AND responsible.target_id=${member})
-        OR (responsible.target_type='role' AND EXISTS(SELECT 1 FROM member_year_roles held
-          WHERE held.member_id=${member} AND held.role_id=responsible.target_id))))
-      OR EXISTS(SELECT 1 FROM member_year_roles held JOIN year_roles role ON role.id=held.role_id AND role.year=shift.year
-        JOIN year_role_permissions granted ON granted.role_id=role.id AND granted.permission='shift.manage'
-        WHERE held.member_id=${member})))`
-}
 
 /** Whether the member may read every private message in the room. */
 export async function readsPrivate(
@@ -36,7 +11,7 @@ export async function readsPrivate(
   memberId: string
 ) {
   const row = await env.shift_app
-    .prepare(`SELECT ${looksAfterShift("?1", "?2")} AS allowed`)
+    .prepare(`SELECT ${noticeReader("?1", "?2")} AS allowed`)
     .bind(memberId, roomId)
     .first<{ allowed: number }>()
   return row?.allowed === 1
@@ -61,7 +36,7 @@ export async function privateReaders(
           OR (responsible.target_type='role' AND EXISTS(SELECT 1 FROM member_year_roles held
             WHERE held.member_id=member.value AND held.role_id=responsible.target_id)))) AS responsible
       FROM json_each(?2) member
-      WHERE member.value=?3 OR ${looksAfterShift("member.value", "?1")}`
+      WHERE member.value=?3 OR ${noticeReader("member.value", "?1")}`
     )
     .bind(roomId, JSON.stringify(members), about)
     .all<{ id: string; responsible: number }>()

@@ -27,7 +27,7 @@ async function roomBot(
 /**
  * Posts a bot's message to a room, as a member's own message would be: it
  * counts as unread and reaches every device of those who may read it. A
- * message private to `about` is read only by them and the shift's keepers,
+ * message private to `about` is read only by them and configured attendance readers,
  * leaves the room's place in other lists alone, and rings responsibles even
  * in a muted room. `about` already knows, so their devices stay quiet.
  */

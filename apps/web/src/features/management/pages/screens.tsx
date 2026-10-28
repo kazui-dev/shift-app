@@ -1,3 +1,4 @@
+import { AttendanceSettingsPanel } from "@/features/attendance/components/attendance-settings"
 import { EmptyState } from "@/app/page-layout"
 import { Link } from "@tanstack/react-router"
 import { UserManager } from "@/features/admin/components/user-manager"
@@ -108,6 +109,26 @@ export function AuditPage() {
   return (
     <ManagementPageFrame title="操作履歴" viewKey="audit">
       <AuditLogManager />
+    </ManagementPageFrame>
+  )
+}
+
+export function AttendanceSettingsPage() {
+  const {
+    years: { year },
+    setDirty,
+  } = useManagement()
+  return (
+    <ManagementPageFrame title="勤怠設定" viewKey={`attendance:${year}`}>
+      {year === null ? (
+        <EmptyState>管理できる年度がありません</EmptyState>
+      ) : (
+        <AttendanceSettingsPanel
+          key={year}
+          year={year}
+          onDirtyChange={setDirty}
+        />
+      )}
     </ManagementPageFrame>
   )
 }

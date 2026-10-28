@@ -150,7 +150,7 @@ export type LinkPreview = v.InferOutput<typeof linkPreviewSchema>
 const storedChatMessageSchema = v.object({
   /** Set when a bot posted the message, which no member may change. */
   bot: v.optional(v.literal(true)),
-  /** Set when only this member and the shift's keepers may read the message. */
+  /** Set when only this member and the configured attendance readers may read the message. */
   privateTo: v.optional(
     v.object({
       memberId: v.pipe(v.string(), v.uuid()),

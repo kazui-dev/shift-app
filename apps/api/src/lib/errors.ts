@@ -30,6 +30,12 @@ export const errors = {
     "システム管理者権限が必要です。"
   ),
 
+  invalidAttendanceSettings: define(
+    422,
+    "INVALID_ATTENDANCE_SETTINGS",
+    "閲覧対象には同じ年度のロール・参加中のメンバーを指定してください。"
+  ),
+
   // Years
   invalidYear: define(422, "INVALID_YEAR", "年度を確認してください。"),
   yearRequired: define(422, "INVALID_YEAR", "年度を指定してください。"),
