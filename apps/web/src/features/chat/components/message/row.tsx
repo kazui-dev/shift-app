@@ -230,12 +230,6 @@ export function ChatMessageRow({
               uploads={uploads}
               mark={grouped && !message.content ? mark : null}
             />
-            {message.privateTo && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {message.privateTo.displayName}
-                さんと責任者だけに表示されています
-              </p>
-            )}
           </div>
         </div>
       </MessageActions>

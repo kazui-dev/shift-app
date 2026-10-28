@@ -3,6 +3,8 @@ import { updateAccessLevelInputSchema } from "../../../packages/shared/src/contr
 import { roomSettingsInputSchema } from "../../../packages/shared/src/contracts/communications"
 import type { Plugin } from "vite-plus"
 import {
+  attendanceSettingsSchema,
+  type AttendanceSettings,
   tagInputSchema,
   memberTagChangesSchema,
   type YearTag,
@@ -17,6 +19,9 @@ import { dates, makeEditors, members, roles, uuid } from "./fixtures"
 // This server owns every /api request. Unknown requests fail closed, never proxy.
 export function localApi(): Plugin {
   const editors = makeEditors()
+  const attendanceByYear = new Map<number, AttendanceSettings>([
+    [2026, { noticeAudience: "room_members", roleIds: [], memberIds: [] }],
+  ])
   const tagsByYear = new Map<number, YearTag[]>([
     [
       2026,
@@ -105,6 +110,19 @@ export function localApi(): Plugin {
             },
             400
           )
+        const attendanceMatch = path.match(
+          /^\/api\/years\/(\d+)\/attendance-settings$/
+        )
+        if (attendanceMatch && req.method === "GET") {
+          send(
+            attendanceByYear.get(Number(attendanceMatch[1])) ?? {
+              noticeAudience: "selected",
+              roleIds: [],
+              memberIds: [],
+            }
+          )
+          return
+        }
         let body = ""
         req.setEncoding("utf8")
         req.on("data", (chunk: string) => {
@@ -113,6 +131,17 @@ export function localApi(): Plugin {
         req.on("end", () => {
           try {
             const input: unknown = body ? JSON.parse(body) : null
+            if (attendanceMatch && req.method === "PUT") {
+              const settings = v.safeParse(attendanceSettingsSchema, input)
+              if (!settings.success) {
+                fail()
+                return
+              }
+              attendanceByYear.set(Number(attendanceMatch[1]), settings.output)
+              res.statusCode = 204
+              res.end()
+              return
+            }
             const tagPath =
               /^\/api\/years\/(2025|2026)\/tags(?:\/([^/]+))?$/.exec(path)
             if (tagPath) {
