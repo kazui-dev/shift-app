@@ -2,19 +2,16 @@ import { cleanDeletedRooms } from "../../chat/services/chat-cleanup"
 import { activityActionsApp } from "./activity-actions"
 import { activityAttendanceApp } from "./activity-attendance"
 import { Hono } from "hono"
-import * as v from "valibot"
-import { activityEditorInputSchema } from "@workspace/shared/shifts"
-import { apiError, errors, shiftPlanErrors } from "../../../lib/errors"
+import { apiError, errors } from "../../../lib/errors"
 import { type ApiEnv, readJson } from "../../../lib/http"
 import { canEditActivity } from "../services/activity-access"
 import { readActivityEditor } from "../services/activity-editor"
 import { saveShiftPlan } from "../../shifts/services/save-shift-plan"
-import { validateShiftPlan } from "../../shifts/domain/shift-plan"
+import { prepareActivitySave } from "../services/prepare-activity-save"
+import { assignmentOverwritesApp } from "./assignment-overwrites"
 import { announce } from "../../../routes/announce"
 
-// Only submitted slot IDs can collide; include deleted slots in this check too.
-export const inputSlotOwners = `SELECT id,activity_id AS activityId FROM shift_slots
-  WHERE id IN (SELECT value FROM json_each(?))`
+export { inputSlotOwners } from "../services/slot-owners"
 
 export const activitiesApp = new Hono<ApiEnv>()
 activitiesApp.use("/:activityId", async (c, next) => {
@@ -46,67 +43,15 @@ activitiesApp.put(
   "/:activityId",
   announce({ type: "shifts_changed" }),
   async (c) => {
-    const body = await readJson(c.req.raw)
-    const parsed = v.safeParse(activityEditorInputSchema, body)
-    if (!parsed.success)
-      return apiError(c, errors.invalidShift, parsed.issues[0]?.message)
     const id = c.req.param("activityId")
-    const current = await readActivityEditor(c.env.shift_app, id)
-    if (!current) return apiError(c, errors.activityNotFound)
-    const compatibleInput =
-      body !== null &&
-      typeof body === "object" &&
-      !Object.hasOwn(body, "requirements")
-        ? { ...parsed.output, requirements: current.requirements }
-        : parsed.output
-    const input = {
-      ...compatibleInput,
-      notices: parsed.output.notices ?? current.notices,
-    }
-    if (current.activity.version !== input.version)
-      return apiError(c, errors.shiftStale)
-    const checked = validateShiftPlan(
-      input,
-      current.members.map((member) => member.id),
-      current.otherAssignments,
-      current.availability
+    const prepared = await prepareActivitySave(
+      c.env.shift_app,
+      id,
+      await readJson(c.req.raw)
     )
-    if (checked.error) return apiError(c, shiftPlanErrors[checked.error])
-    if (
-      input.candidateRoleIds.some(
-        (roleId) => !current.roles.some((role) => role.id === roleId)
-      )
-    )
-      return apiError(c, errors.invalidYearRole)
-    if (
-      input.responsibles.some((target) =>
-        target.targetType === "member"
-          ? !current.members.some((member) => member.id === target.targetId)
-          : !current.roles.some((role) => role.id === target.targetId)
-      )
-    )
-      return apiError(c, errors.invalidResponsible)
-    const hasResponsible = current.members.some((member) =>
-      input.responsibles.some((target) =>
-        target.targetType === "member"
-          ? target.targetId === member.id
-          : member.roles.some((role) => role.id === target.targetId)
-      )
-    )
-    if (input.active && !hasResponsible)
-      return apiError(c, errors.responsibleRequired)
-    const slotIds = await c.env.shift_app
-      .prepare(inputSlotOwners)
-      .bind(JSON.stringify(input.slots.map((slot) => slot.id)))
-      .all<{ id: string; activityId: string }>()
-    if (
-      input.slots.some((slot) =>
-        slotIds.results.some(
-          (existing) => existing.id === slot.id && existing.activityId !== id
-        )
-      )
-    )
-      return apiError(c, errors.slotFromOtherShift)
+    if ("failure" in prepared)
+      return apiError(c, prepared.failure, prepared.message)
+    const { input, current } = prepared
     try {
       await saveShiftPlan(
         c.env.shift_app,
@@ -128,6 +73,8 @@ activitiesApp.put(
     return c.json(await readActivityEditor(c.env.shift_app, id))
   }
 )
+
+activitiesApp.route("/", assignmentOverwritesApp)
 
 activitiesApp.route("/", activityAttendanceApp)
 
