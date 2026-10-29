@@ -51,7 +51,7 @@ export function ShiftActionsDialog({
             シフトの設定
           </Button>
           <Button size="sm" variant="outline" onClick={onAttendance}>
-            出勤・連絡
+            勤怠・連絡
           </Button>
         </div>
         <Button

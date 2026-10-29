@@ -12,6 +12,8 @@ import { toast } from "@workspace/ui/lib/toast"
 import { manageAttendance } from "@/features/shifts/api/assignments"
 import { errorMessage } from "@/lib/http/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
+import { FilterMenu } from "@workspace/ui/components/filter-menu"
+import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
 
 type Assignment = AttendanceData["assignments"][number]
 
@@ -44,6 +46,7 @@ export function ShiftAttendance({
   const [correcting, setCorrecting] = useState<Assignment | null>(null)
   const [history, setHistory] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [filter, setFilter] = useState(emptyFilter)
   async function run(work: () => Promise<unknown>) {
     setPending(true)
     try {
@@ -63,74 +66,128 @@ export function ShiftAttendance({
     }
   }
   const data = query.data
+  const assignments =
+    data?.assignments.filter((a) => a.active || a.attendance) ?? []
+  const visible = assignments.filter((a) =>
+    matchesFilter(
+      [
+        a.attendance?.state === "present"
+          ? a.attendance.checkInStatus === "pending"
+            ? "pending"
+            : "present"
+          : (a.attendance?.state ?? "none"),
+      ],
+      filter
+    )
+  )
   return (
     <ResponsiveDialog
       open
       title="勤怠"
+      className="sm:max-w-5xl"
+      headerActions={
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {visible.length} / {assignments.length}件
+          </span>
+          <FilterMenu
+            label="勤怠"
+            searchable={false}
+            allowExclusion={false}
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "late", label: "遅刻" },
+              { value: "absent", label: "欠勤" },
+              { value: "present", label: "出勤済み" },
+              { value: "pending", label: "出勤確認待ち" },
+              { value: "none", label: "出勤記録なし" },
+            ]}
+          />
+        </div>
+      }
       onOpenChange={(open) => {
         if (!open) onClose()
       }}
     >
       {query.isPending && <LoadingState />}
+      {query.isError && (
+        <p role="alert" className="py-4 text-sm">
+          勤怠を読み込めませんでした。
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void query.refetch()}
+          >
+            再読み込み
+          </Button>
+        </p>
+      )}
+      {data && visible.length === 0 && (
+        <p className="py-4 text-sm text-muted-foreground">
+          該当する勤怠はありません。
+        </p>
+      )}
       <ul className="divide-y">
-        {data?.assignments
-          .filter((a) => a.active || a.attendance)
-          .map((a) => {
-            const standing =
-              a.attendance?.state === "late" || a.attendance?.state === "absent"
-            return (
-              <li className="space-y-2 py-3" key={a.id}>
-                <div>
-                  <p className="text-sm">{a.memberDisplayName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {japanTime(a.startsAt)}〜{japanTime(a.endsAt)} ·{" "}
-                    {attendanceSummary(a)}
+        {visible.map((a) => {
+          const standing =
+            a.attendance?.state === "late" || a.attendance?.state === "absent"
+          return (
+            <li
+              className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+              key={a.id}
+            >
+              <div className="min-w-0">
+                <p className="text-sm">{a.memberDisplayName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {japanTime(a.startsAt)}〜{japanTime(a.endsAt)} ·{" "}
+                  {attendanceSummary(a)}
+                </p>
+                {standing && a.attendance?.reason && (
+                  <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+                    {a.attendance.reason}
                   </p>
-                  {standing && a.attendance?.reason && (
-                    <p className="mt-1 text-sm whitespace-pre-wrap">
-                      {a.attendance.reason}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {data.canManage && standing && !a.attendance?.resolvedAt && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() =>
-                        void run(() =>
-                          manageAttendance(a.id, { action: "resolve" })
-                        )
-                      }
-                    >
-                      対応済みにする
-                    </Button>
-                  )}
-                  {data.canManage && !standing && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setCorrecting(a)}
-                    >
-                      {a.attendance?.checkInStatus === "pending"
-                        ? "出勤を確認"
-                        : "出勤を修正"}
-                    </Button>
-                  )}
-                  {(a.own || data.canManage) && a.attendance && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setHistory(a.id)}
-                    >
-                      履歴
-                    </Button>
-                  )}
-                </div>
-              </li>
-            )
-          })}
+                )}
+              </div>
+              <div className="flex flex-wrap items-start gap-2">
+                {data?.canManage && standing && !a.attendance?.resolvedAt && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() =>
+                      void run(() =>
+                        manageAttendance(a.id, { action: "resolve" })
+                      )
+                    }
+                  >
+                    対応済みにする
+                  </Button>
+                )}
+                {data?.canManage && !standing && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCorrecting(a)}
+                  >
+                    {a.attendance?.checkInStatus === "pending"
+                      ? "出勤を確認"
+                      : "出勤を修正"}
+                  </Button>
+                )}
+                {(a.own || data?.canManage) && a.attendance && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setHistory(a.id)}
+                  >
+                    履歴
+                  </Button>
+                )}
+              </div>
+            </li>
+          )
+        })}
       </ul>
       {correcting && (
         <AttendanceCorrection
