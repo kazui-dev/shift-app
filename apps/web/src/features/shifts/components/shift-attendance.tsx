@@ -138,7 +138,16 @@ export function ShiftAttendance({
               key={a.id}
             >
               <div className="min-w-0">
-                <p className="text-sm">{a.memberDisplayName}</p>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+                  <span>{a.memberDisplayName}</span>
+                  {(a.memberStudentId || (a.memberDuties?.length ?? 0) > 0) && (
+                    <span className="text-xs text-muted-foreground">
+                      {[a.memberStudentId, ...(a.memberDuties ?? [])]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {japanTime(a.startsAt)}〜{japanTime(a.endsAt)} ·{" "}
                   {attendanceSummary(a)}

@@ -43,6 +43,8 @@ it("combines attendance selections with OR, clears all, and separates pending ch
     id: name,
     memberId: name,
     memberDisplayName: name,
+    memberStudentId: "26AJ112",
+    memberDuties: ["Web", "受付"],
     own: false,
     active,
     startsAt: "2026-10-29T00:00:00Z",
@@ -81,9 +83,9 @@ it("combines attendance selections with OR, clears all, and separates pending ch
     await act(async () => element.click())
   }
   const names = () =>
-    [...host.querySelectorAll("li > div > p:first-child")].map(
-      (e) => e.textContent
-    )
+    [
+      ...host.querySelectorAll("li > div > p:first-child > span:first-child"),
+    ].map((e) => e.textContent)
   try {
     await act(async () =>
       root.render(
@@ -92,6 +94,7 @@ it("combines attendance selections with OR, clears all, and separates pending ch
         </QueryClientProvider>
       )
     )
+    expect(host.textContent).toContain("26AJ112 · Web · 受付")
     expect(names()).toHaveLength(5)
     await click('button[aria-label="勤怠で絞り込み"]')
     expect(document.body.textContent).not.toContain("含まない")
@@ -108,6 +111,25 @@ it("combines attendance selections with OR, clears all, and separates pending ch
     await click("button", "全解除")
     await click('[role="option"]', "出勤記録なし")
     expect(names()).toEqual(["未記録の人"])
+    await act(async () => {
+      client.setQueryData(keys.shiftAttendance("test"), {
+        canManage: false,
+        assignments: [
+          {
+            id: "legacy",
+            memberId: "legacy",
+            memberDisplayName: "旧キャッシュの人",
+            own: false,
+            active: true,
+            startsAt: "2026-10-29T00:00:00Z",
+            endsAt: "2026-10-29T03:00:00Z",
+            attendance: null,
+          },
+        ],
+      })
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(names()).toEqual(["旧キャッシュの人"])
   } finally {
     await act(async () => root.unmount())
     client.clear()
