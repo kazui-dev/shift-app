@@ -2,7 +2,7 @@ import {
   AssignmentRowCheckbox,
   AssignmentSelectAll,
 } from "./assignment-selection"
-import { assignmentKey } from "./assignment-removal"
+import { assignmentKey, overviewMemberKeys } from "./assignment-removal"
 import type { AssignmentSelection } from "./use-assignment-selection"
 import { ShiftMemberLabel } from "./shift-member-label"
 import { TimeGuides } from "./time-guides"
@@ -125,7 +125,7 @@ export function OverviewGrid({
               {assignmentSelection && (
                 <AssignmentRowCheckbox
                   selection={assignmentSelection}
-                  keys={assignments.map(assignmentKey)}
+                  keys={overviewMemberKeys(member.id, assignments)}
                   name={member.displayName}
                 />
               )}
