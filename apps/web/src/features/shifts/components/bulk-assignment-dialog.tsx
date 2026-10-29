@@ -1,5 +1,5 @@
 import { SearchableList } from "@/components/searchable-list"
-import { useId, useState } from "react"
+import { useId, useState, type ReactNode } from "react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -23,8 +23,10 @@ export function BulkAssignmentDialog({
   plan,
   onApply,
   onClose,
+  activitySelector,
 }: {
   memberIds: string[]
+  activitySelector?: ReactNode
   data: EditorData
   plan: ActivityEditorInput
   onApply: (
@@ -73,6 +75,7 @@ export function BulkAssignmentDialog({
       className="md:max-w-xl"
       bodyClassName="flex min-h-0 flex-col gap-4 py-4"
     >
+      {activitySelector}
       {review ? (
         <>
           <p className="text-sm tabular-nums">

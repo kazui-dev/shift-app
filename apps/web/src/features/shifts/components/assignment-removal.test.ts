@@ -3,6 +3,7 @@ import { makeEditors } from "../../../../dev/fixtures"
 import {
   assignmentKey,
   memberSelectionKeys,
+  overviewMemberKeys,
   removeAssignments,
   prepareAssignmentRemoval,
 } from "./assignment-removal"
@@ -124,4 +125,15 @@ it("selects a member's existing assignments or an empty member row for assigning
   expect(
     memberSelectionKeys(source.activity.id, "unassigned", plan.slots)
   ).toEqual(["member:unassigned"])
+})
+
+it("selects unassigned overview members without creating a removable assignment", () => {
+  expect(overviewMemberKeys(first.id, [target])).toEqual([
+    assignmentKey(target),
+  ])
+  const empty = overviewMemberKeys("unassigned", [])
+  expect(empty).toEqual(["member:unassigned"])
+  expect(
+    [target].filter((item) => empty.includes(assignmentKey(item)))
+  ).toEqual([])
 })
