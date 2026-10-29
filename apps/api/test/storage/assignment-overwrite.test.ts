@@ -452,3 +452,97 @@ it.each([199, 200])(
     }
   }
 )
+
+it.each([false, true])(
+  "saves every member of a bulk assignment atomically across other shifts (conflict=%s)",
+  async (conflict) => {
+    const { db, request, plan, review } = fixture()
+    const peer = uuid(12),
+      peerSlot = uuid(23)
+    try {
+      db.prepare(
+        "INSERT INTO activities(id,year,name,place,activity_type,starts_at,ends_at,color,created_by,updated_by,created_at,updated_at) VALUES (?,2026,'別の勤務','','shift',?,?,'#000000',?,?,0,0)"
+      ).run(peer, ms(8), ms(18), actor, actor)
+      db.prepare("INSERT INTO activity_responsibles VALUES (?,'member',?)").run(
+        peer,
+        actor
+      )
+      db.prepare("UPDATE activities SET active=1 WHERE id=?").run(peer)
+      db.prepare("INSERT INTO shift_slots VALUES (?,?,?,?,NULL,0)").run(
+        peerSlot,
+        peer,
+        ms(9),
+        ms(13)
+      )
+      db.prepare("UPDATE shift_assignments SET slot_id=? WHERE id=?").run(
+        peerSlot,
+        uuid(31)
+      )
+      plan.slots = plan.slots.map((slot) => ({
+        ...slot,
+        memberIds: [member, other],
+      }))
+      const confirmation = await review()
+      expect(confirmation.changes).toHaveLength(2)
+      expect(
+        db
+          .prepare(
+            "SELECT COUNT(*) AS n FROM shift_assignments WHERE status='active'"
+          )
+          .get()?.n
+      ).toBe(2)
+      const response = await request(
+        "/overwrite",
+        { plan, token: confirmation.token },
+        {
+          method: "PUT",
+          beforeBatch: conflict
+            ? () => {
+                db.prepare("UPDATE activities SET version=2 WHERE id=?").run(
+                  peer
+                )
+              }
+            : undefined,
+        }
+      )
+      expect(response.status).toBe(conflict ? 409 : 200)
+      const active = (id: string) =>
+        db
+          .prepare(
+            "SELECT a.member_id,s.starts_at,s.ends_at FROM shift_assignments a JOIN shift_slots s ON s.id=a.slot_id WHERE s.activity_id=? AND a.status='active' ORDER BY s.starts_at,a.member_id"
+          )
+          .all(id)
+      expect(active(target)).toEqual(
+        conflict
+          ? []
+          : [member, other].map((id) => ({
+              member_id: id,
+              starts_at: ms(10),
+              ends_at: ms(11),
+            }))
+      )
+      expect(active(old)).toEqual(
+        conflict
+          ? [{ member_id: member, starts_at: ms(9), ends_at: ms(12) }]
+          : [
+              { member_id: member, starts_at: ms(9), ends_at: ms(10) },
+              { member_id: member, starts_at: ms(11), ends_at: ms(12) },
+            ]
+      )
+      expect(active(peer)).toEqual(
+        conflict
+          ? [{ member_id: other, starts_at: ms(9), ends_at: ms(13) }]
+          : [
+              { member_id: other, starts_at: ms(9), ends_at: ms(10) },
+              { member_id: other, starts_at: ms(11), ends_at: ms(13) },
+            ]
+      )
+      expect(
+        db.prepare("SELECT COUNT(*) AS n FROM activity_history").get()?.n
+      ).toBe(conflict ? 0 : 3)
+      expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([])
+    } finally {
+      db.close()
+    }
+  }
+)
