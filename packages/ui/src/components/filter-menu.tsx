@@ -17,6 +17,7 @@ export function FilterMenu({
   disabled = false,
   iconOnly = false,
   searchable = true,
+  allowExclusion = true,
 }: {
   label: string
   options: Option[]
@@ -25,6 +26,7 @@ export function FilterMenu({
   disabled?: boolean
   iconOnly?: boolean
   searchable?: boolean
+  allowExclusion?: boolean
 }) {
   const [search, setSearch] = useState("")
   const filtered = options.filter((option) =>
@@ -60,7 +62,7 @@ export function FilterMenu({
         aria-label={`${label}で絞り込み`}
         title={
           active
-            ? `${label}：${value.mode === "exclude" ? "含まない" : "含む"} ${value.values.length}件`
+            ? `${label}：${allowExclusion ? `${value.mode === "exclude" ? "含まない" : "含む"} ` : ""}${value.values.length}件`
             : `${label}で絞り込み`
         }
         className={cn(
@@ -91,37 +93,41 @@ export function FilterMenu({
             aria-label={`${label}の絞り込み条件`}
             className="flex max-h-(--available-height) w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-md"
           >
-            <div className="space-y-2 border-b p-2">
-              {searchable && (
-                <Combobox.Input
-                  render={<Input />}
-                  aria-label={`${label}を検索`}
-                  placeholder={`${label}を検索`}
-                  className="h-9 text-sm"
-                />
-              )}
-              <fieldset
-                aria-label={`${label}の一致条件`}
-                className="flex rounded-md bg-muted p-0.5"
-              >
-                {(["include", "exclude"] as const).map((mode) => (
-                  <button
-                    type="button"
-                    key={mode}
-                    aria-pressed={value.mode === mode}
-                    className={cn(
-                      "flex-1 rounded py-1 text-xs",
-                      value.mode === mode
-                        ? "bg-background font-medium shadow-xs"
-                        : "text-muted-foreground"
-                    )}
-                    onClick={() => onChange({ ...value, mode })}
+            {(searchable || allowExclusion) && (
+              <div className="space-y-2 border-b p-2">
+                {searchable && (
+                  <Combobox.Input
+                    render={<Input />}
+                    aria-label={`${label}を検索`}
+                    placeholder={`${label}を検索`}
+                    className="h-9 text-sm"
+                  />
+                )}
+                {allowExclusion && (
+                  <fieldset
+                    aria-label={`${label}の一致条件`}
+                    className="flex rounded-md bg-muted p-0.5"
                   >
-                    {mode === "include" ? "含む" : "含まない"}
-                  </button>
-                ))}
-              </fieldset>
-            </div>
+                    {(["include", "exclude"] as const).map((mode) => (
+                      <button
+                        type="button"
+                        key={mode}
+                        aria-pressed={value.mode === mode}
+                        className={cn(
+                          "flex-1 rounded py-1 text-xs",
+                          value.mode === mode
+                            ? "bg-background font-medium shadow-xs"
+                            : "text-muted-foreground"
+                        )}
+                        onClick={() => onChange({ ...value, mode })}
+                      >
+                        {mode === "include" ? "含む" : "含まない"}
+                      </button>
+                    ))}
+                  </fieldset>
+                )}
+              </div>
+            )}
             {filtered.length === 0 && (
               <Combobox.Empty className="px-3 py-4 text-sm text-muted-foreground">
                 一致する候補がありません。
@@ -162,7 +168,7 @@ export function FilterMenu({
                 disabled={!active}
                 onClick={() => onChange(emptyFilter())}
               >
-                解除
+                全解除
               </Button>
             </div>
           </Combobox.Popup>

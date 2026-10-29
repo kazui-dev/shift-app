@@ -90,7 +90,7 @@ it("selects multiple values without closing, retains hidden selections, excludes
     )
     await search("存在しない")
     expect(document.body.textContent).toContain("一致する候補がありません。")
-    await click("解除")
+    await click("全解除")
     expect(host.querySelector("output")?.textContent).toBe(
       JSON.stringify(emptyFilter())
     )
