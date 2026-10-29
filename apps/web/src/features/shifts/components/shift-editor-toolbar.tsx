@@ -71,7 +71,7 @@ export function ShiftEditorToolbar({
           onClick={onAttendance}
         >
           <ClipboardCheck className="sm:hidden" />
-          <span className="sr-only sm:not-sr-only">出勤・連絡</span>
+          <span className="sr-only sm:not-sr-only">勤怠・連絡</span>
         </Button>
         <ManagementHeaderActions>
           <Button

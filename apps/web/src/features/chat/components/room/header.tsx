@@ -97,7 +97,7 @@ export function RoomHeader({
       </h1>
       {room?.activityId && (
         <Button variant="ghost" size="sm" onClick={onAttendance}>
-          出勤・連絡
+          勤怠・連絡
         </Button>
       )}
       <Button
