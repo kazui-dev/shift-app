@@ -6,12 +6,19 @@ import type {
 import type { EditorData } from "../editor-data"
 import { projectOverview, mergeOverviewDraft } from "./overview-draft"
 import { saveOverviewDrafts } from "./save-overview-drafts"
-import { getActivity, saveActivity } from "../api/activities"
+import {
+  getActivity,
+  saveActivity,
+  reviewActivityOverlaps,
+  overwriteActivity,
+} from "../api/activities"
 import { ApiError } from "@/lib/http/client"
 import { change, undo, redo } from "./editor-history"
 vi.mock("../api/activities", () => ({
   getActivity: vi.fn<typeof getActivity>(),
   saveActivity: vi.fn<typeof saveActivity>(),
+  reviewActivityOverlaps: vi.fn<typeof reviewActivityOverlaps>(),
+  overwriteActivity: vi.fn<typeof overwriteActivity>(),
 }))
 const base: ActivityEditorInput = {
   version: 1,
@@ -249,4 +256,120 @@ it("replaces a concurrent move of the same member but retains other members", ()
   expect(
     collision.slots.filter((s) => s.memberIds.includes("a"))[0]?.id
   ).not.toBe("s")
+})
+
+const overlapReview = {
+  token: "a".repeat(64),
+  changes: [
+    {
+      assignmentId: "old",
+      activityId: "other",
+      activityName: "会場案内",
+      memberId: "a",
+      memberName: "佐藤 葵",
+      startsAt: base.startsAt,
+      endsAt: base.endsAt,
+      remaining: [],
+      blockedReason: null,
+    },
+  ],
+}
+it("uses the same authoritative overlap review and saves only after confirmation", async () => {
+  vi.mocked(saveActivity).mockRejectedValue(
+    new ApiError("overlap", 409, "SHIFT_OVERLAP")
+  )
+  vi.mocked(reviewActivityOverlaps).mockResolvedValue(overlapReview)
+  vi.mocked(overwriteActivity).mockResolvedValue(source)
+  const confirm = vi
+    .fn<() => Promise<boolean>>()
+    .mockImplementation(async () => {
+      expect(overwriteActivity).not.toHaveBeenCalled()
+      return true
+    })
+  const result = await saveOverviewDrafts({ work: { base, plan } }, confirm)
+  expect(confirm).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: "work",
+      review: overlapReview,
+      plan: expect.objectContaining({ version: 1 }),
+    })
+  )
+  expect(overwriteActivity).toHaveBeenCalledWith(
+    "work",
+    expect.objectContaining({ slots: expect.arrayContaining(plan.slots) }),
+    overlapReview.token
+  )
+  expect(result.remaining).toEqual({})
+  expect(result.confirmed).toHaveLength(1)
+})
+it("cancels without writing the overlapping shift and stops remaining drafts", async () => {
+  vi.mocked(saveActivity).mockRejectedValue(
+    new ApiError("overlap", 409, "SHIFT_OVERLAP")
+  )
+  vi.mocked(reviewActivityOverlaps).mockResolvedValue(overlapReview)
+  const drafts = { work: { base, plan }, next: { base, plan } }
+  const result = await saveOverviewDrafts(drafts, async () => false)
+  expect(result.cancelled).toBe(true)
+  expect(result.remaining).toEqual(drafts)
+  expect(result.failures).toEqual([])
+  expect(overwriteActivity).not.toHaveBeenCalled()
+  expect(getActivity).toHaveBeenCalledTimes(1)
+})
+it("rechecks changed overlaps and requires a fresh confirmation", async () => {
+  vi.mocked(saveActivity).mockRejectedValue(
+    new ApiError("overlap", 409, "SHIFT_OVERLAP")
+  )
+  vi.mocked(getActivity)
+    .mockResolvedValueOnce(source)
+    .mockResolvedValue({
+      ...source,
+      activity: { ...source.activity, version: 2 },
+    })
+  vi.mocked(reviewActivityOverlaps)
+    .mockResolvedValueOnce(overlapReview)
+    .mockResolvedValue({ ...overlapReview, token: "b".repeat(64) })
+  vi.mocked(overwriteActivity)
+    .mockRejectedValueOnce(
+      new ApiError("changed", 409, "ASSIGNMENT_OVERWRITE_CHANGED")
+    )
+    .mockResolvedValue(source)
+  const confirm = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
+  const result = await saveOverviewDrafts({ work: { base, plan } }, confirm)
+  expect(confirm).toHaveBeenCalledTimes(2)
+  expect(overwriteActivity).toHaveBeenLastCalledWith(
+    "work",
+    expect.objectContaining({ version: 2 }),
+    "b".repeat(64)
+  )
+  expect(result.remaining).toEqual({})
+})
+it("saves directly if an overlap disappeared before review and retains failures for retry", async () => {
+  vi.mocked(saveActivity).mockRejectedValue(
+    new ApiError("overlap", 409, "SHIFT_OVERLAP")
+  )
+  vi.mocked(reviewActivityOverlaps).mockResolvedValue({
+    ...overlapReview,
+    changes: [],
+  })
+  vi.mocked(overwriteActivity).mockRejectedValue(new Error("offline"))
+  const confirm = vi.fn<() => Promise<boolean>>()
+  const result = await saveOverviewDrafts({ work: { base, plan } }, confirm)
+  expect(confirm).not.toHaveBeenCalled()
+  expect(result.remaining.work).toEqual({ base, plan })
+  expect(result.failures).toHaveLength(1)
+})
+
+it("retains only unsaved work after cancellation and never resubmits earlier successful shifts", async () => {
+  vi.mocked(saveActivity)
+    .mockResolvedValueOnce(source)
+    .mockRejectedValue(new ApiError("overlap", 409, "SHIFT_OVERLAP"))
+  vi.mocked(reviewActivityOverlaps).mockResolvedValue(overlapReview)
+  const result = await saveOverviewDrafts(
+    { first: { base, plan }, second: { base, plan }, third: { base, plan } },
+    async () => false
+  )
+  expect(result.confirmed.map((item) => item.id)).toEqual(["first"])
+  expect(Object.keys(result.remaining)).toEqual(["second", "third"])
+  expect(getActivity).toHaveBeenCalledTimes(2)
+  expect(overwriteActivity).not.toHaveBeenCalled()
 })

@@ -106,11 +106,7 @@ export function OverviewEditor({
         startsAt: new Date(start).toISOString(),
         endsAt: new Date(end).toISOString(),
       }
-      const assigned = assignMember(
-        plan,
-        value,
-        data.assignments.filter((a) => a.activityId !== activityId)
-      )
+      const assigned = assignMember(plan, value, [])
       if ("error" in assigned) {
         setError(assigned.error)
         return

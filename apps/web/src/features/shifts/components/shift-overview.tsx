@@ -1,10 +1,16 @@
+import { OverviewBulkAssignment } from "./overview-bulk-assignment"
+import { AssignmentOverwriteDialog } from "./assignment-overwrite-dialog"
 import { useCurrentTime } from "@/lib/hooks/use-current-time"
 import { useAssignmentSelection } from "./use-assignment-selection"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "@workspace/ui/lib/toast"
 import { errorMessage } from "@/lib/http/client"
 import { activityQuery } from "../data/activities"
-import { assignmentKey, prepareAssignmentRemoval } from "./assignment-removal"
+import {
+  assignmentKey,
+  overviewMemberKeys,
+  prepareAssignmentRemoval,
+} from "./assignment-removal"
 import {
   AssignmentSelectionArea,
   AssignmentSelectionToolbar,
@@ -105,6 +111,7 @@ function ShiftOverviewContent({
 }) {
   const draft = useOverviewDraft()
   const client = useQueryClient()
+  const [bulkMembers, setBulkMembers] = useState<string[] | null>(null)
   const [removing, setRemoving] = useState(false)
   const pending = draft.pending || removing
   const { setDirty } = useManagement()
@@ -122,9 +129,11 @@ function ShiftOverviewContent({
   const [selection, setSelection] = useState<OverviewSelection | null>(null)
   const [attendance, setAttendance] = useState<string | null>(null)
   useEffect(() => {
-    setDirty(draft.dirty || pending || selection !== null)
+    setDirty(
+      draft.dirty || pending || selection !== null || bulkMembers !== null
+    )
     return () => setDirty(false)
-  }, [draft.dirty, pending, selection, setDirty])
+  }, [draft.dirty, pending, selection, bulkMembers, setDirty])
   const [printing, setPrinting] = useState(false)
   useEffect(() => {
     const done = () => {
@@ -150,8 +159,15 @@ function ShiftOverviewContent({
   const removable = rows.flatMap((row) => row.assignments)
   const removal = useAssignmentSelection(
     JSON.stringify(filters),
-    removable.map(assignmentKey)
+    rows.flatMap((row) => overviewMemberKeys(row.member.id, row.assignments))
   )
+  const selectedMemberIds = rows
+    .filter((row) =>
+      overviewMemberKeys(row.member.id, row.assignments).some((key) =>
+        removal.keys.includes(key)
+      )
+    )
+    .map((row) => row.member.id)
   async function removeSelected() {
     if (pending) return
     setRemoving(true)
@@ -182,7 +198,17 @@ function ShiftOverviewContent({
     view.save({ overview: next })
   }
   return (
-    <fieldset disabled={removing} className="min-w-0 space-y-4">
+    <fieldset disabled={pending} className="min-w-0 space-y-4">
+      {draft.overwrite && (
+        <AssignmentOverwriteDialog
+          review={draft.overwrite.review}
+          plan={draft.overwrite.plan}
+          pending={draft.overwrite.pending}
+          onCancel={draft.cancelOverwrite}
+          onConfirm={draft.confirmOverwrite}
+        />
+      )}
+
       <ShiftViewToolbar navigation={navigation}>
         {data?.canEdit && (
           <>
@@ -364,6 +390,8 @@ function ShiftOverviewContent({
               time: `${japanTime(target.startsAt)}〜${japanTime(target.endsAt)}`,
             }))}
             pending={pending}
+            summary={`${selectedMemberIds.length}人選択中`}
+            onAssign={() => setBulkMembers(selectedMemberIds)}
             onRemove={() => void removeSelected()}
           />
         )}
@@ -444,6 +472,18 @@ function ShiftOverviewContent({
                 onInspect={() => {}}
               />
             </section>
+          )}
+          {bulkMembers && data.canEdit && (
+            <OverviewBulkAssignment
+              data={data}
+              drafts={draft.drafts}
+              memberIds={bulkMembers}
+              onClose={() => setBulkMembers(null)}
+              onApply={(id, value) => {
+                draft.update(id, value)
+                removal.end()
+              }}
+            />
           )}
           {selection && data.canEdit && (
             <OverviewEditor

@@ -73,3 +73,12 @@ export function memberSelectionKeys(
     .map((slot) => assignmentKey({ activityId, slotId: slot.id, memberId }))
   return assigned.length ? assigned : [`member:${memberId}`]
 }
+
+/** A member with no work still needs a selectable row for bulk assignment. */
+export function overviewMemberKeys(
+  memberId: string,
+  assignments: AssignmentTarget[]
+) {
+  const keys = assignments.map(assignmentKey)
+  return keys.length ? keys : [`member:${memberId}`]
+}
