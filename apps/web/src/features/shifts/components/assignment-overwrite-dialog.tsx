@@ -83,7 +83,7 @@ export function AssignmentOverwriteDialog({
       className="sm:max-w-lg"
     >
       <div className="space-y-4 max-md:pt-4">
-        <div className="max-h-[50dvh] space-y-4 overflow-y-auto">
+        <div className="max-h-[50dvh] space-y-4 overflow-y-auto md:max-h-[min(calc(70dvh_-_9rem),26rem)]">
           <div className="space-y-1 rounded-lg bg-muted px-4 py-3">
             <p className="text-xs text-muted-foreground">重複時間</p>
             {overlaps.map((piece) => (
@@ -98,7 +98,14 @@ export function AssignmentOverwriteDialog({
           <p className="text-sm font-medium">上書きされる勤務</p>
           <ul className="divide-y rounded-lg border">
             {review.changes.map((change) => (
-              <li key={change.assignmentId} className="space-y-3 p-4">
+              <li
+                key={change.assignmentId}
+                className={
+                  review.changes.length > 1
+                    ? "space-y-1 px-4 py-2"
+                    : "space-y-3 p-4"
+                }
+              >
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="text-sm font-semibold">
                     {change.activityName}
@@ -121,7 +128,14 @@ export function AssignmentOverwriteDialog({
           <p className="text-sm font-medium">追加される勤務</p>
           <ul className="divide-y rounded-lg border">
             {additions.map((item) => (
-              <li key={`${item.id}:${item.memberId}`} className="space-y-3 p-4">
+              <li
+                key={`${item.id}:${item.memberId}`}
+                className={
+                  review.changes.length > 1
+                    ? "space-y-1 px-4 py-2"
+                    : "space-y-3 p-4"
+                }
+              >
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <span className="text-sm font-semibold">{plan.name}</span>
                   <span className="text-sm text-muted-foreground">

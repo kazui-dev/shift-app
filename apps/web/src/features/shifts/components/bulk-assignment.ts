@@ -26,12 +26,18 @@ export function reviewAssignments(
     )
     const error = !member
       ? "対象年度のメンバーではありません。"
-      : assignmentError(
-          plan,
-          { ...window, memberId, slotId: null },
-          data.otherAssignments
-        )
-    const status = memberAvailability(data, window, memberId)
+      : assignmentError(plan, { ...window, memberId, slotId: null }, [])
+    const overlapping = data.otherAssignments.some(
+      (item) =>
+        item.memberId === memberId &&
+        Date.parse(item.startsAt) < Date.parse(window.endsAt) &&
+        Date.parse(item.endsAt) > Date.parse(window.startsAt)
+    )
+    const status = memberAvailability(
+      { ...data, otherAssignments: [] },
+      window,
+      memberId
+    )
     const outside = hasUnavailableAssignments(
       {
         ...plan,
@@ -46,13 +52,19 @@ export function reviewAssignments(
       reason: alreadyAssigned
         ? "割当済み"
         : (error ??
-          (status === "unanswered"
-            ? "未回答"
-            : status === "unavailable"
-              ? "参加不可"
-              : outside
-                ? "希望時間外"
-                : null)),
+          ([
+            overlapping ? "勤務重複" : null,
+            status === "unanswered"
+              ? "未回答"
+              : status === "unavailable"
+                ? "参加不可"
+                : outside
+                  ? "希望時間外"
+                  : null,
+          ]
+            .filter(Boolean)
+            .join("・") ||
+            null)),
     }
   })
 }
@@ -69,11 +81,7 @@ export function assignMembers(
   for (const memberId of new Set(memberIds)) {
     if (!data.members.some((member) => member.id === memberId))
       return { error: "対象年度のメンバーではありません。" }
-    const result = assignMember(
-      next,
-      { ...window, memberId, slotId: null },
-      data.otherAssignments
-    )
+    const result = assignMember(next, { ...window, memberId, slotId: null }, [])
     if ("error" in result) return result
     next.slots = result.slots
   }
