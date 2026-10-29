@@ -26,7 +26,7 @@ it("deduplicates members into one shared slot without changing the original plan
   expect(extended.plan.slots[0]?.memberIds).toEqual([uuid(1), uuid(2), uuid(4)])
   expect(result.plan.slots[0]?.memberIds).toEqual([uuid(1), uuid(2)])
 })
-it("reviews all warning categories and blocks collisions and duplicates", () => {
+it("reviews overlap as a warning and continues blocking duplicates", () => {
   const { data, plan, window } = fixture()
   data.availabilityAnswers = [1, 2, 3, 4, 5].map((n) => ({
     memberId: uuid(n),
@@ -62,7 +62,7 @@ it("reviews all warning categories and blocks collisions and duplicates", () => 
     [false, null],
     [false, "参加不可"],
     [false, "希望時間外"],
-    [true, "この時間には別のシフトがあります。"],
+    [false, "勤務重複"],
     [true, "割当済み"],
     [false, "未回答"],
     [true, "対象年度のメンバーではありません。"],
@@ -70,11 +70,20 @@ it("reviews all warning categories and blocks collisions and duplicates", () => 
 })
 it("fails atomically for collisions, invalid members, time bounds and API limits", () => {
   const { data, plan, window } = fixture()
-  data.otherAssignments = [{ memberId: uuid(2), ...window, name: "他" }]
+  plan.slots = [
+    {
+      id: uuid(999),
+      startsAt: "2026-11-01T01:30:00.000Z",
+      endsAt: "2026-11-01T02:30:00.000Z",
+      memberIds: [uuid(2)],
+      capacity: null,
+    },
+  ]
+  const original = structuredClone(plan)
   expect(assignMembers(data, plan, [uuid(1), uuid(2)], window)).toHaveProperty(
     "error"
   )
-  expect(plan.slots).toEqual([])
+  expect(plan).toEqual(original)
   expect(assignMembers(data, plan, [], window)).toHaveProperty("error")
   expect(assignMembers(data, plan, ["unknown"], window)).toHaveProperty("error")
   expect(
@@ -107,5 +116,22 @@ it("enforces the shared-slot member limit before changing the editor", () => {
     "plan"
   )
   expect(assignMembers(data, plan, ids, window)).toHaveProperty("error")
+  expect(plan.slots).toEqual([])
+})
+
+it("keeps every selected member in the draft when other shifts overlap", () => {
+  const { data, plan, window } = fixture()
+  data.otherAssignments = [1, 2].map((n) => ({
+    memberId: uuid(n),
+    ...window,
+    name: "会場案内",
+  }))
+  const rows = reviewAssignments(data, plan, [uuid(1), uuid(2)], window)
+  expect(
+    rows.every((row) => !row.blocked && row.reason?.includes("勤務重複"))
+  ).toBe(true)
+  const result = assignMembers(data, plan, [uuid(1), uuid(2)], window)
+  if ("error" in result) throw new Error(result.error)
+  expect(result.plan.slots[0]?.memberIds).toEqual([uuid(1), uuid(2)])
   expect(plan.slots).toEqual([])
 })
