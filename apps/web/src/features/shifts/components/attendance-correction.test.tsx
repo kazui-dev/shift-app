@@ -15,6 +15,8 @@ it("renders 記録 as a native form submit button so clicking it confirms attend
         own: false,
         memberId: "member",
         memberDisplayName: "佐藤 葵",
+        memberStudentId: "26AJ001",
+        memberDuties: [],
         startsAt: "2026-10-28T23:00:00.000Z",
         endsAt: "2026-10-29T01:00:00.000Z",
         active: true,

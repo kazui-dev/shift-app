@@ -63,6 +63,8 @@ export const shiftAttendanceResponseSchema = v.object({
       own: v.boolean(),
       memberId: v.string(),
       memberDisplayName: v.string(),
+      memberStudentId: v.optional(v.string(), ""),
+      memberDuties: v.optional(v.array(v.string()), []),
       startsAt: instantSchema,
       endsAt: instantSchema,
       active: v.boolean(),
