@@ -15,6 +15,11 @@ export function planOf(data: EditorData): ActivityEditorInput {
   }
 }
 
+/** Revision is concurrency metadata, not an editable field. */
+function signature(plan: ActivityEditorInput) {
+  const { version: _version, ...content } = plan
+  return JSON.stringify(content)
+}
 /**
  * The plan being edited, its undo history, and what the server last confirmed,
  * so a rejected save can keep local edits and replay them onto the new base.
@@ -23,7 +28,7 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
   const [history, setHistory] = useState<EditHistory<ActivityEditorInput>>(
     () => ({ past: [], present: planOf(source), future: [] })
   )
-  const [saved, setSaved] = useState(() => JSON.stringify(planOf(source)))
+  const [saved, setSaved] = useState(() => signature(planOf(source)))
   const [base, setBase] = useState(() => planOf(source))
   const [version, setVersion] = useState(source.activity.version)
   const plan = history.present
@@ -55,12 +60,12 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
     canRedo: history.future.length > 0,
     base,
     version,
-    dirty: JSON.stringify(plan) !== saved,
+    dirty: signature(plan) !== saved,
     update: (value: ActivityEditorInput) =>
       setHistory((current) => change(current, value)),
     /** Accepts the server's answer as the new base for further edits. */
     confirm: (next: ActivityEditorInput, nextVersion: number) => {
-      setSaved(JSON.stringify(next))
+      setSaved(signature(next))
       setBase({ ...next, version: nextVersion })
       setVersion(nextVersion)
     },
@@ -69,7 +74,7 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
       const target = planOf(latest)
       setVersion(latest.activity.version)
       setBase(target)
-      setSaved(JSON.stringify(target))
+      setSaved(signature(target))
       setHistory((current) => ({
         past: current.past.map((item) => mergePlan(base, item, target).plan),
         present: merged,
