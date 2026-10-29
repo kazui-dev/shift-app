@@ -1,3 +1,8 @@
+import type {
+  ActivityEditorInput,
+  AssignmentOverwriteReview,
+} from "@workspace/shared/shifts"
+import { AssignmentOverwriteDialog } from "./assignment-overwrite-dialog"
 import { emptyFilter } from "@workspace/ui/lib/filters"
 import { useAssignmentSelection } from "./use-assignment-selection"
 import {
@@ -22,6 +27,8 @@ import { toast } from "@workspace/ui/lib/toast"
 import {
   getActivity,
   saveActivity,
+  reviewActivityOverlaps,
+  overwriteActivity,
   copyActivity,
   deleteActivity,
   notifyActivity,
@@ -91,6 +98,10 @@ export function ShiftEditor({
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [warning, setWarning] = useState(false)
+  const [overwrite, setOverwrite] = useState<{
+    plan: ActivityEditorInput
+    review: AssignmentOverwriteReview
+  } | null>(null)
   const {
     plan,
     base,
@@ -140,7 +151,7 @@ export function ShiftEditor({
     )
   )
   function applySelection(value: ShiftSelection): string | null {
-    const result = assignMember(plan, value, data.otherAssignments)
+    const result = assignMember(plan, value, [])
     if ("error" in result) return result.error
     update({ ...plan, slots: result.slots })
     setSelection(null)
@@ -168,6 +179,23 @@ export function ShiftEditor({
       ])
       toast.success("保存しました。")
     } catch (error) {
+      if (error instanceof ApiError && error.code === "SHIFT_OVERLAP") {
+        const input = { ...plan, version }
+        try {
+          const review = await reviewActivityOverlaps(data.activity.id, input)
+          if (review.changes.length) setOverwrite({ plan: input, review })
+          else {
+            await acceptOverwrite(
+              input,
+              await overwriteActivity(data.activity.id, input, review.token)
+            )
+            toast.success("保存しました。")
+          }
+        } catch (failure) {
+          toast.error(errorMessage(failure))
+        }
+        return
+      }
       const conflict =
         error instanceof ApiError && error.code === "SHIFT_CHANGED"
       setConflicted(conflict)
@@ -182,6 +210,62 @@ export function ShiftEditor({
             }
           : undefined,
       })
+    } finally {
+      setPending(false)
+    }
+  }
+  async function acceptOverwrite(
+    input: ActivityEditorInput,
+    result: EditorData
+  ) {
+    client.setQueryData(keys.activityEditor(data.activity.id), result)
+    confirm(input, result.activity.version)
+    setConflicted(false)
+    setOverwrite(null)
+    await Promise.allSettled(
+      [
+        keys.activityEditor(),
+        keys.activities(data.activity.year),
+        keys.assignments(),
+        keys.shiftOverview(),
+        keys.shiftAttendance(),
+        keys.chatRooms(),
+      ].map((queryKey) => client.invalidateQueries({ queryKey }))
+    )
+  }
+  async function saveOverwrite() {
+    if (!overwrite || pending) return
+    setPending(true)
+    try {
+      const result = await overwriteActivity(
+        data.activity.id,
+        overwrite.plan,
+        overwrite.review.token
+      )
+      await acceptOverwrite(overwrite.plan, result)
+      toast.success("上書き保存しました。")
+    } catch (error) {
+      toast.error(errorMessage(error))
+      if (
+        error instanceof ApiError &&
+        error.code === "ASSIGNMENT_OVERWRITE_CHANGED"
+      ) {
+        try {
+          setOverwrite({
+            ...overwrite,
+            review: await reviewActivityOverlaps(
+              data.activity.id,
+              overwrite.plan
+            ),
+          })
+        } catch (failure) {
+          setOverwrite(null)
+          toast.error(errorMessage(failure))
+        }
+      } else if (error instanceof ApiError && error.code === "SHIFT_CHANGED") {
+        setOverwrite(null)
+        setConflicted(true)
+      }
     } finally {
       setPending(false)
     }
@@ -208,6 +292,15 @@ export function ShiftEditor({
         view.save({ scrollTop: event.currentTarget.scrollTop })
       }
     >
+      {overwrite && (
+        <AssignmentOverwriteDialog
+          review={overwrite.review}
+          plan={overwrite.plan}
+          pending={pending}
+          onCancel={() => setOverwrite(null)}
+          onConfirm={() => void saveOverwrite()}
+        />
+      )}
       <ShiftEditorToolbar
         activity={data.activity}
         dirty={dirty}

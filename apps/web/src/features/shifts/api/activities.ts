@@ -1,4 +1,6 @@
 import {
+  assignmentOverwriteReviewSchema,
+  assignmentOverwriteInputSchema,
   activitiesResponseSchema,
   activityEditorResponseSchema,
   type ActivityEditorInput,
@@ -60,3 +62,25 @@ export const notifyActivity = (id: string) =>
   apiVoid(`/api/activities/${encodeURIComponent(id)}/notifications`, {
     method: "POST",
   })
+
+export const reviewActivityOverlaps = (id: string, plan: ActivityEditorInput) =>
+  apiJson(
+    `/api/activities/${encodeURIComponent(id)}/overlap-review`,
+    assignmentOverwriteReviewSchema,
+    { method: "POST", body: JSON.stringify(plan) }
+  )
+export const overwriteActivity = (
+  id: string,
+  plan: ActivityEditorInput,
+  token: string
+) =>
+  apiJson(
+    `/api/activities/${encodeURIComponent(id)}/overwrite`,
+    activityEditorResponseSchema,
+    {
+      method: "PUT",
+      body: JSON.stringify(
+        v.parse(assignmentOverwriteInputSchema, { plan, token })
+      ),
+    }
+  )

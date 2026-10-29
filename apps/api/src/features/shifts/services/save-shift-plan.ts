@@ -6,7 +6,8 @@ export async function saveShiftPlan(
   id: string,
   actor: string,
   input: ActivityEditorInput,
-  before: unknown
+  before: unknown,
+  prelude: D1PreparedStatement[] = []
 ) {
   const now = Date.now()
   const previous = await db
@@ -177,5 +178,5 @@ export async function saveShiftPlan(
       .prepare("UPDATE activities SET active=? WHERE id=?")
       .bind(input.active ? 1 : 0, id)
   )
-  await db.batch(statements)
+  await db.batch([...prelude, ...statements])
 }
