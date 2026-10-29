@@ -80,7 +80,7 @@ export function BulkAssignmentDialog({
             {included.length}人
           </p>
           <p className="text-xs text-muted-foreground">
-            未回答・参加不可・希望時間外も、チェックを残すと割り当てます。勤務が重なる人と割当済みの人は除外します。
+            未回答・参加不可・希望時間外も、チェックを残すと割り当てます。割当済みの人は除外します。
           </p>
           <div className="max-h-[40dvh] divide-y overflow-y-auto">
             <SearchableList
