@@ -36,6 +36,16 @@ export const errors = {
     "閲覧対象には同じ年度のロール・参加中のメンバーを指定してください。"
   ),
 
+  assignmentOverwriteChanged: define(
+    409,
+    "ASSIGNMENT_OVERWRITE_CHANGED",
+    "割り当てが変更されました。重複内容を再確認してください。"
+  ),
+  assignmentOverwriteBlocked: define(
+    409,
+    "ASSIGNMENT_OVERWRITE_BLOCKED",
+    "上書きできない割り当てが含まれています。"
+  ),
   // Years
   invalidYear: define(422, "INVALID_YEAR", "年度を確認してください。"),
   yearRequired: define(422, "INVALID_YEAR", "年度を指定してください。"),
