@@ -14,6 +14,7 @@ import { errorMessage } from "@/lib/http/client"
 import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
+import { cn } from "@workspace/ui/lib/utils"
 
 type Assignment = AttendanceData["assignments"][number]
 
@@ -134,21 +135,36 @@ export function ShiftAttendance({
             a.attendance?.state === "late" || a.attendance?.state === "absent"
           return (
             <li
-              className="grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto]"
+              className={cn(
+                "grid gap-3 px-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto]",
+                a.attendance?.state === "late" &&
+                  "bg-amber-50 dark:bg-amber-950",
+                a.attendance?.state === "absent" && "bg-red-50 dark:bg-red-950"
+              )}
               key={a.id}
             >
               <div className="min-w-0">
                 <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
                   <span>{a.memberDisplayName}</span>
                   {(a.memberStudentId || (a.memberDuties?.length ?? 0) > 0) && (
-                    <span className="text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        "text-xs",
+                        standing ? "text-foreground" : "text-muted-foreground"
+                      )}
+                    >
                       {[a.memberStudentId, ...(a.memberDuties ?? [])]
                         .filter(Boolean)
                         .join(" · ")}
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p
+                  className={cn(
+                    "text-xs",
+                    standing ? "text-foreground" : "text-muted-foreground"
+                  )}
+                >
                   {japanTime(a.startsAt)}〜{japanTime(a.endsAt)} ·{" "}
                   {attendanceSummary(a)}
                 </p>

@@ -6,7 +6,8 @@ import { TimeGuides } from "./time-guides"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { japanTime } from "@workspace/shared/japan-time"
 import { useRef, useState, type MouseEvent } from "react"
-import type { ActivityEditorInput } from "@workspace/shared/shifts"
+import type { ActivityEditorInput, Attendance } from "@workspace/shared/shifts"
+import { cn } from "@workspace/ui/lib/utils"
 import type { EditorData } from "../editor-data"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { timeScale } from "./time-scale"
@@ -20,6 +21,7 @@ export function TimeGridRow({
   availability,
   otherAssignments,
   slots,
+  attendance,
   color,
   scale,
   selected,
@@ -35,6 +37,7 @@ export function TimeGridRow({
   availability: EditorData["availability"]
   otherAssignments: EditorData["otherAssignments"]
   slots: ActivityEditorInput["slots"]
+  attendance: Attendance | undefined
   color: string
   scale: ReturnType<typeof timeScale>
   selected: boolean
@@ -43,6 +46,12 @@ export function TimeGridRow({
   onMember: (memberId: string) => void
 }) {
   const { start, end, minuteAt, range, position, resize } = scale
+  const attendanceLabel =
+    attendance?.state === "late"
+      ? "遅刻"
+      : attendance?.state === "absent"
+        ? "欠勤"
+        : ""
   const drag = useRef<{
     memberId: string
     minute: number
@@ -187,7 +196,15 @@ export function TimeGridRow({
   )
   return (
     <div
-      className={`flex h-14 border-t border-border/70 ${selected ? "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]" : "bg-background"}`}
+      className={cn(
+        "flex h-14 border-t border-border/70 bg-background",
+        selected &&
+          "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]",
+        attendance?.state === "late" && "bg-amber-50 dark:bg-amber-950",
+        attendance?.state === "absent" && "bg-red-50 dark:bg-red-950",
+        attendanceLabel && "[--muted-foreground:var(--foreground)]",
+        selected && attendanceLabel && "ring-2 ring-ring ring-inset"
+      )}
     >
       <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-2 text-sm sm:px-3">
         {assignmentSelection && (
@@ -201,7 +218,7 @@ export function TimeGridRow({
           type="button"
           onClick={() => onMember(member.id)}
           disabled={assignmentSelection?.active}
-          aria-label={`${member.displayName}のシフトを編集`}
+          aria-label={`${member.displayName}のシフトを編集${attendanceLabel ? `。${attendanceLabel}` : ""}`}
           data-shift-member={member.id}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >
