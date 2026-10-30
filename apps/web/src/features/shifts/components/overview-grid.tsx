@@ -6,7 +6,7 @@ import { assignmentKey, overviewMemberKeys } from "./assignment-removal"
 import type { AssignmentSelection } from "./use-assignment-selection"
 import { ShiftMemberLabel } from "./shift-member-label"
 import { TimeGuides } from "./time-guides"
-import "./time-grid.css"
+import { ShiftTimeline } from "./shift-timeline"
 import type { ShiftOverview } from "@workspace/shared/shifts"
 import { japanTime } from "@workspace/shared/japan-time"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
@@ -55,17 +55,11 @@ export function OverviewGrid({
   )
   const activities = new Map(data.activities.map((a) => [a.id, a]))
   return (
-    <section
-      className="overview-scroll shift-timeline max-w-full min-w-0 overflow-x-auto border-y"
-      aria-label="全体シフト時間軸"
-    >
-      <div
-        className="overview-grid"
-        style={{
-          minWidth: `max(680px, calc(var(--shift-name-width) + ${Math.ceil((end - start) / 3_600_000) * 64 + 48}px))`,
-        }}
-      >
-        <div className="sticky top-0 z-20 flex h-10 bg-background text-xs text-muted-foreground">
+    <ShiftTimeline
+      label="全体シフト時間軸"
+      minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil((end - start) / 3_600_000) * 64 + 48}px))`}
+      header={
+        <div className="flex h-10 bg-background text-xs text-muted-foreground">
           <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3">
             {assignmentSelection ? (
               <>
@@ -116,172 +110,170 @@ export function OverviewGrid({
             </div>
           )}
         </div>
-        {rows.map(({ member, assignments }) => (
-          <div
-            key={member.id}
-            className="overview-row flex h-14 border-t border-border/70 bg-background"
-          >
-            <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-sm sm:px-3">
-              {assignmentSelection && (
-                <AssignmentRowCheckbox
-                  selection={assignmentSelection}
-                  keys={overviewMemberKeys(member.id, assignments)}
-                  name={member.displayName}
+      }
+    >
+      {rows.map(({ member, assignments }) => (
+        <div
+          key={member.id}
+          className="overview-row flex h-14 border-t border-border/70 bg-background"
+        >
+          <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-sm sm:px-3">
+            {assignmentSelection && (
+              <AssignmentRowCheckbox
+                selection={assignmentSelection}
+                keys={overviewMemberKeys(member.id, assignments)}
+                name={member.displayName}
+              />
+            )}
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+              aria-label={`${member.displayName}のシフトを確認`}
+              disabled={assignmentSelection?.active}
+              onClick={() => {
+                const assignment = assignments[0]
+                if (!data.canEdit) {
+                  if (assignment) onInspect(assignment.activityId)
+                  return
+                }
+                onSelect({
+                  memberId: member.id,
+                  activityId: assignment?.activityId ?? "",
+                  slotId: assignment?.slotId ?? null,
+                  startsAt:
+                    assignment?.startsAt ?? new Date(start).toISOString(),
+                  endsAt:
+                    assignment?.endsAt ??
+                    new Date(Math.min(end, start + 3_600_000)).toISOString(),
+                })
+              }}
+            >
+              <MemberAvatar
+                name={member.displayName}
+                image={member.image}
+                className={`size-6 text-[10px] ${assignmentSelection ? "hidden sm:flex" : ""}`}
+              />
+              <ShiftMemberLabel
+                name={member.displayName}
+                studentId={member.studentId}
+                duties={member.roles
+                  .filter((role) => duties.has(role.id))
+                  .map((role) => role.name)}
+              />
+            </button>
+          </div>
+          <div data-selection-surface className="relative mx-6 min-w-0 flex-1">
+            <TimeGuides scale={scale} stepMinutes={30} />
+            {data.availability
+              .filter((w) => w.memberId === member.id)
+              .map((w) => (
+                <span
+                  key={`${w.startsAt}-${w.endsAt}`}
+                  title={`希望 ${japanTime(w.startsAt)}–${japanTime(w.endsAt)}`}
+                  className="pointer-events-none absolute top-[9px] h-9 rounded-sm bg-muted"
+                  style={position(w.startsAt, w.endsAt)}
                 />
-              )}
+              ))}
+            {data.canEdit && !assignmentSelection?.active && (
               <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                aria-label={`${member.displayName}のシフトを確認`}
-                disabled={assignmentSelection?.active}
-                onClick={() => {
-                  const assignment = assignments[0]
-                  if (!data.canEdit) {
-                    if (assignment) onInspect(assignment.activityId)
-                    return
-                  }
+                className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
+                aria-label={`${member.displayName}に勤務を追加`}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const t =
+                    e.detail === 0
+                      ? start
+                      : Math.min(
+                          end - 60_000,
+                          start +
+                            Math.round(
+                              (((e.clientX - rect.left) / rect.width) *
+                                (end - start)) /
+                                60_000
+                            ) *
+                              60_000
+                        )
                   onSelect({
                     memberId: member.id,
-                    activityId: assignment?.activityId ?? "",
-                    slotId: assignment?.slotId ?? null,
-                    startsAt:
-                      assignment?.startsAt ?? new Date(start).toISOString(),
-                    endsAt:
-                      assignment?.endsAt ??
-                      new Date(Math.min(end, start + 3_600_000)).toISOString(),
+                    activityId: "",
+                    slotId: null,
+                    startsAt: new Date(t).toISOString(),
+                    endsAt: new Date(
+                      Math.min(end, t + 3_600_000)
+                    ).toISOString(),
                   })
                 }}
-              >
-                <MemberAvatar
-                  name={member.displayName}
-                  image={member.image}
-                  className={`size-6 text-[10px] ${assignmentSelection ? "hidden sm:flex" : ""}`}
-                />
-                <ShiftMemberLabel
-                  name={member.displayName}
-                  studentId={member.studentId}
-                  duties={member.roles
-                    .filter((role) => duties.has(role.id))
-                    .map((role) => role.name)}
-                />
-              </button>
-            </div>
-            <div
-              data-selection-surface
-              className="relative mx-6 min-w-0 flex-1"
-            >
-              <TimeGuides scale={scale} stepMinutes={30} />
-              {data.availability
-                .filter((w) => w.memberId === member.id)
-                .map((w) => (
-                  <span
-                    key={`${w.startsAt}-${w.endsAt}`}
-                    title={`希望 ${japanTime(w.startsAt)}–${japanTime(w.endsAt)}`}
-                    className="pointer-events-none absolute top-[9px] h-9 rounded-sm bg-muted"
-                    style={position(w.startsAt, w.endsAt)}
-                  />
-                ))}
-              {data.canEdit && !assignmentSelection?.active && (
+              />
+            )}
+            {assignments.map((a) => {
+              const activity = activities.get(a.activityId)
+              const label = overviewAttendance(a)
+              const key = assignmentKey(a)
+              return (
                 <button
-                  className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
-                  aria-label={`${member.displayName}に勤務を追加`}
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    const t =
-                      e.detail === 0
-                        ? start
-                        : Math.min(
-                            end - 60_000,
-                            start +
-                              Math.round(
-                                (((e.clientX - rect.left) / rect.width) *
-                                  (end - start)) /
-                                  60_000
-                              ) *
-                                60_000
-                          )
-                    onSelect({
-                      memberId: member.id,
-                      activityId: "",
-                      slotId: null,
-                      startsAt: new Date(t).toISOString(),
-                      endsAt: new Date(
-                        Math.min(end, t + 3_600_000)
-                      ).toISOString(),
-                    })
+                  key={a.id}
+                  type="button"
+                  data-assignment-key={key}
+                  aria-pressed={
+                    assignmentSelection?.active
+                      ? assignmentSelection.keys.includes(key)
+                      : undefined
+                  }
+                  className={`absolute top-[17px] z-[2] h-5 truncate rounded px-[9px] text-left text-xs leading-[17px] text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-ring`}
+                  style={{
+                    ...position(a.startsAt, a.endsAt),
+                    backgroundColor: `color-mix(in oklab, ${activity?.color ?? "#64748B"} ${assignmentSelection?.keys.includes(key) ? 60 : 22}%, var(--background))`,
                   }}
-                />
-              )}
-              {assignments.map((a) => {
-                const activity = activities.get(a.activityId)
-                const label = overviewAttendance(a)
-                const key = assignmentKey(a)
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    data-assignment-key={key}
-                    aria-pressed={
-                      assignmentSelection?.active
-                        ? assignmentSelection.keys.includes(key)
-                        : undefined
-                    }
-                    className={`absolute top-[17px] z-[2] h-5 truncate rounded px-[9px] text-left text-xs leading-[17px] text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-ring`}
-                    style={{
-                      ...position(a.startsAt, a.endsAt),
-                      backgroundColor: `color-mix(in oklab, ${activity?.color ?? "#64748B"} ${assignmentSelection?.keys.includes(key) ? 60 : 22}%, var(--background))`,
-                    }}
-                    title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
-                    aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
-                    onClick={() =>
-                      assignmentSelection?.active
-                        ? assignmentSelection.toggle(key)
-                        : data.canEdit
-                          ? onSelect({
-                              memberId: member.id,
-                              activityId: a.activityId,
-                              slotId: a.slotId,
-                              startsAt: a.startsAt,
-                              endsAt: a.endsAt,
-                            })
-                          : onInspect(a.activityId)
-                    }
-                  >
-                    {activity?.name}
-                    {activity?.active === false ? "（無効）" : ""}{" "}
-                    {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
-                    {a.attendance && (
-                      <span
-                        className={
-                          a.attendance.state === "late" ||
-                          a.attendance.state === "absent"
-                            ? "ml-1 text-destructive"
-                            : "ml-1 text-muted-foreground"
-                        }
-                      >
-                        {label}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-              {now >= start && now < end && (
-                <span
-                  aria-label="現在時刻"
-                  className="pointer-events-none absolute inset-y-0 z-10 border-l border-blue-500"
-                  style={{ left: `${((now - start) / (end - start)) * 100}%` }}
-                />
-              )}
-            </div>
-            {printing && (
-              <div
-                className="overview-writing shrink-0 border-l"
-                aria-label={`${member.displayName}の手書き欄`}
+                  title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
+                  aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
+                  onClick={() =>
+                    assignmentSelection?.active
+                      ? assignmentSelection.toggle(key)
+                      : data.canEdit
+                        ? onSelect({
+                            memberId: member.id,
+                            activityId: a.activityId,
+                            slotId: a.slotId,
+                            startsAt: a.startsAt,
+                            endsAt: a.endsAt,
+                          })
+                        : onInspect(a.activityId)
+                  }
+                >
+                  {activity?.name}
+                  {activity?.active === false ? "（無効）" : ""}{" "}
+                  {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
+                  {a.attendance && (
+                    <span
+                      className={
+                        a.attendance.state === "late" ||
+                        a.attendance.state === "absent"
+                          ? "ml-1 text-destructive"
+                          : "ml-1 text-muted-foreground"
+                      }
+                    >
+                      {label}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+            {now >= start && now < end && (
+              <span
+                aria-label="現在時刻"
+                className="pointer-events-none absolute inset-y-0 z-10 border-l border-blue-500"
+                style={{ left: `${((now - start) / (end - start)) * 100}%` }}
               />
             )}
           </div>
-        ))}
-      </div>
-    </section>
+          {printing && (
+            <div
+              className="overview-writing shrink-0 border-l"
+              aria-label={`${member.displayName}の手書き欄`}
+            />
+          )}
+        </div>
+      ))}
+    </ShiftTimeline>
   )
 }

@@ -39,10 +39,10 @@
   .overview-print p {
     margin-bottom: 2mm;
   }
-  .overview-print .overview-scroll {
+  .overview-print .shift-timeline-scroll {
     overflow: visible;
   }
-  .overview-print .overview-grid {
+  .overview-print .shift-timeline-content {
     min-width: 0 !important;
     width: 100%;
   }
