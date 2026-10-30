@@ -5,7 +5,7 @@ import type { AssignmentSelection } from "./use-assignment-selection"
 import { TimeGuides } from "./time-guides"
 import { memberAvailability } from "./member-availability"
 import { staffing } from "./staffing"
-import "./time-grid.css"
+import { ShiftTimeline } from "./shift-timeline"
 import {
   japanInputValue,
   japanLocalDateTime,
@@ -129,8 +129,11 @@ export function TimeGrid({
     }
   })
   return (
-    <div className="relative min-w-0">
-      {periodDetail &&
+    <ShiftTimeline
+      label="シフト配置時間軸"
+      minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil(duration / 3_600_000) * 64 + 48}px))`}
+      overlay={
+        periodDetail &&
         selectedTime !== null &&
         !assignmentSelection?.active && (
           <div className="absolute top-[68px] left-2 z-30 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-x-2 gap-y-2 rounded-md border bg-popover py-2 pr-9 pl-2 text-xs shadow-sm">
@@ -190,135 +193,131 @@ export function TimeGrid({
               ×
             </button>
           </div>
-        )}
-      <div className="shift-timeline max-w-full min-w-0 overflow-x-auto border-y">
-        <div
-          style={{
-            minWidth: `max(680px, calc(var(--shift-name-width) + ${Math.ceil(duration / 3_600_000) * 64 + 48}px))`,
-          }}
-        >
-          <div className="sticky top-0 z-20 bg-background">
-            <div className="flex h-10">
-              <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3 text-xs text-muted-foreground">
-                {assignmentSelection && (
-                  <AssignmentSelectAll
-                    selection={{
-                      ...assignmentSelection,
-                      available: members.flatMap((member) =>
-                        memberSelectionKeys(
-                          data.activity.id,
-                          member.id,
-                          plan.slots
-                        )
-                      ),
-                    }}
-                  />
-                )}
-                メンバー
-              </div>
-              <div className="relative mx-6 min-w-0 flex-1 text-xs text-muted-foreground">
-                {labels.map((hour) => (
-                  <span
-                    key={hour}
-                    className="absolute top-3 -translate-x-1/2 tabular-nums"
-                    style={{ left: `${((hour - start) / duration) * 100}%` }}
-                  >
-                    {japanTime(hour)}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <div className="flex h-8">
-              <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3 text-xs">
-                必要人数
-              </div>
-              <div className="relative mx-6 min-w-0 flex-1">
-                <TimeGuides scale={scale} />
-                {plan.requirements.map((requirement) => (
-                  <span
-                    key={requirement.id}
-                    aria-hidden="true"
-                    style={scale.position(
-                      requirement.startsAt,
-                      requirement.endsAt
-                    )}
-                    className="pointer-events-none absolute inset-y-1.5 border-x border-border bg-muted/50"
-                  />
-                ))}
-                {periods
-                  .filter((period) => period.shortage)
-                  .map((period) => (
-                    <span
-                      key={period.startsAt}
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-1.5 bg-destructive/10"
-                      style={scale.position(period.startsAt, period.endsAt)}
-                    />
-                  ))}
-                {plan.requirements.map((requirement) => (
-                  <span
-                    key={requirement.id}
-                    style={scale.position(
-                      requirement.startsAt,
-                      requirement.endsAt
-                    )}
-                    className="pointer-events-none absolute inset-y-0 z-[3] flex items-center justify-center overflow-hidden text-xs tabular-nums"
-                  >
-                    {requirement.requiredCount}人
-                  </span>
-                ))}
-                <input
-                  type="range"
-                  disabled={assignmentSelection?.active}
-                  aria-label="配置人数を確認する時刻"
-                  aria-valuetext={`${japanTime(selectedTime ?? start)}、配置${periods.find((period) => Date.parse(period.startsAt) <= (selectedTime ?? start) && (selectedTime ?? start) < Date.parse(period.endsAt))?.assigned ?? 0}人`}
-                  min={start}
-                  max={Math.max(start, Date.parse(plan.endsAt) - 60_000)}
-                  step={60_000}
-                  value={selectedTime ?? start}
-                  data-selected={selectedTime !== null}
-                  onFocus={() => {
-                    if (selectedTime === null) setSelectedTime(start)
+        )
+      }
+      header={
+        <>
+          <div className="flex h-10">
+            <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3 text-xs text-muted-foreground">
+              {assignmentSelection && (
+                <AssignmentSelectAll
+                  selection={{
+                    ...assignmentSelection,
+                    available: members.flatMap((member) =>
+                      memberSelectionKeys(
+                        data.activity.id,
+                        member.id,
+                        plan.slots
+                      )
+                    ),
                   }}
-                  onChange={(event) => {
-                    setSelectedTime(event.currentTarget.valueAsNumber)
-                    setCandidatesOnly(false)
-                  }}
-                  className="shift-staffing-cursor"
                 />
-              </div>
+              )}
+              メンバー
+            </div>
+            <div className="relative mx-6 min-w-0 flex-1 text-xs text-muted-foreground">
+              {labels.map((hour) => (
+                <span
+                  key={hour}
+                  className="absolute top-3 -translate-x-1/2 tabular-nums"
+                  style={{ left: `${((hour - start) / duration) * 100}%` }}
+                >
+                  {japanTime(hour)}
+                </span>
+              ))}
             </div>
           </div>
-          {members.length === 0 && (
-            <p className="py-10 text-sm text-muted-foreground">
-              条件に合うメンバーがいません。
-            </p>
-          )}
-          {visible.map((row) => (
-            <TimeGridRow
-              key={row.member.id}
-              activityId={data.activity.id}
-              assignmentSelection={assignmentSelection}
-              {...row}
-              color={plan.color}
-              scale={scale}
-              selected={selection?.memberId === row.member.id}
-              onSelect={onSelect}
-              onCommit={onCommit}
-              onMember={(memberId) => {
-                if (candidatesOnly && periodDetail)
-                  onSelect({
-                    memberId,
-                    slotId: null,
-                    startsAt: periodDetail.startsAt,
-                    endsAt: periodDetail.endsAt,
-                  })
-                else onMember(memberId)
-              }}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
+          <div className="flex h-8">
+            <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3 text-xs">
+              必要人数
+            </div>
+            <div className="relative mx-6 min-w-0 flex-1">
+              <TimeGuides scale={scale} />
+              {plan.requirements.map((requirement) => (
+                <span
+                  key={requirement.id}
+                  aria-hidden="true"
+                  style={scale.position(
+                    requirement.startsAt,
+                    requirement.endsAt
+                  )}
+                  className="pointer-events-none absolute inset-y-1.5 border-x border-border bg-muted/50"
+                />
+              ))}
+              {periods
+                .filter((period) => period.shortage)
+                .map((period) => (
+                  <span
+                    key={period.startsAt}
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-1.5 bg-destructive/10"
+                    style={scale.position(period.startsAt, period.endsAt)}
+                  />
+                ))}
+              {plan.requirements.map((requirement) => (
+                <span
+                  key={requirement.id}
+                  style={scale.position(
+                    requirement.startsAt,
+                    requirement.endsAt
+                  )}
+                  className="pointer-events-none absolute inset-y-0 z-[3] flex items-center justify-center overflow-hidden text-xs tabular-nums"
+                >
+                  {requirement.requiredCount}人
+                </span>
+              ))}
+              <input
+                type="range"
+                disabled={assignmentSelection?.active}
+                aria-label="配置人数を確認する時刻"
+                aria-valuetext={`${japanTime(selectedTime ?? start)}、配置${periods.find((period) => Date.parse(period.startsAt) <= (selectedTime ?? start) && (selectedTime ?? start) < Date.parse(period.endsAt))?.assigned ?? 0}人`}
+                min={start}
+                max={Math.max(start, Date.parse(plan.endsAt) - 60_000)}
+                step={60_000}
+                value={selectedTime ?? start}
+                data-selected={selectedTime !== null}
+                onFocus={() => {
+                  if (selectedTime === null) setSelectedTime(start)
+                }}
+                onChange={(event) => {
+                  setSelectedTime(event.currentTarget.valueAsNumber)
+                  setCandidatesOnly(false)
+                }}
+                className="shift-staffing-cursor"
+              />
+            </div>
+          </div>
+        </>
+      }
+    >
+      {members.length === 0 && (
+        <p className="py-10 text-sm text-muted-foreground">
+          条件に合うメンバーがいません。
+        </p>
+      )}
+      {visible.map((row) => (
+        <TimeGridRow
+          key={row.member.id}
+          activityId={data.activity.id}
+          assignmentSelection={assignmentSelection}
+          {...row}
+          color={plan.color}
+          scale={scale}
+          selected={selection?.memberId === row.member.id}
+          onSelect={onSelect}
+          onCommit={onCommit}
+          onMember={(memberId) => {
+            if (candidatesOnly && periodDetail)
+              onSelect({
+                memberId,
+                slotId: null,
+                startsAt: periodDetail.startsAt,
+                endsAt: periodDetail.endsAt,
+              })
+            else onMember(memberId)
+          }}
+        />
+      ))}
+    </ShiftTimeline>
   )
 }
