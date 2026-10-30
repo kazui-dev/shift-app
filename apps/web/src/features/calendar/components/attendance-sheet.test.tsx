@@ -45,6 +45,7 @@ it.each(["late", "absent"] as const)(
           <QueryClientProvider client={client}>
             <AttendanceSheet
               open
+              members={[]}
               assignment={{
                 id: "a",
                 activityId: "s",
@@ -104,6 +105,21 @@ it.each(["late", "absent"] as const)(
       expect(button("送信").disabled).toBe(true)
       await type(" 電車遅延 ")
       expect(button("送信").disabled).toBe(false)
+      await act(async () =>
+        host
+          .querySelector<HTMLButtonElement>(
+            "button[aria-label='シフトメンバー']"
+          )
+          ?.click()
+      )
+      expect(host.textContent).toContain("時間が重なるメンバーはいません。")
+      expect(submitAttendance).not.toHaveBeenCalled()
+      await act(async () =>
+        host
+          .querySelector<HTMLButtonElement>("button[aria-label='勤怠に戻る']")
+          ?.click()
+      )
+      expect(input.value).toBe(" 電車遅延 ")
       await act(async () => button("送信").click())
       expect(submitAttendance).toHaveBeenCalledWith(
         "a",

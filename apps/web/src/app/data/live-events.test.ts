@@ -38,6 +38,7 @@ it("refreshes only what each change touches", () => {
   )
   expect(invalidated()).toEqual([
     keys.shiftAttendance(shift),
+    keys.shiftCoworkers(shift),
     keys.shiftOverview(),
     keys.attendanceEvents(),
   ])
