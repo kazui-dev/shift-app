@@ -13,7 +13,8 @@ import {
 } from "@workspace/shared/japan-time"
 import { useState } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
-import type { ActivityEditorInput } from "@workspace/shared/shifts"
+import type { ActivityEditorInput, Attendance } from "@workspace/shared/shifts"
+import type { AttendanceData } from "./attendance-data"
 import type { EditorData } from "../editor-data"
 import { TimeGridRow } from "./time-grid-row"
 import { gridMembers, timeScale } from "./time-scale"
@@ -21,6 +22,7 @@ import { gridMembers, timeScale } from "./time-scale"
 export function TimeGrid({
   assignmentSelection,
   data,
+  attendance,
   plan,
   roles,
   search,
@@ -32,6 +34,7 @@ export function TimeGrid({
 }: {
   assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
+  attendance?: AttendanceData["assignments"] | undefined
   plan: ActivityEditorInput
   roles: FilterValue
   search: string
@@ -84,20 +87,47 @@ export function TimeGrid({
   const duties = new Set(
     data.roles.filter((item) => item.duty).map((item) => item.id)
   )
-  const visible = members.map((member) => ({
-    member,
-    duties: member.roles
-      .filter((item) => duties.has(item.id))
-      .map((item) => item.name),
-    status: memberAvailability(data, plan, member.id),
-    availability: data.availability.filter(
-      (window) => window.memberId === member.id
-    ),
-    otherAssignments: data.otherAssignments.filter(
-      (assignment) => assignment.memberId === member.id
-    ),
-    slots: plan.slots.filter((slot) => slot.memberIds.includes(member.id)),
-  }))
+  const visible = members.map((member) => {
+    const slots = plan.slots.filter((slot) =>
+      slot.memberIds.includes(member.id)
+    )
+    let latest: Attendance | undefined
+    for (const slot of data.slots) {
+      if (
+        !slot.memberIds.includes(member.id) ||
+        !slots.some((item) => item.id === slot.id)
+      )
+        continue
+      const assignment = attendance?.find(
+        (item) =>
+          item.active &&
+          item.memberId === member.id &&
+          Date.parse(item.startsAt) === Date.parse(slot.startsAt) &&
+          Date.parse(item.endsAt) === Date.parse(slot.endsAt)
+      )
+      const record = assignment?.attendance
+      if (
+        record &&
+        (!latest || Date.parse(record.updatedAt) > Date.parse(latest.updatedAt))
+      )
+        latest = record
+    }
+    return {
+      member,
+      attendance: latest,
+      duties: member.roles
+        .filter((item) => duties.has(item.id))
+        .map((item) => item.name),
+      status: memberAvailability(data, plan, member.id),
+      availability: data.availability.filter(
+        (window) => window.memberId === member.id
+      ),
+      otherAssignments: data.otherAssignments.filter(
+        (assignment) => assignment.memberId === member.id
+      ),
+      slots,
+    }
+  })
   return (
     <div className="relative min-w-0">
       {periodDetail &&
