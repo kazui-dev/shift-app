@@ -20,8 +20,10 @@ import { BulkAssignmentDialog } from "./bulk-assignment-dialog"
 import { keys } from "@/app/data/keys"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
+import { attendanceQuery } from "../data/attendance"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Button } from "@workspace/ui/components/button"
 import { useNavigate } from "@tanstack/react-router"
 import { toast } from "@workspace/ui/lib/toast"
 import {
@@ -62,6 +64,7 @@ export function ShiftEditor({
   onStatusChange: (status: { dirty: boolean; pending: boolean }) => void
 }) {
   const client = useQueryClient()
+  const attendance = useQuery(attendanceQuery(source.activity.id))
   const navigate = useNavigate()
   const [acknowledged, setAcknowledged] = useState<EditorData["availability"]>(
     []
@@ -176,6 +179,9 @@ export function ShiftEditor({
           queryKey: keys.activities(data.activity.year),
         }),
         client.invalidateQueries({ queryKey: keys.assignments() }),
+        client.invalidateQueries({
+          queryKey: keys.shiftAttendance(data.activity.id),
+        }),
       ])
       toast.success("保存しました。")
     } catch (error) {
@@ -362,11 +368,29 @@ export function ShiftEditor({
           />
         </MemberFilterBar>
         <div className="min-w-0">
+          {attendance.isPending && (
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              勤怠を読み込み中…
+            </p>
+          )}
+          {attendance.isError && (
+            <p role="alert" className="px-3 py-2 text-sm">
+              勤怠を読み込めませんでした。
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void attendance.refetch()}
+              >
+                再読み込み
+              </Button>
+            </p>
+          )}
           <fieldset disabled={pending} className="min-w-0">
             <AssignmentSelectionArea selection={removal}>
               <TimeGrid
                 assignmentSelection={removal}
                 data={data}
+                attendance={attendance.data?.assignments ?? []}
                 plan={plan}
                 roles={filters.roles}
                 search={filters.search}
