@@ -3,6 +3,7 @@ import { Hono } from "hono"
 
 import type { ApiEnv } from "../../lib/http"
 import { meAssignmentsApp } from "../../features/assignments/routes/me/assignments"
+import { meCoworkersApp } from "../../features/assignments/routes/me/coworkers"
 import { meAvailabilityApp } from "../../features/availability/routes/me/availability"
 import { meAvatarApp } from "../../features/account/routes/me/avatar"
 
@@ -11,6 +12,7 @@ import { displayYearApp } from "../../features/years/routes/me/display-year"
 export const meApp = new Hono<ApiEnv>()
 
 meApp.route("/", meAssignmentsApp)
+meApp.route("/", meCoworkersApp)
 meApp.route("/availability", meAvailabilityApp)
 meApp.route("/avatar", meAvatarApp)
 

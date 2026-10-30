@@ -26,6 +26,7 @@ export const keys = {
   availabilitySubmissions: key("availability-submissions"),
   availabilityHistory: key("availability-history"),
   shiftAttendance: key("shift-attendance"),
+  shiftCoworkers: key("shift-coworkers"),
   attendanceEvents: key("attendance-events"),
   attendanceSettings: key("attendance-settings"),
   chatRooms: key("chat-rooms"),
@@ -79,6 +80,7 @@ export const membershipKeys = [
   keys.chatMembers,
   keys.admin,
   keys.shiftAttendance,
+  keys.shiftCoworkers,
 ]
 
 /** Reading context kept across launches, with how many entries survive. */
