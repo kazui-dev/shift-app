@@ -6,6 +6,7 @@ import {
   manageAttendanceInputSchema,
   myAssignmentsResponseSchema,
   shiftAttendanceResponseSchema,
+  shiftCoworkersResponseSchema,
   submitAttendanceInputSchema,
 } from "@workspace/shared/shifts"
 import { queryOptions, skipToken } from "@tanstack/react-query"
@@ -16,6 +17,23 @@ import { apiJson, apiVoid } from "../../../lib/http/client"
 export type CalendarAssignment = Awaited<
   ReturnType<typeof getMyAssignments>
 >["assignments"][number]
+
+const getShiftCoworkers = (assignmentId: string, signal: AbortSignal) =>
+  apiJson(
+    `/api/me/assignments/${encodeURIComponent(assignmentId)}/coworkers`,
+    shiftCoworkersResponseSchema,
+    { signal }
+  )
+
+export const shiftCoworkersQuery = (activityId: string, assignmentId: string) =>
+  queryOptions({
+    queryKey: keys.shiftCoworkers(activityId, assignmentId),
+    queryFn: ({ signal }) => getShiftCoworkers(assignmentId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchInterval: 30_000,
+    retry: false,
+  })
 
 const getMyAssignments = (
   year: number,

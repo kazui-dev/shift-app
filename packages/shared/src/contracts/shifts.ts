@@ -86,3 +86,7 @@ export {
 export * from "./shifts/attendance-settings"
 
 export * from "./shifts/overwrites"
+export {
+  shiftCoworkersResponseSchema,
+  type ShiftCoworker,
+} from "./shifts/coworkers"

@@ -15,3 +15,15 @@ as a screen review. Do not use real member data with this server.
 
 This is a local screen-review fixture. It does not persist edits or represent
 production data. Use the normal Worker preview to verify API behavior.
+
+## Calendar coworker UI preview
+
+Open `http://localhost:4178/dev/coworkers.html` with the same local server.
+This preview supplies fictional member data directly to the real attendance
+drawer/dialog. Use the people button to open the list; attendance icons reveal
+their labels on hover, keyboard focus, or tap. `?case=empty` shows an empty list,
+and `?case=long` exercises scrolling and long names.
+`?case=current-long` and `?case=ended-long` add 36 fictional
+members to the current or ended group, respectively. Time is fixed at 10:30 JST
+on November 1, 2026. The standalone preview supplies its own data; the normal
+calendar retrieves authorized coworkers only when the member list is opened.

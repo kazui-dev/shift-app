@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { LoaderCircle, MapPin } from "lucide-react"
+import { ArrowLeft, LoaderCircle, MapPin, Users, X } from "lucide-react"
 
 import {
   japanInputValue,
@@ -33,6 +33,8 @@ import { keys } from "@/app/data/keys"
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
 import { attendanceOpen } from "./assignment-actions"
 import { AttendanceNotices } from "@/features/shifts/components/shift-notices"
+import { LiveShiftCoworkers, ShiftCoworkers } from "./shift-coworkers"
+import type { ShiftCoworker } from "@workspace/shared/shifts"
 
 type Choice = "late" | "absent"
 
@@ -61,6 +63,7 @@ function AttendanceForm({
   checkingIn,
   onCheckIn,
   onClose,
+  onShowMembers,
 }: {
   assignment: CalendarAssignment
   now: number
@@ -68,6 +71,7 @@ function AttendanceForm({
   checkingIn: boolean
   onCheckIn: (assignmentId: string) => void
   onClose: () => void
+  onShowMembers?: () => void
 }) {
   const client = useQueryClient()
   const current = assignment.attendance
@@ -161,8 +165,13 @@ function AttendanceForm({
         "max-h-[80dvh] overflow-y-auto"
       )}
     >
-      <div className="space-y-2 text-center">
-        <p className="flex justify-center">
+      <div className="relative space-y-2 text-center">
+        <p
+          className={cn(
+            "flex min-h-9 items-center justify-center",
+            onShowMembers && "px-10"
+          )}
+        >
           <span
             className="max-w-full truncate rounded-full px-3 py-1 text-sm"
             style={{
@@ -173,6 +182,19 @@ function AttendanceForm({
             {japanTime(assignment.endsAt)}
           </span>
         </p>
+        {onShowMembers && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="absolute top-0 right-0 rounded-full"
+            aria-label="シフトメンバー"
+            title="シフトメンバー"
+            onClick={onShowMembers}
+          >
+            <Users aria-hidden="true" />
+          </Button>
+        )}
         {assignment.place && (
           <p className="flex items-start justify-center gap-1.5 text-sm text-muted-foreground">
             <MapPin aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
@@ -279,6 +301,90 @@ function AttendanceForm({
   )
 }
 
+function AttendanceContent({
+  members,
+  ...props
+}: Parameters<typeof AttendanceForm>[0] & {
+  members: readonly ShiftCoworker[] | undefined
+}) {
+  const [showMembers, setShowMembers] = useState(false)
+  const trigger = useRef<HTMLDivElement>(null)
+  const back = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (showMembers) back.current?.focus()
+  }, [showMembers])
+
+  return (
+    <div className="min-h-0">
+      <div
+        ref={trigger}
+        className={cn("min-h-0 overflow-y-auto", showMembers && "hidden")}
+        inert={showMembers}
+        aria-hidden={showMembers}
+      >
+        <AttendanceForm {...props} onShowMembers={() => setShowMembers(true)} />
+      </div>
+      {showMembers && (
+        <div className="flex max-h-[min(38rem,80dvh)] min-h-0 flex-col">
+          <div className="shrink-0 px-4 pb-4">
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                ref={back}
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="勤怠に戻る"
+                onClick={() => {
+                  setShowMembers(false)
+                  requestAnimationFrame(() =>
+                    trigger.current
+                      ?.querySelector<HTMLButtonElement>(
+                        "button[aria-label='シフトメンバー']"
+                      )
+                      ?.focus()
+                  )
+                }}
+              >
+                <ArrowLeft aria-hidden="true" />
+              </Button>
+              <h2 className="text-base font-semibold">シフトメンバー</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="閉じる"
+                onClick={props.onClose}
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </div>
+            <p className="mt-1 text-center text-sm text-muted-foreground">
+              {props.assignment.activityName} ·{" "}
+              {japanTime(props.assignment.startsAt)}〜
+              {japanTime(props.assignment.endsAt)}
+            </p>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6">
+            {members ? (
+              <ShiftCoworkers
+                assignment={props.assignment}
+                members={members}
+                now={props.now}
+              />
+            ) : (
+              <LiveShiftCoworkers
+                assignment={props.assignment}
+                now={props.now}
+                offline={props.offline}
+              />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * Attendance for one shift: a drawer on phones, a dialog on wider screens.
  * It stays mounted while closed so it can slide in and out.
@@ -287,6 +393,7 @@ export function AttendanceSheet({
   open,
   assignment,
   onClosed,
+  members,
   ...props
 }: {
   open: boolean
@@ -298,6 +405,8 @@ export function AttendanceSheet({
   onCheckIn: (assignmentId: string) => void
   onClose: () => void
   onClosed: () => void
+  /** Only the isolated local preview supplies fictional members. */
+  members?: readonly ShiftCoworker[]
 }) {
   const desktop = useMediaQuery("(min-width: 768px)")
   // A long press opens the sheet with the finger still down; lifting it must
@@ -314,7 +423,12 @@ export function AttendanceSheet({
   }, [open])
   const title = assignment ? `${assignment.activityName}の勤怠` : "勤怠"
   const form = assignment && (
-    <AttendanceForm key={assignment.id} assignment={assignment} {...props} />
+    <AttendanceContent
+      key={assignment.id}
+      assignment={assignment}
+      members={members}
+      {...props}
+    />
   )
   const change = (
     next: boolean,
@@ -332,7 +446,10 @@ export function AttendanceSheet({
   if (desktop)
     return (
       <Dialog open={open} onOpenChange={change} onOpenChangeComplete={complete}>
-        <DialogContent showCloseButton={false} className="gap-0 p-0 pt-4">
+        <DialogContent
+          showCloseButton={false}
+          className="gap-0 p-0 pt-4 sm:max-w-xl"
+        >
           <DialogTitle className="sr-only">{title}</DialogTitle>
           {form}
         </DialogContent>

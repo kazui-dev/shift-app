@@ -18,6 +18,7 @@ const reconnectKeys = [
   keys.shiftOverview,
   keys.assignments,
   keys.shiftAttendance,
+  keys.shiftCoworkers,
   keys.attendanceEvents,
   keys.availability,
   keys.availabilityDates,
@@ -42,6 +43,7 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
         keys.shiftOverview(),
         keys.assignments(),
         keys.shiftAttendance(),
+        keys.shiftCoworkers(),
         keys.chatRooms(),
         ...roomKeys.map((key) => key()),
       ])
@@ -49,6 +51,7 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
     case "attendance_changed":
       invalidate(client, [
         keys.shiftAttendance(event.activityId),
+        keys.shiftCoworkers(event.activityId),
         keys.shiftOverview(),
         keys.attendanceEvents(),
       ])
