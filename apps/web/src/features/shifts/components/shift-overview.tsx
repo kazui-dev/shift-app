@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
+import { Switch } from "@workspace/ui/components/switch"
 import { japanDateTime, japanTime } from "@workspace/shared/japan-time"
 import { activitiesQuery } from "../data/activities"
 import { overviewQuery } from "../data/overview"
@@ -51,6 +52,7 @@ import { useManagement } from "@/features/management/management-context"
 import { ManagementHeaderActions } from "@/features/management/components/header-actions"
 import { useOverviewDraft } from "./use-overview-draft"
 import { projectOverview } from "./overview-draft"
+import { useOverviewAttendanceColors } from "./use-overview-attendance-colors"
 
 export function ShiftOverview({
   year,
@@ -110,6 +112,7 @@ function ShiftOverviewContent({
   initialDate: string
 }) {
   const draft = useOverviewDraft()
+  const attendanceColors = useOverviewAttendanceColors()
   const client = useQueryClient()
   const [bulkMembers, setBulkMembers] = useState<string[] | null>(null)
   const [removing, setRemoving] = useState(false)
@@ -247,6 +250,19 @@ function ShiftOverviewContent({
             </ManagementHeaderActions>
           </>
         )}
+        <label
+          htmlFor="overview-attendance-colors"
+          className="flex min-h-8 items-center gap-2 text-sm font-medium"
+          title="遅刻：黄、欠勤：赤、出勤：緑、未記録：グレー"
+        >
+          出勤状況
+          <Switch
+            id="overview-attendance-colors"
+            size="sm"
+            checked={attendanceColors.enabled}
+            onCheckedChange={attendanceColors.toggle}
+          />
+        </label>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -409,6 +425,7 @@ function ShiftOverviewContent({
           {rows.length ? (
             <AssignmentSelectionArea selection={removal}>
               <OverviewGrid
+                attendanceColors={attendanceColors.enabled}
                 assignmentSelection={data.canEdit ? removal : undefined}
                 key={JSON.stringify(filters)}
                 data={data}
@@ -464,6 +481,7 @@ function ShiftOverviewContent({
               </p>
               <OverviewGrid
                 printing
+                attendanceColors={attendanceColors.enabled}
                 data={{ ...data, canEdit: false }}
                 rows={rows}
                 date={filters.date}
