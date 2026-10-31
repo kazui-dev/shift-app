@@ -4,6 +4,15 @@
 .shift-name {
   width: var(--shift-name-width);
 }
+.shift-timeline-row {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 3.5rem;
+}
+@media print {
+  .shift-timeline-row {
+    content-visibility: visible;
+  }
+}
 .shift-time-dialog {
   position: fixed;
   margin: 0;

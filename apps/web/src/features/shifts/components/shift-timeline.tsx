@@ -22,7 +22,7 @@ export function ShiftTimeline({
       aria-label={label}
     >
       {/* Keep vertical stickiness outside the horizontal scroll container. */}
-      <div className="sticky top-0 z-20 bg-background">
+      <div className="sticky top-0 z-20 border-b border-border/70 bg-background">
         <div
           ref={heading}
           className="shift-timeline-scroll [scrollbar-width:none] overflow-x-auto"
@@ -51,7 +51,10 @@ export function ShiftTimeline({
             heading.current.scrollLeft = event.currentTarget.scrollLeft
         }}
       >
-        <div className="shift-timeline-content" style={{ minWidth }}>
+        <div
+          className="shift-timeline-content [&>:first-child]:border-t-0"
+          style={{ minWidth }}
+        >
           {children}
         </div>
       </div>

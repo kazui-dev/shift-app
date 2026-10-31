@@ -15,7 +15,7 @@ import {
 } from "@workspace/shared/japan-time"
 
 const columns =
-  "@4xl:grid-cols-[11rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem]"
+  "@md:grid-cols-[6.5rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem] @xl:grid-cols-[8rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem] @4xl:grid-cols-[11rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem]"
 
 export function ActivityManager({
   year,
@@ -61,7 +61,7 @@ export function ActivityManager({
     (a, b) => a.localeCompare(b, "ja")
   )
   return (
-    <div className="space-y-4">
+    <div>
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
         <Input
           aria-label="シフトを検索"
@@ -146,7 +146,7 @@ export function ActivityManager({
         </div>
       </div>
       {query.isError && (
-        <p role="alert">
+        <p role="alert" className="py-4">
           シフトを取得できませんでした。
           <Button
             size="sm"
@@ -157,9 +157,9 @@ export function ActivityManager({
           </Button>
         </p>
       )}
-      <div className="@container min-w-0 border-y">
+      <div className="@container min-w-0 border-b">
         <div
-          className={`hidden grid-cols-1 gap-3 border-b px-2 py-2 text-xs text-muted-foreground @4xl:grid ${columns}`}
+          className={`hidden grid-cols-1 gap-3 border-b px-2 py-2 text-xs text-muted-foreground @md:grid ${columns}`}
         >
           <span>日時</span>
           <span>シフト</span>
@@ -174,34 +174,36 @@ export function ActivityManager({
                 to="/manage/shifts/$shiftId"
                 params={{ shiftId: item.id }}
                 preload="intent"
-                className={`block min-w-0 space-y-1 px-2 py-3 hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring @4xl:grid @4xl:min-h-11 @4xl:items-center @4xl:gap-3 @4xl:space-y-0 @4xl:py-2 ${columns}`}
+                className={`block min-w-0 space-y-1 px-2 py-3 hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring @md:grid @md:min-h-11 @md:items-center @md:gap-3 @md:space-y-0 @md:py-2 ${columns}`}
               >
-                <span className="block text-xs text-muted-foreground tabular-nums @4xl:text-sm @4xl:text-foreground">
+                <span className="block text-xs text-muted-foreground tabular-nums @md:text-sm @md:text-foreground">
                   {japanDateWeekday(item.startsAt)}
                   <br />
                   {japanTime(item.startsAt)}–{japanTime(item.endsAt)}
                 </span>
                 <span
-                  className="block min-w-0 text-sm font-medium break-words @4xl:truncate"
+                  className="block min-w-0 text-sm font-medium break-words @md:truncate"
                   title={item.name}
                 >
                   {item.name}
                 </span>
                 <span
-                  className="block min-w-0 text-xs break-words text-muted-foreground @4xl:truncate"
+                  className="block min-w-0 text-xs break-words text-muted-foreground @md:truncate"
                   title={item.responsibleNames.join("、")}
                 >
-                  <span className="@4xl:hidden">担当：</span>
+                  <span className="@md:hidden">担当：</span>
                   {item.responsibleNames.join("、") || "—"}
                 </span>
                 <span
-                  className="block min-w-0 text-xs break-words text-muted-foreground @4xl:truncate"
+                  className="block min-w-0 text-xs break-words text-muted-foreground @md:truncate"
                   title={item.place}
                 >
-                  <span className="@4xl:hidden">場所：</span>
+                  <span className="@md:hidden">場所：</span>
                   {item.place || "—"}
                 </span>
-                <span className="block text-xs text-muted-foreground">
+                <span
+                  className={`block text-xs ${item.active ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}`}
+                >
                   {item.active ? "有効" : "無効"}
                 </span>
               </Link>

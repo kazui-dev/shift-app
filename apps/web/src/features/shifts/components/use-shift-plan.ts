@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { change, redo, undo, type EditHistory } from "./editor-history"
 import { mergePlan } from "./merge-plan"
@@ -32,6 +32,11 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
   const [base, setBase] = useState(() => planOf(source))
   const [version, setVersion] = useState(source.activity.version)
   const plan = history.present
+  const update = useCallback(
+    (value: ActivityEditorInput) =>
+      setHistory((current) => change(current, value)),
+    []
+  )
   useEffect(() => {
     function key(event: KeyboardEvent) {
       if (
@@ -61,8 +66,7 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
     base,
     version,
     dirty: signature(plan) !== saved,
-    update: (value: ActivityEditorInput) =>
-      setHistory((current) => change(current, value)),
+    update,
     /** Accepts the server's answer as the new base for further edits. */
     confirm: (next: ActivityEditorInput, nextVersion: number) => {
       setSaved(signature(next))

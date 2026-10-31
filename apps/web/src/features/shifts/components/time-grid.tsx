@@ -8,7 +8,7 @@ import { staffing } from "./staffing"
 import { ShiftTimeline } from "./shift-timeline"
 import { StaffingDetail } from "./staffing-detail"
 import { japanTime } from "@workspace/shared/japan-time"
-import { useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput, Attendance } from "@workspace/shared/shifts"
 import type { AttendanceData } from "./attendance-data"
@@ -16,7 +16,7 @@ import type { EditorData } from "../editor-data"
 import { TimeGridRow } from "./time-grid-row"
 import { gridMembers, timeScale } from "./time-scale"
 
-export function TimeGrid({
+export const TimeGrid = memo(function TimeGrid({
   assignmentSelection,
   data,
   attendance,
@@ -41,9 +41,12 @@ export function TimeGrid({
   onCommit: (selection: ShiftSelection) => void
   onMember: (memberId: string) => void
 }) {
-  const scale = timeScale(plan.startsAt, plan.endsAt)
+  const scale = useMemo(
+    () => timeScale(plan.startsAt, plan.endsAt),
+    [plan.startsAt, plan.endsAt]
+  )
   const { start, duration, labels } = scale
-  const periods = staffing(plan)
+  const periods = useMemo(() => staffing(plan), [plan])
   const detailAnchor = useRef<HTMLSpanElement>(null)
   const [selectedTime, setSelectedTime] = useState<number | null>(null)
   const [candidatesOnly, setCandidatesOnly] = useState(false)
@@ -77,79 +80,99 @@ export function TimeGrid({
   }, [selectedTime])
   const showingCandidates =
     candidatesOnly && !!periodDetail?.shortage && !assignmentSelection?.active
-  const members = gridMembers(data, plan, {
-    search,
-    roles,
-    availability,
-  }).filter((member) => {
-    if (!showingCandidates || !periodDetail) return true
-    const from = Date.parse(periodDetail.startsAt),
-      to = Date.parse(periodDetail.endsAt)
-    return (
-      data.availability.some(
-        (item) =>
-          item.memberId === member.id &&
-          Date.parse(item.startsAt) <= from &&
-          Date.parse(item.endsAt) >= to
-      ) &&
-      !data.otherAssignments.some(
-        (item) =>
-          item.memberId === member.id &&
-          Date.parse(item.startsAt) < to &&
-          Date.parse(item.endsAt) > from
-      ) &&
-      !plan.slots.some(
-        (item) =>
-          item.memberIds.includes(member.id) &&
-          Date.parse(item.startsAt) < to &&
-          Date.parse(item.endsAt) > from
-      )
-    )
-  })
-  const duties = new Set(
-    data.roles.filter((item) => item.duty).map((item) => item.id)
+  const members = useMemo(
+    () =>
+      gridMembers(data, plan, {
+        search,
+        roles,
+        availability,
+      }).filter((member) => {
+        if (!showingCandidates || !periodDetail) return true
+        const from = Date.parse(periodDetail.startsAt),
+          to = Date.parse(periodDetail.endsAt)
+        return (
+          data.availability.some(
+            (item) =>
+              item.memberId === member.id &&
+              Date.parse(item.startsAt) <= from &&
+              Date.parse(item.endsAt) >= to
+          ) &&
+          !data.otherAssignments.some(
+            (item) =>
+              item.memberId === member.id &&
+              Date.parse(item.startsAt) < to &&
+              Date.parse(item.endsAt) > from
+          ) &&
+          !plan.slots.some(
+            (item) =>
+              item.memberIds.includes(member.id) &&
+              Date.parse(item.startsAt) < to &&
+              Date.parse(item.endsAt) > from
+          )
+        )
+      }),
+    [data, plan, search, roles, availability, showingCandidates, periodDetail]
   )
-  const visible = members.map((member) => {
-    const slots = plan.slots.filter((slot) =>
-      slot.memberIds.includes(member.id)
+  const visible = useMemo(() => {
+    const duties = new Set(
+      data.roles.filter((item) => item.duty).map((item) => item.id)
     )
-    let latest: Attendance | undefined
-    for (const slot of data.slots) {
-      if (
-        !slot.memberIds.includes(member.id) ||
-        !slots.some((item) => item.id === slot.id)
+    return members.map((member) => {
+      const slots = plan.slots.filter((slot) =>
+        slot.memberIds.includes(member.id)
       )
-        continue
-      const assignment = attendance?.find(
-        (item) =>
-          item.active &&
-          item.memberId === member.id &&
-          Date.parse(item.startsAt) === Date.parse(slot.startsAt) &&
-          Date.parse(item.endsAt) === Date.parse(slot.endsAt)
-      )
-      const record = assignment?.attendance
-      if (
-        record &&
-        (!latest || Date.parse(record.updatedAt) > Date.parse(latest.updatedAt))
-      )
-        latest = record
-    }
-    return {
-      member,
-      attendance: latest,
-      duties: member.roles
-        .filter((item) => duties.has(item.id))
-        .map((item) => item.name),
-      status: memberAvailability(data, plan, member.id),
-      availability: data.availability.filter(
-        (window) => window.memberId === member.id
-      ),
-      otherAssignments: data.otherAssignments.filter(
-        (assignment) => assignment.memberId === member.id
-      ),
-      slots,
-    }
-  })
+      let latest: Attendance | undefined
+      for (const slot of data.slots) {
+        if (
+          !slot.memberIds.includes(member.id) ||
+          !slots.some((item) => item.id === slot.id)
+        )
+          continue
+        const assignment = attendance?.find(
+          (item) =>
+            item.active &&
+            item.memberId === member.id &&
+            Date.parse(item.startsAt) === Date.parse(slot.startsAt) &&
+            Date.parse(item.endsAt) === Date.parse(slot.endsAt)
+        )
+        const record = assignment?.attendance
+        if (
+          record &&
+          (!latest ||
+            Date.parse(record.updatedAt) > Date.parse(latest.updatedAt))
+        )
+          latest = record
+      }
+      return {
+        member,
+        attendance: latest,
+        duties: member.roles
+          .filter((item) => duties.has(item.id))
+          .map((item) => item.name),
+        status: memberAvailability(data, plan, member.id),
+        availability: data.availability.filter(
+          (window) => window.memberId === member.id
+        ),
+        otherAssignments: data.otherAssignments.filter(
+          (assignment) => assignment.memberId === member.id
+        ),
+        slots,
+      }
+    })
+  }, [members, data, plan, attendance])
+  const selectMember = useCallback(
+    (memberId: string) => {
+      if (showingCandidates && periodDetail)
+        onSelect({
+          memberId,
+          slotId: null,
+          startsAt: periodDetail.startsAt,
+          endsAt: periodDetail.endsAt,
+        })
+      else onMember(memberId)
+    },
+    [showingCandidates, periodDetail, onSelect, onMember]
+  )
   return (
     <ShiftTimeline
       label="シフト配置時間軸"
@@ -289,18 +312,9 @@ export function TimeGrid({
           selected={selection?.memberId === row.member.id}
           onSelect={onSelect}
           onCommit={onCommit}
-          onMember={(memberId) => {
-            if (showingCandidates && periodDetail)
-              onSelect({
-                memberId,
-                slotId: null,
-                startsAt: periodDetail.startsAt,
-                endsAt: periodDetail.endsAt,
-              })
-            else onMember(memberId)
-          }}
+          onMember={selectMember}
         />
       ))}
     </ShiftTimeline>
   )
-}
+})

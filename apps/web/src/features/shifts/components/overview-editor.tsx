@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { ShiftTimeDialog } from "./shift-time-dialog"
+import { Popover, PopoverContent } from "@workspace/ui/components/popover"
 import { X } from "lucide-react"
 import { overviewAttendance } from "./overview-model"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -20,6 +20,40 @@ import type { OverviewDrafts, OverviewDraft } from "./overview-draft"
 import type { OverviewSelection } from "./overview-model"
 
 export function OverviewEditor({
+  anchor,
+  ...props
+}: {
+  anchor: HTMLElement
+  drafts: OverviewDrafts
+  onApply: (id: string, draft: OverviewDraft) => void
+  selection: OverviewSelection
+  data: ShiftOverview
+  onClose: () => void
+}) {
+  return (
+    <Popover
+      open
+      modal={false}
+      onOpenChange={(open, details) => {
+        if (!open) {
+          if (details.reason === "escape-key")
+            anchor.focus({ preventScroll: true })
+          props.onClose()
+        }
+      }}
+    >
+      <PopoverContent
+        anchor={anchor}
+        aria-labelledby="overview-time-title"
+        finalFocus={false}
+      >
+        <OverviewEditorForm key={JSON.stringify(props.selection)} {...props} />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function OverviewEditorForm({
   selection,
   drafts,
   onApply,
@@ -145,15 +179,15 @@ export function OverviewEditor({
     )
 
   return (
-    <ShiftTimeDialog titleId="overview-time-title" onClose={onClose}>
+    <>
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
           <h3 id="overview-time-title" className="text-sm font-semibold">
-            {member?.displayName}{" "}
-            <span className="font-normal text-muted-foreground">
-              勤務を編集
-            </span>
+            {selection.slotId ? member?.displayName : "シフトを追加"}
           </h3>
+          {!selection.slotId && (
+            <p className="mt-1 text-sm">{member?.displayName}</p>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             {member?.studentId} / {member?.roles.map((r) => r.name).join("・")}
           </p>
@@ -193,9 +227,6 @@ export function OverviewEditor({
             }}
           />
         </div>
-        {query.isFetching && (
-          <p className="text-sm text-muted-foreground">勤務を確認しています…</p>
-        )}
         {query.isError && (
           <p role="alert" className="text-sm text-destructive">
             読み込めませんでした。
@@ -267,6 +298,6 @@ export function OverviewEditor({
           </div>
         </div>
       </div>
-    </ShiftTimeDialog>
+    </>
   )
 }

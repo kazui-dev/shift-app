@@ -15,7 +15,14 @@ import {
   AssignmentSelectionArea,
   AssignmentSelectionToolbar,
 } from "./assignment-selection"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import { flushSync } from "react-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -129,7 +136,10 @@ function ShiftOverviewContent({
         search: "",
       }
   )
-  const [selection, setSelection] = useState<OverviewSelection | null>(null)
+  const [selection, setSelection] = useState<{
+    value: OverviewSelection
+    anchor: HTMLButtonElement
+  } | null>(null)
   const [attendance, setAttendance] = useState<string | null>(null)
   useEffect(() => {
     setDirty(
@@ -155,15 +165,21 @@ function ShiftOverviewContent({
     return () => clearInterval(timer)
   }, [])
   const query = useQuery(overviewQuery(year, filters.date))
-  const data = query.data
-    ? projectOverview(query.data, draft.drafts)
-    : undefined
-  const rows = data ? overviewRows(data, filters) : []
-  const removable = rows.flatMap((row) => row.assignments)
-  const removal = useAssignmentSelection(
-    JSON.stringify(filters),
-    rows.flatMap((row) => overviewMemberKeys(row.member.id, row.assignments))
+  const data = useMemo(
+    () => (query.data ? projectOverview(query.data, draft.drafts) : undefined),
+    [query.data, draft.drafts]
   )
+  const rows = useMemo(
+    () => (data ? overviewRows(data, filters) : []),
+    [data, filters]
+  )
+  const availableKeys = useMemo(
+    () =>
+      rows.flatMap((row) => overviewMemberKeys(row.member.id, row.assignments)),
+    [rows]
+  )
+  const removable = rows.flatMap((row) => row.assignments)
+  const removal = useAssignmentSelection(JSON.stringify(filters), availableKeys)
   const selectedMemberIds = rows
     .filter((row) =>
       overviewMemberKeys(row.member.id, row.assignments).some((key) =>
@@ -171,6 +187,12 @@ function ShiftOverviewContent({
       )
     )
     .map((row) => row.member.id)
+  const select = useCallback(
+    (value: OverviewSelection, anchor: HTMLButtonElement) => {
+      if (!pending) setSelection({ value, anchor })
+    },
+    [pending]
+  )
   async function removeSelected() {
     if (pending) return
     setRemoving(true)
@@ -432,9 +454,7 @@ function ShiftOverviewContent({
                 rows={rows}
                 date={filters.date}
                 now={now}
-                onSelect={(value) => {
-                  if (!pending) setSelection(value)
-                }}
+                onSelect={select}
                 onInspect={setAttendance}
               />
             </AssignmentSelectionArea>
@@ -507,7 +527,8 @@ function ShiftOverviewContent({
             <OverviewEditor
               drafts={draft.drafts}
               onApply={draft.update}
-              selection={selection}
+              selection={selection.value}
+              anchor={selection.anchor}
               data={data}
               onClose={() => setSelection(null)}
             />

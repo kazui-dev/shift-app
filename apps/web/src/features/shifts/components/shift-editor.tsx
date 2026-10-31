@@ -21,7 +21,14 @@ import { keys } from "@/app/data/keys"
 import { ShiftConflicts } from "./shift-conflicts"
 import { ShiftAttendance } from "./shift-attendance"
 import { attendanceQuery } from "../data/attendance"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { useNavigate } from "@tanstack/react-router"
@@ -122,16 +129,27 @@ export function ShiftEditor({
     () => onStatusChange({ dirty, pending }),
     [dirty, pending, onStatusChange]
   )
-  const data = {
-    ...source,
-    availability: source.availability.filter(
-      (window) =>
-        Date.parse(window.startsAt) < Date.parse(plan.endsAt) &&
-        Date.parse(window.endsAt) > Date.parse(plan.startsAt)
-    ),
-  }
-  const visibleMembers = new Set(
-    gridMembers(data, plan, filters).map((member) => member.id)
+  const data = useMemo(
+    () => ({
+      ...source,
+      availability: source.availability.filter(
+        (window) =>
+          Date.parse(window.startsAt) < Date.parse(plan.endsAt) &&
+          Date.parse(window.endsAt) > Date.parse(plan.startsAt)
+      ),
+    }),
+    [source, plan.startsAt, plan.endsAt]
+  )
+  const visibleMembers = useMemo(
+    () => new Set(gridMembers(data, plan, filters).map((member) => member.id)),
+    [data, plan, filters]
+  )
+  const availableKeys = useMemo(
+    () =>
+      [...visibleMembers].flatMap((memberId) =>
+        memberSelectionKeys(data.activity.id, memberId, plan.slots)
+      ),
+    [visibleMembers, data.activity.id, plan.slots]
   )
   const removable = plan.slots.flatMap((slot) =>
     slot.memberIds
@@ -144,22 +162,42 @@ export function ShiftEditor({
   )
   const removal = useAssignmentSelection(
     `${data.activity.id}:${JSON.stringify(filters)}`,
-    [...visibleMembers].flatMap((memberId) =>
-      memberSelectionKeys(data.activity.id, memberId, plan.slots)
-    )
+    availableKeys
   )
   const selectedMemberIds = [...visibleMembers].filter((memberId) =>
     memberSelectionKeys(data.activity.id, memberId, plan.slots).some((key) =>
       removal.keys.includes(key)
     )
   )
-  function applySelection(value: ShiftSelection): string | null {
-    const result = assignMember(plan, value, [])
-    if ("error" in result) return result.error
-    update({ ...plan, slots: result.slots })
-    setSelection(null)
-    return null
-  }
+  const applySelection = useCallback(
+    (value: ShiftSelection): string | null => {
+      const result = assignMember(plan, value, [])
+      if ("error" in result) return result.error
+      update({ ...plan, slots: result.slots })
+      setSelection(null)
+      return null
+    },
+    [plan, update]
+  )
+  const commitSelection = useCallback(
+    (value: ShiftSelection) => {
+      const error = applySelection(value)
+      if (error) toast.error(error)
+    },
+    [applySelection]
+  )
+  const selectMember = useCallback(
+    (memberId: string) => {
+      const slot = plan.slots.find((item) => item.memberIds.includes(memberId))
+      setSelection({
+        memberId,
+        slotId: slot?.id ?? null,
+        startsAt: slot?.startsAt ?? plan.startsAt,
+        endsAt: slot?.endsAt ?? plan.endsAt,
+      })
+    },
+    [plan]
+  )
   async function save(confirmed = false) {
     if (
       hasUnavailableAssignments(plan, data.availability, acknowledged) &&
@@ -368,11 +406,6 @@ export function ShiftEditor({
           />
         </MemberFilterBar>
         <div className="min-w-0">
-          {attendance.isPending && (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              勤怠を読み込み中…
-            </p>
-          )}
           {attendance.isError && (
             <p role="alert" className="px-3 py-2 text-sm">
               勤怠を読み込めませんでした。
@@ -390,28 +423,15 @@ export function ShiftEditor({
               <TimeGrid
                 assignmentSelection={removal}
                 data={data}
-                attendance={attendance.data?.assignments ?? []}
+                attendance={attendance.data?.assignments}
                 plan={plan}
                 roles={filters.roles}
                 search={filters.search}
                 availability={filters.availability}
                 selection={selection}
                 onSelect={setSelection}
-                onCommit={(value) => {
-                  const error = applySelection(value)
-                  if (error) toast.error(error)
-                }}
-                onMember={(memberId) => {
-                  const slot = plan.slots.find((item) =>
-                    item.memberIds.includes(memberId)
-                  )
-                  setSelection({
-                    memberId,
-                    slotId: slot?.id ?? null,
-                    startsAt: slot?.startsAt ?? plan.startsAt,
-                    endsAt: slot?.endsAt ?? plan.endsAt,
-                  })
-                }}
+                onCommit={commitSelection}
+                onMember={selectMember}
               />
             </AssignmentSelectionArea>
           </fieldset>
