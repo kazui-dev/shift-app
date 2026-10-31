@@ -1,3 +1,4 @@
+import { memo, useRef } from "react"
 import {
   AssignmentRowCheckbox,
   AssignmentSelectAll,
@@ -18,7 +19,7 @@ import {
   type overviewRows,
 } from "./overview-model"
 
-export function OverviewGrid({
+export const OverviewGrid = memo(function OverviewGrid({
   attendanceColors = false,
   assignmentSelection,
   data,
@@ -36,9 +37,10 @@ export function OverviewGrid({
   date: string
   rows: ReturnType<typeof overviewRows>
   now: number
-  onSelect: (s: OverviewSelection) => void
+  onSelect: (s: OverviewSelection, anchor: HTMLButtonElement) => void
   onInspect: (activityId: string) => void
 }) {
+  const memberAnchors = useRef(new Map<string, HTMLButtonElement>())
   const { start, end } = overviewRange(data, date)
   const scale = timeScale(
     new Date(start).toISOString(),
@@ -117,7 +119,7 @@ export function OverviewGrid({
       {rows.map(({ member, assignments }) => (
         <div
           key={member.id}
-          className="overview-row flex h-14 border-t border-border/70 bg-background"
+          className="shift-timeline-row overview-row flex h-14 border-t border-border/70 bg-background"
         >
           <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-sm sm:px-3">
             {assignmentSelection && (
@@ -128,26 +130,33 @@ export function OverviewGrid({
               />
             )}
             <button
+              ref={(element) => {
+                if (element) memberAnchors.current.set(member.id, element)
+                else memberAnchors.current.delete(member.id)
+              }}
               type="button"
               className="flex min-w-0 flex-1 items-center gap-2 text-left"
               aria-label={`${member.displayName}のシフトを確認`}
               disabled={assignmentSelection?.active}
-              onClick={() => {
+              onClick={(event) => {
                 const assignment = assignments[0]
                 if (!data.canEdit) {
                   if (assignment) onInspect(assignment.activityId)
                   return
                 }
-                onSelect({
-                  memberId: member.id,
-                  activityId: assignment?.activityId ?? "",
-                  slotId: assignment?.slotId ?? null,
-                  startsAt:
-                    assignment?.startsAt ?? new Date(start).toISOString(),
-                  endsAt:
-                    assignment?.endsAt ??
-                    new Date(Math.min(end, start + 3_600_000)).toISOString(),
-                })
+                onSelect(
+                  {
+                    memberId: member.id,
+                    activityId: assignment?.activityId ?? "",
+                    slotId: assignment?.slotId ?? null,
+                    startsAt:
+                      assignment?.startsAt ?? new Date(start).toISOString(),
+                    endsAt:
+                      assignment?.endsAt ??
+                      new Date(Math.min(end, start + 3_600_000)).toISOString(),
+                  },
+                  event.currentTarget
+                )
               }}
             >
               <MemberAvatar
@@ -181,6 +190,8 @@ export function OverviewGrid({
                 className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
                 aria-label={`${member.displayName}に勤務を追加`}
                 onClick={(e) => {
+                  const anchor = memberAnchors.current.get(member.id)
+                  if (!anchor) return
                   const rect = e.currentTarget.getBoundingClientRect()
                   const t =
                     e.detail === 0
@@ -195,15 +206,18 @@ export function OverviewGrid({
                             ) *
                               60_000
                         )
-                  onSelect({
-                    memberId: member.id,
-                    activityId: "",
-                    slotId: null,
-                    startsAt: new Date(t).toISOString(),
-                    endsAt: new Date(
-                      Math.min(end, t + 3_600_000)
-                    ).toISOString(),
-                  })
+                  onSelect(
+                    {
+                      memberId: member.id,
+                      activityId: "",
+                      slotId: null,
+                      startsAt: new Date(t).toISOString(),
+                      endsAt: new Date(
+                        Math.min(end, t + 3_600_000)
+                      ).toISOString(),
+                    },
+                    anchor
+                  )
                 }}
               />
             )}
@@ -236,17 +250,20 @@ export function OverviewGrid({
                   }}
                   title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
                   aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
-                  onClick={() =>
+                  onClick={(event) =>
                     assignmentSelection?.active
                       ? assignmentSelection.toggle(key)
                       : data.canEdit
-                        ? onSelect({
-                            memberId: member.id,
-                            activityId: a.activityId,
-                            slotId: a.slotId,
-                            startsAt: a.startsAt,
-                            endsAt: a.endsAt,
-                          })
+                        ? onSelect(
+                            {
+                              memberId: member.id,
+                              activityId: a.activityId,
+                              slotId: a.slotId,
+                              startsAt: a.startsAt,
+                              endsAt: a.endsAt,
+                            },
+                            event.currentTarget
+                          )
                         : onInspect(a.activityId)
                   }
                 >
@@ -274,4 +291,4 @@ export function OverviewGrid({
       ))}
     </ShiftTimeline>
   )
-}
+})

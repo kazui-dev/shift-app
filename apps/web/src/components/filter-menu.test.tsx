@@ -38,9 +38,11 @@ it("selects multiple values without closing, retains hidden selections, excludes
     )
   }
   const click = async (text: string) => {
-    const element = [...document.querySelectorAll("button,[role=option]")].find(
-      (item) => item.textContent === text
-    )
+    const element = [
+      ...document.querySelectorAll(
+        '[data-slot="filter-popup"] button,[data-slot="filter-popup"] [role=option]'
+      ),
+    ].find((item) => item.textContent === text)
     if (!(element instanceof HTMLElement))
       throw new Error(`Missing control ${text}`)
     await act(async () => element.click())
@@ -62,11 +64,15 @@ it("selects multiple values without closing, retains hidden selections, excludes
     await act(async () => root.render(<Demo />))
     const trigger = host.querySelector("button")
     if (!trigger) throw new Error("Missing trigger")
+    expect(trigger.textContent).toBe("タグ")
     await act(async () => trigger.click())
     expect(document.querySelector('[data-slot="filter-popup"]')).not.toBeNull()
     expect(document.body.textContent).not.toContain("一致する候補")
     await click("配布済み")
+    expect(trigger.textContent).toBe("配布済み")
+    expect(trigger.title).toBe("タグ：含む 配布済み")
     await click("確認済み")
+    expect(trigger.textContent).toBe("タグ (2)")
     expect(host.querySelector("output")?.textContent).toBe(
       JSON.stringify({ values: ["a", "b"], mode: "include" })
     )
@@ -75,6 +81,11 @@ it("selects multiple values without closing, retains hidden selections, excludes
     expect(document.querySelectorAll('[role="option"]')).toHaveLength(1)
     expect(host.querySelector("output")?.textContent).toContain('"a","b"')
     await click("配布済み")
+    expect(trigger.textContent).toBe("確認済み")
+    await click("含まない")
+    expect(trigger.textContent).toBe("確認済みを除外")
+    expect(trigger.title).toBe("タグ：含まない 確認済み")
+    await click("含む")
     expect(
       document.querySelector<HTMLInputElement>('input[aria-label="タグを検索"]')
         ?.value
@@ -91,6 +102,7 @@ it("selects multiple values without closing, retains hidden selections, excludes
     await search("存在しない")
     expect(document.body.textContent).toContain("一致する候補がありません。")
     await click("全解除")
+    expect(trigger.textContent).toBe("タグ")
     expect(host.querySelector("output")?.textContent).toBe(
       JSON.stringify(emptyFilter())
     )
