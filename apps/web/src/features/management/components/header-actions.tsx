@@ -1,9 +1,19 @@
 import { useContext, type ReactNode } from "react"
 import { createPortal } from "react-dom"
-import { ManagementHeaderActionsContext } from "../header-actions-context"
+import {
+  ManagementHeaderActionsContext,
+  ManagementHeaderLeadingContext,
+} from "../header-actions-context"
 
-/** Keep page-owned actions beside the page title, outside page scrolling. */
-export function ManagementHeaderActions({ children }: { children: ReactNode }) {
-  const target = useContext(ManagementHeaderActionsContext)
+export function ManagementHeaderActions({
+  children,
+  placement = "end",
+}: {
+  children: ReactNode
+  placement?: "start" | "end"
+}) {
+  const end = useContext(ManagementHeaderActionsContext)
+  const start = useContext(ManagementHeaderLeadingContext)
+  const target = placement === "start" ? start : end
   return target ? createPortal(children, target) : null
 }

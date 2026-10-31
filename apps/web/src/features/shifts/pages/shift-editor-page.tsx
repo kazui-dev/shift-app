@@ -1,14 +1,10 @@
+import { japanMonthDayWeekday, japanTime } from "@workspace/shared/japan-time"
+import { NavigationGuard } from "@/components/navigation-guard"
 import { useState } from "react"
 import { activityQuery } from "@/features/shifts/data/activities"
-import {
-  getRouteApi,
-  Link,
-  useBlocker,
-  useRouterState,
-} from "@tanstack/react-router"
+import { getRouteApi, Link, useRouterState } from "@tanstack/react-router"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { ShiftEditor } from "@/features/shifts/components/shift-editor"
-import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ManagementPage } from "@/features/management/components/page"
 
 const route = getRouteApi("/_app/manage/shifts_/$shiftId")
@@ -19,11 +15,6 @@ export function ShiftEditorPage() {
 function ShiftEditorScreen({ id }: { id: string }) {
   const navigating = useRouterState({ select: (state) => state.isLoading })
   const [editor, setEditor] = useState({ dirty: false, pending: false })
-  const blocker = useBlocker({
-    shouldBlockFn: () => editor.dirty || editor.pending,
-    enableBeforeUnload: editor.dirty,
-    withResolver: true,
-  })
   const query = useSuspenseQuery({
     ...activityQuery(id),
     refetchOnWindowFocus: false,
@@ -40,12 +31,16 @@ function ShiftEditorScreen({ id }: { id: string }) {
           >
             ← シフト一覧
           </Link>
-          <h2 className="min-w-0 flex-1 truncate text-base font-medium">
-            {query.data.activity.name}
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            {query.data.activity.year}年度
-          </span>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="min-w-0 truncate text-base font-medium">
+              {query.data.activity.name}
+            </h2>
+            <span className="shrink-0 text-sm tabular-nums">
+              {japanMonthDayWeekday(query.data.activity.startsAt)}{" "}
+              {japanTime(query.data.activity.startsAt)}-
+              {japanTime(query.data.activity.endsAt)}
+            </span>
+          </div>
         </>
       }
     >
@@ -54,20 +49,7 @@ function ShiftEditorScreen({ id }: { id: string }) {
         optionsReady={query.isSuccess && !query.isFetching}
         onStatusChange={setEditor}
       />
-      {blocker.status === "blocked" && (
-        <ConfirmDialog
-          title={
-            editor.pending
-              ? "保存処理中です"
-              : "未保存の変更を破棄して移動しますか"
-          }
-          confirmLabel="移動する"
-          onCancel={() => blocker.reset()}
-          onConfirm={() => {
-            if (!editor.pending) blocker.proceed()
-          }}
-        />
-      )}
+      <NavigationGuard dirty={editor.dirty} pending={editor.pending} />
     </ManagementPage>
   )
 }

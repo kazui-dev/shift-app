@@ -5,7 +5,7 @@ import {
 } from "@/features/management/year-selection"
 import * as v from "valibot"
 import type { QueryClient } from "@tanstack/react-query"
-import { usersQuery, auditQuery, linksQuery } from "@/features/admin/data/admin"
+import { usersQuery, auditQuery } from "@/features/admin/data/admin"
 import { assignmentMonthQuery } from "@/features/shifts/api/assignments"
 import {
   calendarViewKey,
@@ -97,8 +97,6 @@ export async function prepareApp(
       wait(usersQuery.queryKey, client.prefetchQuery(usersQuery))
     if (pathname === "/manage/audit")
       wait(auditQuery.queryKey, client.prefetchQuery(auditQuery))
-    if (pathname === "/manage/discord-link-requests")
-      wait(linksQuery.queryKey, client.prefetchQuery(linksQuery))
   }
   const activity = /^\/manage\/shifts\/([^/]+)$/.exec(pathname)?.[1]
   if (activity && v.is(v.pipe(v.string(), v.uuid()), activity))

@@ -18,6 +18,7 @@ export const yearTags = sqliteTable(
       .notNull()
       .references(() => operatingYears.year, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
   },

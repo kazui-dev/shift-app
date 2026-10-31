@@ -20,3 +20,12 @@ export const yearTagsResponseSchema = v.object({
 export type YearTag = v.InferOutput<
   typeof yearTagsResponseSchema
 >["tags"][number]
+
+export const reorderTagInputSchema = v.strictObject({
+  tagIds: v.pipe(
+    v.array(id),
+    v.minLength(1),
+    v.maxLength(1000),
+    v.check((ids) => new Set(ids).size === ids.length)
+  ),
+})

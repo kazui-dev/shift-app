@@ -5,7 +5,6 @@ import {
   getYears,
   getRoster,
   getYearRoles,
-  getYearMemberships,
 } from "@/features/years/api/years"
 export const displayYearQuery = queryOptions({
   queryKey: keys.displayYear(),
@@ -27,11 +26,5 @@ export const rolesQuery = (year: number) =>
   queryOptions({
     queryKey: keys.yearRoles(year),
     queryFn: () => getYearRoles(year),
-    staleTime: 60_000,
-  })
-export const membershipsQuery = (year: number) =>
-  queryOptions({
-    queryKey: keys.yearMemberships(year),
-    queryFn: () => getYearMemberships(year),
     staleTime: 60_000,
   })

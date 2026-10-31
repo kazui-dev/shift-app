@@ -16,6 +16,7 @@ export function MemberLabelEditor({
   onClose,
   onApplied,
   onDirtyChange,
+  onPendingChange,
 }: {
   label: string
   memberIds: string[]
@@ -23,10 +24,15 @@ export function MemberLabelEditor({
   onApply: (add: string[], remove: string[]) => Promise<void>
   onClose: () => void
   onApplied: () => void
+  onPendingChange?: ((pending: boolean) => void) | undefined
   onDirtyChange: (dirty: boolean) => void
 }) {
   const [changes, setChanges] = useState<Record<string, string>>({})
   const [pending, setPending] = useState(false)
+  useEffect(() => {
+    onPendingChange?.(pending)
+    return () => onPendingChange?.(false)
+  }, [pending, onPendingChange])
   const [discarding, setDiscarding] = useState(false)
   const add = Object.keys(changes).filter((id) => changes[id] === "add")
   const remove = Object.keys(changes).filter((id) => changes[id] === "remove")

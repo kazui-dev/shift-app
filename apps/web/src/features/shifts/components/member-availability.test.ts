@@ -90,10 +90,7 @@ it("adds each hidden category independently without losing search and role filte
   const filters = {
     search: "",
     roles: emptyFilter(),
-    availability: {
-      values: ["available"],
-      mode: "include",
-    } satisfies FilterValue,
+    availability: { include: ["available"], exclude: [] } satisfies FilterValue,
   }
   expect(gridMembers(data, plan, filters)).toHaveLength(1)
   data.availabilityAnswers = []
@@ -101,13 +98,13 @@ it("adds each hidden category independently without losing search and role filte
   expect(
     gridMembers(data, plan, {
       ...filters,
-      availability: { values: ["available", "unavailable"], mode: "include" },
+      availability: { include: ["available", "unavailable"], exclude: [] },
     })
   ).toEqual([])
   expect(
     gridMembers(data, plan, {
       ...filters,
-      availability: { values: ["available", "unanswered"], mode: "include" },
+      availability: { include: ["available", "unanswered"], exclude: [] },
     })
   ).toHaveLength(1)
   data.availabilityAnswers = [
@@ -116,19 +113,19 @@ it("adds each hidden category independently without losing search and role filte
   expect(
     gridMembers(data, plan, {
       ...filters,
-      availability: { values: ["available", "unanswered"], mode: "include" },
+      availability: { include: ["available", "unanswered"], exclude: [] },
     })
   ).toEqual([])
   expect(
     gridMembers(data, plan, {
       ...filters,
-      availability: { values: ["available", "unavailable"], mode: "include" },
+      availability: { include: ["available", "unavailable"], exclude: [] },
     })
   ).toHaveLength(1)
   expect(
     gridMembers(data, plan, {
       ...filters,
-      availability: { values: ["available", "unavailable"], mode: "include" },
+      availability: { include: ["available", "unavailable"], exclude: [] },
       search: "absent",
     })
   ).toEqual([])

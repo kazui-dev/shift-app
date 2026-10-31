@@ -102,7 +102,16 @@ export function useViewPreference<T>(
 }
 
 export const searchPreferenceSchema = v.string()
-export const filterPreferenceSchema = v.object({
-  values: v.array(v.string()),
-  mode: v.picklist(["include", "exclude"]),
-})
+export const filterPreferenceSchema = v.union([
+  v.object({ include: v.array(v.string()), exclude: v.array(v.string()) }),
+  v.pipe(
+    v.object({
+      values: v.array(v.string()),
+      mode: v.picklist(["include", "exclude"]),
+    }),
+    v.transform((legacy) => ({
+      include: legacy.mode === "include" ? legacy.values : [],
+      exclude: legacy.mode === "exclude" ? legacy.values : [],
+    }))
+  ),
+])

@@ -7,7 +7,7 @@ import { yearActivitiesApp } from "../../features/activities/routes/years/activi
 import { availabilityDatesApp } from "../../features/availability/routes/years/availability-dates"
 import { availabilitySubmissionsApp } from "../../features/availability/routes/years/availability-submissions"
 import { yearLifecycleApp } from "../../features/years/routes/lifecycle"
-import { yearMembershipsApp } from "../../features/members/routes/years/memberships"
+import { yearMembershipsApp } from "../../features/admin/routes/year-memberships"
 import { yearRolesApp } from "../../features/roles/routes/years/roles"
 import { rosterApp } from "../../features/members/routes/years/roster"
 

@@ -11,12 +11,14 @@ export function MemberTagEditor({
   onClose,
   onApplied,
   onDirtyChange,
+  onPendingChange,
 }: {
   year: number
   memberIds: string[]
   tags: YearTag[]
   onClose: () => void
   onApplied: () => void
+  onPendingChange?: ((pending: boolean) => void) | undefined
   onDirtyChange: (dirty: boolean) => void
 }) {
   const client = useQueryClient()
@@ -28,6 +30,7 @@ export function MemberTagEditor({
       onClose={onClose}
       onApplied={onApplied}
       onDirtyChange={onDirtyChange}
+      onPendingChange={onPendingChange}
       onApply={async (addTagIds, removeTagIds) => {
         await changeMemberTags(year, { memberIds, addTagIds, removeTagIds })
         await client.invalidateQueries({ queryKey: keys.yearTags(year) })
