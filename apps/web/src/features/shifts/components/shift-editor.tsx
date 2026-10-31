@@ -3,7 +3,8 @@ import type {
   AssignmentOverwriteReview,
 } from "@workspace/shared/shifts"
 import { AssignmentOverwriteDialog } from "./assignment-overwrite-dialog"
-import { emptyFilter } from "@workspace/ui/lib/filters"
+import { emptyFilter, pruneFilter } from "@workspace/ui/lib/filters"
+import type { ShiftAnchor } from "./shift-anchor"
 import { useAssignmentSelection } from "./use-assignment-selection"
 import {
   assignmentKey,
@@ -36,6 +37,7 @@ import { toast } from "@workspace/ui/lib/toast"
 import {
   getActivity,
   saveActivity,
+  saveActivityPlans,
   reviewActivityOverlaps,
   overwriteActivity,
   copyActivity,
@@ -49,10 +51,8 @@ import { ShiftActionsDialog } from "./shift-actions-dialog"
 import { planOf, useShiftPlan } from "./use-shift-plan"
 import { TimeGrid } from "./time-grid"
 import type { EditorData } from "../editor-data"
-import {
-  ShiftSelectionPanel,
-  type ShiftSelection,
-} from "./shift-selection-panel"
+import { type ShiftSelection } from "./shift-selection-panel"
+import { AssignmentPanel } from "./assignment-panel"
 
 import { ShiftEditorToolbar } from "./shift-editor-toolbar"
 import { MemberFilterBar } from "./member-filter-bar"
@@ -65,9 +65,11 @@ import {
 
 export function ShiftEditor({
   data: source,
+  optionsReady,
   onStatusChange,
 }: {
   data: EditorData
+  optionsReady: boolean
   onStatusChange: (status: { dirty: boolean; pending: boolean }) => void
 }) {
   const client = useQueryClient()
@@ -82,14 +84,33 @@ export function ShiftEditor({
   const [deleting, setDeleting] = useState(false)
   const [latest, setLatest] = useState<EditorData | null>(null)
   const [conflicted, setConflicted] = useState(false)
-  const [selection, setSelection] = useState<ShiftSelection | null>(null)
-  const view = useShiftView(source.activity.year)
+  const [selection, setSelection] = useState<
+    (ShiftSelection & { anchor: ShiftAnchor; activityId?: string }) | null
+  >(null)
+  const select = useCallback(
+    (value: ShiftSelection, anchor: ShiftAnchor) =>
+      setSelection({ ...value, anchor }),
+    []
+  )
+  const selectOther = useCallback(
+    (item: EditorData["otherAssignments"][number], anchor: ShiftAnchor) => {
+      if (item.activityId && item.slotId)
+        setSelection({
+          ...item,
+          slotId: item.slotId,
+          activityId: item.activityId,
+          anchor,
+        })
+    },
+    []
+  )
+  const view = useShiftView(source.activity.year, source.activity.id)
   const viewport = useRef<HTMLDivElement>(null)
   const initialScrollTop = useRef(view.scrollTop)
   useLayoutEffect(() => {
     if (viewport.current) viewport.current.scrollTop = initialScrollTop.current
   }, [])
-  const [filters, storeFilters] = useState<MemberFilters>(
+  const filters: MemberFilters = useMemo(
     () =>
       view.filters ?? {
         search: "",
@@ -97,14 +118,28 @@ export function ShiftEditor({
         roles: source.candidateRoleIds.length
           ? { values: [...source.candidateRoleIds], mode: "include" }
           : emptyFilter(),
-      }
+      },
+    [view.filters, source.candidateRoleIds]
   )
   function setFilters(value: MemberFilters) {
     removal.end()
     if (viewport.current) viewport.current.scrollTop = 0
     view.save({ filters: value, scrollTop: 0 })
-    storeFilters(value)
   }
+  useEffect(() => {
+    if (!optionsReady || !view.filters) return
+    const roles = pruneFilter(filters.roles, [
+      "unset",
+      ...source.roles.map((role) => role.id),
+    ])
+    const availability = pruneFilter(filters.availability, [
+      "available",
+      "unavailable",
+      "unanswered",
+    ])
+    if (roles !== filters.roles || availability !== filters.availability)
+      view.save({ filters: { ...filters, roles, availability } })
+  }, [optionsReady, source.roles, view, filters])
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [warning, setWarning] = useState(false)
@@ -114,6 +149,8 @@ export function ShiftEditor({
   } | null>(null)
   const {
     plan,
+    related,
+    updateMany,
     base,
     version,
     dirty,
@@ -132,13 +169,30 @@ export function ShiftEditor({
   const data = useMemo(
     () => ({
       ...source,
+      otherAssignments: [
+        ...source.otherAssignments.filter(
+          (item) => !item.activityId || !related[item.activityId]
+        ),
+        ...Object.entries(related).flatMap(([activityId, draft]) =>
+          draft.plan.slots.flatMap((slot) =>
+            slot.memberIds.map((memberId) => ({
+              activityId,
+              slotId: slot.id,
+              memberId,
+              name: draft.plan.name,
+              startsAt: slot.startsAt,
+              endsAt: slot.endsAt,
+            }))
+          )
+        ),
+      ],
       availability: source.availability.filter(
         (window) =>
           Date.parse(window.startsAt) < Date.parse(plan.endsAt) &&
           Date.parse(window.endsAt) > Date.parse(plan.startsAt)
       ),
     }),
-    [source, plan.startsAt, plan.endsAt]
+    [source, related, plan.startsAt, plan.endsAt]
   )
   const visibleMembers = useMemo(
     () => new Set(gridMembers(data, plan, filters).map((member) => member.id)),
@@ -187,9 +241,10 @@ export function ShiftEditor({
     [applySelection]
   )
   const selectMember = useCallback(
-    (memberId: string) => {
+    (memberId: string, anchor: ShiftAnchor) => {
       const slot = plan.slots.find((item) => item.memberIds.includes(memberId))
       setSelection({
+        anchor,
         memberId,
         slotId: slot?.id ?? null,
         startsAt: slot?.startsAt ?? plan.startsAt,
@@ -208,6 +263,33 @@ export function ShiftEditor({
     }
     setPending(true)
     try {
+      if (Object.keys(related).length) {
+        const result = await saveActivityPlans([
+          { id: data.activity.id, plan: { ...plan, version } },
+          ...Object.entries(related).map(([id, draft]) => ({
+            id,
+            plan: draft.plan,
+          })),
+        ])
+        for (const saved of result.activities)
+          client.setQueryData(keys.activityEditor(saved.activity.id), saved)
+        const own = result.activities.find(
+          (saved) => saved.activity.id === data.activity.id
+        )
+        if (own) confirm(planOf(own), own.activity.version)
+        await Promise.allSettled(
+          [
+            keys.activityEditor(),
+            keys.activities(),
+            keys.assignments(),
+            keys.shiftOverview(),
+            keys.shiftAttendance(),
+            keys.chatRooms(),
+          ].map((queryKey) => client.invalidateQueries({ queryKey }))
+        )
+        toast.success("保存しました。")
+        return
+      }
       const result = await saveActivity(data.activity.id, { ...plan, version })
       client.setQueryData(keys.activityEditor(data.activity.id), result)
       confirm(plan, result.activity.version)
@@ -223,6 +305,10 @@ export function ShiftEditor({
       ])
       toast.success("保存しました。")
     } catch (error) {
+      if (Object.keys(related).length) {
+        toast.error(`${errorMessage(error)} 編集内容は保持しています。`)
+        return
+      }
       if (error instanceof ApiError && error.code === "SHIFT_OVERLAP") {
         const input = { ...plan, version }
         try {
@@ -429,38 +515,26 @@ export function ShiftEditor({
                 search={filters.search}
                 availability={filters.availability}
                 selection={selection}
-                onSelect={setSelection}
+                onSelect={select}
                 onCommit={commitSelection}
                 onMember={selectMember}
+                onOther={selectOther}
               />
             </AssignmentSelectionArea>
           </fieldset>
           {selection && (
-            <ShiftSelectionPanel
-              key={`${selection.memberId}-${selection.slotId ?? "new"}`}
+            <AssignmentPanel
+              anchor={selection.anchor}
               selection={selection}
-              slots={plan.slots}
-              startsAt={plan.startsAt}
-              endsAt={plan.endsAt}
-              data={data}
+              activityId={selection.activityId ?? source.activity.id}
+              source={data}
+              drafts={{
+                ...related,
+                [source.activity.id]: { base, plan: { ...plan, version } },
+              }}
               pending={pending}
               onClose={() => setSelection(null)}
-              onApply={applySelection}
-              onRemove={(slotId) => {
-                update({
-                  ...plan,
-                  slots: plan.slots.map((slot) =>
-                    slot.id === slotId
-                      ? {
-                          ...slot,
-                          memberIds: slot.memberIds.filter(
-                            (id) => id !== selection.memberId
-                          ),
-                        }
-                      : slot
-                  ),
-                })
-              }}
+              onApply={updateMany}
             />
           )}
         </div>

@@ -18,6 +18,10 @@ import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { senderImage } from "@/features/chat/lib/bot"
 import { getChatRoom, searchChatMessages } from "@/features/chat/api/chat"
 import { useMessageTarget } from "@/features/chat/components/message/use-target"
+import {
+  useViewPreference,
+  searchPreferenceSchema,
+} from "@/lib/view-preferences"
 
 const searchRoute = getRouteApi("/_app/chat/$roomId/search")
 
@@ -27,7 +31,11 @@ export function ChatSearchPage() {
 }
 function ChatSearch({ roomId }: { roomId: string }) {
   const { setTarget } = useMessageTarget()
-  const [input, setInput] = useState("")
+  const [input, setInput] = useViewPreference(
+    `chat-search:${roomId}`,
+    searchPreferenceSchema,
+    ""
+  )
   const [query, setQuery] = useState("")
   useEffect(() => {
     const timer = setTimeout(() => setQuery(input.trim()), 200)

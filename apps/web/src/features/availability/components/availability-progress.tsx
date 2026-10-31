@@ -11,6 +11,11 @@ import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { notifyAvailability } from "../api/availability"
 import { availabilitySubmissionsQuery } from "../data/availability"
 import { AvailabilityHistory } from "./availability-history"
+import {
+  useViewPreference,
+  searchPreferenceSchema,
+  filterPreferenceSchema,
+} from "@/lib/view-preferences"
 
 export function AvailabilityProgress({
   year,
@@ -22,8 +27,16 @@ export function AvailabilityProgress({
   run: (action: () => Promise<unknown>) => Promise<void>
 }) {
   const submissions = useQuery(availabilitySubmissionsQuery(year))
-  const [search, setSearch] = useState("")
-  const [status, setStatus] = useState(emptyFilter)
+  const [search, setSearch] = useViewPreference(
+    `availability:${year}:search`,
+    searchPreferenceSchema,
+    ""
+  )
+  const [status, setStatus] = useViewPreference(
+    `availability:${year}:status`,
+    filterPreferenceSchema,
+    emptyFilter()
+  )
   const [editing, setEditing] = useState<{
     memberId: string
     displayName: string
@@ -75,6 +88,7 @@ export function AvailabilityProgress({
         />
         <FilterMenu
           label="提出状況"
+          optionsReady
           searchable={false}
           value={status}
           onChange={setStatus}

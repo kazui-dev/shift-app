@@ -115,6 +115,7 @@ function ChatScreen() {
           onResume={resume}
           list={
             <RoomList
+              year={year}
               rooms={rooms.data?.rooms ?? []}
               loading={!rooms.data && (display.isPending || rooms.isLoading)}
               selectedId={autoRoom ?? retainedId ?? null}

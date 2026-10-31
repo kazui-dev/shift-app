@@ -9,6 +9,7 @@ import { getActivity } from "../api/activities"
 import { OverviewGrid } from "./overview-grid"
 import { OverviewEditor } from "./overview-editor"
 import type { OverviewSelection } from "./overview-model"
+import type { ShiftAnchor } from "./shift-anchor"
 
 vi.mock("../api/activities", () => ({
   getActivity: vi.fn<typeof getActivity>(),
@@ -53,7 +54,7 @@ it("switches the member, activity and times together and lets outside controls w
   function View() {
     const [selection, setSelection] = useState<{
       value: OverviewSelection
-      anchor: HTMLButtonElement
+      anchor: ShiftAnchor
     } | null>(null)
     return (
       <QueryClientProvider client={client}>
@@ -118,6 +119,36 @@ it("switches the member, activity and times together and lets outside controls w
     await click(first)
     expect(start()).toBe("09:00")
     expect(end()).toBe("11:00")
+    const action = (label: string) => {
+      const button = [...document.querySelectorAll("button")].find(
+        (item) => item.textContent === label
+      )
+      if (!button) throw new Error(`Missing ${label}`)
+      return button
+    }
+    const startInput = document.querySelector<HTMLInputElement>(
+      '[aria-label="勤務の開始"]'
+    )
+    const valueDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value"
+    )
+    if (!startInput || !valueDescriptor?.set)
+      throw new Error("Missing time input")
+    expect(action("キャンセル").disabled).toBe(true)
+    expect(action("反映").disabled).toBe(true)
+    await act(async () => {
+      valueDescriptor.set?.call(startInput, "09:15")
+      startInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    expect(action("キャンセル").disabled).toBe(false)
+    await vi.waitFor(() => expect(action("反映").disabled).toBe(false))
+    await act(async () => {
+      valueDescriptor.set?.call(startInput, "09:00")
+      startInput.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    expect(action("キャンセル").disabled).toBe(true)
+    expect(action("反映").disabled).toBe(true)
     expect(document.querySelector('[data-slot="popover-arrow"]')).not.toBeNull()
     expect(document.querySelector("#overview-time-title")?.textContent).toBe(
       data.members[0]?.displayName
@@ -172,7 +203,17 @@ it("switches the member, activity and times together and lets outside controls w
         new MouseEvent("click", { bubbles: true, detail: 1, clientX: 460 })
       )
     })
-    expect(select.mock.lastCall?.[1]).toBe(member)
+    expect(select.mock.lastCall?.[1].focus).toBe(blank)
+    const position = select.mock.lastCall?.[1].position
+    if (
+      !position ||
+      typeof position === "function" ||
+      !("getBoundingClientRect" in position)
+    )
+      throw new Error("Missing point anchor")
+    expect(position.getBoundingClientRect().left).toBe(460)
+    expect(position.getBoundingClientRect().top).toBe(17)
+    expect(position.getBoundingClientRect().bottom).toBe(37)
     expect(select.mock.lastCall?.[0].slotId).toBeNull()
     expect(document.querySelector("#overview-time-title")?.textContent).toBe(
       "シフトを追加"
@@ -182,6 +223,34 @@ it("switches the member, activity and times together and lets outside controls w
     expect(
       document.querySelector('[aria-label="追加するシフト"]')?.textContent
     ).toContain("シフトを選択")
+    const visibleBar = first.querySelector<HTMLElement>("[data-shift-bar]")
+    if (!visibleBar) throw new Error("Missing visible bar")
+    vi.spyOn(visibleBar, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(100, 17, 200, 20)
+    )
+    await act(async () =>
+      first.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          detail: 1,
+          clientX: 130,
+          clientY: 5,
+        })
+      )
+    )
+    const existing = select.mock.lastCall?.[1].position
+    if (
+      !existing ||
+      typeof existing === "function" ||
+      !("getBoundingClientRect" in existing)
+    )
+      throw new Error("Missing existing assignment anchor")
+    expect(existing.getBoundingClientRect()).toMatchObject({
+      left: 130,
+      top: 17,
+      bottom: 37,
+      width: 0,
+    })
   } finally {
     await act(async () => root.unmount())
     host.remove()

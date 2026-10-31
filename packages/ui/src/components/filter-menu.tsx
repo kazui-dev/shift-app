@@ -1,10 +1,14 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Combobox } from "@base-ui/react/combobox"
 import { Check, Filter } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { cn } from "@workspace/ui/lib/utils"
-import { emptyFilter, type FilterValue } from "@workspace/ui/lib/filters"
+import {
+  emptyFilter,
+  pruneFilter,
+  type FilterValue,
+} from "@workspace/ui/lib/filters"
 
 type Option = { value: string; label: string }
 
@@ -18,6 +22,7 @@ export function FilterMenu({
   iconOnly = false,
   searchable = true,
   allowExclusion = true,
+  optionsReady = false,
 }: {
   label: string
   options: Option[]
@@ -27,8 +32,18 @@ export function FilterMenu({
   iconOnly?: boolean
   searchable?: boolean
   allowExclusion?: boolean
+  /** Only enable after the complete, authoritative option list has loaded. */
+  optionsReady?: boolean
 }) {
   const [search, setSearch] = useState("")
+  useEffect(() => {
+    if (!optionsReady) return
+    const next = pruneFilter(
+      value,
+      options.map((option) => option.value)
+    )
+    if (next !== value) onChange(next)
+  }, [optionsReady, options, value, onChange])
   const filtered = options.filter((option) =>
     option.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   )

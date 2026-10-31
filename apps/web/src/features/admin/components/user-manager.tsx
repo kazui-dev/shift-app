@@ -35,7 +35,7 @@ export function UserManager({
     ...usersQuery,
   })
   const years = useQuery({ ...yearsQuery })
-  const [search, setSearch] = useState(() => view.search)
+  const search = view.search
   const [detailOpen, setDetailOpen] = useState(false)
   const [id, setId] = useState<string | null>(null)
   const selected = users.data?.users.find((user) => user.id === id)
@@ -55,7 +55,6 @@ export function UserManager({
           value={search}
           onChange={(event) => {
             view.save({ search: event.target.value })
-            setSearch(event.target.value)
           }}
         />
         <span className="text-sm text-muted-foreground">

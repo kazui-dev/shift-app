@@ -40,6 +40,8 @@ export {
   activityEnvelopeSchema,
   activityEditorInputSchema,
   activityEditorResponseSchema,
+  activityPlansInputSchema,
+  activityPlansResponseSchema,
   type ActivityEditorInput,
 } from "./shifts/activities"
 export { shiftNoticesSchema, type ShiftNotice } from "./shifts/notices"

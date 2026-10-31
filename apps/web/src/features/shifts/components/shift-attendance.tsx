@@ -15,6 +15,10 @@ import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  useViewPreference,
+  filterPreferenceSchema,
+} from "@/lib/view-preferences"
 
 type Assignment = AttendanceData["assignments"][number]
 
@@ -47,7 +51,11 @@ export function ShiftAttendance({
   const [correcting, setCorrecting] = useState<Assignment | null>(null)
   const [history, setHistory] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
-  const [filter, setFilter] = useState(emptyFilter)
+  const [filter, setFilter] = useViewPreference(
+    `attendance:${activityId}`,
+    filterPreferenceSchema,
+    emptyFilter()
+  )
   async function run(work: () => Promise<unknown>) {
     setPending(true)
     try {
@@ -93,6 +101,7 @@ export function ShiftAttendance({
           </span>
           <FilterMenu
             label="勤怠"
+            optionsReady
             searchable={false}
             allowExclusion={false}
             value={filter}

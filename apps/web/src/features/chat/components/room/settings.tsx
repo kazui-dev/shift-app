@@ -44,6 +44,7 @@ export function RoomSettings({
           room={room}
           initial={settings.data}
           targets={targets.data.targets}
+          optionsReady={targets.isSuccess && !targets.isFetching}
           onClose={onClose}
           onLeave={onLeave}
           onDelete={onDelete}
@@ -127,12 +128,14 @@ function SettingsEditor({
   room,
   initial,
   targets,
+  optionsReady,
   onClose,
   onLeave,
   onDelete,
 }: Actions & {
   initial: Awaited<ReturnType<typeof getRoomSettings>>
   targets: ChatTargetOption[]
+  optionsReady: boolean
   onClose: () => void
 }) {
   const client = useQueryClient()
@@ -191,8 +194,10 @@ function SettingsEditor({
                 />
               </label>
               <RoomGrants
+                roomId={room.id}
                 value={value.targets}
                 targets={targets}
+                optionsReady={optionsReady}
                 onChange={(grants) => setValue({ ...value, targets: grants })}
               />
               <NotificationSetting room={room} />

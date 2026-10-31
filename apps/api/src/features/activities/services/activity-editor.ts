@@ -10,12 +10,12 @@ import {
 } from "../../directory/services/planning-inputs"
 import { toIso } from "../../../lib/http"
 // Keep the slot joins inside each branch so the activity/slot indexes can narrow assignments.
-export const otherActivityAssignments = `SELECT a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name
+export const otherActivityAssignments = `SELECT act.id AS activityId,s.id AS slotId,a.member_id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name
   FROM activities act JOIN shift_slots s ON s.activity_id=act.id
   JOIN shift_assignments a ON a.slot_id=s.id AND a.status='active'
   WHERE act.id <> ? AND act.year = ?
   UNION ALL
-  SELECT submission.id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name
+  SELECT act.id AS activityId,s.id AS slotId,submission.id AS memberId, s.starts_at AS startsAt, s.ends_at AS endsAt, act.name
   FROM activities act JOIN shift_slots s ON s.activity_id=act.id
   JOIN directory_shift_assignments a ON a.slot_id=s.id
   JOIN directory_availability_submissions submission ON submission.entry_id=a.entry_id
@@ -100,9 +100,11 @@ export async function readActivityEditor(db: D1Database, id: string) {
       }>()
       .then((query) => recordD1("activity.editor.requirements", query)),
     db
-      .prepare(activityPlanningAssignments)
+      .prepare(
+        `SELECT a.*, EXISTS(SELECT 1 FROM assignment_attendance WHERE assignment_id=a.id) OR EXISTS(SELECT 1 FROM assignment_attendance_events WHERE assignment_id=a.id) AS recorded FROM (${activityPlanningAssignments}) a`
+      )
       .bind(id, id)
-      .all<{ id: string; slotId: string; memberId: string }>()
+      .all<{ id: string; slotId: string; memberId: string; recorded: number }>()
       .then((query) => recordD1("activity.editor.assignments", query)),
     db
       .prepare(
@@ -146,6 +148,8 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .prepare(otherActivityAssignments)
       .bind(id, activity.year, id, activity.year)
       .all<{
+        activityId: string
+        slotId: string
         memberId: string
         startsAt: number
         endsAt: number
@@ -154,6 +158,13 @@ export async function readActivityEditor(db: D1Database, id: string) {
       .then((query) => recordD1("activity.editor.other_assignments", query)),
   ])
   return {
+    assignmentStates: assignments.results.map(
+      ({ slotId, memberId, recorded }) => ({
+        slotId,
+        memberId,
+        recorded: !!recorded,
+      })
+    ),
     notices: notices.results.map((notice) => ({
       ...notice,
       startsAt: toIso(notice.startsAt),

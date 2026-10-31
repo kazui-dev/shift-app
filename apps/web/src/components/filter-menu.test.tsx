@@ -6,6 +6,47 @@ import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import { SearchableSelect } from "@workspace/ui/components/searchable-select"
 import { emptyFilter } from "@workspace/ui/lib/filters"
 
+it("does not discard saved values while options load and removes obsolete values only after success", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true)
+  const host = document.createElement("div")
+  const root = createRoot(host)
+  function Demo({
+    ready,
+    options,
+  }: {
+    ready: boolean
+    options: { value: string; label: string }[]
+  }) {
+    const [value, onChange] = useState({
+      values: ["kept", "deleted"],
+      mode: "exclude" as const,
+    })
+    return (
+      <>
+        <FilterMenu
+          label="ロール"
+          value={value}
+          options={options}
+          optionsReady={ready}
+          onChange={(next) =>
+            onChange({ values: next.values, mode: "exclude" })
+          }
+        />
+        <output>{value.values.join(",")}</output>
+      </>
+    )
+  }
+  await act(async () => root.render(<Demo ready={false} options={[]} />))
+  expect(host.querySelector("output")?.textContent).toBe("kept,deleted")
+  await act(async () =>
+    root.render(<Demo ready options={[{ value: "kept", label: "受付" }]} />)
+  )
+  expect(host.querySelector("output")?.textContent).toBe("kept")
+  expect(host.querySelector("button")?.textContent).toBe("受付を除外")
+  await act(async () => root.unmount())
+  vi.unstubAllGlobals()
+})
+
 it("selects multiple values without closing, retains hidden selections, excludes, clears, and renders no empty-state spacer", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true)
   vi.stubGlobal(

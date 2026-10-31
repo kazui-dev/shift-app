@@ -125,6 +125,15 @@ export const activityEditorInputSchema = v.object({
 })
 
 export const activityEditorResponseSchema = v.object({
+  assignmentStates: v.optional(
+    v.array(
+      v.object({
+        slotId: v.string(),
+        memberId: v.string(),
+        recorded: v.boolean(),
+      })
+    )
+  ),
   notices: v.optional(shiftNoticesSchema),
   activity: v.object({
     ...activityResponseSchema.entries,
@@ -161,6 +170,8 @@ export const activityEditorResponseSchema = v.object({
   ),
   otherAssignments: v.array(
     v.object({
+      activityId: v.optional(v.string()),
+      slotId: v.optional(v.string()),
       memberId: v.string(),
       startsAt: instantSchema,
       endsAt: instantSchema,
@@ -172,3 +183,19 @@ export const activityEditorResponseSchema = v.object({
 export type ActivityEditorInput = v.InferOutput<
   typeof activityEditorInputSchema
 >
+
+export const activityPlansInputSchema = v.object({
+  plans: v.pipe(
+    v.array(
+      v.object({
+        id: v.pipe(v.string(), v.uuid()),
+        plan: activityEditorInputSchema,
+      })
+    ),
+    v.minLength(1),
+    v.maxLength(100)
+  ),
+})
+export const activityPlansResponseSchema = v.object({
+  activities: v.array(activityEditorResponseSchema),
+})

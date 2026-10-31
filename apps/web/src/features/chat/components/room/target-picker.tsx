@@ -1,7 +1,12 @@
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
 import { targetKey } from "@/features/chat/components/room/target-key"
-import { useState } from "react"
+import * as v from "valibot"
+import {
+  useViewPreference,
+  searchPreferenceSchema,
+  filterPreferenceSchema,
+} from "@/lib/view-preferences"
 import { Search, X } from "lucide-react"
 import type { ChatTargetOption } from "@workspace/shared/communications"
 import { Input } from "@workspace/ui/components/input"
@@ -13,20 +18,41 @@ const kinds = [
   { type: "role", name: "ロール" },
   { type: "activity", name: "シフト" },
 ] as const
+const kindSchema = v.picklist(["member", "role", "activity"])
 
 export function TargetPicker({
+  viewKey,
   targets,
+  optionsReady,
   selected,
   onChange,
 }: {
+  viewKey: string
   targets: ChatTargetOption[]
+  optionsReady: boolean
   selected: string[]
   onChange: (value: string[]) => void
 }) {
-  const [kind, setKind] = useState<(typeof kinds)[number]["type"]>("member")
-  const [search, setSearch] = useState("")
-  const [roleFilters, setRoleFilters] = useState(emptyFilter)
-  const [activityFilters, setActivityFilters] = useState(emptyFilter)
+  const [kind, setKind] = useViewPreference(
+    `chat-targets:${viewKey}:kind`,
+    kindSchema,
+    "member"
+  )
+  const [search, setSearch] = useViewPreference(
+    `chat-targets:${viewKey}:search`,
+    searchPreferenceSchema,
+    ""
+  )
+  const [roleFilters, setRoleFilters] = useViewPreference(
+    `chat-targets:${viewKey}:roles`,
+    filterPreferenceSchema,
+    emptyFilter()
+  )
+  const [activityFilters, setActivityFilters] = useViewPreference(
+    `chat-targets:${viewKey}:activities`,
+    filterPreferenceSchema,
+    emptyFilter()
+  )
   const toggle = (key: string) =>
     onChange(
       selected.includes(key)
@@ -119,6 +145,7 @@ export function TargetPicker({
           {kind === "member" && (
             <>
               <FilterMenu
+                optionsReady={optionsReady}
                 label="ロール"
                 options={[
                   { value: "unset", label: "未設定" },
@@ -133,6 +160,7 @@ export function TargetPicker({
                 onChange={setRoleFilters}
               />
               <FilterMenu
+                optionsReady={optionsReady}
                 label="シフト"
                 options={[
                   { value: "unset", label: "未設定" },

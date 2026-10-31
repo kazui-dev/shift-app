@@ -3,6 +3,7 @@ import type {
   ShiftOverview,
 } from "@workspace/shared/shifts"
 export type OverviewDraft = {
+  atomic?: boolean
   base: ActivityEditorInput
   plan: ActivityEditorInput
 }

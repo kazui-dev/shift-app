@@ -1,4 +1,5 @@
-import { ShiftTimeDialog } from "./shift-time-dialog"
+import { ShiftPopover } from "./shift-popover"
+import type { ShiftAnchor } from "./shift-anchor"
 import { memberAvailability } from "./member-availability"
 import { useId, useState } from "react"
 import { Plus, X } from "lucide-react"
@@ -13,9 +14,29 @@ import {
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { EditorData } from "../editor-data"
 import type { Assignment } from "./assign-member"
+import { SelectField } from "@/components/select-field"
+import { transferBlocked } from "./transfer-assignment"
 
 export type ShiftSelection = Assignment
 export function ShiftSelectionPanel({
+  anchor,
+  ...props
+}: Parameters<typeof ShiftSelectionForm>[0] & { anchor: ShiftAnchor }) {
+  const { selection } = props
+  return (
+    <ShiftPopover
+      anchor={anchor}
+      aria-labelledby="shift-time-title"
+      onClose={props.onClose}
+    >
+      <ShiftSelectionForm
+        key={`${selection.memberId}-${selection.slotId ?? "new"}-${selection.startsAt}-${selection.endsAt}`}
+        {...props}
+      />
+    </ShiftPopover>
+  )
+}
+function ShiftSelectionForm({
   selection,
   slots,
   startsAt,
@@ -25,6 +46,8 @@ export function ShiftSelectionPanel({
   onClose,
   onApply,
   onRemove,
+  activities,
+  error,
 }: {
   selection: ShiftSelection
   slots: ActivityEditorInput["slots"]
@@ -33,8 +56,13 @@ export function ShiftSelectionPanel({
   data: EditorData
   pending: boolean
   onClose: () => void
-  onApply: (selection: ShiftSelection) => string | null
+  onApply: (
+    selection: ShiftSelection,
+    activityId?: string
+  ) => string | null | Promise<string | null>
   onRemove: (slotId: string) => void
+  activities?: { value: string; label: string }[] | undefined
+  error?: string | undefined
 }) {
   const member = data.members.find((item) => item.id === selection.memberId)
   const shifts = slots.filter((slot) =>
@@ -45,15 +73,15 @@ export function ShiftSelectionPanel({
     (item) => item.memberId === selection.memberId
   )
   return (
-    <ShiftTimeDialog titleId="shift-time-title" onClose={onClose}>
+    <>
       <div className="mb-4 flex items-start justify-between gap-2">
         <div>
           <h3 id="shift-time-title" className="text-sm font-semibold">
-            {member?.displayName}{" "}
-            <span className="font-normal text-muted-foreground">
-              勤務を編集
-            </span>
+            {selection.slotId ? member?.displayName : "シフトを追加"}
           </h3>
+          {!selection.slotId && (
+            <p className="mt-1 text-sm">{member?.displayName}</p>
+          )}
           <p className="mt-1 text-xs text-muted-foreground">
             希望：
             {available
@@ -78,6 +106,11 @@ export function ShiftSelectionPanel({
         </Button>
       </div>
       <div className="space-y-4">
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
         {shifts.map((slot) => (
           <ShiftTimeRow
             key={`${slot.id}-${slot.startsAt}-${slot.endsAt}`}
@@ -86,6 +119,13 @@ export function ShiftSelectionPanel({
             onApply={onApply}
             onClose={onClose}
             onRemove={() => onRemove(slot.id)}
+            activityId={data.activity.id}
+            activities={activities}
+            transferDisabled={transferBlocked(data, {
+              ...slot,
+              slotId: slot.id,
+              memberId: selection.memberId,
+            })}
           />
         ))}
         {adding && (
@@ -100,6 +140,8 @@ export function ShiftSelectionPanel({
             onApply={onApply}
             onClose={onClose}
             onRemove={() => setAdding(false)}
+            activityId={data.activity.id}
+            activities={activities}
           />
         )}
         {!adding && (
@@ -114,7 +156,7 @@ export function ShiftSelectionPanel({
           </Button>
         )}
       </div>
-    </ShiftTimeDialog>
+    </>
   )
 }
 function ShiftTimeRow({
@@ -123,18 +165,34 @@ function ShiftTimeRow({
   onApply,
   onRemove,
   onClose,
+  activityId,
+  activities,
+  transferDisabled = false,
 }: {
   value: ShiftSelection
   pending: boolean
-  onApply: (selection: ShiftSelection) => string | null
+  onApply: (
+    selection: ShiftSelection,
+    activityId?: string
+  ) => string | null | Promise<string | null>
   onRemove: () => void
   onClose: () => void
+  activityId: string
+  activities?: { value: string; label: string }[] | undefined
+  transferDisabled?: boolean
 }) {
   const id = useId()
   const [from, setFrom] = useState(japanInputValue(value.startsAt).slice(11))
   const [to, setTo] = useState(japanInputValue(value.endsAt).slice(11))
   const [error, setError] = useState<string | null>(null)
-  function commit() {
+  const [destination, setDestination] = useState(activityId)
+  const [applying, setApplying] = useState(false)
+  const changed =
+    destination !== activityId ||
+    from !== japanInputValue(value.startsAt).slice(11) ||
+    to !== japanInputValue(value.endsAt).slice(11)
+  async function commit() {
+    if (!changed || pending || applying) return
     const start = japanLocalDateTime(
       `${japanDateTime(value.startsAt).date}T${from}`
     )
@@ -143,24 +201,42 @@ function ShiftTimeRow({
       setError("終了は開始より後にしてください。")
       return
     }
-    setError(
-      onApply({
-        ...value,
-        startsAt: new Date(start).toISOString(),
-        endsAt: new Date(end).toISOString(),
-      })
-    )
+    setApplying(true)
+    try {
+      setError(
+        await onApply(
+          {
+            ...value,
+            startsAt: new Date(start).toISOString(),
+            endsAt: new Date(end).toISOString(),
+          },
+          destination
+        )
+      )
+    } finally {
+      setApplying(false)
+    }
   }
   return (
     <form
       data-slot-editor={value.slotId}
       onSubmit={(event) => {
         event.preventDefault()
-        commit()
+        void commit()
       }}
       className="space-y-3 border-t pt-3"
     >
-      <fieldset disabled={pending} className="flex items-end gap-2">
+      {activities && (
+        <SelectField
+          aria-label="シフト"
+          searchable
+          value={destination}
+          options={activities}
+          disabled={pending || applying || transferDisabled}
+          onValueChange={setDestination}
+        />
+      )}
+      <fieldset disabled={pending || applying} className="flex items-end gap-2">
         <label
           htmlFor={`${id}-start`}
           className="min-w-0 flex-1 text-xs text-muted-foreground"
@@ -207,17 +283,28 @@ function ShiftTimeRow({
           type="button"
           variant="outline"
           size="sm"
-          disabled={pending}
+          disabled={pending || applying}
           onClick={onRemove}
         >
-          {value.slotId ? "割当を外す" : "追加を取り消す"}
+          {value.slotId ? "割当を外す" : "追加をキャンセル"}
         </Button>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            取消
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!changed || pending || applying}
+            onClick={onClose}
+          >
+            キャンセル
           </Button>
-          <Button type="submit" variant="outline" size="sm" disabled={pending}>
-            適用
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            disabled={!changed || pending || applying}
+          >
+            反映
           </Button>
         </div>
       </div>

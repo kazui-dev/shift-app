@@ -79,7 +79,13 @@ export function useOverviewDraft() {
       for (const [id, draft] of Object.entries(updates)) {
         const base = current.present[id]?.base ?? draft.base
         if (JSON.stringify(base) === JSON.stringify(draft.plan)) delete next[id]
-        else next[id] = { base, plan: draft.plan }
+        else
+          next[id] = {
+            ...draft,
+            base,
+            plan: draft.plan,
+            atomic: !!(draft.atomic || current.present[id]?.atomic),
+          }
       }
       return change(current, next)
     })

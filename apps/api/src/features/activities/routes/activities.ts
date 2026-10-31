@@ -10,10 +10,12 @@ import { saveShiftPlan } from "../../shifts/services/save-shift-plan"
 import { prepareActivitySave } from "../services/prepare-activity-save"
 import { assignmentOverwritesApp } from "./assignment-overwrites"
 import { announce } from "../../../routes/announce"
+import { activityPlansApp } from "./activity-plans"
 
 export { inputSlotOwners } from "../services/slot-owners"
 
 export const activitiesApp = new Hono<ApiEnv>()
+activitiesApp.route("/", activityPlansApp)
 activitiesApp.use("/:activityId", async (c, next) => {
   const activity = await c.env.shift_app
     .prepare("SELECT year FROM activities WHERE id=?")
