@@ -17,7 +17,7 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "@vitest/coverage-v8": "catalog:",
-    "knip": "6.32.2",
+    "knip": "6.43.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plus": "catalog:",
