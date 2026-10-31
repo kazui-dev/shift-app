@@ -5,14 +5,14 @@ import { ShiftMemberLabel } from "./shift-member-label"
 import { TimeGuides } from "./time-guides"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { japanTime } from "@workspace/shared/japan-time"
-import { useRef, useState, type MouseEvent } from "react"
+import { memo, useRef, useState, type MouseEvent } from "react"
 import type { ActivityEditorInput, Attendance } from "@workspace/shared/shifts"
 import { cn } from "@workspace/ui/lib/utils"
 import type { EditorData } from "../editor-data"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { timeScale } from "./time-scale"
 
-export function TimeGridRow({
+export const TimeGridRow = memo(function TimeGridRow({
   assignmentSelection,
   activityId,
   member,
@@ -197,7 +197,7 @@ export function TimeGridRow({
   return (
     <div
       className={cn(
-        "flex h-14 border-t border-border/70 bg-background",
+        "shift-timeline-row flex h-14 border-t border-border/70 bg-background",
         selected &&
           "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]",
         attendance?.state === "late" && "bg-amber-50 dark:bg-amber-950",
@@ -308,4 +308,4 @@ export function TimeGridRow({
       )}
     </div>
   )
-}
+})

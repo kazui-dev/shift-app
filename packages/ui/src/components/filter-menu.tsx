@@ -33,6 +33,13 @@ export function FilterMenu({
     option.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   )
   const active = value.values.length > 0
+  const singleOption =
+    value.values.length === 1
+      ? options.find((option) => option.value === value.values[0])
+      : undefined
+  const triggerLabel = singleOption
+    ? `${singleOption.label}${allowExclusion && value.mode === "exclude" ? "を除外" : ""}`
+    : `${label}${active ? ` (${value.values.length})` : ""}`
   return (
     <Combobox.Root<Option, true>
       multiple
@@ -62,7 +69,7 @@ export function FilterMenu({
         aria-label={`${label}で絞り込み`}
         title={
           active
-            ? `${label}：${allowExclusion ? `${value.mode === "exclude" ? "含まない" : "含む"} ` : ""}${value.values.length}件`
+            ? `${label}：${allowExclusion ? `${value.mode === "exclude" ? "含まない" : "含む"} ` : ""}${singleOption?.label ?? `${value.values.length}件`}`
             : `${label}で絞り込み`
         }
         className={cn(
@@ -72,12 +79,7 @@ export function FilterMenu({
         )}
       >
         <Filter className={cn("size-3.5", active && "fill-current")} />
-        {!iconOnly && (
-          <span>
-            {label}
-            {active ? ` (${value.values.length})` : ""}
-          </span>
-        )}
+        {!iconOnly && <span className="max-w-48 truncate">{triggerLabel}</span>}
         {iconOnly && active && (
           <span className="sr-only">{value.values.length}件選択中</span>
         )}
