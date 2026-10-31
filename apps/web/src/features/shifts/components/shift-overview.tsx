@@ -40,10 +40,12 @@ import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import { japanDateTime, japanTime } from "@workspace/shared/japan-time"
 import { activitiesQuery } from "../data/activities"
+import { rolesQuery } from "@/features/years/data/years"
 import { overviewQuery } from "../data/overview"
 import { ShiftViewToolbar } from "./shift-view-toolbar"
+
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
-import { emptyFilter } from "@workspace/ui/lib/filters"
+import { emptyFilter, pruneFilter } from "@workspace/ui/lib/filters"
 import { OverviewGrid } from "./overview-grid"
 import { OverviewEditor } from "./overview-editor"
 import { ShiftAttendance } from "./shift-attendance"
@@ -60,6 +62,7 @@ import { ManagementHeaderActions } from "@/features/management/components/header
 import { useOverviewDraft } from "./use-overview-draft"
 import { projectOverview } from "./overview-draft"
 import { useOverviewAttendanceColors } from "./use-overview-attendance-colors"
+import type { ShiftAnchor } from "./shift-anchor"
 
 export function ShiftOverview({
   year,
@@ -127,18 +130,19 @@ function ShiftOverviewContent({
   const { setDirty } = useManagement()
   const pickerRef = useRef<HTMLInputElement>(null)
   const view = useShiftView(year)
-  const [filters, setFilters] = useState<OverviewFilters>(
+  const filters: OverviewFilters = useMemo(
     () =>
       view.overview ?? {
         date: initialDate,
         roles: emptyFilter(),
         activities: emptyFilter(),
         search: "",
-      }
+      },
+    [view.overview, initialDate]
   )
   const [selection, setSelection] = useState<{
     value: OverviewSelection
-    anchor: HTMLButtonElement
+    anchor: ShiftAnchor
   } | null>(null)
   const [attendance, setAttendance] = useState<string | null>(null)
   useEffect(() => {
@@ -165,6 +169,37 @@ function ShiftOverviewContent({
     return () => clearInterval(timer)
   }, [])
   const query = useQuery(overviewQuery(year, filters.date))
+  const activityOptions = useQuery(activitiesQuery(year))
+  const roleOptions = useQuery(rolesQuery(year))
+  useEffect(() => {
+    if (!view.overview) return
+    // The overview response is limited to a day; absence there does not mean deletion.
+    const roles =
+      roleOptions.isSuccess && !roleOptions.isFetching
+        ? pruneFilter(
+            filters.roles,
+            roleOptions.data.roles.map((role) => role.id)
+          )
+        : filters.roles
+    const activities =
+      activityOptions.isSuccess && !activityOptions.isFetching
+        ? pruneFilter(
+            filters.activities,
+            activityOptions.data.activities.map((activity) => activity.id)
+          )
+        : filters.activities
+    if (roles !== filters.roles || activities !== filters.activities)
+      view.save({ overview: { ...filters, roles, activities } })
+  }, [
+    roleOptions.isSuccess,
+    roleOptions.isFetching,
+    roleOptions.data,
+    activityOptions.isSuccess,
+    activityOptions.isFetching,
+    activityOptions.data,
+    view,
+    filters,
+  ])
   const data = useMemo(
     () => (query.data ? projectOverview(query.data, draft.drafts) : undefined),
     [query.data, draft.drafts]
@@ -188,7 +223,7 @@ function ShiftOverviewContent({
     )
     .map((row) => row.member.id)
   const select = useCallback(
-    (value: OverviewSelection, anchor: HTMLButtonElement) => {
+    (value: OverviewSelection, anchor: ShiftAnchor) => {
       if (!pending) setSelection({ value, anchor })
     },
     [pending]
@@ -219,7 +254,6 @@ function ShiftOverviewContent({
   function change(patch: Partial<OverviewFilters>) {
     removal.end()
     const next = { ...filters, ...patch }
-    setFilters(next)
     view.save({ overview: next })
   }
   return (
@@ -400,17 +434,25 @@ function ShiftOverviewContent({
         </label>
         <FilterMenu
           label="ロール"
-          options={
-            data?.roles.map((r) => ({ value: r.id, label: r.name })) ?? []
-          }
+          options={(roleOptions.data?.roles ?? data?.roles ?? [])
+            .filter(
+              (role) =>
+                filters.roles.values.includes(role.id) ||
+                data?.roles.some((item) => item.id === role.id)
+            )
+            .map((r) => ({ value: r.id, label: r.name }))}
           value={filters.roles}
           onChange={(roles) => change({ roles })}
         />
         <FilterMenu
           label="シフト"
-          options={
-            data?.activities.map((a) => ({ value: a.id, label: a.name })) ?? []
-          }
+          options={(activityOptions.data?.activities ?? data?.activities ?? [])
+            .filter(
+              (activity) =>
+                filters.activities.values.includes(activity.id) ||
+                data?.activities.some((item) => item.id === activity.id)
+            )
+            .map((a) => ({ value: a.id, label: a.name }))}
           value={filters.activities}
           onChange={(activities) => change({ activities })}
         />
@@ -526,7 +568,7 @@ function ShiftOverviewContent({
           {selection && data.canEdit && (
             <OverviewEditor
               drafts={draft.drafts}
-              onApply={draft.update}
+              onApply={draft.updateMany}
               selection={selection.value}
               anchor={selection.anchor}
               data={data}

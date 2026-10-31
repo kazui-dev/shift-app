@@ -15,12 +15,16 @@ import { targetKey } from "@/features/chat/components/room/target-key"
 
 type Grants = Awaited<ReturnType<typeof getRoomSettings>>["targets"]
 export function RoomGrants({
+  roomId,
   value,
   targets,
+  optionsReady,
   onChange,
 }: {
+  roomId: string
   value: Grants
   targets: ChatTargetOption[]
+  optionsReady: boolean
   onChange: (value: Grants) => void
 }) {
   const [selecting, setSelecting] = useState(false)
@@ -145,7 +149,9 @@ export function RoomGrants({
         />
         <ResponsivePageBody>
           <TargetPicker
+            viewKey={`room:${roomId}`}
             targets={targets}
+            optionsReady={optionsReady}
             selected={selected}
             onChange={setSelected}
           />

@@ -1,4 +1,10 @@
-import { memo, useRef } from "react"
+import { memo } from "react"
+import {
+  clickAnchor,
+  elementAnchor,
+  shiftBarStyle,
+  type ShiftAnchor,
+} from "./shift-anchor"
 import {
   AssignmentRowCheckbox,
   AssignmentSelectAll,
@@ -37,10 +43,9 @@ export const OverviewGrid = memo(function OverviewGrid({
   date: string
   rows: ReturnType<typeof overviewRows>
   now: number
-  onSelect: (s: OverviewSelection, anchor: HTMLButtonElement) => void
+  onSelect: (s: OverviewSelection, anchor: ShiftAnchor) => void
   onInspect: (activityId: string) => void
 }) {
-  const memberAnchors = useRef(new Map<string, HTMLButtonElement>())
   const { start, end } = overviewRange(data, date)
   const scale = timeScale(
     new Date(start).toISOString(),
@@ -130,10 +135,6 @@ export const OverviewGrid = memo(function OverviewGrid({
               />
             )}
             <button
-              ref={(element) => {
-                if (element) memberAnchors.current.set(member.id, element)
-                else memberAnchors.current.delete(member.id)
-              }}
               type="button"
               className="flex min-w-0 flex-1 items-center gap-2 text-left"
               aria-label={`${member.displayName}のシフトを確認`}
@@ -155,7 +156,7 @@ export const OverviewGrid = memo(function OverviewGrid({
                       assignment?.endsAt ??
                       new Date(Math.min(end, start + 3_600_000)).toISOString(),
                   },
-                  event.currentTarget
+                  elementAnchor(event.currentTarget)
                 )
               }}
             >
@@ -190,8 +191,6 @@ export const OverviewGrid = memo(function OverviewGrid({
                 className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
                 aria-label={`${member.displayName}に勤務を追加`}
                 onClick={(e) => {
-                  const anchor = memberAnchors.current.get(member.id)
-                  if (!anchor) return
                   const rect = e.currentTarget.getBoundingClientRect()
                   const t =
                     e.detail === 0
@@ -216,7 +215,7 @@ export const OverviewGrid = memo(function OverviewGrid({
                         Math.min(end, t + 3_600_000)
                       ).toISOString(),
                     },
-                    anchor
+                    clickAnchor(e)
                   )
                 }}
               />
@@ -243,11 +242,8 @@ export const OverviewGrid = memo(function OverviewGrid({
                       ? assignmentSelection.keys.includes(key)
                       : undefined
                   }
-                  className={`absolute top-[17px] z-[2] h-5 truncate rounded px-[9px] text-left text-xs leading-[17px] text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-ring`}
-                  style={{
-                    ...position(a.startsAt, a.endsAt),
-                    backgroundColor: `color-mix(in oklab, ${color} ${assignmentSelection?.keys.includes(key) ? 60 : attendanceColors ? 30 : 22}%, var(--background))`,
-                  }}
+                  className="absolute inset-y-0 z-[2] text-left focus-visible:outline-2 focus-visible:outline-ring"
+                  style={position(a.startsAt, a.endsAt)}
                   title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
                   aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
                   onClick={(event) =>
@@ -262,14 +258,23 @@ export const OverviewGrid = memo(function OverviewGrid({
                               startsAt: a.startsAt,
                               endsAt: a.endsAt,
                             },
-                            event.currentTarget
+                            clickAnchor(event, event.currentTarget)
                           )
                         : onInspect(a.activityId)
                   }
                 >
-                  {activity?.name}
-                  {activity?.active === false ? "（無効）" : ""}{" "}
-                  {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
+                  <span
+                    data-shift-bar
+                    className="absolute inset-x-0 truncate rounded px-[9px] text-xs leading-[17px] text-foreground tabular-nums"
+                    style={{
+                      ...shiftBarStyle,
+                      backgroundColor: `color-mix(in oklab, ${color} ${assignmentSelection?.keys.includes(key) ? 60 : attendanceColors ? 30 : 22}%, var(--background))`,
+                    }}
+                  >
+                    {activity?.name}
+                    {activity?.active === false ? "（無効）" : ""}{" "}
+                    {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
+                  </span>
                 </button>
               )
             })}

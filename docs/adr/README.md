@@ -19,3 +19,5 @@
 [管理・シフト業務の設計](../design/management.md)を参照する。
 
 [0009 重要連絡と通常の会話を分離する](0009-shift-notices.md)（採用・実装済み）
+
+[0011 表示条件の永続保存とシフト吹き出しの共通化](0011-view-preferences-and-shift-popovers.md)（採用・実装済み）

@@ -3,12 +3,22 @@ import {
   assignmentOverwriteInputSchema,
   activitiesResponseSchema,
   activityEditorResponseSchema,
+  activityPlansInputSchema,
+  activityPlansResponseSchema,
   type ActivityEditorInput,
   activityEnvelopeSchema,
 } from "@workspace/shared/shifts"
 
 import * as v from "valibot"
 import { apiJson, apiVoid } from "../../../lib/http/client"
+
+export const saveActivityPlans = (
+  plans: { id: string; plan: ActivityEditorInput }[]
+) =>
+  apiJson("/api/activities/plans", activityPlansResponseSchema, {
+    method: "PUT",
+    body: JSON.stringify(v.parse(activityPlansInputSchema, { plans })),
+  })
 
 export const getActivities = (year: number) =>
   apiJson(`/api/years/${year}/activities`, activitiesResponseSchema)

@@ -49,7 +49,11 @@ function ShiftEditorScreen({ id }: { id: string }) {
         </>
       }
     >
-      <ShiftEditor data={query.data} onStatusChange={setEditor} />
+      <ShiftEditor
+        data={query.data}
+        optionsReady={query.isSuccess && !query.isFetching}
+        onStatusChange={setEditor}
+      />
       {blocker.status === "blocked" && (
         <ConfirmDialog
           title={

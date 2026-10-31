@@ -177,17 +177,27 @@ it("switches every bar from activity colors to attendance colors without adding 
   const attendance = render(true)
   expect(attendance).toHaveLength(5)
   for (const bar of normal)
-    expect(bar.getAttribute("style")).toContain("#7C3AED 22%")
+    expect(
+      bar.querySelector("[data-shift-bar]")?.getAttribute("style")
+    ).toContain("#7C3AED 22%")
   const colors = ["#D97706", "#DC2626", "#16A34A", "#16A34A", "#64748B"]
   attendance.forEach((bar, index) => {
-    expect(bar.getAttribute("style")).toContain(`${colors[index]} 30%`)
+    expect(
+      bar.querySelector("[data-shift-bar]")?.getAttribute("style")
+    ).toContain(`${colors[index]} 30%`)
     expect(bar.textContent).toBe(normal[index]?.textContent)
     expect(bar.textContent).not.toMatch(/遅刻|欠勤|出勤|対応済み/)
   })
   expect(attendance[0]?.title).toContain("遅刻（対応済み）")
   expect(attendance[3]?.getAttribute("aria-label")).toContain("出勤確認待ち")
   expect(attendance[4]?.title).toContain("出勤記録なし")
-  expect(render(true, true).map((bar) => bar.getAttribute("style"))).toEqual(
-    attendance.map((bar) => bar.getAttribute("style"))
+  expect(
+    render(true, true).map((bar) =>
+      bar.querySelector("[data-shift-bar]")?.getAttribute("style")
+    )
+  ).toEqual(
+    attendance.map((bar) =>
+      bar.querySelector("[data-shift-bar]")?.getAttribute("style")
+    )
   )
 })

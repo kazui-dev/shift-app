@@ -12,6 +12,16 @@ const define = (status: Status, code: string, message: string): Failure => ({
 
 /** Every failure the API can return. Messages are shown to the member. */
 export const errors = {
+  assignmentTransferBlocked: define(
+    409,
+    "ASSIGNMENT_TRANSFER_BLOCKED",
+    "終了済み、または勤怠記録のある勤務は移動できません。"
+  ),
+  assignmentTransferChanged: define(
+    409,
+    "ASSIGNMENT_TRANSFER_CHANGED",
+    "勤務または勤怠が変更されました。最新の状態を確認してください。"
+  ),
   // Session and origin
   unauthorized: define(401, "UNAUTHORIZED", "ログインが必要です。"),
   onboardingRequired: define(

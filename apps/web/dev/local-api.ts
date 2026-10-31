@@ -10,11 +10,19 @@ import {
   type YearTag,
   shiftOverviewResponseSchema,
   activityEditorInputSchema,
+  activityPlansInputSchema,
   createActivityInputSchema,
   updateRoleInputSchema,
 } from "../../../packages/shared/src/contracts/shifts"
 import { formDateInputSchema } from "../../../packages/shared/src/contracts/availability"
-import { dates, makeEditors, members, roles, uuid } from "./fixtures"
+import {
+  dates,
+  makeEditors,
+  refreshAssignments,
+  members,
+  roles,
+  uuid,
+} from "./fixtures"
 
 // This server owns every /api request. Unknown requests fail closed, never proxy.
 export function localApi(): Plugin {
@@ -131,6 +139,59 @@ export function localApi(): Plugin {
         req.on("end", () => {
           try {
             const input: unknown = body ? JSON.parse(body) : null
+            if (path === "/api/activities/plans" && req.method === "PUT") {
+              const parsed = v.safeParse(activityPlansInputSchema, input)
+              if (!parsed.success) {
+                fail()
+                return
+              }
+              const plans = parsed.output.plans
+              if (
+                plans.some(
+                  ({ id, plan }) =>
+                    editors.find((editor) => editor.activity.id === id)
+                      ?.activity.version !== plan.version
+                )
+              ) {
+                send(
+                  {
+                    error: {
+                      code: "SHIFT_CHANGED",
+                      message: "シフトが更新されています。",
+                    },
+                  },
+                  409
+                )
+                return
+              }
+              for (const { id, plan } of plans) {
+                const editor = editors.find((item) => item.activity.id === id)
+                if (!editor) continue
+                const {
+                  slots,
+                  responsibles,
+                  candidateRoleIds,
+                  requirements,
+                  ...activity
+                } = plan
+                editor.activity = {
+                  ...editor.activity,
+                  ...activity,
+                  version: activity.version + 1,
+                }
+                editor.slots = slots
+                editor.responsibles = responsibles
+                editor.candidateRoleIds = candidateRoleIds
+                editor.requirements = requirements
+              }
+              refreshAssignments(editors)
+              send({
+                activities: editors.filter((editor) =>
+                  plans.some(({ id }) => id === editor.activity.id)
+                ),
+              })
+              return
+            }
             if (attendanceMatch && req.method === "PUT") {
               const settings = v.safeParse(attendanceSettingsSchema, input)
               if (!settings.success) {
@@ -661,6 +722,7 @@ export function localApi(): Plugin {
                 fail()
                 return
               }
+              refreshAssignments(editors)
               send(editor)
               return
             }

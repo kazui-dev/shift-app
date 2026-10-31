@@ -118,7 +118,9 @@ it("colors the entire member row without adding attendance text or changing the 
     expect(row?.className).toContain("h-14")
     expect(row?.textContent).not.toMatch(/遅刻|欠勤|対応済み/)
     expect(
-      host.querySelector('[data-slot-id="morning"]')?.getAttribute("style")
+      host
+        .querySelector('[data-slot-id="morning"] [data-shift-bar]')
+        ?.getAttribute("style")
     ).toContain("color-mix")
     expect(
       host.querySelector("[data-shift-member]")?.getAttribute("aria-label")

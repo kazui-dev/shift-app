@@ -77,7 +77,7 @@ export const members: Editor["members"] = Array.from(
   })
 )
 export function makeEditors(): Editor[] {
-  return dates.flatMap((date, day) =>
+  const editors: Editor[] = dates.flatMap((date, day) =>
     ["総合受付", "会場案内", "設営・片付け"].map((name, job) => ({
       activity: {
         id: uuid(1000 + day * 3 + job),
@@ -138,14 +138,41 @@ export function makeEditors(): Editor[] {
       submittedMemberIds: members
         .filter((_, i) => i % 13 !== 7)
         .map((m) => m.id),
-      otherAssignments: members
-        .filter((_, i) => i % 7 === 0)
-        .map((m) => ({
-          memberId: m.id,
-          startsAt: at(date, 16),
-          endsAt: at(date, 18),
-          name: "片付け",
-        })),
+      otherAssignments: [],
     }))
   )
+  refreshAssignments(editors)
+  return editors
+}
+
+export function refreshAssignments(editors: Editor[]) {
+  for (const editor of editors) {
+    editor.assignmentStates = editor.slots.flatMap((slot) =>
+      slot.memberIds.map((memberId) => ({
+        slotId: slot.id,
+        memberId,
+        recorded:
+          editor.assignmentStates?.some(
+            (state) =>
+              state.slotId === slot.id &&
+              state.memberId === memberId &&
+              state.recorded
+          ) ?? false,
+      }))
+    )
+    editor.otherAssignments = editors
+      .filter((other) => other.activity.id !== editor.activity.id)
+      .flatMap((other) =>
+        other.slots.flatMap((slot) =>
+          slot.memberIds.map((memberId) => ({
+            activityId: other.activity.id,
+            slotId: slot.id,
+            memberId,
+            name: other.activity.name,
+            startsAt: slot.startsAt,
+            endsAt: slot.endsAt,
+          }))
+        )
+      )
+  }
 }

@@ -5,10 +5,7 @@ import { ShiftViewToolbar } from "../components/shift-view-toolbar"
 import { ShiftOverview } from "../components/shift-overview"
 import { useShiftView } from "../shift-view-context"
 import { EmptyState } from "@/app/page-layout"
-import {
-  useManagement,
-  useManagementScreenView,
-} from "@/features/management/management-context"
+import { useManagement } from "@/features/management/management-context"
 import { ManagementPageFrame } from "@/features/management/pages/page-frame"
 import { ActivityManager } from "../components/activity-manager"
 
@@ -16,27 +13,20 @@ export function ShiftListPage() {
   const {
     years: { year },
   } = useManagement()
-  const view = useManagementScreenView(`shifts:${year}`)
   return year === null ? (
     <ManagementPageFrame title="シフト" viewKey={`shifts:${year}`} flushTop>
       <EmptyState>管理できる年度がありません</EmptyState>
     </ManagementPageFrame>
   ) : (
-    <ShiftViews key={year} year={year} view={view} />
+    <ShiftViews key={year} year={year} />
   )
 }
 
-function ShiftViews({
-  year,
-  view,
-}: {
-  year: number
-  view: Parameters<typeof ActivityManager>[0]["view"]
-}) {
+function ShiftViews({ year }: { year: number }) {
   const { dirty } = useManagement()
   const [switchTo, setSwitchTo] = useState<"list" | "overview" | null>(null)
   const saved = useShiftView(year)
-  const [mode, setMode] = useState(saved.mode ?? "list")
+  const mode = saved.mode ?? "list"
   const navigation = (
     <div className="flex gap-2" aria-label="シフトの表示">
       {(
@@ -56,7 +46,6 @@ function ShiftViews({
               setSwitchTo(item.id)
               return
             }
-            setMode(item.id)
             saved.save({ mode: item.id })
           }}
         >
@@ -73,7 +62,6 @@ function ShiftViews({
           confirmLabel="破棄する"
           onCancel={() => setSwitchTo(null)}
           onConfirm={() => {
-            setMode(switchTo)
             saved.save({ mode: switchTo })
             setSwitchTo(null)
           }}
@@ -84,7 +72,7 @@ function ShiftViews({
       ) : (
         <>
           <ShiftViewToolbar navigation={navigation} />
-          <ActivityManager year={year} view={view} />
+          <ActivityManager year={year} />
         </>
       )}
     </ManagementPageFrame>

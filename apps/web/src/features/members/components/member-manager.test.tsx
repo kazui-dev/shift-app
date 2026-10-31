@@ -1,6 +1,6 @@
 import type { FilterValue } from "@workspace/ui/lib/filters"
 // @vitest-environment jsdom
-import { act, type ComponentProps, type ReactNode } from "react"
+import { act, useState, type ComponentProps, type ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { expect, it, vi } from "vite-plus/test"
@@ -192,14 +192,32 @@ async function fixture() {
       }>
     ) => void
   >()
+  function List() {
+    const [view, setView] = useState<
+      Omit<ComponentProps<typeof MemberManager>["view"], "save">
+    >({ search: "", filter: "" })
+    return (
+      <MemberManager
+        year={2026}
+        view={{
+          ...view,
+          save: (patch) => {
+            save(patch)
+            setView((current) => ({
+              ...current,
+              ...patch,
+              filters: { ...current.filters, ...patch.filters },
+            }))
+          },
+        }}
+        onDirtyChange={() => {}}
+      />
+    )
+  }
   await act(async () =>
     root.render(
       <QueryClientProvider client={client}>
-        <MemberManager
-          year={2026}
-          view={{ search: "", filter: "", save }}
-          onDirtyChange={() => {}}
-        />
+        <List />
       </QueryClientProvider>
     )
   )
@@ -262,7 +280,6 @@ it("combines matching role/tag column filters, supports unset, and retains hidde
     expect(names()).toEqual(["田中"])
     expect(save).toHaveBeenCalledWith({
       filters: {
-        roles: { values: ["unset"], mode: "include" },
         tags: { values: ["unset"], mode: "include" },
       },
     })

@@ -24,7 +24,7 @@ export function YearRoleManager({
   const client = useQueryClient()
   const [ordering, setOrdering] = useState(false)
   const [reordering, setReordering] = useState(false)
-  const [search, setSearch] = useState(() => view.search)
+  const search = view.search
   const authority = query.data?.authority
   const roles = query.data?.roles ?? []
   const visible = reordering
@@ -68,7 +68,6 @@ export function YearRoleManager({
           value={search}
           onChange={(event) => {
             view.save({ search: event.target.value })
-            setSearch(event.target.value)
           }}
         />
         <span className="text-sm text-muted-foreground">
@@ -82,7 +81,6 @@ export function YearRoleManager({
           onClick={() => {
             if (!reordering) {
               view.save({ search: "" })
-              setSearch("")
             }
             setReordering(!reordering)
           }}

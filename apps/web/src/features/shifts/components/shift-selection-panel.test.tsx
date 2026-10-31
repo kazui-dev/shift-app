@@ -1,9 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server"
+import type { ReactNode } from "react"
 import { expect, it, vi } from "vite-plus/test"
 import {
   ShiftSelectionPanel,
   type ShiftSelection,
 } from "./shift-selection-panel"
+
+vi.mock("./shift-popover", () => ({
+  ShiftPopover: ({ children }: { children: ReactNode }) => (
+    <section>{children}</section>
+  ),
+}))
 
 it("initializes both time inputs with HH:mm so either endpoint can be edited alone", () => {
   const startsAt = "2026-10-29T00:03:00.000Z"
@@ -13,6 +20,7 @@ it("initializes both time inputs with HH:mm so either endpoint can be edited alo
   ]
   const html = renderToStaticMarkup(
     <ShiftSelectionPanel
+      anchor={{ position: null, focus: () => null }}
       selection={{ memberId: "member", slotId: "slot", startsAt, endsAt }}
       slots={slots}
       startsAt={startsAt}

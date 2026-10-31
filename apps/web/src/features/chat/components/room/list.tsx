@@ -1,7 +1,10 @@
 import { PageHeader } from "@workspace/ui/components/page-header"
 import { useQueryClient } from "@tanstack/react-query"
 import { prepareConversation } from "@/features/chat/data/chat"
-import { useState } from "react"
+import {
+  useViewPreference,
+  searchPreferenceSchema,
+} from "@/lib/view-preferences"
 import { Link } from "@tanstack/react-router"
 import { BellOff, Plus, Search, MessageCircle } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
@@ -11,6 +14,7 @@ import { roomSchedule } from "@/features/chat/components/room/schedule"
 
 type Room = Awaited<ReturnType<typeof getChatRooms>>["rooms"][number]
 export function RoomList({
+  year,
   rooms,
   loading,
   selectedId,
@@ -19,6 +23,7 @@ export function RoomList({
   onCreate,
   onOpen,
 }: {
+  year: number | null
   rooms: Room[]
   loading: boolean
   selectedId: string | null
@@ -31,7 +36,11 @@ export function RoomList({
   const prepare = (id: string) => {
     if (!offline) void prepareConversation(client, id)
   }
-  const [search, setSearch] = useState("")
+  const [search, setSearch] = useViewPreference(
+    `chat-list:${year}:search`,
+    searchPreferenceSchema,
+    ""
+  )
   const items = (
     <ul className="space-y-0.5">
       {rooms

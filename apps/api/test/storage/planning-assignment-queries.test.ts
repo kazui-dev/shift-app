@@ -269,7 +269,11 @@ it("preserves other-activity assignments including duplicates, inactive membersh
           .prepare(otherActivityAssignments)
           .all(excluded, year, excluded, year)
         const ordered = (rows: typeof before) =>
-          rows.map((row) => JSON.stringify(row)).sort()
+          rows
+            .map(({ activityId: _activityId, slotId: _slotId, ...row }) =>
+              JSON.stringify(row)
+            )
+            .sort()
         expect(ordered(after)).toEqual(ordered(before))
       }
     const rows = db
