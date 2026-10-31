@@ -96,7 +96,7 @@ it("ties details and candidates to the selected interval across minute-level sta
     )
   }
   function button(name: string) {
-    const result = Array.from(host.querySelectorAll("button")).find(
+    const result = Array.from(document.querySelectorAll("button")).find(
       (item) =>
         item.getAttribute("aria-label") === name || item.textContent === name
     )
@@ -115,7 +115,8 @@ it("ties details and candidates to the selected interval across minute-level sta
       input.dispatchEvent(new Event("input", { bubbles: true }))
     })
   }
-  const detail = () => host.querySelector('[aria-label="選択区間の人数と候補"]')
+  const detail = () =>
+    document.querySelector('[aria-label="選択区間の人数と候補"]')
   const visible = () =>
     Array.from(host.querySelectorAll("[data-shift-member]")).map(
       (item) => item.textContent
@@ -126,26 +127,35 @@ it("ties details and candidates to the selected interval across minute-level sta
     expect(visible()).toHaveLength(3)
     await select("09:11")
     expect(detail()?.textContent).toContain("09:00–09:12")
-    expect(host.querySelector("output")?.textContent).toBe("配置 1人/ 必要 3人")
+    expect(detail()?.querySelector("output")?.textContent).toBe(
+      "配置 1人/ 必要 3人"
+    )
     await select("09:12")
     expect(detail()?.textContent).toContain("09:12–09:18")
-    expect(host.querySelector("output")?.textContent).toBe("配置 1人/ 必要 8人")
+    expect(detail()?.querySelector("output")?.textContent).toBe(
+      "配置 1人/ 必要 8人"
+    )
     await act(async () => button("候補を表示").click())
     expect(visible()).toHaveLength(1)
     expect(visible()[0]).toContain(early.displayName)
     const name = host.querySelector<HTMLButtonElement>("[data-shift-member]")
     if (!name) throw new Error("Missing candidate")
     await act(async () => name.click())
-    expect(onSelect).toHaveBeenCalledWith({
-      memberId: early.id,
-      slotId: null,
-      startsAt: at("09:12"),
-      endsAt: at("09:18"),
-    })
+    expect(onSelect).toHaveBeenCalledWith(
+      {
+        memberId: early.id,
+        slotId: null,
+        startsAt: at("09:12"),
+        endsAt: at("09:18"),
+      },
+      { position: name, focus: name }
+    )
     await act(async () => button("次の区間").click())
     expect(visible()).toHaveLength(3)
     expect(detail()?.textContent).toContain("09:18–09:27")
-    expect(host.querySelector("output")?.textContent).toBe("配置 0人/ 必要 8人")
+    expect(detail()?.querySelector("output")?.textContent).toBe(
+      "配置 0人/ 必要 8人"
+    )
     await act(async () => button("候補を表示").click())
     expect(visible()).toHaveLength(1)
     expect(visible()[0]).toContain(later.displayName)
@@ -153,7 +163,9 @@ it("ties details and candidates to the selected interval across minute-level sta
     expect(detail()).toBeNull()
     expect(visible()).toHaveLength(3)
     await select("09:27")
-    expect(host.querySelector("output")?.textContent).toBe("配置 0人/ 必要 0人")
+    expect(detail()?.querySelector("output")?.textContent).toBe(
+      "配置 0人/ 必要 0人"
+    )
     expect(button("候補を表示").disabled).toBe(true)
     await act(async () => button("前の区間").click())
     expect(detail()?.textContent).toContain("09:18–09:27")

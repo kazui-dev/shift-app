@@ -1,6 +1,7 @@
 import { expect, it } from "vite-plus/test"
 import {
   emptyFilter,
+  pruneFilter,
   matchesFilter,
   type FilterValue,
 } from "@workspace/ui/lib/filters"
@@ -22,4 +23,11 @@ it("uses OR within a filter, supports exclusion, and distinguishes unassigned fr
   expect(matchesFilter(["a"], f(["unset"], "exclude"))).toBe(true)
   expect(matchesFilter([], f([], "exclude"))).toBe(true)
   expect(matchesFilter([], f(["unset", "a"]))).toBe(true)
+})
+it("removes deleted options without changing exclusion or an explicitly empty filter", () => {
+  const value = f(["a", "deleted"], "exclude")
+  expect(pruneFilter(value, ["a"])).toEqual(f(["a"], "exclude"))
+  expect(pruneFilter(value, ["a", "deleted"])).toBe(value)
+  const cleared = emptyFilter()
+  expect(pruneFilter(cleared, [])).toBe(cleared)
 })

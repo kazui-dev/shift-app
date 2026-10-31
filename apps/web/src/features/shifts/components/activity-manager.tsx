@@ -1,8 +1,8 @@
 import { filterActivities } from "../activity-filters"
 import { useShiftView } from "../shift-view-context"
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
-import { emptyFilter, type FilterValue } from "@workspace/ui/lib/filters"
-import { useState } from "react"
+import { emptyFilter, pruneFilter } from "@workspace/ui/lib/filters"
+import { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { activitiesQuery } from "@/features/shifts/data/activities"
@@ -17,38 +17,20 @@ import {
 const columns =
   "@md:grid-cols-[6.5rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem] @xl:grid-cols-[8rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem] @4xl:grid-cols-[11rem_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)_2.5rem]"
 
-export function ActivityManager({
-  year,
-  view,
-}: {
-  year: number
-  view: {
-    search: string
-    filter: string
-    filters?: Record<string, FilterValue>
-    save: (
-      patch: Partial<{
-        search: string
-        filter: string
-        filters: Record<string, FilterValue>
-      }>
-    ) => void
-  }
-}) {
+export function ActivityManager({ year }: { year: number }) {
   const query = useQuery(activitiesQuery(year))
-  const [search, setSearch] = useState(() => view.search)
-  const [status, setStatus] = useState(
-    () => view.filters?.status ?? emptyFilter()
-  )
   const activities = query.data?.activities ?? []
   const shiftView = useShiftView(year)
-  const [filters, setFilters] = useState(
+  const search = shiftView.listSearch ?? ""
+  const status = shiftView.listStatus ?? emptyFilter()
+  const filters = useMemo(
     () =>
       shiftView.listFilters ?? {
         dates: emptyFilter(),
         responsibles: emptyFilter(),
         places: emptyFilter(),
-      }
+      },
+    [shiftView.listFilters]
   )
   const visible = filterActivities(activities, filters, search, status)
   const dates = [
@@ -60,6 +42,31 @@ export function ActivityManager({
   const places = [...new Set(activities.map((item) => item.place))].sort(
     (a, b) => a.localeCompare(b, "ja")
   )
+  useEffect(() => {
+    if (!query.isSuccess || query.isFetching || !shiftView.listFilters) return
+    const next = {
+      dates: pruneFilter(filters.dates, dates),
+      responsibles: pruneFilter(filters.responsibles, [
+        ...responsibles,
+        "unset",
+      ]),
+      places: pruneFilter(filters.places, places),
+    }
+    if (
+      next.dates !== filters.dates ||
+      next.responsibles !== filters.responsibles ||
+      next.places !== filters.places
+    )
+      shiftView.save({ listFilters: next })
+  }, [
+    query.isSuccess,
+    query.isFetching,
+    shiftView,
+    filters,
+    dates,
+    responsibles,
+    places,
+  ])
   return (
     <div>
       <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
@@ -69,8 +76,7 @@ export function ActivityManager({
           className="w-full sm:max-w-80"
           value={search}
           onChange={(event) => {
-            view.save({ search: event.target.value })
-            setSearch(event.target.value)
+            shiftView.save({ listSearch: event.target.value })
           }}
         />
         {(
@@ -108,18 +114,17 @@ export function ActivityManager({
             value={filters[key]}
             onChange={(value) => {
               const next = { ...filters, [key]: value }
-              setFilters(next)
               shiftView.save({ listFilters: next })
             }}
           />
         ))}
         <FilterMenu
           label="状態"
+          optionsReady
           searchable={false}
           value={status}
           onChange={(value) => {
-            setStatus(value)
-            view.save({ filters: { status: value } })
+            shiftView.save({ listStatus: value })
           }}
           options={[
             { value: "active", label: "有効" },

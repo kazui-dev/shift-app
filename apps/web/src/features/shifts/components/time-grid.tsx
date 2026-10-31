@@ -7,6 +7,7 @@ import { memberAvailability } from "./member-availability"
 import { staffing } from "./staffing"
 import { ShiftTimeline } from "./shift-timeline"
 import { StaffingDetail } from "./staffing-detail"
+import type { ShiftAnchor } from "./shift-anchor"
 import { japanTime } from "@workspace/shared/japan-time"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
@@ -28,6 +29,7 @@ export const TimeGrid = memo(function TimeGrid({
   onSelect,
   onCommit,
   onMember,
+  onOther,
 }: {
   assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
@@ -37,9 +39,15 @@ export const TimeGrid = memo(function TimeGrid({
   search: string
   availability: FilterValue
   selection: ShiftSelection | null
-  onSelect: (selection: ShiftSelection) => void
+  onSelect: (selection: ShiftSelection, anchor: ShiftAnchor) => void
   onCommit: (selection: ShiftSelection) => void
-  onMember: (memberId: string) => void
+  onMember: (memberId: string, anchor: ShiftAnchor) => void
+  onOther?:
+    | ((
+        assignment: EditorData["otherAssignments"][number],
+        anchor: ShiftAnchor
+      ) => void)
+    | undefined
 }) {
   const scale = useMemo(
     () => timeScale(plan.startsAt, plan.endsAt),
@@ -161,15 +169,18 @@ export const TimeGrid = memo(function TimeGrid({
     })
   }, [members, data, plan, attendance])
   const selectMember = useCallback(
-    (memberId: string) => {
+    (memberId: string, anchor: ShiftAnchor) => {
       if (showingCandidates && periodDetail)
-        onSelect({
-          memberId,
-          slotId: null,
-          startsAt: periodDetail.startsAt,
-          endsAt: periodDetail.endsAt,
-        })
-      else onMember(memberId)
+        onSelect(
+          {
+            memberId,
+            slotId: null,
+            startsAt: periodDetail.startsAt,
+            endsAt: periodDetail.endsAt,
+          },
+          anchor
+        )
+      else onMember(memberId, anchor)
     },
     [showingCandidates, periodDetail, onSelect, onMember]
   )
@@ -283,8 +294,15 @@ export const TimeGrid = memo(function TimeGrid({
                 step={60_000}
                 value={selectedTime ?? start}
                 data-selected={!!periodDetail}
-                onFocus={() => {
-                  if (selectedTime === null) selectTime(start)
+                onClick={(event) => {
+                  if (selectedTime === null)
+                    selectTime(event.currentTarget.valueAsNumber)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    selectTime(event.currentTarget.valueAsNumber)
+                  }
                 }}
                 onChange={(event) => {
                   selectTime(event.currentTarget.valueAsNumber)
@@ -313,6 +331,7 @@ export const TimeGrid = memo(function TimeGrid({
           onSelect={onSelect}
           onCommit={onCommit}
           onMember={selectMember}
+          onOther={onOther}
         />
       ))}
     </ShiftTimeline>

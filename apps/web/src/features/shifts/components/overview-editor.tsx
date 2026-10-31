@@ -2,7 +2,8 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { Popover, PopoverContent } from "@workspace/ui/components/popover"
+import { ShiftPopover } from "./shift-popover"
+import type { ShiftAnchor } from "./shift-anchor"
 import { X } from "lucide-react"
 import { overviewAttendance } from "./overview-model"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -16,40 +17,29 @@ import type { ShiftOverview } from "@workspace/shared/shifts"
 import { activityQuery } from "../data/activities"
 import { planOf } from "./use-shift-plan"
 import { assignMember } from "./assign-member"
-import type { OverviewDrafts, OverviewDraft } from "./overview-draft"
+import type { OverviewDrafts } from "./overview-draft"
+import { transferAssignment, transferBlocked } from "./transfer-assignment"
 import type { OverviewSelection } from "./overview-model"
 
 export function OverviewEditor({
   anchor,
   ...props
 }: {
-  anchor: HTMLElement
+  anchor: ShiftAnchor
   drafts: OverviewDrafts
-  onApply: (id: string, draft: OverviewDraft) => void
+  onApply: (updates: OverviewDrafts) => void
   selection: OverviewSelection
   data: ShiftOverview
   onClose: () => void
 }) {
   return (
-    <Popover
-      open
-      modal={false}
-      onOpenChange={(open, details) => {
-        if (!open) {
-          if (details.reason === "escape-key")
-            anchor.focus({ preventScroll: true })
-          props.onClose()
-        }
-      }}
+    <ShiftPopover
+      anchor={anchor}
+      onClose={props.onClose}
+      aria-labelledby="overview-time-title"
     >
-      <PopoverContent
-        anchor={anchor}
-        aria-labelledby="overview-time-title"
-        finalFocus={false}
-      >
-        <OverviewEditorForm key={JSON.stringify(props.selection)} {...props} />
-      </PopoverContent>
-    </Popover>
+      <OverviewEditorForm key={JSON.stringify(props.selection)} {...props} />
+    </ShiftPopover>
   )
 }
 
@@ -61,7 +51,7 @@ function OverviewEditorForm({
   onClose,
 }: {
   drafts: OverviewDrafts
-  onApply: (id: string, draft: OverviewDraft) => void
+  onApply: (updates: OverviewDrafts) => void
   selection: OverviewSelection
   data: ShiftOverview
   onClose: () => void
@@ -70,8 +60,16 @@ function OverviewEditorForm({
   const [from, setFrom] = useState(japanInputValue(selection.startsAt))
   const [to, setTo] = useState(japanInputValue(selection.endsAt))
   const [error, setError] = useState("")
+  const changed =
+    activityId !== selection.activityId ||
+    from !== japanInputValue(selection.startsAt) ||
+    to !== japanInputValue(selection.endsAt)
 
   const [confirm, setConfirm] = useState<"save" | "remove" | null>(null)
+  const origin = useQuery({
+    ...activityQuery(selection.activityId),
+    enabled: !!selection.activityId,
+  })
   const query = useQuery({
     ...activityQuery(activityId),
     enabled: !!activityId,
@@ -86,8 +84,12 @@ function OverviewEditorForm({
   )
   const member = data.members.find((m) => m.id === selection.memberId)
   function apply(remove = false, confirmed = false) {
-    const source = query.data
-    if (!source || query.isFetching || query.isError) return
+    if (!remove && !changed) return
+    const moving =
+      !!selection.slotId && activityId !== selection.activityId && !remove
+    const source = selection.slotId ? origin.data : query.data
+    if (!source || query.isFetching || query.isError || origin.isFetching)
+      return
     const start = japanLocalDateTime(from),
       end = japanLocalDateTime(to)
     if (
@@ -97,7 +99,7 @@ function OverviewEditorForm({
       setError("開始・終了日時を確認してください。")
       return
     }
-    const current = drafts[activityId]?.plan ?? planOf(source)
+    const current = drafts[source.activity.id]?.plan ?? planOf(source)
     const original = current.slots.find(
       (s) =>
         s.id === selection.slotId && s.memberIds.includes(selection.memberId)
@@ -108,6 +110,7 @@ function OverviewEditorForm({
     }
     if (
       !remove &&
+      !moving &&
       original &&
       Date.parse(original.startsAt) === start &&
       Date.parse(original.endsAt) === end
@@ -140,6 +143,33 @@ function OverviewEditorForm({
         startsAt: new Date(start).toISOString(),
         endsAt: new Date(end).toISOString(),
       }
+      if (moving && query.data) {
+        const transferred = transferAssignment(
+          source,
+          query.data,
+          drafts,
+          value
+        )
+        if ("error" in transferred) {
+          setError(transferred.error)
+          return
+        }
+        if (
+          !confirmed &&
+          !query.data.availability.some(
+            (w) =>
+              w.memberId === value.memberId &&
+              Date.parse(w.startsAt) <= start &&
+              Date.parse(w.endsAt) >= end
+          )
+        ) {
+          setConfirm("save")
+          return
+        }
+        onApply(transferred.updates)
+        onClose()
+        return
+      }
       const assigned = assignMember(plan, value, [])
       if ("error" in assigned) {
         setError(assigned.error)
@@ -160,7 +190,7 @@ function OverviewEditorForm({
       plan = { ...plan, slots: assigned.slots }
     }
     setConfirm(null)
-    onApply(activityId, { base: planOf(source), plan })
+    onApply({ [source.activity.id]: { base: planOf(source), plan } })
     onClose()
   }
 
@@ -213,7 +243,10 @@ function OverviewEditorForm({
             searchable
             aria-label="追加するシフト"
             value={activityId}
-            disabled={!!selection.slotId}
+            disabled={
+              !!selection.slotId &&
+              (!origin.data || transferBlocked(origin.data, selection))
+            }
             options={[
               { value: "", label: "シフトを選択" },
               ...data.activities.map((a) => ({
@@ -284,13 +317,20 @@ function OverviewEditorForm({
             </Button>
           )}
           <div className="ml-auto flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
-              取消
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!changed}
+              onClick={onClose}
+            >
+              キャンセル
             </Button>
             <Button
               variant="outline"
               size="sm"
-              disabled={query.isFetching || query.isError || !query.data}
+              disabled={
+                !changed || query.isFetching || query.isError || !query.data
+              }
               onClick={() => apply()}
             >
               反映

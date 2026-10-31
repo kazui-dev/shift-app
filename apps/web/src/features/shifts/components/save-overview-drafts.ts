@@ -4,6 +4,7 @@ import {
   saveActivity,
   reviewActivityOverlaps,
   overwriteActivity,
+  saveActivityPlans,
 } from "../api/activities"
 import { mergeOverviewDraft } from "./overview-draft"
 import { planOf } from "./use-shift-plan"
@@ -66,6 +67,29 @@ export async function saveOverviewDrafts(
     remaining = { ...drafts },
     failures: string[] = []
   let cancelled = false
+  if (Object.values(drafts).some((draft) => draft.atomic)) {
+    try {
+      const result = await saveActivityPlans(
+        Object.entries(drafts).map(([id, draft]) => ({ id, plan: draft.plan }))
+      )
+      return {
+        remaining: {},
+        failures,
+        confirmed: result.activities.map((saved) => ({
+          id: saved.activity.id,
+          saved,
+        })),
+        cancelled,
+      }
+    } catch (failure) {
+      return {
+        remaining,
+        failures: [errorMessage(failure)],
+        confirmed,
+        cancelled,
+      }
+    }
+  }
   // Each shift sees earlier saves. Cancellation stops all unprocessed work; failed drafts stay retryable.
   await Object.entries(drafts).reduce(async (previous, [id, draft]) => {
     await previous

@@ -25,6 +25,8 @@ API の `routes` は HTTP と認可の構成、`domain` は純粋な判断、`se
 
 フィルターボタンは未選択なら項目名、1件なら選択値の表示名、複数なら項目名と件数を表示する。1件を「含まない」で選んだ場合は表示名に「を除外」を添える。検索で候補が隠れても選択値の名前を維持し、長い名前は省略表示とツールチップを使う。アイコンだけのフィルターはコンパクトな表示を維持する。
 
+表示条件の永続保存はWebの `useViewPreference` を使い、機能側でスキーマと画面・年度・対象のキーを定義する。利用者の分離は認証済みレイアウトが担当する。空の選択を保存なしと混同しない。候補の整理は取得成功後に行う。スクロールや下書きは表示条件の保存へ混ぜない。判断の理由と対象は[ADR 0011](adr/0011-view-preferences-and-shift-popovers.md)を参照する。
+
 ## ツールと生成物
 
 Oxc の lint・format 設定はルートの `vite.config.ts` に置く。別の Oxc 設定を増やさず、Bun、npm、Turborepo、ESLint、Prettier を並行導入しない。Worker の現在の compatibility date が必要な Node.js 互換動作を提供するため、`nodejs_compat` は追加しない。

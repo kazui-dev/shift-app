@@ -1,13 +1,12 @@
 import { activityPlanningAssignments } from "../../directory/services/directory-work"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 
-export async function saveShiftPlan(
+export async function shiftPlanStatements(
   db: D1Database,
   id: string,
   actor: string,
   input: ActivityEditorInput,
-  before: unknown,
-  prelude: D1PreparedStatement[] = []
+  before: unknown
 ) {
   const now = Date.now()
   const previous = await db
@@ -178,5 +177,19 @@ export async function saveShiftPlan(
       .prepare("UPDATE activities SET active=? WHERE id=?")
       .bind(input.active ? 1 : 0, id)
   )
-  await db.batch([...prelude, ...statements])
+  return statements
+}
+
+export async function saveShiftPlan(
+  db: D1Database,
+  id: string,
+  actor: string,
+  input: ActivityEditorInput,
+  before: unknown,
+  prelude: D1PreparedStatement[] = []
+) {
+  await db.batch([
+    ...prelude,
+    ...(await shiftPlanStatements(db, id, actor, input, before)),
+  ])
 }

@@ -31,6 +31,7 @@ import {
 import { MemberRoleEditor } from "./member-role-editor"
 import { MemberTagEditor } from "./member-tag-editor"
 import { TagManager } from "./tag-manager"
+import type { ManagementScreenView } from "@/features/management/management-context"
 
 export function MemberManager({
   year,
@@ -41,12 +42,14 @@ export function MemberManager({
   view: {
     search: string
     filter: string
-    filters?: Record<string, FilterValue>
+    filters?: Record<string, FilterValue> | undefined
+    sort?: ManagementScreenView["sort"]
     save: (
       patch: Partial<{
         search: string
         filter: string
         filters: Record<string, FilterValue>
+        sort: NonNullable<ManagementScreenView["sort"]>
       }>
     ) => void
   }
@@ -56,17 +59,10 @@ export function MemberManager({
   const roster = useQuery(rosterQuery(year))
   const roles = useQuery(rolesQuery(year))
   const tags = useQuery(tagsQuery(year))
-  const [search, setSearch] = useState(view.search)
-  const [roleFilter, setRoleFilter] = useState(
-    () => view.filters?.roles ?? emptyFilter()
-  )
-  const [tagFilter, setTagFilter] = useState(
-    () => view.filters?.tags ?? emptyFilter()
-  )
-  const [sort, setSort] = useState<{
-    column: "displayName" | "studentId"
-    descending: boolean
-  }>({ column: "studentId", descending: false })
+  const search = view.search
+  const roleFilter = view.filters?.roles ?? emptyFilter()
+  const tagFilter = view.filters?.tags ?? emptyFilter()
+  const sort = view.sort ?? { column: "studentId", descending: false }
   const [selected, setSelected] = useState<string[]>([])
   const [editing, setEditing] = useState<{
     kind: "role" | "tag"
@@ -129,15 +125,14 @@ export function MemberManager({
     setSelected([])
   }
   function sortBy(column: "displayName" | "studentId") {
-    setSort((current) => ({
-      column,
-      descending: current.column === column ? !current.descending : false,
-    }))
+    view.save({
+      sort: {
+        column,
+        descending: sort.column === column ? !sort.descending : false,
+      },
+    })
   }
   function clearFilters() {
-    setSearch("")
-    setRoleFilter(emptyFilter())
-    setTagFilter(emptyFilter())
     view.save({
       search: "",
       filters: { roles: emptyFilter(), tags: emptyFilter() },
@@ -182,7 +177,6 @@ export function MemberManager({
           placeholder="名前・学籍番号で検索"
           value={search}
           onChange={(event) => {
-            setSearch(event.target.value)
             view.save({ search: event.target.value })
           }}
         />
@@ -414,9 +408,9 @@ export function MemberManager({
                       })),
                     ]}
                     disabled={roles.isPending || roles.isError}
+                    optionsReady={roles.isSuccess && !roles.isFetching}
                     onChange={(value) => {
-                      setRoleFilter(value)
-                      view.save({ filters: { roles: value, tags: tagFilter } })
+                      view.save({ filters: { roles: value } })
                     }}
                   />
                 </div>
@@ -436,9 +430,9 @@ export function MemberManager({
                       })),
                     ]}
                     disabled={tags.isPending || tags.isError}
+                    optionsReady={tags.isSuccess && !tags.isFetching}
                     onChange={(value) => {
-                      setTagFilter(value)
-                      view.save({ filters: { roles: roleFilter, tags: value } })
+                      view.save({ filters: { tags: value } })
                     }}
                   />
                 </div>

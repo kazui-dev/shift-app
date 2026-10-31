@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type RefObject } from "react"
+import type { RefObject } from "react"
+import { ShiftPopover } from "./shift-popover"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { japanTime } from "@workspace/shared/japan-time"
@@ -23,36 +24,26 @@ export function StaffingDetail({
   onCandidates: () => void
   onClose: () => void
 }) {
-  const panel = useRef<HTMLElement>(null)
-  useLayoutEffect(() => {
-    const element = panel.current
-    const target = anchor.current
-    if (!element || !target) return undefined
-    const place = () => {
-      const rect = target.getBoundingClientRect()
-      const width = element.offsetWidth
-      element.style.left = `${Math.max(8, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 8))}px`
-      // Stay above the member rows, even when the timeline is sticky.
-      element.style.maxHeight = `${Math.max(0, rect.bottom - 8)}px`
-      element.style.top = `${Math.max(8, rect.top - element.offsetHeight - 8)}px`
-    }
-    place()
-    const observer = new ResizeObserver(place)
-    observer.observe(element)
-    window.addEventListener("resize", place)
-    window.addEventListener("scroll", place, true)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("resize", place)
-      window.removeEventListener("scroll", place, true)
-    }
-  })
-
   return (
-    <section
-      ref={panel}
+    <ShiftPopover
+      anchor={{
+        position: anchor,
+        focus: () =>
+          anchor.current?.parentElement?.querySelector("input") ?? null,
+      }}
+      onClose={onClose}
+      retainOnOutside
+      initialFocus={false}
+      side="top"
+      align="center"
+      collisionAvoidance={{
+        side: "none",
+        align: "shift",
+        fallbackAxisSide: "none",
+      }}
       aria-label="選択区間の人数と候補"
-      className="fixed z-30 w-80 max-w-[calc(100vw-16px)] overflow-auto rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
+      className="w-80"
+      bodyClassName="p-2"
     >
       <div className="flex items-center gap-1">
         <Button
@@ -111,6 +102,6 @@ export function StaffingDetail({
           {candidatesOnly ? "全員を表示" : "候補を表示"}
         </Button>
       </div>
-    </section>
+    </ShiftPopover>
   )
 }

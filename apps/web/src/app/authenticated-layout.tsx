@@ -1,12 +1,15 @@
 import { getRouteApi } from "@tanstack/react-router"
 
 import { AppShell } from "./app-shell"
+import { ViewPreferencesProvider } from "./view-preferences-provider"
 
 const routeApi = getRouteApi("/_app")
 
 export function AuthenticatedLayout() {
-  const { offline, checking } = routeApi.useRouteContext()
+  const { state, offline, checking } = routeApi.useRouteContext()
   return (
-    <AppShell accountOffline={offline} accountChecking={checking ?? false} />
+    <ViewPreferencesProvider key={state.member.id} user={state.member.id}>
+      <AppShell accountOffline={offline} accountChecking={checking ?? false} />
+    </ViewPreferencesProvider>
   )
 }

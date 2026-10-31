@@ -92,7 +92,9 @@ export function CreateChat({
         <fieldset disabled={create.isPending} className="min-w-0 space-y-5">
           <ChatNameField id="new-chat-name" value={name} onChange={setName} />
           <TargetPicker
+            viewKey={`new:${year}`}
             targets={candidates}
+            optionsReady={targets.isSuccess && !targets.isFetching}
             selected={selected}
             onChange={setSelected}
           />

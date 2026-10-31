@@ -1,4 +1,9 @@
 import type { FilterValue } from "@workspace/ui/lib/filters"
+import * as v from "valibot"
+import {
+  filterPreferenceSchema,
+  useViewPreference,
+} from "@/lib/view-preferences"
 import { createContext, useContext } from "react"
 import type { useManagementYearState } from "@/features/management/use-management-year"
 
@@ -6,14 +11,28 @@ export type ManagementScreenView = {
   scrollTop: number
   search: string
   filter: string
-  filters?: Record<string, FilterValue>
+  filters?: Record<string, FilterValue> | undefined
+  sort?: { column: "displayName" | "studentId"; descending: boolean }
 }
+
+const screenSchema = v.object({
+  search: v.string(),
+  filter: v.string(),
+  filters: v.optional(v.record(v.string(), filterPreferenceSchema)),
+  sort: v.optional(
+    v.object({
+      column: v.picklist(["displayName", "studentId"]),
+      descending: v.boolean(),
+    })
+  ),
+})
+const initialScreen = { search: "", filter: "" }
 
 export const ManagementContext = createContext<{
   years: ReturnType<typeof useManagementYearState>
   dirty: boolean
   setDirty: (dirty: boolean) => void
-  screenViews: Map<string, ManagementScreenView>
+  screenViews: Map<string, number>
 } | null>(null)
 
 export function useManagement() {
@@ -24,15 +43,25 @@ export function useManagement() {
 
 export function useManagementScreenView(key: string) {
   const { screenViews } = useManagement()
-  let view = screenViews.get(key)
-  if (!view) {
-    view = { scrollTop: 0, search: "", filter: "" }
-    screenViews.set(key, view)
-  }
+  const [view, , update] = useViewPreference(
+    `management:${key}`,
+    screenSchema,
+    initialScreen
+  )
   return {
     ...view,
+    scrollTop: screenViews.get(key) ?? 0,
     save(patch: Partial<ManagementScreenView>) {
-      screenViews.set(key, { ...(screenViews.get(key) ?? view), ...patch })
+      const { scrollTop, ...preferences } = patch
+      if (scrollTop !== undefined) screenViews.set(key, scrollTop)
+      if (Object.keys(preferences).length)
+        update((current) => ({
+          ...current,
+          ...preferences,
+          ...(preferences.filters
+            ? { filters: { ...current.filters, ...preferences.filters } }
+            : {}),
+        }))
     },
   }
 }
