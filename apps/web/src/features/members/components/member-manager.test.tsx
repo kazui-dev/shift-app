@@ -1,3 +1,7 @@
+import {
+  ManagementHeaderActionsContext,
+  ManagementHeaderLeadingContext,
+} from "@/features/management/header-actions-context"
 import type { FilterValue } from "@workspace/ui/lib/filters"
 // @vitest-environment jsdom
 import { act, useState, type ComponentProps, type ReactNode } from "react"
@@ -5,11 +9,7 @@ import { createRoot } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { expect, it, vi } from "vite-plus/test"
 import { keys } from "@/app/data/keys"
-import { ApiError } from "@/lib/http/client"
-import {
-  deactivateYearMembership,
-  changeMemberRoles,
-} from "@/features/years/api/years"
+import { changeMemberRoles } from "@/features/years/api/years"
 import { MemberManager } from "./member-manager"
 
 vi.mock("@tanstack/react-router", async () => ({
@@ -26,7 +26,6 @@ vi.mock("@/features/years/api/years", async () => ({
   ...(await vi.importActual<typeof import("@/features/years/api/years")>(
     "@/features/years/api/years"
   )),
-  deactivateYearMembership: vi.fn<typeof deactivateYearMembership>(),
   changeMemberRoles: vi.fn<typeof changeMemberRoles>(),
 }))
 vi.mock("@workspace/ui/lib/toast", () => ({
@@ -79,7 +78,10 @@ vi.mock("@/components/select-field", () => ({
     </select>
   ),
 }))
-vi.mock("@workspace/ui/components/filter-menu", () => ({
+vi.mock("@workspace/ui/components/filter-menu", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@workspace/ui/components/filter-menu")
+  >()),
   FilterMenu: ({
     label,
     value,
@@ -97,12 +99,12 @@ vi.mock("@workspace/ui/components/filter-menu", () => ({
       <select
         multiple
         aria-label={`${label}で絞り込み`}
-        value={value.values}
+        value={value.include}
         disabled={disabled}
         onChange={(event) =>
           onChange({
             ...value,
-            values: [...event.target.selectedOptions].map(
+            include: [...event.target.selectedOptions].map(
               (option) => option.value
             ),
           })
@@ -116,7 +118,7 @@ vi.mock("@workspace/ui/components/filter-menu", () => ({
       </select>
       <button
         aria-label={`${label}を除外`}
-        onClick={() => onChange({ ...value, mode: "exclude" })}
+        onClick={() => onChange({ include: [], exclude: value.include })}
       >
         除外
       </button>
@@ -193,25 +195,31 @@ async function fixture() {
     ) => void
   >()
   function List() {
+    const [actions, setActions] = useState<HTMLDivElement | null>(null)
     const [view, setView] = useState<
       Omit<ComponentProps<typeof MemberManager>["view"], "save">
-    >({ search: "", filter: "" })
+    >({ search: "" })
     return (
-      <MemberManager
-        year={2026}
-        view={{
-          ...view,
-          save: (patch) => {
-            save(patch)
-            setView((current) => ({
-              ...current,
-              ...patch,
-              filters: { ...current.filters, ...patch.filters },
-            }))
-          },
-        }}
-        onDirtyChange={() => {}}
-      />
+      <ManagementHeaderActionsContext value={actions}>
+        <ManagementHeaderLeadingContext value={actions}>
+          <div ref={setActions} />
+          <MemberManager
+            year={2026}
+            view={{
+              ...view,
+              save: (patch) => {
+                save(patch)
+                setView((current) => ({
+                  ...current,
+                  ...patch,
+                  filters: { ...current.filters, ...patch.filters },
+                }))
+              },
+            }}
+            onDirtyChange={() => {}}
+          />
+        </ManagementHeaderLeadingContext>
+      </ManagementHeaderActionsContext>
     )
   }
   await act(async () =>
@@ -249,7 +257,7 @@ async function fixture() {
     await act(async () => input.click())
   }
   const names = () =>
-    [...host.querySelectorAll("tbody tr")].map((row) =>
+    [...host.querySelectorAll("tbody tr:has(input)")].map((row) =>
       row
         .querySelector("input")
         ?.getAttribute("aria-label")
@@ -269,18 +277,20 @@ it("combines matching role/tag column filters, supports unset, and retains hidde
     expect(host.querySelectorAll("thead select")).toHaveLength(2)
     expect(host.querySelector("tbody")?.textContent).not.toContain("参加解除")
     expect(host.textContent).not.toContain("参加解除")
+    expect(host.textContent).not.toContain("メンバーを追加")
+    expect(host.textContent).not.toContain("タグを管理")
     await select("鈴木")
     await choose("タグで絞り込み", "tag")
     expect(names()).toEqual(["佐藤"])
     expect(host.textContent).toContain("表示外1人")
-    expect(host.textContent).toContain("参加解除")
+    expect(host.textContent).not.toContain("参加解除")
     await choose("ロールで絞り込み", "unset")
-    expect(names()).toEqual([undefined])
+    expect(names()).toEqual([])
     await choose("タグで絞り込み", "unset")
     expect(names()).toEqual(["田中"])
     expect(save).toHaveBeenCalledWith({
       filters: {
-        tags: { values: ["unset"], mode: "include" },
+        tags: { include: ["unset"], exclude: [] },
       },
     })
     await act(async () => button("絞り込みを解除").click())
@@ -293,7 +303,7 @@ it("combines matching role/tag column filters, supports unset, and retains hidde
     await cleanup()
   }
 })
-it("uses the same chips and change choices for roles and tags", async () => {
+it("opens the existing role and tag editors from plain table cells", async () => {
   const { host, button, cleanup } = await fixture()
   try {
     const roleCell = host.querySelector<HTMLButtonElement>(
@@ -302,9 +312,8 @@ it("uses the same chips and change choices for roles and tags", async () => {
     const tagCell = host.querySelector<HTMLButtonElement>(
       'button[aria-label="佐藤のタグを変更"]'
     )
-    expect(roleCell?.querySelector("span span")?.className).toBe(
-      tagCell?.querySelector("span span")?.className
-    )
+    expect(roleCell?.textContent).toBe("受付")
+    expect(tagCell?.textContent).toBe("配布済み")
     await act(async () => roleCell?.click())
     expect(host.querySelector("dialog")?.getAttribute("aria-label")).toBe(
       "ロールを変更"
@@ -321,42 +330,6 @@ it("uses the same chips and change choices for roles and tags", async () => {
       "タグを変更"
     )
     expect(choices()).toEqual(["変更しない", "付与", "解除"])
-  } finally {
-    await cleanup()
-  }
-})
-it("confirms bulk removal and retains only failed members for retry", async () => {
-  const { host, button, select, cleanup } = await fixture()
-  const remove = vi.mocked(deactivateYearMembership)
-  remove
-    .mockResolvedValueOnce(undefined)
-    .mockRejectedValueOnce(
-      new ApiError("今後の勤務があります。", 409, "FUTURE_SHIFTS")
-    )
-  try {
-    await select("佐藤")
-    await select("鈴木")
-    await act(async () => button("参加解除").click())
-    expect(host.querySelector("aside")?.textContent).toContain(
-      "2人の年度への参加を解除"
-    )
-    expect(remove).not.toHaveBeenCalled()
-    await act(async () => button("確認").click())
-    expect(remove.mock.calls).toEqual([
-      [2026, "a"],
-      [2026, "b"],
-    ])
-    expect(host.querySelector('[role="alert"]')?.textContent).toContain(
-      "鈴木：今後の勤務があります。"
-    )
-    expect(
-      host.querySelector<HTMLInputElement>('input[aria-label="佐藤を選択"]')
-        ?.checked
-    ).toBe(false)
-    expect(
-      host.querySelector<HTMLInputElement>('input[aria-label="鈴木を選択"]')
-        ?.checked
-    ).toBe(true)
   } finally {
     await cleanup()
   }
@@ -381,6 +354,94 @@ it("combines multiple roles and tags with AND between columns, supports untagged
     if (!exclude) throw new Error("Missing exclusion control")
     await act(async () => exclude.click())
     expect(names()).toEqual(["鈴木", "田中"])
+  } finally {
+    await cleanup()
+  }
+})
+
+it("selects only visible rows without dropping hidden selections and persists sort changes", async () => {
+  const { host, select, choose, names, button, save, cleanup } = await fixture()
+  try {
+    const row = host.querySelector("tbody tr")
+    if (!(row instanceof HTMLElement)) throw new Error("Missing member row")
+    await act(async () => row.click())
+    expect(host.textContent).toContain("1人選択中")
+    await select("佐藤")
+    expect(host.textContent).not.toContain("人選択中")
+    await select("鈴木")
+    await choose("タグで絞り込み", "tag")
+    const all = host.querySelector<HTMLInputElement>(
+      'input[aria-label="表示中のメンバーをすべて選択"]'
+    )
+    if (!all) throw new Error("Missing select-all")
+    await act(async () => all.click())
+    expect(host.textContent).toContain("2人選択中")
+    await act(async () => all.click())
+    expect(host.textContent).toContain("1人選択中")
+    expect(host.textContent).toContain("表示外1人")
+    await choose("タグで絞り込み", [])
+    await act(async () => button("学籍番号").click())
+    expect(names()).toEqual(["田中", "鈴木", "佐藤"])
+    expect(save).toHaveBeenCalledWith({
+      sort: { column: "studentId", descending: true },
+    })
+    expect(host.querySelector('th[aria-sort="descending"]')?.textContent).toBe(
+      "学籍番号"
+    )
+  } finally {
+    await cleanup()
+  }
+})
+
+it("filters name and student ID independently and clears both through the common reset", async () => {
+  const { host, names, button, save, cleanup } = await fixture()
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  )
+  async function input(label: string, value: string) {
+    const trigger = host.querySelector<HTMLButtonElement>(
+      `button[aria-label="${label}で絞り込み"]`
+    )
+    if (!trigger) throw new Error("Missing text filter")
+    await act(async () => trigger.click())
+    const field = document.querySelector<HTMLInputElement>(
+      `input[aria-label="${label}を検索"]`
+    )
+    if (!field) throw new Error("Missing text input")
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set?.call(field, value)
+      field.dispatchEvent(new Event("input", { bubbles: true }))
+    })
+    await act(async () => trigger.click())
+  }
+  try {
+    await input("名前", "26EC")
+    expect(names()).toEqual([])
+    await input("名前", "佐藤")
+    expect(names()).toEqual(["佐藤"])
+    await input("学籍番号", "002")
+    expect(names()).toEqual([])
+    await input("学籍番号", "001")
+    expect(names()).toEqual(["佐藤"])
+    expect(save).toHaveBeenCalledWith({ textFilters: { studentId: "001" } })
+    await act(async () => button("絞り込みを解除").click())
+    expect(names()).toEqual(["佐藤", "鈴木", "田中"])
+    expect(save).toHaveBeenCalledWith({
+      search: "",
+      textFilters: {},
+      filters: {
+        roles: { include: [], exclude: [] },
+        tags: { include: [], exclude: [] },
+      },
+    })
   } finally {
     await cleanup()
   }

@@ -2,8 +2,6 @@ import {
   operatingYearEnvelopeSchema,
   displayYearResponseSchema,
   rosterResponseSchema,
-  yearMembershipEnvelopeSchema,
-  yearMembershipsResponseSchema,
   yearRoleEnvelopeSchema,
   yearRolesResponseSchema,
   yearsResponseSchema,
@@ -17,21 +15,6 @@ export const getYears = () => apiJson("/api/years", yearsResponseSchema)
 
 export const getRoster = (year: number) =>
   apiJson(`/api/years/${year}/roster`, rosterResponseSchema)
-
-export const getYearMemberships = (year: number) =>
-  apiJson(`/api/years/${year}/memberships`, yearMembershipsResponseSchema)
-
-export const activateYearMembership = (year: number, memberId: string) =>
-  apiJson(
-    `/api/years/${year}/memberships/${encodeURIComponent(memberId)}`,
-    yearMembershipEnvelopeSchema,
-    { method: "PUT" }
-  )
-
-export const deactivateYearMembership = (year: number, memberId: string) =>
-  apiVoid(`/api/years/${year}/memberships/${encodeURIComponent(memberId)}`, {
-    method: "DELETE",
-  })
 
 export const getYearRoles = (year: number) =>
   apiJson(`/api/years/${year}/roles`, yearRolesResponseSchema)

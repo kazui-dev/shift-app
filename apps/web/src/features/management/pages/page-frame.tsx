@@ -1,59 +1,79 @@
-import { useLayoutEffect, useRef, type ReactNode } from "react"
-import { useBlocker } from "@tanstack/react-router"
+import { ManagementHeaderLeadingContext } from "../header-actions-context"
+import { NavigationGuard } from "@/components/navigation-guard"
+import { useState, type ReactNode } from "react"
+import { ManagementViewport } from "../components/viewport"
 import { ManagementPage } from "../components/page"
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { useManagement, useManagementScreenView } from "../management-context"
+import { useManagement } from "../management-context"
 
 export function ManagementPageFrame({
   title,
+  titleInNavigation = false,
   viewKey,
-  flushTop = false,
   headerLeading,
+  headerTrailing,
+  headerActions,
+  scrollable = true,
+  contentWidth = "contained",
+  pending = false,
+  allowNavigation,
+  dirty: screenDirty,
   children,
 }: {
   title: string
+  titleInNavigation?: boolean
   viewKey: string
-  flushTop?: boolean
   headerLeading?: ReactNode
+  headerTrailing?: ReactNode
+  headerActions?: ReactNode
+  scrollable?: boolean
+  contentWidth?: "contained" | "full"
+  allowNavigation?: () => boolean
+  pending?: boolean
+  dirty?: boolean
   children: ReactNode
 }) {
   const { dirty } = useManagement()
-  const view = useManagementScreenView(viewKey)
-  const viewport = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    if (viewport.current) viewport.current.scrollTop = view.scrollTop
-  }, [view])
-  const blocker = useBlocker({
-    shouldBlockFn: () => dirty,
-    enableBeforeUnload: dirty,
-    withResolver: true,
-  })
+  const [leading, setLeading] = useState<HTMLDivElement | null>(null)
+
   return (
-    <ManagementPage
-      header={
-        <>
-          {headerLeading}
-          <h2 className="flex-1 text-base font-medium">{title}</h2>
-        </>
-      }
-    >
-      <div
-        ref={viewport}
-        onScroll={(event) => {
-          view.save({ scrollTop: event.currentTarget.scrollTop })
-        }}
-        className={`min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 pb-6 sm:px-6 lg:px-8 ${flushTop ? "pt-0" : "pt-6"}`}
+    <ManagementHeaderLeadingContext value={leading}>
+      <ManagementPage
+        header={
+          <>
+            {headerLeading}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+              <h2
+                className={
+                  titleInNavigation
+                    ? "shrink-0 text-base font-medium whitespace-nowrap md:sr-only"
+                    : "shrink-0 text-base font-medium whitespace-nowrap"
+                }
+              >
+                {title}
+              </h2>
+              <div
+                ref={setLeading}
+                className="flex flex-wrap items-center gap-2 empty:hidden"
+              />
+              {headerTrailing}
+            </div>
+            {headerActions}
+          </>
+        }
       >
-        <div className="mx-auto max-w-6xl">{children}</div>
-      </div>
-      {blocker.status === "blocked" && (
-        <ConfirmDialog
-          title="未保存の変更を破棄して移動しますか"
-          confirmLabel="移動する"
-          onCancel={() => blocker.reset()}
-          onConfirm={() => blocker.proceed()}
+        {scrollable ? (
+          <ManagementViewport viewKey={viewKey} width={contentWidth}>
+            {children}
+          </ManagementViewport>
+        ) : (
+          children
+        )}
+        <NavigationGuard
+          dirty={screenDirty ?? dirty}
+          pending={pending}
+          {...(allowNavigation ? { allowNavigation } : {})}
         />
-      )}
-    </ManagementPage>
+      </ManagementPage>
+    </ManagementHeaderLeadingContext>
   )
 }

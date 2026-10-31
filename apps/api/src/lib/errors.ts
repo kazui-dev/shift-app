@@ -99,6 +99,12 @@ export const errors = {
   ),
 
   // Tags
+  invalidTagOrder: define(400, "INVALID_TAG_ORDER", "タグの並び順が不正です。"),
+  tagOrderChanged: define(
+    409,
+    "TAG_ORDER_CHANGED",
+    "タグが更新されています。再読み込みしてください。"
+  ),
   invalidTag: define(
     422,
     "INVALID_TAG",
@@ -391,11 +397,6 @@ export const errors = {
     403,
     "FORBIDDEN",
     "本人または責任者のみ確認できます。"
-  ),
-  membershipEditForbidden: define(
-    403,
-    "ROLE_HIERARCHY",
-    "このメンバーの参加を変更する権限がありません。"
   ),
   invalidAttendance: define(
     422,

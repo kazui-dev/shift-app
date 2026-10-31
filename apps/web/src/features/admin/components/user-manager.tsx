@@ -1,34 +1,30 @@
-import { SearchableList } from "@/components/searchable-list"
-import { MemberAvatar } from "@/features/members/components/member-avatar"
-import { keys } from "@/app/data/keys"
-import { usersQuery } from "@/features/admin/data/admin"
-import { yearsQuery } from "@/features/years/data/years"
-import { useEffect, useRef, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { QueryError } from "@/components/query-error"
+import { functionalUpdate, useTable } from "@tanstack/react-table"
+import { DataTable } from "@workspace/ui/components/data-table"
+import { dataTableFeatures } from "@workspace/ui/lib/data-table"
+import { emptyFilter } from "@workspace/ui/lib/filters"
+import type { ManagementTableView } from "@/features/management/management-context"
+import { userTableColumns } from "./user-table-columns"
+import { accessLevelLabels as labels } from "../access-levels"
+import { useEffect, useMemo, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import type { RowSelectionState } from "@tanstack/react-table"
 import type { AdminUser } from "@workspace/shared/auth"
 import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { toast } from "@workspace/ui/lib/toast"
-import { updateAdminAccessLevel } from "@/features/admin/api/admin"
-import {
-  activateYearMembership,
-  deactivateYearMembership,
-} from "@/features/years/api/years"
-import { errorMessage } from "@/lib/http/client"
-import { ResponsiveSheet } from "@/components/responsive-overlay"
-import { SelectField } from "@/components/select-field"
-import { ConfirmDialog } from "@/components/confirm-dialog"
+import { TableSelectionActions } from "@workspace/ui/components/table-selection-actions"
+import { ManagementHeaderActions } from "@/features/management/components/header-actions"
+import { usersQuery } from "../data/admin"
+import { yearsQuery } from "@/features/years/data/years"
+import { UserBulkEditor } from "./user-bulk-editor"
 
-const labels = {
-  member: "一般",
-  leader: "委員会幹部",
-  system_admin: "システム管理者",
-}
+const emptyUsers: AdminUser[] = []
 export function UserManager({
   view,
   onDirtyChange,
+  onPendingChange,
 }: {
-  view: { search: string; save: (patch: { search: string }) => void }
+  view: ManagementTableView
+  onPendingChange?: ((pending: boolean) => void) | undefined
   onDirtyChange: (dirty: boolean) => void
 }) {
   const users = useQuery({
@@ -36,252 +32,163 @@ export function UserManager({
   })
   const years = useQuery({ ...yearsQuery })
   const search = view.search
-  const [detailOpen, setDetailOpen] = useState(false)
-  const [id, setId] = useState<string | null>(null)
-  const selected = users.data?.users.find((user) => user.id === id)
-  const filtered =
-    users.data?.users.filter((user) =>
-      `${user.displayName} ${user.studentId}`
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    ) ?? []
+  const data = users.data?.users ?? emptyUsers
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const selected = data.filter((user) => rowSelection[user.id])
+  const [editing, setEditing] = useState<{
+    kind: "years" | "access"
+    users: AdminUser[]
+  } | null>(null)
+  const [editorDirty, setEditorDirty] = useState(false)
+  useEffect(() => {
+    onDirtyChange(editorDirty)
+    return () => onDirtyChange(false)
+  }, [editorDirty, onDirtyChange])
+  const studentId = view.textFilters?.studentId ?? ""
+  const yearFilter = view.filters?.years ?? emptyFilter()
+  const accessFilter = view.filters?.accessLevel ?? emptyFilter()
+  const columns = useMemo(() => userTableColumns(), [])
+  const sort = view.sort ?? { column: "studentId", descending: false }
+  const sorting = [{ id: sort.column, desc: sort.descending }]
+  const table = useTable({
+    features: dataTableFeatures,
+    columns,
+    data,
+    getRowId: (user) => user.id,
+    enableRowSelection: !editorDirty,
+    enableSortingRemoval: false,
+    sortDescFirst: false,
+    enableMultiSort: false,
+    onSortingChange: (updater) => {
+      const next = functionalUpdate(updater, sorting)[0]
+      if (
+        next &&
+        (next.id === "displayName" ||
+          next.id === "studentId" ||
+          next.id === "years" ||
+          next.id === "accessLevel")
+      )
+        view.save({ sort: { column: next.id, descending: next.desc } })
+    },
+    onRowSelectionChange: setRowSelection,
+    state: {
+      rowSelection,
+      sorting,
+      columnFilters: [
+        { id: "displayName", value: search },
+        { id: "studentId", value: studentId },
+        { id: "years", value: yearFilter },
+        { id: "accessLevel", value: accessFilter },
+      ],
+    },
+  })
+  const yearOptions = [...new Set(data.flatMap((user) => user.years))].sort(
+    (a, b) => b - a
+  )
   return (
-    <div className="space-y-4">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-background py-4">
-        <Input
-          className="sm:max-w-80"
-          placeholder="名前・学籍番号で検索"
-          aria-label="ユーザーを検索"
-          value={search}
-          onChange={(event) => {
-            view.save({ search: event.target.value })
-          }}
-        />
-        <span className="text-sm text-muted-foreground">
-          {filtered.length} / {users.data?.users.length ?? 0}人
-        </span>
-      </div>
-      {users.isPending && (
-        <p className="text-sm text-muted-foreground">読み込み中…</p>
-      )}
-      {users.isError && (
-        <p role="alert" className="text-sm">
-          ユーザーを読み込めませんでした。
+    <div>
+      <ManagementHeaderActions placement="start">
+        <TableSelectionActions
+          count={selected.length}
+          hiddenCount={
+            selected.filter(
+              (user) =>
+                !table.getRowModel().rows.some((row) => row.id === user.id)
+            ).length
+          }
+          disabled={editorDirty}
+          onClear={() => setRowSelection({})}
+        >
           <Button
-            size="sm"
             variant="outline"
-            onClick={() => void users.refetch()}
+            size="sm"
+            disabled={editorDirty || !years.isSuccess}
+            onClick={() => setEditing({ kind: "years", users: selected })}
           >
-            再読み込み
+            年度を変更
           </Button>
-        </p>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={
+              editorDirty || selected.every((user) => user.isCurrentUser)
+            }
+            onClick={() => setEditing({ kind: "access", users: selected })}
+          >
+            権限を変更
+          </Button>
+        </TableSelectionActions>
+      </ManagementHeaderActions>
+      {users.isError && (
+        <QueryError
+          message="ユーザーを読み込めませんでした。"
+          onRetry={() => users.refetch()}
+        />
       )}
-      {!users.isPending && !users.isError && filtered.length === 0 && (
-        <p className="py-8 text-sm text-muted-foreground">
-          条件に一致するユーザーはいません。
-        </p>
-      )}
-      <div className="flex justify-between text-xs text-muted-foreground">
-        <span>名前・学籍番号</span>
-        <span>参加年度 / システム権限</span>
-      </div>
-      <ul className="divide-y border-y">
-        {filtered.map((user) => (
-          <li key={user.id}>
-            <button
-              className="flex min-h-16 w-full items-center gap-4 py-3 text-left"
-              aria-label={`${user.displayName}の詳細`}
-              onClick={() => {
-                setId(user.id)
-                setDetailOpen(true)
-              }}
-            >
-              <MemberAvatar name={user.displayName} image={user.image} />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium">{user.displayName}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {user.studentId}
-                </span>
-              </span>
-              <span className="text-right text-sm text-muted-foreground">
-                <span className="block">
-                  {user.years.join("・") || "未参加"}
-                </span>
-                <span className="text-xs">{labels[user.accessLevel]}</span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      {selected && (
-        <UserDetail
-          key={selected.id}
-          user={selected}
+      <DataTable
+        sortControls
+        selectOnRowClick
+        table={table}
+        label="ユーザー一覧"
+        columnFilters={{
+          displayName: {
+            kind: "text",
+            label: "名前",
+            value: search,
+            onChange: (value) => view.save({ search: value }),
+          },
+          studentId: {
+            kind: "text",
+            label: "学籍番号",
+            value: studentId,
+            onChange: (value) =>
+              view.save({ textFilters: { studentId: value } }),
+          },
+          years: {
+            kind: "choices",
+            label: "参加年度",
+            options: [
+              { value: "unset", label: "未参加" },
+              ...yearOptions.map((year) => ({
+                value: String(year),
+                label: `${year}年度`,
+              })),
+            ],
+            value: yearFilter,
+            optionsReady: users.isSuccess && !users.isFetching,
+            onChange: (value) => view.save({ filters: { years: value } }),
+          },
+          accessLevel: {
+            kind: "choices",
+            label: "システム権限",
+            searchable: false,
+            optionsReady: true,
+            options: Object.entries(labels).map(([value, label]) => ({
+              value,
+              label,
+            })),
+            value: accessFilter,
+            onChange: (value) => view.save({ filters: { accessLevel: value } }),
+          },
+        }}
+        empty={
+          users.isSuccess ? "条件に一致するユーザーはいません。" : undefined
+        }
+      />
+      {editing && (
+        <UserBulkEditor
+          kind={editing.kind}
+          users={editing.users}
           years={years.data?.years.map((year) => year.year) ?? []}
-          open={detailOpen}
-          onClose={() => setDetailOpen(false)}
-          onClosed={() => setId(null)}
-          onDirtyChange={onDirtyChange}
+          onDirtyChange={setEditorDirty}
+          onPendingChange={onPendingChange}
+          onClose={() => setEditing(null)}
+          onApplied={() => {
+            setEditing(null)
+            setRowSelection({})
+          }}
         />
       )}
     </div>
-  )
-}
-function UserDetail({
-  user,
-  years,
-  onClose,
-  onClosed,
-  open,
-  onDirtyChange,
-}: {
-  open: boolean
-  onClosed: () => void
-  user: AdminUser
-  years: number[]
-  onClose: () => void
-  onDirtyChange: (dirty: boolean) => void
-}) {
-  const client = useQueryClient()
-  const content = useRef<HTMLDivElement>(null)
-  const [level, setLevel] = useState(user.accessLevel)
-  const [reason, setReason] = useState("")
-  const [pending, setPending] = useState(false)
-  const [discarding, setDiscarding] = useState(false)
-  const dirty = level !== user.accessLevel
-  useEffect(() => {
-    onDirtyChange(open && (dirty || pending))
-    return () => onDirtyChange(false)
-  }, [open, dirty, pending, onDirtyChange])
-  async function run(action: () => Promise<unknown>) {
-    setPending(true)
-    try {
-      await action()
-      await Promise.all([
-        client.invalidateQueries({ queryKey: keys.adminUsers() }),
-        client.invalidateQueries({ queryKey: keys.yearMemberships() }),
-        client.invalidateQueries({ queryKey: keys.roster() }),
-        client.invalidateQueries({ queryKey: keys.displayYear() }),
-      ])
-      toast.success("保存しました。")
-    } catch (error) {
-      toast.error(errorMessage(error))
-    } finally {
-      setPending(false)
-    }
-  }
-  return (
-    <ResponsiveSheet
-      open={open}
-      onClosed={onClosed}
-      initialFocus={content}
-      bodyClassName="pt-5"
-      className="data-[side=right]:w-[26rem] data-[side=right]:sm:max-w-[26rem]"
-      title={user.displayName}
-      description={user.studentId}
-      headerActions={
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={pending || !dirty || !reason.trim()}
-          onClick={() =>
-            void run(() =>
-              updateAdminAccessLevel(user.id, {
-                accessLevel: level,
-                reason,
-              })
-            )
-          }
-        >
-          {pending ? "保存中…" : "権限を保存"}
-        </Button>
-      }
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen && !pending) {
-          if (dirty) setDiscarding(true)
-          else onClose()
-        }
-      }}
-    >
-      <div ref={content} tabIndex={-1} className="space-y-6 outline-none">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Discord</span>
-          <span>{user.discordLinked ? "連携済み" : "未連携"}</span>
-        </div>
-        <section className="border-t pt-5">
-          <h3 className="mb-3 text-sm font-medium">参加年度</h3>
-          <div className="divide-y">
-            <SearchableList
-              label="参加年度"
-              items={years}
-              getSearchText={(year) => `${year}年度`}
-            >
-              {(year) => (
-                <label
-                  key={year}
-                  className="flex min-h-11 items-center gap-3 text-sm"
-                >
-                  <input
-                    className="accent-foreground"
-                    type="checkbox"
-                    checked={user.years.includes(year)}
-                    disabled={pending}
-                    onChange={(event) =>
-                      void run(() =>
-                        event.target.checked
-                          ? activateYearMembership(year, user.id)
-                          : deactivateYearMembership(year, user.id)
-                      )
-                    }
-                  />
-                  {year}年度
-                </label>
-              )}
-            </SearchableList>
-          </div>
-        </section>
-        <section className="space-y-3 border-t pt-5">
-          <label htmlFor="user-access" className="block text-sm font-medium">
-            システム権限
-          </label>
-          <SelectField
-            id="user-access"
-            value={level}
-            disabled={user.isCurrentUser || pending}
-            onValueChange={(value) => {
-              if (
-                value === "member" ||
-                value === "leader" ||
-                value === "system_admin"
-              )
-                setLevel(value)
-            }}
-            options={Object.entries(labels).map(([value, label]) => ({
-              value,
-              label,
-            }))}
-          />
-          {level !== user.accessLevel && (
-            <Input
-              aria-label="変更理由"
-              placeholder="変更理由"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-            />
-          )}
-        </section>
-      </div>
-      {discarding && (
-        <ConfirmDialog
-          title="権限の変更を破棄しますか"
-          confirmLabel="破棄する"
-          onCancel={() => setDiscarding(false)}
-          onConfirm={() => {
-            setDiscarding(false)
-            onClose()
-          }}
-        />
-      )}
-    </ResponsiveSheet>
   )
 }

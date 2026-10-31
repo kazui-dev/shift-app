@@ -10,12 +10,14 @@ export function MemberRoleEditor({
   onClose,
   onApplied,
   onDirtyChange,
+  onPendingChange,
 }: {
   year: number
   memberIds: string[]
   roles: { id: string; name: string; memberIds: string[] }[]
   onClose: () => void
   onApplied: () => void
+  onPendingChange?: ((pending: boolean) => void) | undefined
   onDirtyChange: (dirty: boolean) => void
 }) {
   const client = useQueryClient()
@@ -27,6 +29,7 @@ export function MemberRoleEditor({
       onClose={onClose}
       onApplied={onApplied}
       onDirtyChange={onDirtyChange}
+      onPendingChange={onPendingChange}
       onApply={async (addRoleIds, removeRoleIds) => {
         await changeMemberRoles(year, { memberIds, addRoleIds, removeRoleIds })
         await Promise.all([

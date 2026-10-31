@@ -41,7 +41,7 @@ const data: ShiftOverview = {
     },
   ],
 }
-const f = (values: string[]): FilterValue => ({ values, mode: "include" })
+const f = (values: string[]): FilterValue => ({ include: values, exclude: [] })
 it("combines member filters with shifts without treating roles as shifts", () => {
   const filters = {
     date: "2026-10-29",

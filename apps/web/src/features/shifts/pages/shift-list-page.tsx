@@ -1,7 +1,8 @@
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { Link } from "@tanstack/react-router"
+import { Plus } from "lucide-react"
 import { useState } from "react"
 import { Button } from "@workspace/ui/components/button"
-import { ShiftViewToolbar } from "../components/shift-view-toolbar"
 import { ShiftOverview } from "../components/shift-overview"
 import { useShiftView } from "../shift-view-context"
 import { EmptyState } from "@/app/page-layout"
@@ -14,7 +15,11 @@ export function ShiftListPage() {
     years: { year },
   } = useManagement()
   return year === null ? (
-    <ManagementPageFrame title="シフト" viewKey={`shifts:${year}`} flushTop>
+    <ManagementPageFrame
+      title="シフト"
+      titleInNavigation
+      viewKey={`shifts:${year}`}
+    >
       <EmptyState>管理できる年度がありません</EmptyState>
     </ManagementPageFrame>
   ) : (
@@ -23,12 +28,12 @@ export function ShiftListPage() {
 }
 
 function ShiftViews({ year }: { year: number }) {
-  const { dirty } = useManagement()
   const [switchTo, setSwitchTo] = useState<"list" | "overview" | null>(null)
+  const [status, setStatus] = useState({ dirty: false, pending: false })
   const saved = useShiftView(year)
   const mode = saved.mode ?? "list"
   const navigation = (
-    <div className="flex gap-2" aria-label="シフトの表示">
+    <div className="flex shrink-0 gap-2" aria-label="シフトの表示">
       {(
         [
           { id: "list", label: "シフト別" },
@@ -40,9 +45,10 @@ function ShiftViews({ year }: { year: number }) {
           variant={mode === item.id ? "secondary" : "ghost"}
           size="sm"
           aria-pressed={mode === item.id}
+          disabled={status.pending}
           onClick={() => {
             if (mode === item.id) return
-            if (dirty) {
+            if (status.dirty) {
               setSwitchTo(item.id)
               return
             }
@@ -55,7 +61,37 @@ function ShiftViews({ year }: { year: number }) {
     </div>
   )
   return (
-    <ManagementPageFrame title="シフト" viewKey={`shifts:${year}`} flushTop>
+    <ManagementPageFrame
+      title="シフト"
+      titleInNavigation
+      viewKey={`shifts:${year}:${mode}`}
+      scrollable={mode === "list"}
+      contentWidth="full"
+      pending={status.pending}
+      headerTrailing={navigation}
+      headerActions={
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            disabled={status.pending}
+            render={<Link to="/manage/shifts/availability" />}
+          >
+            シフト希望フォーム
+          </Button>
+          <Button
+            size="sm"
+            nativeButton={false}
+            disabled={status.pending}
+            render={<Link to="/manage/shifts/new" />}
+          >
+            <Plus />
+            シフトを作成
+          </Button>
+        </div>
+      }
+    >
       {switchTo && (
         <ConfirmDialog
           title="未保存の変更を破棄しますか"
@@ -68,12 +104,9 @@ function ShiftViews({ year }: { year: number }) {
         />
       )}
       {mode === "overview" ? (
-        <ShiftOverview year={year} navigation={navigation} />
+        <ShiftOverview year={year} onStatusChange={setStatus} />
       ) : (
-        <>
-          <ShiftViewToolbar navigation={navigation} />
-          <ActivityManager year={year} />
-        </>
+        <ActivityManager year={year} />
       )}
     </ManagementPageFrame>
   )

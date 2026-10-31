@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client"
 import { expect, it, vi } from "vite-plus/test"
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import { SearchableSelect } from "@workspace/ui/components/searchable-select"
-import { emptyFilter } from "@workspace/ui/lib/filters"
+import { emptyFilter, type FilterValue } from "@workspace/ui/lib/filters"
 
 it("does not discard saved values while options load and removes obsolete values only after success", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true)
@@ -17,9 +17,9 @@ it("does not discard saved values while options load and removes obsolete values
     ready: boolean
     options: { value: string; label: string }[]
   }) {
-    const [value, onChange] = useState({
-      values: ["kept", "deleted"],
-      mode: "exclude" as const,
+    const [value, onChange] = useState<FilterValue>({
+      include: [],
+      exclude: ["kept", "deleted"],
     })
     return (
       <>
@@ -28,11 +28,9 @@ it("does not discard saved values while options load and removes obsolete values
           value={value}
           options={options}
           optionsReady={ready}
-          onChange={(next) =>
-            onChange({ values: next.values, mode: "exclude" })
-          }
+          onChange={onChange}
         />
-        <output>{value.values.join(",")}</output>
+        <output>{value.exclude.join(",")}</output>
       </>
     )
   }
@@ -115,7 +113,7 @@ it("selects multiple values without closing, retains hidden selections, excludes
     await click("確認済み")
     expect(trigger.textContent).toBe("タグ (2)")
     expect(host.querySelector("output")?.textContent).toBe(
-      JSON.stringify({ values: ["a", "b"], mode: "include" })
+      JSON.stringify({ include: ["a", "b"], exclude: [] })
     )
     expect(trigger.getAttribute("aria-expanded")).toBe("true")
     await search("配布")
@@ -124,8 +122,14 @@ it("selects multiple values without closing, retains hidden selections, excludes
     await click("配布済み")
     expect(trigger.textContent).toBe("確認済み")
     await click("含まない")
-    expect(trigger.textContent).toBe("確認済みを除外")
-    expect(trigger.title).toBe("タグ：含まない 確認済み")
+    // Changing the edited set keeps existing inclusions intact.
+    expect(trigger.textContent).toBe("確認済み")
+    await click("配布済み")
+    expect(trigger.textContent).toBe("タグ (2)")
+    expect(trigger.title).toBe("タグ：含む 確認済み ／ 含まない 配布済み")
+    expect(
+      JSON.parse(host.querySelector("output")?.textContent ?? "null")
+    ).toEqual({ include: ["b"], exclude: ["a"] })
     await click("含む")
     expect(
       document.querySelector<HTMLInputElement>('input[aria-label="タグを検索"]')
@@ -133,13 +137,17 @@ it("selects multiple values without closing, retains hidden selections, excludes
     ).toBe("配布")
     expect(document.querySelectorAll('[role="option"]')).toHaveLength(1)
     expect(trigger.getAttribute("aria-expanded")).toBe("true")
+    // Selecting the same option in the other set moves it, never creates a contradiction.
     await click("配布済み")
-    expect(host.querySelector("output")?.textContent).toContain('"a"')
-    expect(host.querySelector("output")?.textContent).toContain('"b"')
+    expect(
+      JSON.parse(host.querySelector("output")?.textContent ?? "null")
+    ).toEqual({ include: ["b", "a"], exclude: [] })
     await click("含まない")
-    expect(host.querySelector("output")?.textContent).toContain(
-      '"mode":"exclude"'
-    )
+    await search("確認")
+    await click("確認済み")
+    expect(
+      JSON.parse(host.querySelector("output")?.textContent ?? "null")
+    ).toEqual({ include: ["a"], exclude: ["b"] })
     await search("存在しない")
     expect(document.body.textContent).toContain("一致する候補がありません。")
     await click("全解除")

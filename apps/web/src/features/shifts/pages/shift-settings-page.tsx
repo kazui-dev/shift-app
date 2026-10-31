@@ -1,6 +1,8 @@
+import { ScrollViewport } from "@workspace/ui/components/scroll-viewport"
+import { NavigationGuard } from "@/components/navigation-guard"
 import { useState } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { getRouteApi, Link, useBlocker } from "@tanstack/react-router"
+import { getRouteApi, Link } from "@tanstack/react-router"
 import { ManagementPage } from "@/features/management/components/page"
 import { toast } from "@workspace/ui/lib/toast"
 import { keys } from "@/app/data/keys"
@@ -34,11 +36,6 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
   const [warning, setWarning] = useState(false)
   const [pending, setPending] = useState(false)
   const dirty = JSON.stringify(value) !== JSON.stringify(base)
-  const blocker = useBlocker({
-    shouldBlockFn: () => dirty || pending,
-    enableBeforeUnload: dirty,
-    withResolver: true,
-  })
 
   async function save(confirmed = false) {
     if (hasUnavailableAssignments(value, source.availability) && !confirmed) {
@@ -92,7 +89,7 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
         </>
       }
     >
-      <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
+      <ScrollViewport>
         <ShiftSettings
           value={value}
           data={source}
@@ -101,7 +98,7 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
           onChange={setValue}
           onSubmit={() => void save()}
         />
-      </div>
+      </ScrollViewport>
       {latest && (
         <ShiftConflicts
           base={base}
@@ -128,18 +125,7 @@ function ShiftSettingsScreen({ source }: { source: EditorData }) {
           }}
         />
       )}
-      {blocker.status === "blocked" && (
-        <ConfirmDialog
-          title={
-            pending ? "保存処理中です" : "未保存の変更を破棄して移動しますか"
-          }
-          confirmLabel="移動する"
-          onCancel={() => blocker.reset()}
-          onConfirm={() => {
-            if (!pending) blocker.proceed()
-          }}
-        />
-      )}
+      <NavigationGuard dirty={dirty} pending={pending} />
     </ManagementPage>
   )
 }

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, type ComponentProps } from "react"
+import { Popover } from "@base-ui/react/popover"
 import { Combobox } from "@base-ui/react/combobox"
 import { Check, Filter } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
@@ -6,11 +7,110 @@ import { Input } from "@workspace/ui/components/input"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   emptyFilter,
+  filterLabel,
+  filterValues,
+  filterDescription,
+  selectFilterValues,
   pruneFilter,
   type FilterValue,
 } from "@workspace/ui/lib/filters"
 
 type Option = { value: string; label: string }
+
+const popupClassName =
+  "flex max-h-(--available-height) w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-md"
+
+function FilterTrigger({
+  active,
+  iconOnly,
+  className,
+  children,
+  ...props
+}: ComponentProps<"button"> & { active: boolean; iconOnly: boolean }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+        iconOnly ? "size-7" : "h-9 border bg-background px-3",
+        active ? "bg-accent text-accent-foreground" : "text-muted-foreground",
+        className
+      )}
+    >
+      <Filter className={cn("size-3.5", active && "fill-current")} />
+      {children}
+    </button>
+  )
+}
+
+export function TextFilter({
+  label,
+  placeholder,
+  value,
+  onChange,
+  iconOnly = false,
+  disabled = false,
+}: {
+  label: string
+  placeholder?: string
+  value: string
+  onChange: (value: string) => void
+  iconOnly?: boolean
+  disabled?: boolean
+}) {
+  const active = Boolean(value.trim())
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        disabled={disabled}
+        aria-label={`${label}で絞り込み`}
+        title={active ? `${label}：${value}` : `${label}で絞り込み`}
+        render={<FilterTrigger active={active} iconOnly={iconOnly} />}
+      >
+        {!iconOnly && (
+          <span className="max-w-48 truncate">{active ? value : label}</span>
+        )}
+        {iconOnly && active && <span className="sr-only">{value}</span>}
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner
+          align="start"
+          sideOffset={4}
+          collisionPadding={16}
+          className="isolate z-50"
+        >
+          <Popover.Popup
+            aria-label={`${label}の絞り込み条件`}
+            className={popupClassName}
+          >
+            <div className="p-2">
+              <Input
+                type="search"
+                aria-label={`${label}を検索`}
+                placeholder={placeholder ?? `${label}を入力`}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+              />
+            </div>
+            <div className="flex items-center justify-between border-t px-2 py-1.5 text-xs text-muted-foreground">
+              <span>{active ? "絞り込み中" : "すべて表示"}</span>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                disabled={!value}
+                onClick={() => onChange("")}
+              >
+                解除
+              </Button>
+            </div>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  )
+}
 
 /** Shared list/table filter: selection survives searching and the popup stays open. */
 export function FilterMenu({
@@ -36,6 +136,11 @@ export function FilterMenu({
   optionsReady?: boolean
 }) {
   const [search, setSearch] = useState("")
+  const [selectedMode, setMode] = useState<keyof FilterValue>(() =>
+    value.exclude.length && !value.include.length ? "exclude" : "include"
+  )
+  const editingMode = allowExclusion ? selectedMode : "include"
+  const allSelected = filterValues(value)
   useEffect(() => {
     if (!optionsReady) return
     const next = pruneFilter(
@@ -47,23 +152,25 @@ export function FilterMenu({
   const filtered = options.filter((option) =>
     option.label.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   )
-  const active = value.values.length > 0
-  const singleOption =
-    value.values.length === 1
-      ? options.find((option) => option.value === value.values[0])
-      : undefined
-  const triggerLabel = singleOption
-    ? `${singleOption.label}${allowExclusion && value.mode === "exclude" ? "を除外" : ""}`
-    : `${label}${active ? ` (${value.values.length})` : ""}`
+  const active = allSelected.length > 0
+  const triggerLabel = filterLabel(label, options, value, allowExclusion)
   return (
     <Combobox.Root<Option, true>
       multiple
       items={options}
       filteredItems={filtered}
-      value={options.filter((option) => value.values.includes(option.value))}
+      value={options.filter((option) =>
+        value[editingMode].includes(option.value)
+      )}
       isItemEqualToValue={(item, selected) => item.value === selected.value}
       onValueChange={(selected) =>
-        onChange({ ...value, values: selected.map((item) => item.value) })
+        onChange(
+          selectFilterValues(
+            value,
+            editingMode,
+            selected.map((item) => item.value)
+          )
+        )
       }
       inputValue={search}
       onInputValueChange={(next, details) => {
@@ -84,19 +191,14 @@ export function FilterMenu({
         aria-label={`${label}で絞り込み`}
         title={
           active
-            ? `${label}：${allowExclusion ? `${value.mode === "exclude" ? "含まない" : "含む"} ` : ""}${singleOption?.label ?? `${value.values.length}件`}`
+            ? `${label}：${filterDescription(options, value, allowExclusion)}`
             : `${label}で絞り込み`
         }
-        className={cn(
-          "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
-          iconOnly ? "size-7" : "h-9 border bg-background px-3",
-          active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-        )}
+        render={<FilterTrigger active={active} iconOnly={iconOnly} />}
       >
-        <Filter className={cn("size-3.5", active && "fill-current")} />
         {!iconOnly && <span className="max-w-48 truncate">{triggerLabel}</span>}
         {iconOnly && active && (
-          <span className="sr-only">{value.values.length}件選択中</span>
+          <span className="sr-only">{allSelected.length}件選択中</span>
         )}
       </Combobox.Trigger>
       <Combobox.Portal>
@@ -108,7 +210,7 @@ export function FilterMenu({
           <Combobox.Popup
             data-slot="filter-popup"
             aria-label={`${label}の絞り込み条件`}
-            className="flex max-h-(--available-height) w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-md"
+            className={popupClassName}
           >
             {(searchable || allowExclusion) && (
               <div className="space-y-2 border-b p-2">
@@ -129,14 +231,14 @@ export function FilterMenu({
                       <button
                         type="button"
                         key={mode}
-                        aria-pressed={value.mode === mode}
+                        aria-pressed={editingMode === mode}
                         className={cn(
                           "flex-1 rounded py-1 text-xs",
-                          value.mode === mode
+                          editingMode === mode
                             ? "bg-background font-medium shadow-xs"
                             : "text-muted-foreground"
                         )}
-                        onClick={() => onChange({ ...value, mode })}
+                        onClick={() => setMode(mode)}
                       >
                         {mode === "include" ? "含む" : "含まない"}
                       </button>
@@ -161,7 +263,7 @@ export function FilterMenu({
                     aria-hidden
                     className={cn(
                       "flex size-4 shrink-0 items-center justify-center rounded-sm border",
-                      value.values.includes(option.value)
+                      value[editingMode].includes(option.value)
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-input"
                     )}
@@ -176,7 +278,7 @@ export function FilterMenu({
             </Combobox.List>
             <div className="flex items-center justify-between border-t px-2 py-1.5 text-xs text-muted-foreground">
               <span>
-                {active ? `${value.values.length}件選択中` : "すべて表示"}
+                {active ? `${allSelected.length}件選択中` : "すべて表示"}
               </span>
               <Button
                 type="button"

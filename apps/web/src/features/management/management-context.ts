@@ -10,23 +10,35 @@ import type { useManagementYearState } from "@/features/management/use-managemen
 export type ManagementScreenView = {
   scrollTop: number
   search: string
-  filter: string
+  textFilters?: Record<string, string> | undefined
   filters?: Record<string, FilterValue> | undefined
-  sort?: { column: "displayName" | "studentId"; descending: boolean }
+  sort?:
+    | {
+        column: "displayName" | "studentId" | "years" | "accessLevel"
+        descending: boolean
+      }
+    | undefined
+}
+
+export type ManagementTableView = Pick<
+  ManagementScreenView,
+  "search" | "textFilters" | "filters" | "sort"
+> & {
+  save: (patch: Partial<ManagementScreenView>) => void
 }
 
 const screenSchema = v.object({
   search: v.string(),
-  filter: v.string(),
+  textFilters: v.optional(v.record(v.string(), v.string())),
   filters: v.optional(v.record(v.string(), filterPreferenceSchema)),
   sort: v.optional(
     v.object({
-      column: v.picklist(["displayName", "studentId"]),
+      column: v.picklist(["displayName", "studentId", "years", "accessLevel"]),
       descending: v.boolean(),
     })
   ),
 })
-const initialScreen = { search: "", filter: "" }
+const initialScreen = { search: "" }
 
 export const ManagementContext = createContext<{
   years: ReturnType<typeof useManagementYearState>

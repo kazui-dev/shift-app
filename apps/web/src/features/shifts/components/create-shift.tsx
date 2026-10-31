@@ -1,17 +1,18 @@
+import { ScrollViewport } from "@workspace/ui/components/scroll-viewport"
+import { NavigationGuard } from "@/components/navigation-guard"
 import { SearchableList } from "@/components/searchable-list"
 import { useRef, useState, type FormEvent } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useBlocker, useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { rolesQuery, rosterQuery } from "@/features/years/data/years"
 import { activitiesQuery } from "@/features/shifts/data/activities"
 import { keys } from "@/app/data/keys"
 import { TargetPicker } from "./target-picker"
 import { createActivity } from "@/features/shifts/api/activities"
 import { errorMessage } from "@/lib/http/client"
-import { ConfirmDialog } from "@/components/confirm-dialog"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import { japanLocalDateTime } from "@workspace/shared/japan-time"
-import { PageHeader } from "@workspace/ui/components/page-header"
+import { ManagementPage } from "@/features/management/components/page"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { toast } from "@workspace/ui/lib/toast"
@@ -42,11 +43,6 @@ export function CreateShift({ year }: { year: number }) {
   const endsAt = japanLocalDateTime(to)
   const validRange =
     !!from && !!to && Number.isFinite(startsAt) && endsAt > startsAt
-  const blocker = useBlocker({
-    shouldBlockFn: () => !allowNavigation.current && (dirty || pending),
-    enableBeforeUnload: dirty,
-    withResolver: true,
-  })
 
   async function create(event: FormEvent) {
     event.preventDefault()
@@ -103,19 +99,22 @@ export function CreateShift({ year }: { year: number }) {
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHeader className="sm:px-6">
-        <Link
-          to="/manage/shifts"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← シフト一覧
-        </Link>
-        <h2 className="flex-1 text-base font-medium">シフトを作成</h2>
-        <span className="text-sm text-muted-foreground">{year}年度</span>
-      </PageHeader>
+    <ManagementPage
+      header={
+        <>
+          <Link
+            to="/manage/shifts"
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← シフト一覧
+          </Link>
+          <h2 className="flex-1 text-base font-medium">シフトを作成</h2>
+          <span className="text-sm text-muted-foreground">{year}年度</span>
+        </>
+      }
+    >
       <form onSubmit={create} className="flex min-h-0 flex-1 flex-col">
-        <div className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto px-4 py-6 sm:px-6">
+        <ScrollViewport>
           <fieldset disabled={pending} className="mx-auto max-w-2xl space-y-5">
             <label htmlFor="new-shift-name" className="block space-y-2 text-sm">
               シフト名
@@ -213,18 +212,14 @@ export function CreateShift({ year }: { year: number }) {
               </Button>
             </div>
           </fieldset>
-        </div>
+        </ScrollViewport>
       </form>
-      {blocker.status === "blocked" && (
-        <ConfirmDialog
-          title="入力を破棄して移動しますか"
-          confirmLabel="移動する"
-          onCancel={() => blocker.reset()}
-          onConfirm={() => {
-            if (!pending) blocker.proceed()
-          }}
-        />
-      )}
-    </section>
+      <NavigationGuard
+        dirty={dirty}
+        pending={pending}
+        allowNavigation={() => allowNavigation.current}
+        title="入力を破棄して移動しますか"
+      />
+    </ManagementPage>
   )
 }

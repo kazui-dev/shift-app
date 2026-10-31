@@ -16,7 +16,7 @@ it("keeps the header action associated with the role form and disabled without e
     role: null,
     canEdit: false,
     grantable: [],
-    onDirtyChange: () => {},
+    onStatusChange: () => {},
     onClose: () => {},
   }
   const html = renderToStaticMarkup(

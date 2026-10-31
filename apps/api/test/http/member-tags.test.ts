@@ -257,3 +257,59 @@ describe("year member tags", () => {
     }
   })
 })
+
+it("persists the complete tag order, appends new tags and rejects invalid or unauthorized changes atomically", async () => {
+  const { db, request, list, create, change } = fixture()
+  try {
+    const first = await create("Z")
+    const second = await create("A")
+    const otherYear = await create("Other", 2027)
+    await change([target], [first])
+    expect((await list()).map((tag) => tag.id)).toEqual([first, second])
+    expect(
+      (
+        await request(
+          "tag-order",
+          "PUT",
+          { tagIds: [second, first] },
+          2026,
+          "denied"
+        )
+      ).status
+    ).toBe(403)
+    expect(
+      (
+        await request(
+          "tag-order",
+          "PUT",
+          { tagIds: [second, first] },
+          2026,
+          "manager"
+        )
+      ).status
+    ).toBe(204)
+    expect((await list()).map((tag) => tag.id)).toEqual([second, first])
+    expect(
+      (await request(`tags/${first}`, "PUT", { name: "Renamed" })).status
+    ).toBe(204)
+    const third = await create("0")
+    expect((await list()).map((tag) => tag.id)).toEqual([second, first, third])
+    const invalid = await Promise.all([
+      request("tag-order", "PUT", { tagIds: [first, first, third] }),
+      request("tag-order", "PUT", { tagIds: ["bad"] }),
+      request("tag-order", "PUT", { tagIds: [] }),
+      request("tag-order", "PUT", { tagIds: [first, second] }),
+      request("tag-order", "PUT", { tagIds: [first, second, otherYear] }),
+    ])
+    expect(invalid.map((response) => response.status)).toEqual([
+      400, 400, 400, 409, 409,
+    ])
+    expect((await list()).map((tag) => tag.id)).toEqual([second, first, third])
+    expect((await list()).find((tag) => tag.id === first)?.memberIds).toEqual([
+      target,
+    ])
+    expect((await list(2027)).map((tag) => tag.id)).toEqual([otherYear])
+  } finally {
+    db.close()
+  }
+})

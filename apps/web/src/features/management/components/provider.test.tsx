@@ -19,12 +19,30 @@ beforeEach(() => {
 function Controls({ year, shift }: { year: number; shift: string }) {
   const view = useShiftView(year, shift)
   const members = useManagementScreenView(`members:${year}`)
+  const users = useManagementScreenView("users")
   return (
     <>
+      <span data-testid="user-sort">
+        {users.sort?.column}:{String(users.sort?.descending)}
+      </span>
+      <button
+        onClick={() =>
+          users.save({ sort: { column: "years", descending: true } })
+        }
+      >
+        sort years
+      </button>
+      <button
+        onClick={() =>
+          users.save({ sort: { column: "accessLevel", descending: false } })
+        }
+      >
+        sort access
+      </button>
       <output>
-        {view.filters?.availability.values.join(",") ?? "available"}:
+        {view.filters?.availability.include.join(",") ?? "available"}:
         {view.scrollTop}:{members.search}:
-        {members.filters?.roles?.values.join(",")}
+        {members.filters?.roles?.exclude.join(",")}
       </output>
       <button
         onClick={() =>
@@ -44,7 +62,7 @@ function Controls({ year, shift }: { year: number; shift: string }) {
         onClick={() =>
           members.save({
             search: "佐藤",
-            filters: { roles: { values: ["role"], mode: "exclude" } },
+            filters: { roles: { include: [], exclude: ["role"] } },
           })
         }
       >
@@ -73,6 +91,7 @@ async function page(user = "alice", year = 2026, shift = "a") {
   )
   return {
     text: () => host.querySelector("output")?.textContent,
+    sort: () => host.querySelector('[data-testid="user-sort"]')?.textContent,
     click: async (name: string) => {
       const button = [...host.querySelectorAll("button")].find(
         (item) => item.textContent === name
@@ -113,4 +132,20 @@ it("restores explicit clearing after a fresh page, isolates users/years/shifts a
   const otherYear = await page("alice", 2027)
   expect(otherYear.text()).toBe("available:0::")
   await otherYear.close()
+})
+
+it("restores user column sorting across reloads without sharing it with another user", async () => {
+  const first = await page()
+  await first.click("sort years")
+  await first.close()
+  const restored = await page()
+  expect(restored.sort()).toBe("years:true")
+  await restored.click("sort access")
+  await restored.close()
+  const again = await page()
+  expect(again.sort()).toBe("accessLevel:false")
+  await again.close()
+  const other = await page("bob")
+  expect(other.sort()).toBe(":undefined")
+  await other.close()
 })
