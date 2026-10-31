@@ -78,6 +78,18 @@
   outline-offset: -2px;
 }
 
+.shift-requirement-label {
+  container-type: inline-size;
+}
+.shift-requirement-label > span {
+  visibility: hidden;
+}
+@container (min-width: 2rem) {
+  .shift-requirement-label > span {
+    visibility: visible;
+  }
+}
+
 .shift-gridlines {
   position: absolute;
   inset: 0;

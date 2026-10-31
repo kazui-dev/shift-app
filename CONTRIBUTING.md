@@ -38,3 +38,7 @@ Cloudflare Dashboard の Worker `shift-app` → Settings → Builds は次の設
 | Production     | `main`                                          |
 
 `npx wrangler deploy` は monorepo root での自動検出を始めるため使わない。初期運用では production 以外の branch build を無効にする。preview deploy を導入する場合は、production と D1・secret を共有しない環境を先に設計する。
+
+本番リリースは `develop` → `main` の merge 後、main の対象 commit に付いた `Workers Builds: shift-app` の成功まで確認する。その check に記録された Version ID と `vp -C apps/api exec wrangler deployments list` の現在の 100% 配信版を照合し、本番画面・APIの疎通を確認して完了とする。main に merge しただけでは本番反映済みとしない。途中で main が進んだ場合は、最新 commit の build と配信版を確認し直す。
+
+手動 deploy が必要な場合も、最新の `origin/main` と一致する未変更の checkout から実行する。作業ブランチや未commitの変更を本番へ出さない。build失敗や別バージョンへの切り戻しでmainと本番がずれた場合は、復旧deployまたはmainへのrevertを行い、再度配信版を照合する。
