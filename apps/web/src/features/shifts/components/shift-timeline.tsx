@@ -5,13 +5,13 @@ export function ShiftTimeline({
   label,
   minWidth,
   header,
-  overlay,
+  detail,
   children,
 }: {
   label: string
   minWidth: string
   header: ReactNode
-  overlay?: ReactNode
+  detail?: ReactNode
   children: ReactNode
 }) {
   const heading = useRef<HTMLDivElement>(null)
@@ -38,7 +38,7 @@ export function ShiftTimeline({
             {header}
           </div>
         </div>
-        {overlay}
+        {detail}
       </div>
       <div
         ref={body}

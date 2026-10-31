@@ -6,12 +6,9 @@ import { TimeGuides } from "./time-guides"
 import { memberAvailability } from "./member-availability"
 import { staffing } from "./staffing"
 import { ShiftTimeline } from "./shift-timeline"
-import {
-  japanInputValue,
-  japanLocalDateTime,
-  japanTime,
-} from "@workspace/shared/japan-time"
-import { useState } from "react"
+import { StaffingDetail } from "./staffing-detail"
+import { japanTime } from "@workspace/shared/japan-time"
+import { useEffect, useRef, useState } from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput, Attendance } from "@workspace/shared/shifts"
 import type { AttendanceData } from "./attendance-data"
@@ -47,20 +44,45 @@ export function TimeGrid({
   const scale = timeScale(plan.startsAt, plan.endsAt)
   const { start, duration, labels } = scale
   const periods = staffing(plan)
+  const detailAnchor = useRef<HTMLSpanElement>(null)
   const [selectedTime, setSelectedTime] = useState<number | null>(null)
   const [candidatesOnly, setCandidatesOnly] = useState(false)
-  const periodDetail = periods.find(
-    (period) =>
-      selectedTime !== null &&
-      Date.parse(period.startsAt) <= selectedTime &&
-      selectedTime < Date.parse(period.endsAt)
-  )
+  const periodIndex =
+    selectedTime === null || assignmentSelection?.active
+      ? -1
+      : periods.findIndex(
+          (period) =>
+            Date.parse(period.startsAt) <= selectedTime &&
+            selectedTime < Date.parse(period.endsAt)
+        )
+  const periodDetail = periods[periodIndex]
+  function selectTime(time: number) {
+    setSelectedTime(time)
+    setCandidatesOnly(false)
+  }
+  function clearSelection() {
+    setSelectedTime(null)
+    setCandidatesOnly(false)
+  }
+  useEffect(() => {
+    if (selectedTime === null) return undefined
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSelectedTime(null)
+        setCandidatesOnly(false)
+      }
+    }
+    window.addEventListener("keydown", escape)
+    return () => window.removeEventListener("keydown", escape)
+  }, [selectedTime])
+  const showingCandidates =
+    candidatesOnly && !!periodDetail?.shortage && !assignmentSelection?.active
   const members = gridMembers(data, plan, {
     search,
     roles,
     availability,
   }).filter((member) => {
-    if (!candidatesOnly || !periodDetail) return true
+    if (!showingCandidates || !periodDetail) return true
     const from = Date.parse(periodDetail.startsAt),
       to = Date.parse(periodDetail.endsAt)
     return (
@@ -132,67 +154,18 @@ export function TimeGrid({
     <ShiftTimeline
       label="シフト配置時間軸"
       minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil(duration / 3_600_000) * 64 + 48}px))`}
-      overlay={
-        periodDetail &&
-        selectedTime !== null &&
-        !assignmentSelection?.active && (
-          <div className="absolute top-[68px] left-2 z-30 flex max-w-[calc(100%-16px)] flex-wrap items-center gap-x-2 gap-y-2 rounded-md border bg-popover py-2 pr-9 pl-2 text-xs shadow-sm">
-            <input
-              type="time"
-              step={60}
-              aria-label="確認時刻"
-              value={japanInputValue(selectedTime).slice(11, 16)}
-              onChange={(event) => {
-                const at = japanLocalDateTime(
-                  `${japanInputValue(selectedTime).slice(0, 10)}T${event.currentTarget.value}`
-                )
-                if (
-                  Number.isFinite(at) &&
-                  at >= start &&
-                  at < Date.parse(plan.endsAt)
-                ) {
-                  setSelectedTime(at)
-                  setCandidatesOnly(false)
-                }
-              }}
-              className="h-9 w-28 rounded-md border bg-background px-2 text-sm tabular-nums"
-            />
-            <output aria-live="polite" className="tabular-nums">
-              <span
-                className={
-                  periodDetail.shortage ? "text-destructive" : undefined
-                }
-              >
-                配置 {periodDetail.assigned}人
-              </span>
-              <span className="ml-2 text-muted-foreground">
-                / 必要{" "}
-                {periodDetail.required === null
-                  ? "未設定"
-                  : `${periodDetail.required}人`}
-              </span>
-            </output>
-            {periodDetail.shortage && (
-              <button
-                type="button"
-                className="underline underline-offset-4"
-                onClick={() => setCandidatesOnly(!candidatesOnly)}
-              >
-                {candidatesOnly ? "全員を表示" : "候補を表示"}
-              </button>
-            )}
-            <button
-              type="button"
-              className="absolute top-0 right-0 flex size-9 items-center justify-center"
-              aria-label="人数の詳細を閉じる"
-              onClick={() => {
-                setSelectedTime(null)
-                setCandidatesOnly(false)
-              }}
-            >
-              ×
-            </button>
-          </div>
+      detail={
+        periodDetail && (
+          <StaffingDetail
+            anchor={detailAnchor}
+            period={periodDetail}
+            previous={periods[periodIndex - 1]?.startsAt}
+            next={periods[periodIndex + 1]?.startsAt}
+            candidatesOnly={showingCandidates}
+            onTime={selectTime}
+            onCandidates={() => setCandidatesOnly(!showingCandidates)}
+            onClose={clearSelection}
+          />
         )
       }
       header={
@@ -261,27 +234,37 @@ export function TimeGrid({
                     requirement.startsAt,
                     requirement.endsAt
                   )}
-                  className="pointer-events-none absolute inset-y-0 z-[3] flex items-center justify-center overflow-hidden text-xs tabular-nums"
+                  className="shift-requirement-label pointer-events-none absolute inset-y-0 z-[3] flex items-center justify-center overflow-hidden text-xs whitespace-nowrap tabular-nums"
                 >
-                  {requirement.requiredCount}人
+                  <span>{requirement.requiredCount}人</span>
                 </span>
               ))}
+              {periodDetail && (
+                <span
+                  ref={detailAnchor}
+                  aria-hidden="true"
+                  style={scale.position(
+                    periodDetail.startsAt,
+                    periodDetail.endsAt
+                  )}
+                  className="pointer-events-none absolute inset-y-0 min-w-px border-x-2 border-primary bg-primary/15"
+                />
+              )}
               <input
                 type="range"
                 disabled={assignmentSelection?.active}
                 aria-label="配置人数を確認する時刻"
-                aria-valuetext={`${japanTime(selectedTime ?? start)}、配置${periods.find((period) => Date.parse(period.startsAt) <= (selectedTime ?? start) && (selectedTime ?? start) < Date.parse(period.endsAt))?.assigned ?? 0}人`}
+                aria-valuetext={`${japanTime(selectedTime ?? start)}、配置${periodDetail?.assigned ?? 0}人`}
                 min={start}
                 max={Math.max(start, Date.parse(plan.endsAt) - 60_000)}
                 step={60_000}
                 value={selectedTime ?? start}
-                data-selected={selectedTime !== null}
+                data-selected={!!periodDetail}
                 onFocus={() => {
-                  if (selectedTime === null) setSelectedTime(start)
+                  if (selectedTime === null) selectTime(start)
                 }}
                 onChange={(event) => {
-                  setSelectedTime(event.currentTarget.valueAsNumber)
-                  setCandidatesOnly(false)
+                  selectTime(event.currentTarget.valueAsNumber)
                 }}
                 className="shift-staffing-cursor"
               />
@@ -307,7 +290,7 @@ export function TimeGrid({
           onSelect={onSelect}
           onCommit={onCommit}
           onMember={(memberId) => {
-            if (candidatesOnly && periodDetail)
+            if (showingCandidates && periodDetail)
               onSelect({
                 memberId,
                 slotId: null,
