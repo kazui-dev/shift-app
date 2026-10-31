@@ -19,6 +19,7 @@ import {
 } from "./overview-model"
 
 export function OverviewGrid({
+  attendanceColors = false,
   assignmentSelection,
   data,
   date,
@@ -28,6 +29,7 @@ export function OverviewGrid({
   onInspect,
   printing = false,
 }: {
+  attendanceColors?: boolean
   assignmentSelection?: AssignmentSelection | undefined
   printing?: boolean
   data: ShiftOverview
@@ -209,6 +211,14 @@ export function OverviewGrid({
               const activity = activities.get(a.activityId)
               const label = overviewAttendance(a)
               const key = assignmentKey(a)
+              const color = attendanceColors
+                ? {
+                    late: "#D97706",
+                    absent: "#DC2626",
+                    present: "#16A34A",
+                    unrecorded: "#64748B",
+                  }[a.attendance?.state ?? "unrecorded"]
+                : (activity?.color ?? "#64748B")
               return (
                 <button
                   key={a.id}
@@ -222,7 +232,7 @@ export function OverviewGrid({
                   className={`absolute top-[17px] z-[2] h-5 truncate rounded px-[9px] text-left text-xs leading-[17px] text-foreground tabular-nums focus-visible:outline-2 focus-visible:outline-ring`}
                   style={{
                     ...position(a.startsAt, a.endsAt),
-                    backgroundColor: `color-mix(in oklab, ${activity?.color ?? "#64748B"} ${assignmentSelection?.keys.includes(key) ? 60 : 22}%, var(--background))`,
+                    backgroundColor: `color-mix(in oklab, ${color} ${assignmentSelection?.keys.includes(key) ? 60 : attendanceColors ? 30 : 22}%, var(--background))`,
                   }}
                   title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
                   aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
@@ -243,18 +253,6 @@ export function OverviewGrid({
                   {activity?.name}
                   {activity?.active === false ? "（無効）" : ""}{" "}
                   {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
-                  {a.attendance && (
-                    <span
-                      className={
-                        a.attendance.state === "late" ||
-                        a.attendance.state === "absent"
-                          ? "ml-1 text-destructive"
-                          : "ml-1 text-muted-foreground"
-                      }
-                    >
-                      {label}
-                    </span>
-                  )}
                 </button>
               )
             })}

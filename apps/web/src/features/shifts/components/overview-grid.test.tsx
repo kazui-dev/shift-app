@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { renderToStaticMarkup } from "react-dom/server"
 import { expect, it } from "vite-plus/test"
 import type { ShiftOverview } from "@workspace/shared/shifts"
@@ -102,4 +103,91 @@ it("counts recorded late assignments, including resolved records, without inferr
     />
   )
   expect(rendered).toContain("遅刻 1件")
+})
+
+it("switches every bar from activity colors to attendance colors without adding visible status text", () => {
+  const member = {
+    id: "one",
+    displayName: "One",
+    studentId: "26AJ001",
+    roles: [],
+    image: null,
+  }
+  const assignments: ShiftOverview["assignments"] = [
+    "late",
+    "absent",
+    "present",
+    "pending",
+    "unrecorded",
+  ].map((state) => ({
+    id: state,
+    slotId: state,
+    activityId: "work",
+    memberId: member.id,
+    startsAt: "2026-10-29T00:00:00Z",
+    endsAt: "2026-10-29T01:00:00Z",
+    attendance:
+      state === "unrecorded"
+        ? null
+        : {
+            state: state === "late" || state === "absent" ? state : "present",
+            checkInStatus: state === "pending" ? "pending" : "confirmed",
+            checkedInAt: null,
+            expectedAt: null,
+            resolvedAt: "2026-10-29T00:30:00Z",
+          },
+  }))
+  const data: ShiftOverview = {
+    canEdit: false,
+    members: [member],
+    roles: [],
+    availability: [],
+    availabilityAnswers: [],
+    activities: [
+      {
+        id: "work",
+        name: "受付",
+        color: "#7C3AED",
+        active: true,
+        startsAt: "2026-10-29T00:00:00Z",
+        endsAt: "2026-10-29T01:00:00Z",
+      },
+    ],
+    assignments,
+  }
+  const render = (attendanceColors: boolean, printing = false) => {
+    const host = document.createElement("div")
+    host.innerHTML = renderToStaticMarkup(
+      <OverviewGrid
+        attendanceColors={attendanceColors}
+        printing={printing}
+        data={data}
+        rows={[{ member, assignments }]}
+        date="2026-10-29"
+        now={0}
+        onSelect={() => {}}
+        onInspect={() => {}}
+      />
+    )
+    return [
+      ...host.querySelectorAll<HTMLButtonElement>("[data-assignment-key]"),
+    ]
+  }
+  const normal = render(false)
+  const attendance = render(true)
+  expect(attendance).toHaveLength(5)
+  for (const bar of normal)
+    expect(bar.getAttribute("style")).toContain("#7C3AED 22%")
+  const colors = ["#D97706", "#DC2626", "#16A34A", "#16A34A", "#64748B"]
+  attendance.forEach((bar, index) => {
+    expect(bar.getAttribute("style")).toContain(`${colors[index]} 30%`)
+    expect(bar.textContent).toBe(normal[index]?.textContent)
+    expect(bar.textContent).not.toMatch(/遅刻|欠勤|出勤|対応済み/)
+  })
+  expect(attendance[0]?.title).toContain("遅刻（対応済み）")
+  expect(attendance[3]?.getAttribute("aria-label")).toContain("出勤確認待ち")
+  expect(attendance[4]?.title).toContain("出勤記録なし")
+  expect(render(true, true).map((bar) => bar.getAttribute("style"))).toEqual(
+    attendance.map((bar) => bar.getAttribute("style"))
+  )
 })
