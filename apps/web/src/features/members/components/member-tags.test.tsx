@@ -4,14 +4,11 @@ import { createRoot } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { expect, it, vi } from "vite-plus/test"
 import { MemberTagEditor } from "./member-tag-editor"
-import { TagManager } from "./tag-manager"
-import { changeMemberTags, deleteTag } from "../api/tags"
+import { changeMemberTags } from "../api/tags"
 import { ApiError } from "@/lib/http/client"
 
 vi.mock("../api/tags", () => ({
   changeMemberTags: vi.fn<typeof changeMemberTags>(),
-  deleteTag: vi.fn<typeof deleteTag>(),
-  saveTag: vi.fn<typeof import("../api/tags").saveTag>(),
 }))
 vi.mock("@workspace/ui/lib/toast", () => ({
   toast: {
@@ -173,35 +170,6 @@ it("retains a bulk change through tag search, a canceled close, and a failed sav
     })
     expect(onApplied).toHaveBeenCalledOnce()
     expect(onDirtyChange).toHaveBeenCalledWith(true)
-  } finally {
-    await cleanup()
-  }
-})
-
-it("shows the affected member count and deletes a tag only after confirmation", async () => {
-  const { host, render, cleanup } = fixture()
-  const remove = vi.mocked(deleteTag).mockResolvedValue(undefined)
-  try {
-    await render(
-      <TagManager
-        year={2026}
-        tags={[tags[1]].filter((tag) => tag !== undefined)}
-        onClose={() => {}}
-        onDirtyChange={() => {}}
-      />
-    )
-    const deletion = [...host.querySelectorAll("button")].find(
-      (item) => item.textContent === "削除"
-    )
-    if (!deletion) throw new Error("missing delete button")
-    await act(async () => deletion.click())
-    expect(host.querySelector("aside")?.textContent).toContain("付与中の1人")
-    expect(remove).not.toHaveBeenCalled()
-    const confirm = host.querySelector("aside button")
-    if (!(confirm instanceof HTMLButtonElement))
-      throw new Error("missing confirmation")
-    await act(async () => confirm.click())
-    expect(remove).toHaveBeenCalledWith(2026, tags[1]?.id)
   } finally {
     await cleanup()
   }

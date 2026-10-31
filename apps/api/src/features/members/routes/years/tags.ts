@@ -4,6 +4,7 @@ import * as v from "valibot"
 import {
   memberTagChangesSchema,
   tagInputSchema,
+  reorderTagInputSchema,
 } from "@workspace/shared/shifts"
 import { canManageYear } from "../../../../auth/authorization/role-authority"
 import { apiError, errors } from "../../../../lib/errors"
@@ -35,6 +36,7 @@ const authorize = createMiddleware<ApiEnv>(async (c, next) => {
 yearTagsApp.use("/:year/tags", authorize)
 yearTagsApp.use("/:year/tags/*", authorize)
 yearTagsApp.use("/:year/member-tags", authorize)
+yearTagsApp.use("/:year/tag-order", authorize)
 
 yearTagsApp.get("/:year/tags", async (c) => {
   const rows = await c.env.shift_app
@@ -42,7 +44,7 @@ yearTagsApp.get("/:year/tags", async (c) => {
     FROM year_tags t
     LEFT JOIN member_year_tags mt ON mt.tag_id = t.id
     LEFT JOIN year_memberships ym ON ym.member_id = mt.member_id AND ym.year = t.year AND ym.status = 'active'
-    WHERE t.year = ? ORDER BY t.name, t.id, ym.member_id`)
+    WHERE t.year = ? ORDER BY t.position, t.name, t.id, ym.member_id`)
     .bind(parseYear(c.req.param("year")))
     .all<{ id: string; name: string; memberId: string | null }>()
   const tags = new Map<
@@ -69,14 +71,15 @@ yearTagsApp.post(
     if (!input.success) return apiError(c, errors.invalidTag)
     const now = Date.now()
     const result = await c.env.shift_app
-      .prepare(`INSERT OR IGNORE INTO year_tags (id, year, name, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?) RETURNING id`)
+      .prepare(`INSERT OR IGNORE INTO year_tags (id, year, name, created_at, updated_at, position)
+    VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM year_tags WHERE year = ?)) RETURNING id`)
       .bind(
         crypto.randomUUID(),
         parseYear(c.req.param("year")),
         input.output.name,
         now,
-        now
+        now,
+        parseYear(c.req.param("year"))
       )
       .all()
     if (!result.results.length) return apiError(c, errors.tagNameExists)
@@ -167,6 +170,35 @@ yearTagsApp.patch(
       ),
     ]
     if (statements.length) await c.env.shift_app.batch(statements)
+    return c.body(null, 204)
+  }
+)
+
+yearTagsApp.put(
+  "/:year/tag-order",
+  announce({ type: "access_changed" }),
+  async (c) => {
+    const input = v.safeParse(reorderTagInputSchema, await readJson(c.req.raw))
+    if (!input.success) return apiError(c, errors.invalidTagOrder)
+    const year = parseYear(c.req.param("year"))
+    const ids = input.output.tagIds
+    const json = JSON.stringify(ids)
+    const result = await c.env.shift_app
+      .prepare(`
+    UPDATE year_tags SET
+      position = (SELECT CAST(key AS INTEGER) FROM json_each(?) WHERE value = year_tags.id),
+      updated_at = ?
+    WHERE year = ?
+      AND (SELECT COUNT(*) FROM year_tags WHERE year = ?) = ?
+      AND NOT EXISTS (
+        SELECT value FROM json_each(?) WHERE value NOT IN (SELECT id FROM year_tags WHERE year = ?)
+      )
+    RETURNING id
+  `)
+      .bind(json, Date.now(), year, year, ids.length, json, year)
+      .all()
+    if (result.results.length !== ids.length)
+      return apiError(c, errors.tagOrderChanged)
     return c.body(null, 204)
   }
 )

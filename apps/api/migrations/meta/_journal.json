@@ -372,6 +372,13 @@
       "when": 1793166935948,
       "tag": "0052_easy_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "6",
+      "when": 1793488754900,
+      "tag": "0053_nasty_omega_sentinel",
+      "breakpoints": true
     }
   ]
 }

@@ -17,14 +17,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@workspace/ui/components/drawer"
-import {
-  Sheet,
-  SheetContent,
-  SheetClose,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@workspace/ui/components/sheet"
 import { cn } from "@workspace/ui/lib/utils"
 
 import { useMediaQuery } from "@/lib/hooks/use-media-query"
@@ -38,7 +30,6 @@ type ResponsiveOverlayProps = {
   children: React.ReactNode
   className?: string
   bodyClassName?: string
-  onClosed?: () => void
   initialFocus?: React.RefObject<HTMLElement | null>
 }
 
@@ -52,15 +43,11 @@ function DrawerView({
   className,
   initialFocus,
   bodyClassName,
-  onClosed,
 }: ResponsiveOverlayProps) {
   return (
     <Drawer
       open={open}
       onOpenChange={onOpenChange}
-      onOpenChangeComplete={(value) => {
-        if (!value) onClosed?.()
-      }}
       showSwipeHandle
       swipeDirection="down"
     >
@@ -123,58 +110,15 @@ export function ResponsiveDialog(props: ResponsiveOverlayProps) {
             <DialogDescription>{props.description}</DialogDescription>
           )}
         </DialogHeader>
-        <div className="max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-contain p-5">
-          {props.children}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-export function ResponsiveSheet(props: ResponsiveOverlayProps) {
-  const desktop = useMediaQuery("(min-width: 768px)")
-
-  if (!desktop) return <DrawerView {...props} />
-
-  return (
-    <Sheet
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      onOpenChangeComplete={(value) => {
-        if (!value) props.onClosed?.()
-      }}
-    >
-      <SheetContent
-        initialFocus={props.initialFocus}
-        className={cn("w-[28rem] max-w-full gap-0", props.className)}
-        side="right"
-        showCloseButton={false}
-      >
-        <SheetHeader className="gap-2 border-b px-6 py-3">
-          <div className="flex items-center gap-3">
-            <SheetTitle className="min-w-0 flex-1">{props.title}</SheetTitle>
-            {props.headerActions}
-            <SheetClose
-              render={
-                <Button variant="ghost" size="icon-sm" aria-label="閉じる" />
-              }
-            >
-              <X />
-            </SheetClose>
-          </div>
-          {props.description && (
-            <SheetDescription>{props.description}</SheetDescription>
-          )}
-        </SheetHeader>
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6",
+            "max-h-[min(70dvh,36rem)] overflow-y-auto overscroll-contain p-5",
             props.bodyClassName
           )}
         >
           {props.children}
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,4 +1,3 @@
-import type { ReactNode } from "react"
 import { Search } from "lucide-react"
 import { Input } from "@workspace/ui/components/input"
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
@@ -6,12 +5,10 @@ import type { EditorData } from "../editor-data"
 import type { MemberFilters } from "../shift-view-context"
 
 export function MemberFilterBar({
-  children,
   filters,
   roles,
   onChange,
 }: {
-  children?: ReactNode
   filters: MemberFilters
   roles: EditorData["roles"]
   onChange: (filters: MemberFilters) => void
@@ -54,7 +51,6 @@ export function MemberFilterBar({
         value={filters.availability}
         onChange={(value) => onChange({ ...filters, availability: value })}
       />
-      <div className="sm:ml-auto">{children}</div>
     </div>
   )
 }

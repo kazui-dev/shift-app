@@ -120,7 +120,7 @@ it("keeps unavailable members visible and filters by search and roles", async ()
     gridMembers(data, plan, {
       availability: emptyFilter(),
       search: "",
-      roles: { values: [role.id], mode: "include" },
+      roles: { include: [role.id], exclude: [] },
     })
   ).toEqual(
     data.members.filter((item) =>
@@ -131,7 +131,7 @@ it("keeps unavailable members visible and filters by search and roles", async ()
     gridMembers(data, plan, {
       availability: emptyFilter(),
       search: "",
-      roles: { values: [...plan.candidateRoleIds], mode: "include" },
+      roles: { include: [...plan.candidateRoleIds], exclude: [] },
     })
   ).toHaveLength(all.length)
   expect(
@@ -141,7 +141,7 @@ it("keeps unavailable members visible and filters by search and roles", async ()
       {
         availability: emptyFilter(),
         search: "",
-        roles: { values: ["missing"], mode: "include" },
+        roles: { include: ["missing"], exclude: [] },
       }
     )
   ).toEqual([])

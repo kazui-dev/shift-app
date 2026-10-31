@@ -1,3 +1,4 @@
+import { ScrollViewport } from "@workspace/ui/components/scroll-viewport"
 import type {
   ActivityEditorInput,
   AssignmentOverwriteReview,
@@ -114,9 +115,9 @@ export function ShiftEditor({
     () =>
       view.filters ?? {
         search: "",
-        availability: { values: ["available"], mode: "include" },
+        availability: { include: ["available"], exclude: [] },
         roles: source.candidateRoleIds.length
-          ? { values: [...source.candidateRoleIds], mode: "include" }
+          ? { include: [...source.candidateRoleIds], exclude: [] }
           : emptyFilter(),
       },
     [view.filters, source.candidateRoleIds]
@@ -415,9 +416,9 @@ export function ShiftEditor({
     }
   }
   return (
-    <div
+    <ScrollViewport
       ref={viewport}
-      className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto"
+      contentClassName="space-y-3"
       onScroll={(event) =>
         view.save({ scrollTop: event.currentTarget.scrollTop })
       }
@@ -432,7 +433,6 @@ export function ShiftEditor({
         />
       )}
       <ShiftEditorToolbar
-        activity={data.activity}
         dirty={dirty}
         pending={pending}
         conflicted={conflicted}
@@ -449,13 +449,14 @@ export function ShiftEditor({
             : void save()
         }
         onActions={() => setActions(true)}
-      />
-      <div className="space-y-3 px-4 pb-4 sm:px-6">
-        <MemberFilterBar
-          filters={filters}
-          roles={data.roles}
-          onChange={setFilters}
-        >
+        filters={
+          <MemberFilterBar
+            filters={filters}
+            roles={data.roles}
+            onChange={setFilters}
+          />
+        }
+        selection={
           <AssignmentSelectionToolbar
             selection={removal}
             details={removable.map((target) => {
@@ -490,54 +491,54 @@ export function ShiftEditor({
               removal.end()
             }}
           />
-        </MemberFilterBar>
-        <div className="min-w-0">
-          {attendance.isError && (
-            <p role="alert" className="px-3 py-2 text-sm">
-              勤怠を読み込めませんでした。
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void attendance.refetch()}
-              >
-                再読み込み
-              </Button>
-            </p>
-          )}
-          <fieldset disabled={pending} className="min-w-0">
-            <AssignmentSelectionArea selection={removal}>
-              <TimeGrid
-                assignmentSelection={removal}
-                data={data}
-                attendance={attendance.data?.assignments}
-                plan={plan}
-                roles={filters.roles}
-                search={filters.search}
-                availability={filters.availability}
-                selection={selection}
-                onSelect={select}
-                onCommit={commitSelection}
-                onMember={selectMember}
-                onOther={selectOther}
-              />
-            </AssignmentSelectionArea>
-          </fieldset>
-          {selection && (
-            <AssignmentPanel
-              anchor={selection.anchor}
+        }
+      />
+      <div className="min-w-0">
+        {attendance.isError && (
+          <p role="alert" className="px-3 py-2 text-sm">
+            勤怠を読み込めませんでした。
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void attendance.refetch()}
+            >
+              再読み込み
+            </Button>
+          </p>
+        )}
+        <fieldset disabled={pending} className="min-w-0">
+          <AssignmentSelectionArea selection={removal}>
+            <TimeGrid
+              assignmentSelection={removal}
+              data={data}
+              attendance={attendance.data?.assignments}
+              plan={plan}
+              roles={filters.roles}
+              search={filters.search}
+              availability={filters.availability}
               selection={selection}
-              activityId={selection.activityId ?? source.activity.id}
-              source={data}
-              drafts={{
-                ...related,
-                [source.activity.id]: { base, plan: { ...plan, version } },
-              }}
-              pending={pending}
-              onClose={() => setSelection(null)}
-              onApply={updateMany}
+              onSelect={select}
+              onCommit={commitSelection}
+              onMember={selectMember}
+              onOther={selectOther}
             />
-          )}
-        </div>
+          </AssignmentSelectionArea>
+        </fieldset>
+        {selection && (
+          <AssignmentPanel
+            anchor={selection.anchor}
+            selection={selection}
+            activityId={selection.activityId ?? source.activity.id}
+            source={data}
+            drafts={{
+              ...related,
+              [source.activity.id]: { base, plan: { ...plan, version } },
+            }}
+            pending={pending}
+            onClose={() => setSelection(null)}
+            onApply={updateMany}
+          />
+        )}
       </div>
       {bulkOpen && bulkMembers !== null && (
         <BulkAssignmentDialog
@@ -662,6 +663,6 @@ export function ShiftEditor({
           }}
         />
       )}
-    </div>
+    </ScrollViewport>
   )
 }

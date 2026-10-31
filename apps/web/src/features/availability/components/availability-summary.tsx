@@ -9,12 +9,18 @@ import { AvailabilityProgress } from "./availability-progress"
 export function AvailabilitySummary({
   year,
   onDirtyChange,
+  onPendingChange,
 }: {
   year: number
+  onPendingChange?: ((pending: boolean) => void) | undefined
   onDirtyChange: (dirty: boolean) => void
 }) {
   const client = useQueryClient()
   const [pending, setPending] = useState(false)
+  useEffect(() => {
+    onPendingChange?.(pending)
+    return () => onPendingChange?.(false)
+  }, [pending, onPendingChange])
   const [dateDirty, setDateDirty] = useState(false)
   useEffect(() => {
     onDirtyChange(dateDirty || pending)

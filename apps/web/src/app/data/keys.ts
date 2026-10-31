@@ -14,7 +14,6 @@ export const keys = {
   roster: key("roster"),
   yearRoles: key("year-roles"),
   yearTags: key("year-tags"),
-  yearMemberships: key("year-memberships"),
   activities: key("activities"),
   shiftOverview: key("shift-overview"),
   activityEditor: key("activity-editor"),
@@ -28,7 +27,6 @@ export const keys = {
   shiftAttendance: key("shift-attendance"),
   shiftCoworkers: key("shift-coworkers"),
   attendanceEvents: key("attendance-events"),
-  attendanceSettings: key("attendance-settings"),
   chatRooms: key("chat-rooms"),
   chatRoom: key("chat-room"),
   chatMessages: key("chat-messages"),
@@ -40,7 +38,6 @@ export const keys = {
   admin: key("admin"),
   adminUsers: key("admin", "users"),
   adminAuditLogs: key("admin", "audit-logs"),
-  adminLinkRequests: key("admin", "discord-link-requests"),
 } as const
 
 export function keyRoot(cacheKey: CacheKey): string {
@@ -64,11 +61,9 @@ export const membershipKeys = [
   keys.roster,
   keys.yearRoles,
   keys.yearTags,
-  keys.attendanceSettings,
   keys.chatMessages,
   keys.chatSearch,
   keys.chatImageMessage,
-  keys.yearMemberships,
   keys.activities,
   keys.shiftOverview,
   keys.activityEditor,

@@ -19,17 +19,15 @@ it("validates stored values, keeps empty selections, follows storage events and 
   const store = createViewPreferences("alice")
   function Filter() {
     const [value, set] = useViewPreference("filter", filterPreferenceSchema, {
-      values: ["default"],
-      mode: "include",
+      include: ["default"],
+      exclude: [],
     })
     return (
       <>
         <output>
-          {value.values.join(",")}:{value.mode}
+          {value.include.join(",")}:{value.exclude.join(",")}
         </output>
-        <button onClick={() => set({ values: [], mode: "exclude" })}>
-          clear
-        </button>
+        <button onClick={() => set({ include: [], exclude: [] })}>clear</button>
       </>
     )
   }
@@ -40,11 +38,11 @@ it("validates stored values, keeps empty selections, follows storage events and 
       </ViewPreferencesContext>
     )
   )
-  expect(host.textContent).toBe("default:includeclear")
+  expect(host.textContent).toBe("default:clear")
   await act(async () => host.querySelector("button")?.click())
   expect(JSON.parse(localStorage.getItem(key) ?? "null")).toEqual({
-    values: [],
-    mode: "exclude",
+    include: [],
+    exclude: [],
   })
   const event = (value: string) =>
     window.dispatchEvent(
@@ -57,17 +55,25 @@ it("validates stored values, keeps empty selections, follows storage events and 
   await act(async () => {
     event(JSON.stringify({ values: ["remote"], mode: "include" }))
   })
-  expect(host.textContent).toBe("remote:includeclear")
+  expect(host.textContent).toBe("remote:clear")
+  await act(async () =>
+    event(JSON.stringify({ values: ["legacy-excluded"], mode: "exclude" }))
+  )
+  expect(host.textContent).toBe(":legacy-excludedclear")
+  await act(async () =>
+    event(JSON.stringify({ include: ["yes"], exclude: ["no"] }))
+  )
+  expect(host.textContent).toBe("yes:noclear")
   await act(async () => {
     event(JSON.stringify({ values: 42, mode: "invalid" }))
   })
-  expect(host.textContent).toBe("default:includeclear")
+  expect(host.textContent).toBe("default:clear")
   await act(async () => {
     window.dispatchEvent(
       new StorageEvent("storage", { key: null, storageArea: localStorage })
     )
   })
-  expect(host.textContent).toBe(":excludeclear")
+  expect(host.textContent).toBe(":clear")
   await act(async () => root.unmount())
   const read = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
     throw new Error("unavailable")
@@ -84,4 +90,55 @@ it("validates stored values, keeps empty selections, follows storage events and 
   read.mockRestore()
   write.mockRestore()
   vi.unstubAllGlobals()
+})
+
+it("restores both filter sets and explicit clearing after recreating the page store", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true)
+  localStorage.clear()
+  const host = document.createElement("div")
+  let root = createRoot(host)
+  function Filter() {
+    const [value, set] = useViewPreference("both", filterPreferenceSchema, {
+      include: ["default"],
+      exclude: [],
+    })
+    return (
+      <>
+        <output>{JSON.stringify(value)}</output>
+        <button onClick={() => set({ include: ["a"], exclude: ["b"] })}>
+          both
+        </button>
+        <button onClick={() => set({ include: [], exclude: [] })}>clear</button>
+      </>
+    )
+  }
+  const mount = () =>
+    act(async () =>
+      root.render(
+        <ViewPreferencesContext value={createViewPreferences("reload")}>
+          <Filter />
+        </ViewPreferencesContext>
+      )
+    )
+  const reload = async () => {
+    await act(async () => root.unmount())
+    root = createRoot(host)
+    await mount()
+  }
+  try {
+    await mount()
+    await act(async () => host.querySelectorAll("button")[0]?.click())
+    await reload()
+    expect(host.querySelector("output")?.textContent).toBe(
+      JSON.stringify({ include: ["a"], exclude: ["b"] })
+    )
+    await act(async () => host.querySelectorAll("button")[1]?.click())
+    await reload()
+    expect(host.querySelector("output")?.textContent).toBe(
+      JSON.stringify({ include: [], exclude: [] })
+    )
+  } finally {
+    await act(async () => root.unmount())
+    vi.unstubAllGlobals()
+  }
 })

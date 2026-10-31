@@ -1,3 +1,4 @@
+import { ManagementNavigationContext } from "../navigation-context"
 import { useState } from "react"
 import {
   getRouteApi,
@@ -5,9 +6,6 @@ import {
   Outlet,
   useRouterState,
 } from "@tanstack/react-router"
-import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react"
-import { PageHeader } from "@workspace/ui/components/page-header"
-import { Button } from "@workspace/ui/components/button"
 import {
   Sheet,
   SheetContent,
@@ -15,19 +13,16 @@ import {
   SheetTitle,
 } from "@workspace/ui/components/sheet"
 import { ManagementProvider } from "./provider"
-import { ManagementYearSelect } from "./year-select"
-import { useManagement } from "../management-context"
 
 const workItems = [
   { to: "/manage/shifts", label: "シフト" },
   { to: "/manage/members", label: "メンバー" },
   { to: "/manage/roles", label: "ロール" },
-  { to: "/manage/attendance", label: "勤怠設定" },
+  { to: "/manage/tags", label: "タグ" },
 ] as const
 const systemItems = [
   { to: "/manage/years", label: "年度" },
   { to: "/manage/users", label: "ユーザー" },
-  { to: "/manage/discord-link-requests", label: "Discord連携申請" },
   { to: "/manage/audit", label: "操作履歴" },
 ] as const
 const appRoute = getRouteApi("/_app")
@@ -42,27 +37,12 @@ export function ManagementLayout() {
 
 function ManagementWorkspace() {
   const { state } = appRoute.useRouteContext()
-  const { dirty } = useManagement()
-  const { pathname, editingShift } = useRouterState({
-    select: (router) => ({
-      pathname: router.matches.at(-1)?.pathname ?? "/manage",
-      editingShift:
-        router.matches.at(-1)?.routeId === "/_app/manage/shifts_/$shiftId",
-    }),
+  const pathname = useRouterState({
+    select: (router) => router.matches.at(-1)?.pathname ?? "/manage",
   })
   const [menuOpen, setMenuOpen] = useState(false)
-  const [editorMenuOpen, setEditorMenuOpen] = useState(false)
-  const showDesktopMenu = !editingShift || editorMenuOpen
-  const yearLockedToRoute =
-    (pathname.startsWith("/manage/shifts/") &&
-      pathname !== "/manage/shifts/availability") ||
-    pathname.startsWith("/manage/roles/")
-
   const navigation = (
     <nav aria-label="管理メニュー" className="px-3 py-4">
-      <div className="mb-1">
-        <ManagementYearSelect disabled={dirty || yearLockedToRoute} />
-      </div>
       <MenuGroup
         items={workItems}
         pathname={pathname}
@@ -81,41 +61,9 @@ function ManagementWorkspace() {
   )
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHeader className="sm:px-6">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="md:hidden"
-          aria-label="管理メニューを開く"
-          onClick={() => setMenuOpen(true)}
-        >
-          <Menu />
-        </Button>
-        {editingShift && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="hidden md:inline-flex"
-            aria-label={
-              showDesktopMenu
-                ? "管理メニューを折りたたむ"
-                : "管理メニューを表示"
-            }
-            aria-controls="management-desktop-menu"
-            aria-expanded={showDesktopMenu}
-            onClick={() => setEditorMenuOpen(!editorMenuOpen)}
-          >
-            {showDesktopMenu ? <PanelLeftClose /> : <PanelLeftOpen />}
-          </Button>
-        )}
-        <h1 className="min-w-0 flex-1 text-base font-semibold">管理</h1>
-      </PageHeader>
+    <ManagementNavigationContext value={() => setMenuOpen(true)}>
       <div className="flex min-h-0 min-w-0 flex-1">
-        <aside
-          id="management-desktop-menu"
-          className={`hidden w-52 shrink-0 [scrollbar-width:none] overflow-y-auto border-r lg:w-56 ${showDesktopMenu ? "md:block" : ""}`}
-        >
+        <aside className="hidden w-40 shrink-0 overflow-y-auto border-r md:block">
           {navigation}
         </aside>
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -130,7 +78,7 @@ function ManagementWorkspace() {
           {navigation}
         </SheetContent>
       </Sheet>
-    </div>
+    </ManagementNavigationContext>
   )
 }
 

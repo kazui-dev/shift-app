@@ -13,6 +13,8 @@ import {
   activityPlansInputSchema,
   createActivityInputSchema,
   updateRoleInputSchema,
+  reorderRoleInputSchema,
+  reorderTagInputSchema,
 } from "../../../packages/shared/src/contracts/shifts"
 import { formDateInputSchema } from "../../../packages/shared/src/contracts/availability"
 import {
@@ -201,6 +203,30 @@ export function localApi(): Plugin {
               attendanceByYear.set(Number(attendanceMatch[1]), settings.output)
               res.statusCode = 204
               res.end()
+              return
+            }
+            const tagOrderPath = /^\/api\/years\/(2025|2026)\/tag-order$/.exec(
+              path
+            )
+            if (tagOrderPath && req.method === "PUT") {
+              const parsed = v.safeParse(reorderTagInputSchema, input)
+              const year = Number(tagOrderPath[1])
+              const tags = tagsByYear.get(year) ?? []
+              if (
+                !parsed.success ||
+                parsed.output.tagIds.length !== tags.length ||
+                tags.some((tag) => !parsed.output.tagIds.includes(tag.id))
+              )
+                return fail()
+              const byId = new Map(tags.map((tag) => [tag.id, tag]))
+              tagsByYear.set(
+                year,
+                parsed.output.tagIds.flatMap((id) => {
+                  const tag = byId.get(id)
+                  return tag ? [tag] : []
+                })
+              )
+              send(null, 204)
               return
             }
             const tagPath =
@@ -440,6 +466,25 @@ export function localApi(): Plugin {
             }
             if (path === "/api/years/2026/roster") {
               send({ members })
+              return
+            }
+            if (path === "/api/years/2026/role-order" && req.method === "PUT") {
+              const parsed = v.safeParse(reorderRoleInputSchema, input)
+              if (
+                !parsed.success ||
+                parsed.output.roleIds.length !== roles.length ||
+                new Set(parsed.output.roleIds).size !== roles.length ||
+                roles.some((r) => !parsed.output.roleIds.includes(r.id))
+              ) {
+                fail()
+                return
+              }
+              const ids = parsed.output.roleIds
+              roles.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+              roles.forEach((role, index) => {
+                role.position = roles.length - index
+              })
+              send(null, 204)
               return
             }
             if (path === "/api/years/2026/roles") {

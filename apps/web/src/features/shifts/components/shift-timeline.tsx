@@ -18,11 +18,11 @@ export function ShiftTimeline({
   const body = useRef<HTMLDivElement>(null)
   return (
     <section
-      className="shift-timeline max-w-full min-w-0 border-y"
+      className="shift-timeline max-w-full min-w-0 border-b"
       aria-label={label}
     >
       {/* Keep vertical stickiness outside the horizontal scroll container. */}
-      <div className="sticky top-0 z-20 border-b border-border/70 bg-background">
+      <div className="sticky-header">
         <div
           ref={heading}
           className="shift-timeline-scroll [scrollbar-width:none] overflow-x-auto"

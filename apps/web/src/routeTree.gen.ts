@@ -21,12 +21,11 @@ import { Route as AppChatIndexRouteImport } from './routes/_app.chat.index'
 import { Route as AppChatRoomIdRouteImport } from './routes/_app.chat.$roomId'
 import { Route as AppChatNewRouteImport } from './routes/_app.chat.new'
 import { Route as AppManageIndexRouteImport } from './routes/_app.manage.index'
-import { Route as AppManageAttendanceRouteImport } from './routes/_app.manage.attendance'
 import { Route as AppManageAuditRouteImport } from './routes/_app.manage.audit'
-import { Route as AppManageDiscordLinkRequestsRouteImport } from './routes/_app.manage.discord-link-requests'
 import { Route as AppManageMembersRouteImport } from './routes/_app.manage.members'
 import { Route as AppManageRolesRouteImport } from './routes/_app.manage.roles'
 import { Route as AppManageShiftsRouteImport } from './routes/_app.manage.shifts'
+import { Route as AppManageTagsRouteImport } from './routes/_app.manage.tags'
 import { Route as AppManageUsersRouteImport } from './routes/_app.manage.users'
 import { Route as AppManageYearsRouteImport } from './routes/_app.manage.years'
 import { Route as AppCalendarCalendarAvailabilityRouteImport } from './routes/_app._calendar.calendar.availability'
@@ -39,6 +38,10 @@ import { Route as AppChatRoomIdInfoSettingsRouteImport } from './routes/_app.cha
 import { Route as AppManageRolesYearRoleIdRouteImport } from './routes/_app.manage.roles_.$year.$roleId'
 import { Route as AppManageRolesYearNewRouteImport } from './routes/_app.manage.roles_.$year.new'
 import { Route as AppManageShiftsShiftIdSettingsRouteImport } from './routes/_app.manage.shifts_.$shiftId_.settings'
+import { Route as AppManageTagsYearTagIdRouteImport } from './routes/_app.manage.tags_.$year.$tagId'
+import { Route as AppManageTagsYearNewRouteImport } from './routes/_app.manage.tags_.$year.new'
+import { Route as AppManageRolesYearRoleIdSettingsRouteImport } from './routes/_app.manage.roles_.$year.$roleId_.settings'
+import { Route as AppManageTagsYearTagIdSettingsRouteImport } from './routes/_app.manage.tags_.$year.$tagId_.settings'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -98,22 +101,11 @@ const AppManageIndexRoute = AppManageIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppManageRoute,
 } as any)
-const AppManageAttendanceRoute = AppManageAttendanceRouteImport.update({
-  id: '/attendance',
-  path: '/attendance',
-  getParentRoute: () => AppManageRoute,
-} as any)
 const AppManageAuditRoute = AppManageAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
   getParentRoute: () => AppManageRoute,
 } as any)
-const AppManageDiscordLinkRequestsRoute =
-  AppManageDiscordLinkRequestsRouteImport.update({
-    id: '/discord-link-requests',
-    path: '/discord-link-requests',
-    getParentRoute: () => AppManageRoute,
-  } as any)
 const AppManageMembersRoute = AppManageMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -127,6 +119,11 @@ const AppManageRolesRoute = AppManageRolesRouteImport.update({
 const AppManageShiftsRoute = AppManageShiftsRouteImport.update({
   id: '/shifts',
   path: '/shifts',
+  getParentRoute: () => AppManageRoute,
+} as any)
+const AppManageTagsRoute = AppManageTagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
   getParentRoute: () => AppManageRoute,
 } as any)
 const AppManageUsersRoute = AppManageUsersRouteImport.update({
@@ -194,6 +191,28 @@ const AppManageShiftsShiftIdSettingsRoute =
     path: '/shifts/$shiftId/settings',
     getParentRoute: () => AppManageRoute,
   } as any)
+const AppManageTagsYearTagIdRoute = AppManageTagsYearTagIdRouteImport.update({
+  id: '/tags_/$year/$tagId',
+  path: '/tags/$year/$tagId',
+  getParentRoute: () => AppManageRoute,
+} as any)
+const AppManageTagsYearNewRoute = AppManageTagsYearNewRouteImport.update({
+  id: '/tags_/$year/new',
+  path: '/tags/$year/new',
+  getParentRoute: () => AppManageRoute,
+} as any)
+const AppManageRolesYearRoleIdSettingsRoute =
+  AppManageRolesYearRoleIdSettingsRouteImport.update({
+    id: '/roles_/$year/$roleId_/settings',
+    path: '/roles/$year/$roleId/settings',
+    getParentRoute: () => AppManageRoute,
+  } as any)
+const AppManageTagsYearTagIdSettingsRoute =
+  AppManageTagsYearTagIdSettingsRouteImport.update({
+    id: '/tags_/$year/$tagId_/settings',
+    path: '/tags/$year/$tagId/settings',
+    getParentRoute: () => AppManageRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -204,12 +223,11 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AppCalendarCalendarRouteWithChildren
   '/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/chat/new': typeof AppChatNewRoute
-  '/manage/attendance': typeof AppManageAttendanceRoute
   '/manage/audit': typeof AppManageAuditRoute
-  '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
   '/manage/roles': typeof AppManageRolesRoute
   '/manage/shifts': typeof AppManageShiftsRoute
+  '/manage/tags': typeof AppManageTagsRoute
   '/manage/users': typeof AppManageUsersRoute
   '/manage/years': typeof AppManageYearsRoute
   '/chat/': typeof AppChatIndexRoute
@@ -224,6 +242,10 @@ export interface FileRoutesByFullPath {
   '/manage/roles/$year/$roleId': typeof AppManageRolesYearRoleIdRoute
   '/manage/roles/$year/new': typeof AppManageRolesYearNewRoute
   '/manage/shifts/$shiftId/settings': typeof AppManageShiftsShiftIdSettingsRoute
+  '/manage/tags/$year/$tagId': typeof AppManageTagsYearTagIdRoute
+  '/manage/tags/$year/new': typeof AppManageTagsYearNewRoute
+  '/manage/roles/$year/$roleId/settings': typeof AppManageRolesYearRoleIdSettingsRoute
+  '/manage/tags/$year/$tagId/settings': typeof AppManageTagsYearTagIdSettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -232,12 +254,11 @@ export interface FileRoutesByTo {
   '/calendar': typeof AppCalendarCalendarRouteWithChildren
   '/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/chat/new': typeof AppChatNewRoute
-  '/manage/attendance': typeof AppManageAttendanceRoute
   '/manage/audit': typeof AppManageAuditRoute
-  '/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/manage/members': typeof AppManageMembersRoute
   '/manage/roles': typeof AppManageRolesRoute
   '/manage/shifts': typeof AppManageShiftsRoute
+  '/manage/tags': typeof AppManageTagsRoute
   '/manage/users': typeof AppManageUsersRoute
   '/manage/years': typeof AppManageYearsRoute
   '/chat': typeof AppChatIndexRoute
@@ -252,6 +273,10 @@ export interface FileRoutesByTo {
   '/manage/roles/$year/$roleId': typeof AppManageRolesYearRoleIdRoute
   '/manage/roles/$year/new': typeof AppManageRolesYearNewRoute
   '/manage/shifts/$shiftId/settings': typeof AppManageShiftsShiftIdSettingsRoute
+  '/manage/tags/$year/$tagId': typeof AppManageTagsYearTagIdRoute
+  '/manage/tags/$year/new': typeof AppManageTagsYearNewRoute
+  '/manage/roles/$year/$roleId/settings': typeof AppManageRolesYearRoleIdSettingsRoute
+  '/manage/tags/$year/$tagId/settings': typeof AppManageTagsYearTagIdSettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -265,12 +290,11 @@ export interface FileRoutesById {
   '/_app/_calendar/calendar': typeof AppCalendarCalendarRouteWithChildren
   '/_app/chat/$roomId': typeof AppChatRoomIdRouteWithChildren
   '/_app/chat/new': typeof AppChatNewRoute
-  '/_app/manage/attendance': typeof AppManageAttendanceRoute
   '/_app/manage/audit': typeof AppManageAuditRoute
-  '/_app/manage/discord-link-requests': typeof AppManageDiscordLinkRequestsRoute
   '/_app/manage/members': typeof AppManageMembersRoute
   '/_app/manage/roles': typeof AppManageRolesRoute
   '/_app/manage/shifts': typeof AppManageShiftsRoute
+  '/_app/manage/tags': typeof AppManageTagsRoute
   '/_app/manage/users': typeof AppManageUsersRoute
   '/_app/manage/years': typeof AppManageYearsRoute
   '/_app/chat/': typeof AppChatIndexRoute
@@ -285,6 +309,10 @@ export interface FileRoutesById {
   '/_app/manage/roles_/$year/$roleId': typeof AppManageRolesYearRoleIdRoute
   '/_app/manage/roles_/$year/new': typeof AppManageRolesYearNewRoute
   '/_app/manage/shifts_/$shiftId_/settings': typeof AppManageShiftsShiftIdSettingsRoute
+  '/_app/manage/tags_/$year/$tagId': typeof AppManageTagsYearTagIdRoute
+  '/_app/manage/tags_/$year/new': typeof AppManageTagsYearNewRoute
+  '/_app/manage/roles_/$year/$roleId_/settings': typeof AppManageRolesYearRoleIdSettingsRoute
+  '/_app/manage/tags_/$year/$tagId_/settings': typeof AppManageTagsYearTagIdSettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -297,12 +325,11 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat/$roomId'
     | '/chat/new'
-    | '/manage/attendance'
     | '/manage/audit'
-    | '/manage/discord-link-requests'
     | '/manage/members'
     | '/manage/roles'
     | '/manage/shifts'
+    | '/manage/tags'
     | '/manage/users'
     | '/manage/years'
     | '/chat/'
@@ -317,6 +344,10 @@ export interface FileRouteTypes {
     | '/manage/roles/$year/$roleId'
     | '/manage/roles/$year/new'
     | '/manage/shifts/$shiftId/settings'
+    | '/manage/tags/$year/$tagId'
+    | '/manage/tags/$year/new'
+    | '/manage/roles/$year/$roleId/settings'
+    | '/manage/tags/$year/$tagId/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -325,12 +356,11 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat/$roomId'
     | '/chat/new'
-    | '/manage/attendance'
     | '/manage/audit'
-    | '/manage/discord-link-requests'
     | '/manage/members'
     | '/manage/roles'
     | '/manage/shifts'
+    | '/manage/tags'
     | '/manage/users'
     | '/manage/years'
     | '/chat'
@@ -345,6 +375,10 @@ export interface FileRouteTypes {
     | '/manage/roles/$year/$roleId'
     | '/manage/roles/$year/new'
     | '/manage/shifts/$shiftId/settings'
+    | '/manage/tags/$year/$tagId'
+    | '/manage/tags/$year/new'
+    | '/manage/roles/$year/$roleId/settings'
+    | '/manage/tags/$year/$tagId/settings'
   id:
     | '__root__'
     | '/'
@@ -357,12 +391,11 @@ export interface FileRouteTypes {
     | '/_app/_calendar/calendar'
     | '/_app/chat/$roomId'
     | '/_app/chat/new'
-    | '/_app/manage/attendance'
     | '/_app/manage/audit'
-    | '/_app/manage/discord-link-requests'
     | '/_app/manage/members'
     | '/_app/manage/roles'
     | '/_app/manage/shifts'
+    | '/_app/manage/tags'
     | '/_app/manage/users'
     | '/_app/manage/years'
     | '/_app/chat/'
@@ -377,6 +410,10 @@ export interface FileRouteTypes {
     | '/_app/manage/roles_/$year/$roleId'
     | '/_app/manage/roles_/$year/new'
     | '/_app/manage/shifts_/$shiftId_/settings'
+    | '/_app/manage/tags_/$year/$tagId'
+    | '/_app/manage/tags_/$year/new'
+    | '/_app/manage/roles_/$year/$roleId_/settings'
+    | '/_app/manage/tags_/$year/$tagId_/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -470,25 +507,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManageIndexRouteImport
       parentRoute: typeof AppManageRoute
     }
-    '/_app/manage/attendance': {
-      id: '/_app/manage/attendance'
-      path: '/attendance'
-      fullPath: '/manage/attendance'
-      preLoaderRoute: typeof AppManageAttendanceRouteImport
-      parentRoute: typeof AppManageRoute
-    }
     '/_app/manage/audit': {
       id: '/_app/manage/audit'
       path: '/audit'
       fullPath: '/manage/audit'
       preLoaderRoute: typeof AppManageAuditRouteImport
-      parentRoute: typeof AppManageRoute
-    }
-    '/_app/manage/discord-link-requests': {
-      id: '/_app/manage/discord-link-requests'
-      path: '/discord-link-requests'
-      fullPath: '/manage/discord-link-requests'
-      preLoaderRoute: typeof AppManageDiscordLinkRequestsRouteImport
       parentRoute: typeof AppManageRoute
     }
     '/_app/manage/members': {
@@ -510,6 +533,13 @@ declare module '@tanstack/react-router' {
       path: '/shifts'
       fullPath: '/manage/shifts'
       preLoaderRoute: typeof AppManageShiftsRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/tags': {
+      id: '/_app/manage/tags'
+      path: '/tags'
+      fullPath: '/manage/tags'
+      preLoaderRoute: typeof AppManageTagsRouteImport
       parentRoute: typeof AppManageRoute
     }
     '/_app/manage/users': {
@@ -596,6 +626,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppManageShiftsShiftIdSettingsRouteImport
       parentRoute: typeof AppManageRoute
     }
+    '/_app/manage/tags_/$year/$tagId': {
+      id: '/_app/manage/tags_/$year/$tagId'
+      path: '/tags/$year/$tagId'
+      fullPath: '/manage/tags/$year/$tagId'
+      preLoaderRoute: typeof AppManageTagsYearTagIdRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/tags_/$year/new': {
+      id: '/_app/manage/tags_/$year/new'
+      path: '/tags/$year/new'
+      fullPath: '/manage/tags/$year/new'
+      preLoaderRoute: typeof AppManageTagsYearNewRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/roles_/$year/$roleId_/settings': {
+      id: '/_app/manage/roles_/$year/$roleId_/settings'
+      path: '/roles/$year/$roleId/settings'
+      fullPath: '/manage/roles/$year/$roleId/settings'
+      preLoaderRoute: typeof AppManageRolesYearRoleIdSettingsRouteImport
+      parentRoute: typeof AppManageRoute
+    }
+    '/_app/manage/tags_/$year/$tagId_/settings': {
+      id: '/_app/manage/tags_/$year/$tagId_/settings'
+      path: '/tags/$year/$tagId/settings'
+      fullPath: '/manage/tags/$year/$tagId/settings'
+      preLoaderRoute: typeof AppManageTagsYearTagIdSettingsRouteImport
+      parentRoute: typeof AppManageRoute
+    }
   }
 }
 
@@ -663,12 +721,11 @@ const AppChatRouteWithChildren =
   AppChatRoute._addFileChildren(AppChatRouteChildren)
 
 interface AppManageRouteChildren {
-  AppManageAttendanceRoute: typeof AppManageAttendanceRoute
   AppManageAuditRoute: typeof AppManageAuditRoute
-  AppManageDiscordLinkRequestsRoute: typeof AppManageDiscordLinkRequestsRoute
   AppManageMembersRoute: typeof AppManageMembersRoute
   AppManageRolesRoute: typeof AppManageRolesRoute
   AppManageShiftsRoute: typeof AppManageShiftsRoute
+  AppManageTagsRoute: typeof AppManageTagsRoute
   AppManageUsersRoute: typeof AppManageUsersRoute
   AppManageYearsRoute: typeof AppManageYearsRoute
   AppManageIndexRoute: typeof AppManageIndexRoute
@@ -678,15 +735,18 @@ interface AppManageRouteChildren {
   AppManageRolesYearRoleIdRoute: typeof AppManageRolesYearRoleIdRoute
   AppManageRolesYearNewRoute: typeof AppManageRolesYearNewRoute
   AppManageShiftsShiftIdSettingsRoute: typeof AppManageShiftsShiftIdSettingsRoute
+  AppManageTagsYearTagIdRoute: typeof AppManageTagsYearTagIdRoute
+  AppManageTagsYearNewRoute: typeof AppManageTagsYearNewRoute
+  AppManageRolesYearRoleIdSettingsRoute: typeof AppManageRolesYearRoleIdSettingsRoute
+  AppManageTagsYearTagIdSettingsRoute: typeof AppManageTagsYearTagIdSettingsRoute
 }
 
 const AppManageRouteChildren: AppManageRouteChildren = {
-  AppManageAttendanceRoute: AppManageAttendanceRoute,
   AppManageAuditRoute: AppManageAuditRoute,
-  AppManageDiscordLinkRequestsRoute: AppManageDiscordLinkRequestsRoute,
   AppManageMembersRoute: AppManageMembersRoute,
   AppManageRolesRoute: AppManageRolesRoute,
   AppManageShiftsRoute: AppManageShiftsRoute,
+  AppManageTagsRoute: AppManageTagsRoute,
   AppManageUsersRoute: AppManageUsersRoute,
   AppManageYearsRoute: AppManageYearsRoute,
   AppManageIndexRoute: AppManageIndexRoute,
@@ -696,6 +756,10 @@ const AppManageRouteChildren: AppManageRouteChildren = {
   AppManageRolesYearRoleIdRoute: AppManageRolesYearRoleIdRoute,
   AppManageRolesYearNewRoute: AppManageRolesYearNewRoute,
   AppManageShiftsShiftIdSettingsRoute: AppManageShiftsShiftIdSettingsRoute,
+  AppManageTagsYearTagIdRoute: AppManageTagsYearTagIdRoute,
+  AppManageTagsYearNewRoute: AppManageTagsYearNewRoute,
+  AppManageRolesYearRoleIdSettingsRoute: AppManageRolesYearRoleIdSettingsRoute,
+  AppManageTagsYearTagIdSettingsRoute: AppManageTagsYearTagIdSettingsRoute,
 }
 
 const AppManageRouteWithChildren = AppManageRoute._addFileChildren(

@@ -1,5 +1,6 @@
 export {
   tagInputSchema,
+  reorderTagInputSchema,
   memberTagChangesSchema,
   yearTagsResponseSchema,
   type YearTag,
@@ -68,9 +69,7 @@ export {
 } from "./shifts/attendance"
 export {
   yearMemberResponseSchema,
-  yearMembershipResponseSchema,
   rosterResponseSchema,
-  yearMembershipsResponseSchema,
   yearMembershipEnvelopeSchema,
 } from "./shifts/members"
 export {

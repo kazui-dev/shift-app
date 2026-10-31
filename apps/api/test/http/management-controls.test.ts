@@ -1,3 +1,5 @@
+import * as v from "valibot"
+import { yearMembershipEnvelopeSchema } from "@workspace/shared/shifts"
 import { Hono } from "hono"
 import { expect, it } from "vite-plus/test"
 import { migrated, d1Binding } from "../support/sqlite"
@@ -14,6 +16,7 @@ import {
 import { activityActionsApp } from "../../src/features/activities/routes/activity-actions"
 import { readActivityEditor } from "../../src/features/activities/services/activity-editor"
 import type { ApiEnv } from "../../src/lib/http"
+import { yearMembershipsApp } from "../../src/features/admin/routes/year-memberships"
 const actor = "10000000-0000-4000-8000-000000000001"
 const target = "10000000-0000-4000-8000-000000000002"
 const role = "20000000-0000-4000-8000-000000000001"
@@ -23,7 +26,7 @@ const context = {
   passThroughOnException() {},
   props: {},
 }
-function fixture() {
+function fixture(accessLevel: "system_admin" | "member" = "system_admin") {
   const db = migrated()
   db.exec(`INSERT INTO operating_years VALUES (2026,0,0);
     INSERT INTO user (id,name,email) VALUES ('u','管理者','u@example.test'),('v','メンバー','v@example.test');
@@ -41,7 +44,7 @@ function fixture() {
       id: actor,
       userId: "u",
       displayName: "管理者",
-      accessLevel: "system_admin",
+      accessLevel,
     })
     c.set("adminUser", { id: actor, userId: "u" })
     await next()
@@ -49,6 +52,7 @@ function fixture() {
   app
     .route("/admin", adminCommandsApp)
     .route("/admin", adminQueriesApp)
+    .route("/years", yearMembershipsApp)
     .route("/years", memberRolesApp)
     .route("/years", rosterApp)
     .route("/activities", activityActionsApp)
@@ -227,6 +231,65 @@ it("copies the requested time range and headcounts without assigned members", as
         })
       ).status
     ).toBe(422)
+  } finally {
+    db.close()
+  }
+})
+
+it("limits year participation changes to system administrators while retaining member role editing", async () => {
+  const { db, request } = fixture("member")
+  try {
+    db.exec(`UPDATE app_users SET access_level='member' WHERE id='${actor}';
+      INSERT INTO year_roles VALUES ('20000000-0000-4000-8000-000000000002',2026,'管理者','#64748B',0,0,10);
+      INSERT INTO year_role_permissions VALUES ('20000000-0000-4000-8000-000000000002','member.manage',0);
+      INSERT INTO member_year_roles VALUES ('${actor}','20000000-0000-4000-8000-000000000002',0);`)
+    expect((await request("/years/2026/memberships")).status).toBe(404)
+    expect(
+      (await request(`/years/2026/memberships/${target}`, "PUT")).status
+    ).toBe(403)
+    expect(
+      (await request(`/years/2026/memberships/${target}`, "DELETE")).status
+    ).toBe(403)
+    expect(
+      db
+        .prepare("SELECT status FROM year_memberships WHERE member_id=?")
+        .get(target)?.status
+    ).toBe("active")
+    expect(
+      (
+        await request("/years/2026/memberships", "PATCH", {
+          memberIds: [target],
+          addRoleIds: [role],
+          removeRoleIds: [],
+        })
+      ).status
+    ).toBe(204)
+  } finally {
+    db.close()
+  }
+})
+it("preserves administrator participation changes for the user screen", async () => {
+  const { db, request } = fixture()
+  try {
+    expect((await request("/years/2026/memberships")).status).toBe(404)
+    expect(
+      (await request(`/years/2026/memberships/${target}`, "DELETE")).status
+    ).toBe(204)
+    expect(
+      db
+        .prepare("SELECT status FROM year_memberships WHERE member_id=?")
+        .get(target)?.status
+    ).toBe("inactive")
+    const joined = await request(`/years/2026/memberships/${target}`, "PUT")
+    expect(joined.status).toBe(200)
+    expect(
+      v.safeParse(yearMembershipEnvelopeSchema, await joined.json()).success
+    ).toBe(true)
+    expect(
+      db
+        .prepare("SELECT status FROM year_memberships WHERE member_id=?")
+        .get(target)?.status
+    ).toBe("active")
   } finally {
     db.close()
   }
