@@ -4,7 +4,8 @@ import type {
   ShiftOverview,
 } from "@workspace/shared/shifts"
 import type { EditorData } from "../editor-data"
-import { projectOverview, mergeOverviewDraft } from "./overview-draft"
+import { projectOverview } from "./overview-draft"
+import { mergeActivityDraft } from "./save-activity-drafts"
 import { saveOverviewDrafts } from "./save-overview-drafts"
 import {
   getActivity,
@@ -189,7 +190,7 @@ it("keeps a draft when the latest plan cannot be loaded", async () => {
   expect(saveActivity).not.toHaveBeenCalled()
 })
 
-it("replaces a concurrent move of the same member but retains other members", () => {
+it("rejects conflicting moves of the same assignment and retains independent people", () => {
   const shared = {
     ...base,
     slots: base.slots.map((slot) => ({ ...slot, memberIds: ["a", "b"] })),
@@ -197,14 +198,7 @@ it("replaces a concurrent move of the same member but retains other members", ()
   const ours = {
     ...shared,
     slots: [
-      {
-        ...plan.slots[0],
-        id: "moved",
-        startsAt: "2026-11-01T03:00:00Z",
-        endsAt: "2026-11-01T04:00:00Z",
-        capacity: null,
-        memberIds: ["a"],
-      },
+      ...plan.slots,
       ...shared.slots.map((slot) => ({ ...slot, memberIds: ["b"] })),
     ],
   }
@@ -213,51 +207,33 @@ it("replaces a concurrent move of the same member but retains other members", ()
     version: 3,
     slots: [
       ...shared.slots.map((slot) => ({ ...slot, memberIds: ["b", "c"] })),
-      {
+      ...plan.slots.map((slot) => ({
+        ...slot,
         id: "remote",
         startsAt: "2026-11-01T05:00:00Z",
         endsAt: "2026-11-01T06:00:00Z",
-        capacity: null,
-        memberIds: ["a"],
-      },
+      })),
     ],
   }
-  const merged = mergeOverviewDraft({ base: shared, plan: ours }, latest)
-  expect(merged.slots.filter((s) => s.memberIds.includes("a"))).toEqual([
-    expect.objectContaining({ startsAt: "2026-11-01T03:00:00Z" }),
+  expect(() =>
+    mergeActivityDraft({ base: shared, plan: ours }, latest)
+  ).toThrow("競合")
+  const independent = {
+    ...latest,
+    slots: shared.slots.map((slot) => ({
+      ...slot,
+      memberIds: ["a", "b", "c"],
+    })),
+  }
+  const merged = mergeActivityDraft({ base: shared, plan: ours }, independent)
+  expect(merged.slots.find((slot) => slot.id === "s")?.memberIds).toEqual([
+    "b",
+    "c",
   ])
-  expect(merged.slots.find((s) => s.id === "s")?.memberIds).toEqual(["b", "c"])
+  expect(merged.slots.find((slot) => slot.id === "new")?.memberIds).toEqual([
+    "a",
+  ])
   expect(merged.version).toBe(3)
-  const sameWindow = mergeOverviewDraft(
-    { base, plan },
-    {
-      ...latest,
-      slots: [
-        ...latest.slots,
-        {
-          ...plan.slots[0],
-          id: "destination",
-          startsAt: "2026-11-01T03:00:00Z",
-          endsAt: "2026-11-01T04:00:00Z",
-          capacity: null,
-          memberIds: ["c"],
-        },
-      ],
-    }
-  )
-  expect(
-    sameWindow.slots.find((s) => s.id === "destination")?.memberIds
-  ).toEqual(["c", "a"])
-  const collision = mergeOverviewDraft(
-    {
-      base,
-      plan: { ...plan, slots: plan.slots.map((s) => ({ ...s, id: "s" })) },
-    },
-    latest
-  )
-  expect(
-    collision.slots.filter((s) => s.memberIds.includes("a"))[0]?.id
-  ).not.toBe("s")
 })
 
 const overlapReview = {
@@ -376,26 +352,58 @@ it("retains only unsaved work after cancellation and never resubmits earlier suc
   expect(overwriteActivity).not.toHaveBeenCalled()
 })
 
-it("saves explicit removals atomically without merging a newer person's assignment", async () => {
+it("merges independent changes and retries an atomic release after a version race", async () => {
   const removed = {
     ...plan,
     releasedAssignments: [{ slotId: "s", memberId: "a" }],
   }
   const drafts = { work: { base, plan: removed } }
-  vi.mocked(saveActivityPlans).mockRejectedValueOnce(
-    new ApiError("更新されています", 409, "SHIFT_CHANGED")
-  )
-  const failed = await saveOverviewDrafts(drafts)
-  expect(failed.remaining).toEqual(drafts)
-  expect(failed.confirmed).toEqual([])
-  expect(failed.failures).toEqual(["更新されています"])
-  expect(getActivity).not.toHaveBeenCalled()
-  expect(saveActivity).not.toHaveBeenCalled()
-  expect(saveActivityPlans).toHaveBeenCalledExactlyOnceWith([
-    { id: "work", plan: removed },
-  ])
-  vi.mocked(saveActivityPlans).mockResolvedValueOnce({ activities: [source] })
+  vi.mocked(getActivity).mockResolvedValue({
+    ...source,
+    activity: { ...source.activity, version: 2, place: "正門" },
+    slots: base.slots.map((slot) => ({ ...slot, memberIds: ["a", "b"] })),
+  })
+  vi.mocked(saveActivityPlans)
+    .mockRejectedValueOnce(
+      new ApiError("更新されています", 409, "SHIFT_CHANGED")
+    )
+    .mockResolvedValueOnce({ activities: [source] })
   const saved = await saveOverviewDrafts(drafts)
   expect(saved.remaining).toEqual({})
-  expect(saved.confirmed).toEqual([{ id: "work", saved: source }])
+  expect(saveActivityPlans).toHaveBeenCalledTimes(2)
+  expect(saveActivity).not.toHaveBeenCalled()
+  expect(
+    vi.mocked(saveActivityPlans).mock.calls[1]?.[0][0]?.plan
+  ).toMatchObject({
+    version: 2,
+    place: "正門",
+    releasedAssignments: removed.releasedAssignments,
+    slots: [
+      expect.objectContaining({ id: "s", memberIds: ["b"] }),
+      ...plan.slots,
+    ],
+  })
+})
+
+it("keeps every atomic draft without writing when the same assignment changed", async () => {
+  const removed = {
+    ...plan,
+    releasedAssignments: [{ slotId: "s", memberId: "a" }],
+  }
+  const drafts = {
+    work: { base, plan: removed },
+    other: { base, plan, atomic: true },
+  }
+  vi.mocked(getActivity).mockResolvedValue({
+    ...source,
+    slots: base.slots.map((slot) => ({
+      ...slot,
+      endsAt: "2026-11-01T01:00:00Z",
+    })),
+  })
+  const result = await saveOverviewDrafts(drafts)
+  expect(result.remaining).toEqual(drafts)
+  expect(result.failures).toHaveLength(1)
+  expect(saveActivityPlans).not.toHaveBeenCalled()
+  expect(saveActivity).not.toHaveBeenCalled()
 })

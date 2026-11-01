@@ -88,6 +88,9 @@ export function mergePlan(
   }
   const plan: ActivityEditorInput = {
     version: latest.version,
+    ...(local.releasedAssignments
+      ? { releasedAssignments: local.releasedAssignments }
+      : {}),
     name: field("name", "名前"),
     place: field("place", "場所"),
     activityType: field("activityType", "種類"),

@@ -40,6 +40,16 @@ it("marks repeated saves clean while retaining the latest revision and undo/redo
         >
           保存
         </button>
+        <button
+          onClick={() =>
+            editor.confirm(
+              { ...editor.plan, place: "外部で変更された場所" },
+              editor.version + 1
+            )
+          }
+        >
+          統合して保存
+        </button>
         <button onClick={editor.undo}>戻す</button>
         <button onClick={editor.redo}>進む</button>
       </>
@@ -67,6 +77,8 @@ it("marks repeated saves clean while retaining the latest revision and undo/redo
     await click("戻す")
     expect(status()).toBe("未保存")
     await click("進む")
+    expect(status()).toBe("保存済み")
+    await click("統合して保存")
     expect(status()).toBe("保存済み")
   } finally {
     await act(async () => root.unmount())
