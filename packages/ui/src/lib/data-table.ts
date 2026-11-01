@@ -1,5 +1,6 @@
 import {
   columnFilteringFeature,
+  globalFilteringFeature,
   createFilteredRowModel,
   createSortedRowModel,
   rowSelectionFeature,
@@ -19,6 +20,7 @@ const columnMeta: {
 
 export const dataTableFeatures = tableFeatures({
   columnFilteringFeature,
+  globalFilteringFeature,
   rowSortingFeature,
   rowSelectionFeature,
   filteredRowModel: createFilteredRowModel(),

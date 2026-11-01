@@ -251,10 +251,12 @@ async function fixture(
     await act(async () => button(label).click())
   }
   const text = async (label: string, value: string) => {
-    await click(`${label}で絞り込み`)
-    const input = document.querySelector<HTMLInputElement>(
-      `input[aria-label="${label}を検索"]`
-    )
+    const isPeopleSearch = label === "名前"
+    if (!isPeopleSearch) await click(`${label}で絞り込み`)
+    const selector = isPeopleSearch
+      ? 'thead input[aria-label="名前・学籍番号で検索"]'
+      : `input[aria-label="${label}を検索"]`
+    const input = document.querySelector<HTMLInputElement>(selector)
     if (!input) throw new Error(`Missing input: ${label}`)
     await act(async () => {
       Object.getOwnPropertyDescriptor(
@@ -263,10 +265,8 @@ async function fixture(
       )?.set?.call(input, value)
       input.dispatchEvent(new Event("input", { bubbles: true }))
     })
-    expect(document.querySelector(`input[aria-label="${label}を検索"]`)).toBe(
-      input
-    )
-    await click(`${label}で絞り込み`)
+    expect(document.querySelector(selector)).toBe(input)
+    if (!isPeopleSearch) await click(`${label}で絞り込み`)
   }
   const option = async (label: string, value: string) => {
     await click(`${label}で絞り込み`)
@@ -303,12 +303,11 @@ it("combines user column filters without remounting input and selects the row fo
   const f = await fixture("users")
   try {
     expect(f.host.querySelectorAll("thead th")).toHaveLength(5)
-    await f.text("名前", "26EC")
-    expect(f.rows()).toEqual(["条件に一致するユーザーはいません。"])
+    await f.text("名前", " 26ec ")
+    expect(f.rows()).toHaveLength(3)
     await f.text("名前", "鈴木")
-    await f.text("学籍番号", "001")
-    expect(f.rows()).toEqual(["条件に一致するユーザーはいません。"])
-    await f.text("学籍番号", "002")
+    expect(f.rows()[0]).toContain("鈴木")
+    await f.text("名前", "002")
     await f.option("参加年度", "2025年度")
     await f.option("システム権限", "委員会幹部")
     expect(f.rows()).toHaveLength(1)
@@ -410,7 +409,13 @@ it("updates visible column names for text, single, multiple and excluded choices
   try {
     expect(header(0)).toBe("名前")
     await f.text("名前", "鈴木")
-    expect(header(0)).toContain("鈴木")
+    expect(header(0)).toBe("名前")
+    expect(
+      f.host.querySelector('button[aria-label="名前で絞り込み"]')
+    ).toBeNull()
+    expect(
+      f.host.querySelector('button[aria-label="学籍番号で絞り込み"]')
+    ).toBeNull()
     await f.text("名前", "")
     expect(header(0)).toBe("名前")
     await f.option("参加年度", "2025年度")

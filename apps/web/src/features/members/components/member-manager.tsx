@@ -1,3 +1,4 @@
+import { MemberSearch } from "@/features/members/components/member-search"
 import { QueryError } from "@/components/query-error"
 import { TableSelectionActions } from "@workspace/ui/components/table-selection-actions"
 import { ManagementHeaderActions } from "@/features/management/components/header-actions"
@@ -10,19 +11,18 @@ import {
   functionalUpdate,
   type RowSelectionState,
 } from "@tanstack/react-table"
-import { dataTableFeatures } from "@workspace/ui/lib/data-table"
+import {
+  dataTableFeatures,
+  matchesTableSearch,
+} from "@workspace/ui/lib/data-table"
 import { DataTable } from "@workspace/ui/components/data-table"
 import { memberTableColumns } from "./member-table-columns"
 import { rosterQuery, rolesQuery } from "@/features/years/data/years"
 import { tagsQuery } from "../data/tags"
-import {
-  emptyFilter,
-  filterValues,
-  type FilterValue,
-} from "@workspace/ui/lib/filters"
+import { emptyFilter, filterValues } from "@workspace/ui/lib/filters"
 import { MemberRoleEditor } from "./member-role-editor"
 import { MemberTagEditor } from "./member-tag-editor"
-import type { ManagementScreenView } from "@/features/management/management-context"
+import type { ManagementTableView } from "@/features/management/management-context"
 
 export function MemberManager({
   year,
@@ -31,28 +31,13 @@ export function MemberManager({
   onPendingChange,
 }: {
   year: number
-  view: {
-    search: string
-    textFilters?: Record<string, string> | undefined
-    filters?: Record<string, FilterValue> | undefined
-    sort?: ManagementScreenView["sort"]
-    save: (
-      patch: Partial<{
-        search: string
-        textFilters: Record<string, string>
-        filters: Record<string, FilterValue>
-        sort: NonNullable<ManagementScreenView["sort"]>
-      }>
-    ) => void
-  }
+  view: ManagementTableView
   onPendingChange?: ((pending: boolean) => void) | undefined
   onDirtyChange: (dirty: boolean) => void
 }) {
   const roster = useQuery(rosterQuery(year))
   const roles = useQuery(rolesQuery(year))
   const tags = useQuery(tagsQuery(year))
-  const search = view.search
-  const studentIdSearch = view.textFilters?.studentId ?? ""
   const roleFilter = view.filters?.roles ?? emptyFilter()
   const tagFilter = view.filters?.tags ?? emptyFilter()
   const sort = view.sort ?? { column: "studentId", descending: false }
@@ -113,6 +98,10 @@ export function MemberManager({
   const sorting = [{ id: sort.column, desc: sort.descending }]
   const table = useTable({
     features: dataTableFeatures,
+    globalFilterFn: (row, columnId, value: unknown) =>
+      matchesTableSearch(row.getValue<string>(columnId), value),
+    getColumnCanGlobalFilter: (column) =>
+      column.id === "displayName" || column.id === "studentId",
     columns,
     data,
     getRowId: (member) => member.id,
@@ -121,11 +110,10 @@ export function MemberManager({
     enableMultiSort: false,
     enableRowSelection: !editorDirty,
     state: {
+      globalFilter: view.search.trim(),
       rowSelection,
       sorting,
       columnFilters: [
-        { id: "displayName", value: search },
-        { id: "studentId", value: studentIdSearch },
         { id: "roles", value: roleFilter },
         { id: "tags", value: tagFilter },
       ],
@@ -154,13 +142,11 @@ export function MemberManager({
   function clearFilters() {
     view.save({
       search: "",
-      textFilters: {},
       filters: { roles: emptyFilter(), tags: emptyFilter() },
     })
   }
   const activeFilters = Boolean(
-    search ||
-    studentIdSearch ||
+    view.search ||
     filterValues(roleFilter).length ||
     filterValues(tagFilter).length
   )
@@ -218,25 +204,18 @@ export function MemberManager({
         />
       )}
       <DataTable
+        columnControls={{
+          displayName: (
+            <MemberSearch
+              value={view.search}
+              onChange={(search) => view.save({ search })}
+            />
+          ),
+        }}
         selectOnRowClick
         table={table}
         sortControls
         columnFilters={{
-          displayName: {
-            kind: "text",
-            label: "名前",
-            placeholder: "名前を入力",
-            value: search,
-            onChange: (value) => view.save({ search: value }),
-          },
-          studentId: {
-            kind: "text",
-            label: "学籍番号",
-            placeholder: "学籍番号を入力",
-            value: studentIdSearch,
-            onChange: (value) =>
-              view.save({ textFilters: { studentId: value } }),
-          },
           roles: {
             kind: "choices",
             label: "ロール",

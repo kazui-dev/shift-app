@@ -1,3 +1,4 @@
+import { MemberSearch } from "@/features/members/components/member-search"
 import { useMemo } from "react"
 import {
   functionalUpdate,
@@ -6,7 +7,10 @@ import {
   type RowSelectionState,
 } from "@tanstack/react-table"
 import { DataTable } from "@workspace/ui/components/data-table"
-import { dataTableFeatures } from "@workspace/ui/lib/data-table"
+import {
+  dataTableFeatures,
+  matchesTableSearch,
+} from "@workspace/ui/lib/data-table"
 import { emptyFilter } from "@workspace/ui/lib/filters"
 import type { ManagementTableView } from "@/features/management/management-context"
 import { memberTableColumns, type MemberTableRow } from "./member-table-columns"
@@ -59,9 +63,12 @@ export function MemberSelectionTable({
   const tagFilter = view.filters?.tags ?? emptyFilter()
   const sort = view.sort ?? { column: "studentId", descending: false }
   const sorting = [{ id: sort.column, desc: sort.descending }]
-  const studentId = view.textFilters?.studentId ?? ""
   const table = useTable({
     features: dataTableFeatures,
+    globalFilterFn: (row, columnId, value: unknown) =>
+      matchesTableSearch(row.getValue<string>(columnId), value),
+    getColumnCanGlobalFilter: (column) =>
+      column.id === "displayName" || column.id === "studentId",
     columns,
     data: members,
     getRowId: (member) => member.id,
@@ -76,11 +83,10 @@ export function MemberSelectionTable({
         view.save({ sort: { column: next.id, descending: next.desc } })
     },
     state: {
+      globalFilter: view.search.trim(),
       rowSelection: selection,
       sorting,
       columnFilters: [
-        { id: "displayName", value: view.search },
-        { id: "studentId", value: studentId },
         { id: "roles", value: roleFilter },
         {
           id: "tags",
@@ -94,6 +100,14 @@ export function MemberSelectionTable({
   })
   return (
     <DataTable
+      columnControls={{
+        displayName: (
+          <MemberSearch
+            value={view.search}
+            onChange={(search) => view.save({ search })}
+          />
+        ),
+      }}
       selectOnRowClick
       sortControls
       table={table}
@@ -125,18 +139,6 @@ export function MemberSelectionTable({
           disabled: tagsLoading || tagsError || tagsUnavailable,
           onChange: (value) =>
             view.save({ filters: { ...view.filters, tags: value } }),
-        },
-        displayName: {
-          kind: "text",
-          label: "名前",
-          value: view.search,
-          onChange: (search) => view.save({ search }),
-        },
-        studentId: {
-          kind: "text",
-          label: "学籍番号",
-          value: studentId,
-          onChange: (value) => view.save({ textFilters: { studentId: value } }),
         },
       }}
     />
