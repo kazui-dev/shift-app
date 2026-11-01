@@ -5,12 +5,14 @@ export function ShiftTimeline({
   label,
   minWidth,
   header,
+  toolbar,
   detail,
   children,
 }: {
   label: string
   minWidth: string
   header: ReactNode
+  toolbar?: ReactNode
   detail?: ReactNode
   children: ReactNode
 }) {
@@ -23,6 +25,7 @@ export function ShiftTimeline({
     >
       {/* Keep vertical stickiness outside the horizontal scroll container. */}
       <div className="sticky-header">
+        {toolbar}
         <div
           ref={heading}
           className="shift-timeline-scroll [scrollbar-width:none] overflow-x-auto"
