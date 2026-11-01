@@ -9,7 +9,15 @@ import { ShiftTimeline } from "./shift-timeline"
 import { StaffingDetail } from "./staffing-detail"
 import type { ShiftAnchor } from "./shift-anchor"
 import { japanTime } from "@workspace/shared/japan-time"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import type { ShiftSelection } from "./shift-selection-panel"
 import type { ActivityEditorInput, Attendance } from "@workspace/shared/shifts"
 import type { AttendanceData } from "./attendance-data"
@@ -20,6 +28,7 @@ import { gridMembers, timeScale } from "./time-scale"
 const emptyAttendance = new Map<string, Attendance>()
 
 export const TimeGrid = memo(function TimeGrid({
+  toolbar,
   assignmentSelection,
   data,
   attendance,
@@ -34,6 +43,7 @@ export const TimeGrid = memo(function TimeGrid({
   onMember,
   onOther,
 }: {
+  toolbar?: ReactNode
   assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
   attendance?: AttendanceData["assignments"] | undefined
@@ -193,6 +203,7 @@ export const TimeGrid = memo(function TimeGrid({
   return (
     <ShiftTimeline
       label="シフト配置時間軸"
+      toolbar={toolbar}
       minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil(duration / 3_600_000) * 64 + 48}px))`}
       detail={
         periodDetail && (

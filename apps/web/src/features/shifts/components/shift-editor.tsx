@@ -413,6 +413,71 @@ export function ShiftEditor({
       setPending(false)
     }
   }
+  const toolbar = (
+    <ShiftEditorToolbar
+      attendanceColors={attendanceColors.enabled}
+      onAttendanceColorsChange={attendanceColors.toggle}
+      dirty={dirty}
+      pending={pending}
+      conflicted={conflicted}
+      canUndo={canUndo}
+      canRedo={canRedo}
+      onUndo={undo}
+      onRedo={redo}
+      onAttendance={() => setAttendanceOpen(true)}
+      onSave={() =>
+        conflicted
+          ? void action(async () =>
+              setLatest(await getActivity(data.activity.id))
+            )
+          : void save()
+      }
+      onActions={() => setActions(true)}
+      filters={
+        <MemberFilterBar
+          filters={filters}
+          roles={data.roles}
+          onChange={setFilters}
+        />
+      }
+      selection={
+        <AssignmentSelectionToolbar
+          selection={removal}
+          details={removable.map((target) => {
+            const slot = plan.slots.find((item) => item.id === target.slotId)
+            const member = data.members.find(
+              (item) => item.id === target.memberId
+            )
+            return {
+              key: assignmentKey(target),
+              name: member?.displayName ?? "",
+              activity: data.activity.name,
+              time: slot
+                ? `${japanTime(slot.startsAt)}〜${japanTime(slot.endsAt)}`
+                : "",
+            }
+          })}
+          pending={pending}
+          summary={`${selectedMemberIds.length}人選択中`}
+          onAssign={() => {
+            setSelection(null)
+            setBulkMembers(selectedMemberIds)
+            setBulkOpen(true)
+          }}
+          onRemove={() => {
+            const targets = removable.filter((target) =>
+              removal.keys.includes(assignmentKey(target))
+            )
+            update(removeAssignments(plan, targets))
+            toast.success(
+              `${targets.length}件の勤務を解除しました。保存すると確定します。`
+            )
+            removal.end()
+          }}
+        />
+      }
+    />
+  )
   return (
     <ScrollViewport
       ref={viewport}
@@ -430,69 +495,7 @@ export function ShiftEditor({
           onConfirm={() => void saveOverwrite()}
         />
       )}
-      <ShiftEditorToolbar
-        attendanceColors={attendanceColors.enabled}
-        onAttendanceColorsChange={attendanceColors.toggle}
-        dirty={dirty}
-        pending={pending}
-        conflicted={conflicted}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={undo}
-        onRedo={redo}
-        onAttendance={() => setAttendanceOpen(true)}
-        onSave={() =>
-          conflicted
-            ? void action(async () =>
-                setLatest(await getActivity(data.activity.id))
-              )
-            : void save()
-        }
-        onActions={() => setActions(true)}
-        filters={
-          <MemberFilterBar
-            filters={filters}
-            roles={data.roles}
-            onChange={setFilters}
-          />
-        }
-        selection={
-          <AssignmentSelectionToolbar
-            selection={removal}
-            details={removable.map((target) => {
-              const slot = plan.slots.find((item) => item.id === target.slotId)
-              const member = data.members.find(
-                (item) => item.id === target.memberId
-              )
-              return {
-                key: assignmentKey(target),
-                name: member?.displayName ?? "",
-                activity: data.activity.name,
-                time: slot
-                  ? `${japanTime(slot.startsAt)}〜${japanTime(slot.endsAt)}`
-                  : "",
-              }
-            })}
-            pending={pending}
-            summary={`${selectedMemberIds.length}人選択中`}
-            onAssign={() => {
-              setSelection(null)
-              setBulkMembers(selectedMemberIds)
-              setBulkOpen(true)
-            }}
-            onRemove={() => {
-              const targets = removable.filter((target) =>
-                removal.keys.includes(assignmentKey(target))
-              )
-              update(removeAssignments(plan, targets))
-              toast.success(
-                `${targets.length}件の勤務を解除しました。保存すると確定します。`
-              )
-              removal.end()
-            }}
-          />
-        }
-      />
+
       <div className="min-w-0">
         {attendance.isError && (
           <p role="alert" className="px-3 py-2 text-sm">
@@ -509,6 +512,7 @@ export function ShiftEditor({
         <fieldset disabled={pending} className="min-w-0">
           <AssignmentSelectionArea selection={removal}>
             <TimeGrid
+              toolbar={toolbar}
               assignmentSelection={removal}
               data={data}
               attendance={attendance.data?.assignments}
