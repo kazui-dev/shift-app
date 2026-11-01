@@ -1,3 +1,4 @@
+import { TimelineAxis } from "./timeline-axis"
 import { attendanceLabel, assignmentBackground } from "./assignment-attendance"
 import { memo, useMemo, type ReactNode } from "react"
 import {
@@ -49,10 +50,6 @@ export const OverviewGrid = memo(function OverviewGrid({
   onInspect: (activityId: string) => void
 }) {
   const { start, end } = overviewRange(data, date)
-  const marks = Array.from(
-    { length: Math.round((end - start) / 1_800_000) + 1 },
-    (_, i) => start + i * 1_800_000
-  )
   const lateCount = rows
     .flatMap((row) => row.assignments)
     .filter((assignment) => assignment.attendance?.state === "late").length
@@ -120,7 +117,7 @@ export const OverviewGrid = memo(function OverviewGrid({
           </button>
         </div>
         <div data-selection-surface className="relative mx-6 min-w-0 flex-1">
-          <TimeGuides scale={scale} stepMinutes={30} />
+          <TimeGuides scale={scale} />
           {data.availability
             .filter((w) => w.memberId === member.id)
             .map((w) => (
@@ -252,7 +249,9 @@ export const OverviewGrid = memo(function OverviewGrid({
     <ShiftTimeline
       toolbar={toolbar}
       label="全体シフト時間軸"
-      minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil((end - start) / 3_600_000) * 64 + 48}px))`}
+      start={start}
+      end={end}
+      printing={printing}
       header={
         <div className="flex h-10 bg-background text-xs text-muted-foreground">
           <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3">
@@ -284,21 +283,7 @@ export const OverviewGrid = memo(function OverviewGrid({
               </>
             )}
           </div>
-          <div className="relative mx-6 flex-1">
-            {marks
-              .filter((t, i) => i % 2 === 0 || t === end)
-              .map((t) => (
-                <span
-                  key={t}
-                  className="absolute top-3 -translate-x-1/2 tabular-nums"
-                  style={{ left: `${((t - start) / (end - start)) * 100}%` }}
-                >
-                  {t === Date.parse(`${date}T00:00:00+09:00`) + 86_400_000
-                    ? "24:00"
-                    : japanTime(new Date(t).toISOString())}
-                </span>
-              ))}
-          </div>
+          <TimelineAxis start={start} end={end} printing={printing} />
           {printing && (
             <div className="overview-writing flex shrink-0 items-center justify-center border-l">
               記録・修正
