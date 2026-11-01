@@ -1,3 +1,4 @@
+import { attendanceLabel, assignmentBackground } from "./assignment-attendance"
 import { memo } from "react"
 import {
   clickAnchor,
@@ -19,7 +20,6 @@ import { japanTime } from "@workspace/shared/japan-time"
 import { MemberAvatar } from "@/features/members/components/member-avatar"
 import { timeScale } from "./time-scale"
 import {
-  overviewAttendance,
   overviewRange,
   type OverviewSelection,
   type overviewRows,
@@ -222,16 +222,8 @@ export const OverviewGrid = memo(function OverviewGrid({
             )}
             {assignments.map((a) => {
               const activity = activities.get(a.activityId)
-              const label = overviewAttendance(a)
+              const label = attendanceLabel(a.attendance)
               const key = assignmentKey(a)
-              const color = attendanceColors
-                ? {
-                    late: "#D97706",
-                    absent: "#DC2626",
-                    present: "#16A34A",
-                    unrecorded: "#64748B",
-                  }[a.attendance?.state ?? "unrecorded"]
-                : (activity?.color ?? "#64748B")
               return (
                 <button
                   key={a.id}
@@ -268,7 +260,12 @@ export const OverviewGrid = memo(function OverviewGrid({
                     className="absolute inset-x-0 truncate rounded px-[9px] text-xs leading-[17px] text-foreground tabular-nums"
                     style={{
                       ...shiftBarStyle,
-                      backgroundColor: `color-mix(in oklab, ${color} ${assignmentSelection?.keys.includes(key) ? 60 : attendanceColors ? 30 : 22}%, var(--background))`,
+                      backgroundColor: assignmentBackground(
+                        activity?.color ?? "#64748B",
+                        a.attendance,
+                        attendanceColors,
+                        assignmentSelection?.keys.includes(key) ?? false
+                      ),
                     }}
                   >
                     {activity?.name}
