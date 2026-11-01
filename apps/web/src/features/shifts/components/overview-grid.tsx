@@ -1,5 +1,5 @@
 import { attendanceLabel, assignmentBackground } from "./assignment-attendance"
-import { memo } from "react"
+import { memo, useMemo, type ReactNode } from "react"
 import {
   clickAnchor,
   elementAnchor,
@@ -35,7 +35,9 @@ export const OverviewGrid = memo(function OverviewGrid({
   onSelect,
   onInspect,
   printing = false,
+  toolbar,
 }: {
+  toolbar?: ReactNode
   attendanceColors?: boolean
   assignmentSelection?: AssignmentSelection | undefined
   printing?: boolean
@@ -47,24 +49,208 @@ export const OverviewGrid = memo(function OverviewGrid({
   onInspect: (activityId: string) => void
 }) {
   const { start, end } = overviewRange(data, date)
-  const scale = timeScale(
-    new Date(start).toISOString(),
-    new Date(end).toISOString()
-  )
   const marks = Array.from(
     { length: Math.round((end - start) / 1_800_000) + 1 },
     (_, i) => start + i * 1_800_000
   )
-  const position = scale.position
   const lateCount = rows
     .flatMap((row) => row.assignments)
     .filter((assignment) => assignment.attendance?.state === "late").length
-  const duties = new Set(
-    data.roles.filter((role) => role.duty).map((role) => role.id)
-  )
-  const activities = new Map(data.activities.map((a) => [a.id, a]))
+  const content = useMemo(() => {
+    const scale = timeScale(
+      new Date(start).toISOString(),
+      new Date(end).toISOString()
+    )
+    const position = scale.position
+    const duties = new Set(
+      data.roles.filter((role) => role.duty).map((role) => role.id)
+    )
+    const activities = new Map(data.activities.map((a) => [a.id, a]))
+    return rows.map(({ member, assignments }) => (
+      <div
+        key={member.id}
+        className="shift-timeline-row overview-row flex h-14 border-t border-border/70 bg-background"
+      >
+        <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-sm sm:px-3">
+          {assignmentSelection && (
+            <AssignmentRowCheckbox
+              selection={assignmentSelection}
+              keys={overviewMemberKeys(member.id, assignments)}
+              name={member.displayName}
+            />
+          )}
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            aria-label={`${member.displayName}のシフトを確認`}
+            disabled={assignmentSelection?.active}
+            onClick={(event) => {
+              const assignment = assignments[0]
+              if (!data.canEdit) {
+                if (assignment) onInspect(assignment.activityId)
+                return
+              }
+              onSelect(
+                {
+                  memberId: member.id,
+                  activityId: assignment?.activityId ?? "",
+                  slotId: assignment?.slotId ?? null,
+                  startsAt:
+                    assignment?.startsAt ?? new Date(start).toISOString(),
+                  endsAt:
+                    assignment?.endsAt ??
+                    new Date(Math.min(end, start + 3_600_000)).toISOString(),
+                },
+                elementAnchor(event.currentTarget)
+              )
+            }}
+          >
+            <MemberAvatar
+              name={member.displayName}
+              image={member.image}
+              className={`size-6 text-[10px] ${assignmentSelection ? "hidden sm:flex" : ""}`}
+            />
+            <ShiftMemberLabel
+              name={member.displayName}
+              studentId={member.studentId}
+              duties={member.roles
+                .filter((role) => duties.has(role.id))
+                .map((role) => role.name)}
+            />
+          </button>
+        </div>
+        <div data-selection-surface className="relative mx-6 min-w-0 flex-1">
+          <TimeGuides scale={scale} stepMinutes={30} />
+          {data.availability
+            .filter((w) => w.memberId === member.id)
+            .map((w) => (
+              <span
+                key={`${w.startsAt}-${w.endsAt}`}
+                title={`希望 ${japanTime(w.startsAt)}–${japanTime(w.endsAt)}`}
+                className="pointer-events-none absolute top-[9px] h-9 rounded-sm bg-muted"
+                style={position(w.startsAt, w.endsAt)}
+              />
+            ))}
+          {data.canEdit && !assignmentSelection?.active && (
+            <button
+              className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
+              aria-label={`${member.displayName}に勤務を追加`}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                const t =
+                  e.detail === 0
+                    ? start
+                    : Math.min(
+                        end - 60_000,
+                        start +
+                          Math.round(
+                            (((e.clientX - rect.left) / rect.width) *
+                              (end - start)) /
+                              60_000
+                          ) *
+                            60_000
+                      )
+                onSelect(
+                  {
+                    memberId: member.id,
+                    activityId: "",
+                    slotId: null,
+                    startsAt: new Date(t).toISOString(),
+                    endsAt: new Date(
+                      Math.min(end, t + 3_600_000)
+                    ).toISOString(),
+                  },
+                  clickAnchor(e)
+                )
+              }}
+            />
+          )}
+          {assignments.map((a) => {
+            const activity = activities.get(a.activityId)
+            const label = attendanceLabel(a.attendance)
+            const key = assignmentKey(a)
+            return (
+              <button
+                key={a.id}
+                type="button"
+                data-assignment-key={key}
+                aria-pressed={
+                  assignmentSelection?.active
+                    ? assignmentSelection.keys.includes(key)
+                    : undefined
+                }
+                className="absolute inset-y-0 z-[2] text-left focus-visible:outline-2 focus-visible:outline-ring"
+                style={position(a.startsAt, a.endsAt)}
+                title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
+                aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
+                onClick={(event) =>
+                  assignmentSelection?.active
+                    ? assignmentSelection.toggle(key)
+                    : data.canEdit
+                      ? onSelect(
+                          {
+                            memberId: member.id,
+                            activityId: a.activityId,
+                            slotId: a.slotId,
+                            startsAt: a.startsAt,
+                            endsAt: a.endsAt,
+                          },
+                          clickAnchor(event, event.currentTarget)
+                        )
+                      : onInspect(a.activityId)
+                }
+              >
+                <span
+                  data-shift-bar
+                  className="absolute inset-x-0 truncate rounded px-[9px] text-xs leading-[17px] text-foreground tabular-nums"
+                  style={{
+                    ...shiftBarStyle,
+                    backgroundColor: assignmentBackground(
+                      activity?.color ?? "#64748B",
+                      a.attendance,
+                      attendanceColors,
+                      assignmentSelection?.keys.includes(key) ?? false
+                    ),
+                  }}
+                >
+                  {activity?.name}
+                  {activity?.active === false ? "（無効）" : ""}{" "}
+                  {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
+                </span>
+              </button>
+            )
+          })}
+          {now >= start && now < end && (
+            <span
+              aria-label="現在時刻"
+              className="pointer-events-none absolute inset-y-0 z-10 border-l border-blue-500"
+              style={{ left: `${((now - start) / (end - start)) * 100}%` }}
+            />
+          )}
+        </div>
+        {printing && (
+          <div
+            className="overview-writing shrink-0 border-l"
+            aria-label={`${member.displayName}の手書き欄`}
+          />
+        )}
+      </div>
+    ))
+  }, [
+    data,
+    rows,
+    start,
+    end,
+    assignmentSelection,
+    onSelect,
+    onInspect,
+    printing,
+    now,
+    attendanceColors,
+  ])
   return (
     <ShiftTimeline
+      toolbar={toolbar}
       label="全体シフト時間軸"
       minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil((end - start) / 3_600_000) * 64 + 48}px))`}
       header={
@@ -121,176 +307,7 @@ export const OverviewGrid = memo(function OverviewGrid({
         </div>
       }
     >
-      {rows.map(({ member, assignments }) => (
-        <div
-          key={member.id}
-          className="shift-timeline-row overview-row flex h-14 border-t border-border/70 bg-background"
-        >
-          <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-background px-2 text-sm sm:px-3">
-            {assignmentSelection && (
-              <AssignmentRowCheckbox
-                selection={assignmentSelection}
-                keys={overviewMemberKeys(member.id, assignments)}
-                name={member.displayName}
-              />
-            )}
-            <button
-              type="button"
-              className="flex min-w-0 flex-1 items-center gap-2 text-left"
-              aria-label={`${member.displayName}のシフトを確認`}
-              disabled={assignmentSelection?.active}
-              onClick={(event) => {
-                const assignment = assignments[0]
-                if (!data.canEdit) {
-                  if (assignment) onInspect(assignment.activityId)
-                  return
-                }
-                onSelect(
-                  {
-                    memberId: member.id,
-                    activityId: assignment?.activityId ?? "",
-                    slotId: assignment?.slotId ?? null,
-                    startsAt:
-                      assignment?.startsAt ?? new Date(start).toISOString(),
-                    endsAt:
-                      assignment?.endsAt ??
-                      new Date(Math.min(end, start + 3_600_000)).toISOString(),
-                  },
-                  elementAnchor(event.currentTarget)
-                )
-              }}
-            >
-              <MemberAvatar
-                name={member.displayName}
-                image={member.image}
-                className={`size-6 text-[10px] ${assignmentSelection ? "hidden sm:flex" : ""}`}
-              />
-              <ShiftMemberLabel
-                name={member.displayName}
-                studentId={member.studentId}
-                duties={member.roles
-                  .filter((role) => duties.has(role.id))
-                  .map((role) => role.name)}
-              />
-            </button>
-          </div>
-          <div data-selection-surface className="relative mx-6 min-w-0 flex-1">
-            <TimeGuides scale={scale} stepMinutes={30} />
-            {data.availability
-              .filter((w) => w.memberId === member.id)
-              .map((w) => (
-                <span
-                  key={`${w.startsAt}-${w.endsAt}`}
-                  title={`希望 ${japanTime(w.startsAt)}–${japanTime(w.endsAt)}`}
-                  className="pointer-events-none absolute top-[9px] h-9 rounded-sm bg-muted"
-                  style={position(w.startsAt, w.endsAt)}
-                />
-              ))}
-            {data.canEdit && !assignmentSelection?.active && (
-              <button
-                className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-ring"
-                aria-label={`${member.displayName}に勤務を追加`}
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const t =
-                    e.detail === 0
-                      ? start
-                      : Math.min(
-                          end - 60_000,
-                          start +
-                            Math.round(
-                              (((e.clientX - rect.left) / rect.width) *
-                                (end - start)) /
-                                60_000
-                            ) *
-                              60_000
-                        )
-                  onSelect(
-                    {
-                      memberId: member.id,
-                      activityId: "",
-                      slotId: null,
-                      startsAt: new Date(t).toISOString(),
-                      endsAt: new Date(
-                        Math.min(end, t + 3_600_000)
-                      ).toISOString(),
-                    },
-                    clickAnchor(e)
-                  )
-                }}
-              />
-            )}
-            {assignments.map((a) => {
-              const activity = activities.get(a.activityId)
-              const label = attendanceLabel(a.attendance)
-              const key = assignmentKey(a)
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  data-assignment-key={key}
-                  aria-pressed={
-                    assignmentSelection?.active
-                      ? assignmentSelection.keys.includes(key)
-                      : undefined
-                  }
-                  className="absolute inset-y-0 z-[2] text-left focus-visible:outline-2 focus-visible:outline-ring"
-                  style={position(a.startsAt, a.endsAt)}
-                  title={`${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} / ${label}`}
-                  aria-label={`${member.displayName} ${activity?.name} ${japanTime(a.startsAt)}–${japanTime(a.endsAt)} ${label}`}
-                  onClick={(event) =>
-                    assignmentSelection?.active
-                      ? assignmentSelection.toggle(key)
-                      : data.canEdit
-                        ? onSelect(
-                            {
-                              memberId: member.id,
-                              activityId: a.activityId,
-                              slotId: a.slotId,
-                              startsAt: a.startsAt,
-                              endsAt: a.endsAt,
-                            },
-                            clickAnchor(event, event.currentTarget)
-                          )
-                        : onInspect(a.activityId)
-                  }
-                >
-                  <span
-                    data-shift-bar
-                    className="absolute inset-x-0 truncate rounded px-[9px] text-xs leading-[17px] text-foreground tabular-nums"
-                    style={{
-                      ...shiftBarStyle,
-                      backgroundColor: assignmentBackground(
-                        activity?.color ?? "#64748B",
-                        a.attendance,
-                        attendanceColors,
-                        assignmentSelection?.keys.includes(key) ?? false
-                      ),
-                    }}
-                  >
-                    {activity?.name}
-                    {activity?.active === false ? "（無効）" : ""}{" "}
-                    {japanTime(a.startsAt)}〜{japanTime(a.endsAt)}
-                  </span>
-                </button>
-              )
-            })}
-            {now >= start && now < end && (
-              <span
-                aria-label="現在時刻"
-                className="pointer-events-none absolute inset-y-0 z-10 border-l border-blue-500"
-                style={{ left: `${((now - start) / (end - start)) * 100}%` }}
-              />
-            )}
-          </div>
-          {printing && (
-            <div
-              className="overview-writing shrink-0 border-l"
-              aria-label={`${member.displayName}の手書き欄`}
-            />
-          )}
-        </div>
-      ))}
+      {content}
     </ShiftTimeline>
   )
 })

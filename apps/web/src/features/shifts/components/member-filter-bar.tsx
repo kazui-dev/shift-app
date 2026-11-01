@@ -1,5 +1,4 @@
-import { Search } from "lucide-react"
-import { Input } from "@workspace/ui/components/input"
+import { ShiftMemberSearch } from "./shift-member-search"
 import { FilterMenu } from "@workspace/ui/components/filter-menu"
 import type { EditorData } from "../editor-data"
 import type { MemberFilters } from "../shift-view-context"
@@ -15,22 +14,10 @@ export function MemberFilterBar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label
-        htmlFor="manage-member-search"
-        className="relative min-w-0 flex-1 basis-full sm:max-w-56 sm:basis-auto"
-      >
-        <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
-        <Input
-          id="manage-member-search"
-          className="pl-9"
-          aria-label="名前・学籍番号で検索"
-          placeholder="名前・学籍番号で検索"
-          value={filters.search}
-          onChange={(event) =>
-            onChange({ ...filters, search: event.target.value })
-          }
-        />
-      </label>
+      <ShiftMemberSearch
+        value={filters.search}
+        onChange={(search) => onChange({ ...filters, search })}
+      />
       <FilterMenu
         label="ロール"
         options={[

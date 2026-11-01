@@ -16,6 +16,7 @@ it("keeps the time axis and work rows aligned when either is scrolled horizontal
           label="シフト"
           minWidth="1000px"
           header={<span>09:00</span>}
+          toolbar={<input aria-label="メンバー検索" />}
         >
           <span>勤務</span>
         </ShiftTimeline>
@@ -25,6 +26,11 @@ it("keeps the time axis and work rows aligned when either is scrolled horizontal
       ".shift-timeline-scroll"
     )
     if (!heading || !body) throw new Error("Missing timeline scroll containers")
+    const search = host.querySelector("input")
+    expect(search?.closest(".sticky-header")).toBe(
+      heading.closest(".sticky-header")
+    )
+    expect(search?.closest(".shift-timeline-scroll")).toBeNull()
     async function scroll(
       source: HTMLDivElement,
       target: HTMLDivElement,
