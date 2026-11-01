@@ -142,7 +142,7 @@ export function RoomGrants({
           title="参加対象"
           onBack={() => setSelecting(false)}
           action={
-            <Button type="button" size="sm" onClick={apply}>
+            <Button data-save-shortcut type="button" size="sm" onClick={apply}>
               適用
             </Button>
           }

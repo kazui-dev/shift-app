@@ -62,6 +62,7 @@ export function ShiftSettings({
     <section aria-label="シフトの基本情報" className="mx-auto max-w-4xl">
       <ManagementHeaderActions>
         <Button
+          data-save-shortcut
           size="sm"
           variant="outline"
           type="submit"

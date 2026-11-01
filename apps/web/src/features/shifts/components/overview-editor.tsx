@@ -330,6 +330,7 @@ function OverviewEditorForm({
               キャンセル
             </Button>
             <Button
+              data-save-shortcut
               variant="outline"
               size="sm"
               disabled={

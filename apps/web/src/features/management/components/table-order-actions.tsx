@@ -16,7 +16,12 @@ export function TableOrderActions({
     <ManagementHeaderActions placement="start">
       {dirty && (
         <>
-          <Button size="sm" disabled={pending} onClick={() => void onSave()}>
+          <Button
+            data-save-shortcut
+            size="sm"
+            disabled={pending}
+            onClick={() => void onSave()}
+          >
             {pending ? "保存中…" : "並び順を保存"}
           </Button>
           <Button

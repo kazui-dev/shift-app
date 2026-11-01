@@ -82,6 +82,7 @@ export function ShiftEditorToolbar({
           </Button>
           <ManagementHeaderActions>
             <Button
+              data-save-shortcut
               variant="outline"
               size="sm"
               disabled={pending || (!dirty && !conflicted)}

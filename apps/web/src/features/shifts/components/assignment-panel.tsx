@@ -174,6 +174,7 @@ export function AssignmentPanel({
             ]),
           },
         })
+        onClose()
       }}
     />
   )

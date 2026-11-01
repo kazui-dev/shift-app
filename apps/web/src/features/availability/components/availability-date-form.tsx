@@ -69,6 +69,7 @@ export function AvailabilityDateForm({
         createPortal(
           <div className="flex justify-end gap-2">
             <Button
+              data-save-shortcut
               variant="outline"
               type="submit"
               form={`${fieldId}-form`}

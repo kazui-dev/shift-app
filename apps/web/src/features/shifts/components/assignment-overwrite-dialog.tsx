@@ -153,7 +153,11 @@ export function AssignmentOverwriteDialog({
           <Button variant="outline" disabled={pending} onClick={onCancel}>
             キャンセル
           </Button>
-          <Button disabled={pending || blocked} onClick={onConfirm}>
+          <Button
+            data-save-shortcut
+            disabled={pending || blocked}
+            onClick={onConfirm}
+          >
             {pending ? "上書き保存中…" : "上書き保存"}
           </Button>
         </div>
