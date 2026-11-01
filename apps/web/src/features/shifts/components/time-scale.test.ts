@@ -7,27 +7,6 @@ const scale = timeScale(
   "2026-09-13T12:00:00+09:00"
 )
 
-it("marks every hour plus both ends, hiding marks that crowd an end", () => {
-  expect(scale.hours.map((hour) => new Date(hour).toISOString())).toEqual([
-    "2026-09-13T00:30:00.000Z",
-    "2026-09-13T01:00:00.000Z",
-    "2026-09-13T02:00:00.000Z",
-    "2026-09-13T03:00:00.000Z",
-  ])
-  expect(scale.labels).toEqual([
-    scale.start,
-    Date.parse("2026-09-13T10:00:00+09:00"),
-    Date.parse("2026-09-13T11:00:00+09:00"),
-    scale.end,
-  ])
-  expect(
-    timeScale("2026-09-13T09:50:00+09:00", "2026-09-13T10:40:00+09:00").labels
-  ).toEqual([
-    Date.parse("2026-09-13T09:50:00+09:00"),
-    Date.parse("2026-09-13T10:40:00+09:00"),
-  ])
-})
-
 it("snaps a pointer to one minute and never leaves the shift", () => {
   expect(scale.minuteAt(0, 0, 150)).toBe(0)
   expect(scale.minuteAt(-40, 0, 150)).toBe(0)

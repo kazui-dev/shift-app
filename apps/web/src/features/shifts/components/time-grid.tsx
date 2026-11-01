@@ -1,3 +1,4 @@
+import { japanTime } from "@workspace/shared/japan-time"
 import type { FilterValue } from "@workspace/ui/lib/filters"
 import { memberSelectionKeys } from "./assignment-removal"
 import { AssignmentSelectAll } from "./assignment-selection"
@@ -8,7 +9,7 @@ import { staffing } from "./staffing"
 import { ShiftTimeline } from "./shift-timeline"
 import { StaffingDetail } from "./staffing-detail"
 import type { ShiftAnchor } from "./shift-anchor"
-import { japanTime } from "@workspace/shared/japan-time"
+import { TimelineAxis } from "./timeline-axis"
 import {
   memo,
   useCallback,
@@ -70,7 +71,7 @@ export const TimeGrid = memo(function TimeGrid({
     () => timeScale(plan.startsAt, plan.endsAt),
     [plan.startsAt, plan.endsAt]
   )
-  const { start, duration, labels } = scale
+  const { start, end } = scale
   const periods = useMemo(() => staffing(plan), [plan])
   const detailAnchor = useRef<HTMLSpanElement>(null)
   const [selectedTime, setSelectedTime] = useState<number | null>(null)
@@ -217,7 +218,8 @@ export const TimeGrid = memo(function TimeGrid({
     <ShiftTimeline
       label="シフト配置時間軸"
       toolbar={toolbar}
-      minWidth={`max(680px, calc(var(--shift-name-width) + ${Math.ceil(duration / 3_600_000) * 64 + 48}px))`}
+      start={start}
+      end={end}
       detail={
         periodDetail && (
           <StaffingDetail
@@ -252,17 +254,7 @@ export const TimeGrid = memo(function TimeGrid({
               )}
               メンバー
             </div>
-            <div className="relative mx-6 min-w-0 flex-1 text-xs text-muted-foreground">
-              {labels.map((hour) => (
-                <span
-                  key={hour}
-                  className="absolute top-3 -translate-x-1/2 tabular-nums"
-                  style={{ left: `${((hour - start) / duration) * 100}%` }}
-                >
-                  {japanTime(hour)}
-                </span>
-              ))}
-            </div>
+            <TimelineAxis start={start} end={end} />
           </div>
           <div className="flex h-8">
             <div className="shift-name sticky left-0 z-20 flex shrink-0 items-center bg-background px-3 text-xs">

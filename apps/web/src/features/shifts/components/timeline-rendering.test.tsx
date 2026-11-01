@@ -84,6 +84,21 @@ it("only redraws changed member highlights when opening, switching and closing a
     // Other menu state in the parent must not redraw the grid either.
     await act(async () => root.render(<Demo selection={null} />))
     expect(label).toHaveBeenCalledTimes(7)
+    const zoom = host.querySelector<HTMLButtonElement>(
+      '[aria-label="10:00の区切りで時間軸の幅を変更"]'
+    )
+    if (!zoom) throw new Error("Missing zoom action")
+    await act(async () =>
+      zoom.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })
+      )
+    )
+    expect(
+      host
+        .querySelector<HTMLElement>(".shift-timeline")
+        ?.style.getPropertyValue("--shift-hour-width")
+    ).toBe("104px")
+    expect(label).toHaveBeenCalledTimes(7)
   } finally {
     await act(async () => root.unmount())
     host.remove()
