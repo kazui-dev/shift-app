@@ -135,6 +135,7 @@ export function BulkAssignmentDialog({
               戻る
             </Button>
             <Button
+              data-save-shortcut
               variant="outline"
               disabled={!included.length}
               onClick={() => {

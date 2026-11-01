@@ -196,6 +196,7 @@ export function ChatComposer({
             <span className="min-w-0 flex-1 truncate">{mode.label}</span>
             {editing && (
               <Button
+                data-save-shortcut
                 type="submit"
                 variant="outline"
                 size="sm"

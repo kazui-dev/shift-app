@@ -75,6 +75,7 @@ export function CreateChat({
         backDisabled={create.isPending}
         action={
           <Button
+            data-save-shortcut
             type="submit"
             size="sm"
             disabled={

@@ -252,6 +252,7 @@ export function UserBulkEditor({
               キャンセル
             </Button>
             <Button
+              data-save-shortcut
               disabled={
                 pending || !dirty || (kind === "access" && !reason.trim())
               }

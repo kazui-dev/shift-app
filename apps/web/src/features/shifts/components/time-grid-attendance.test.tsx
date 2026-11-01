@@ -5,6 +5,7 @@ import { emptyFilter } from "@workspace/ui/lib/filters"
 import { makeEditors } from "../../../../dev/fixtures"
 import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { AttendanceData } from "./attendance-data"
+import type { EditorData } from "../editor-data"
 import { planOf } from "./use-shift-plan"
 import { TimeGrid } from "./time-grid"
 import { assignmentKey } from "./assignment-removal"
@@ -26,7 +27,7 @@ function fixture() {
     { id: "afternoon", startsAt: at("13:00"), endsAt: at("14:00") },
     { id: "unrecorded", startsAt: at("15:00"), endsAt: at("16:00") },
   ].map((slot) => ({ ...slot, capacity: null, memberIds: [member.id] }))
-  const data = {
+  const data: EditorData = {
     ...source,
     activity: {
       ...source.activity,
@@ -63,7 +64,8 @@ function fixture() {
     plan = planOf(data),
     attendance = records,
     selecting = false,
-    attendanceColors = true
+    attendanceColors = true,
+    timelineAttendance?: AttendanceData["timelineAssignments"]
   ) {
     const key = assignmentKey({
       activityId: data.activity.id,
@@ -75,6 +77,7 @@ function fixture() {
       <TimeGrid
         data={data}
         attendance={attendance}
+        timelineAttendance={timelineAttendance}
         attendanceColors={attendanceColors}
         plan={plan}
         search=""
@@ -186,4 +189,81 @@ it("uses only the matching saved duty and member; updates and withdrawals affect
       style?.includes("#64748B")
     )
   ).toBe(true)
+})
+
+it("colors other shifts with the same attendance palette and keeps new draft work unrecorded", () => {
+  const { data, render } = fixture()
+  data.otherAssignments = ["late", "absent", "present", "none"].map(
+    (name, index) => ({
+      activityId: "other",
+      slotId: `other-${name}`,
+      memberId: member.id,
+      name,
+      startsAt: at(`${10 + index}:00`),
+      endsAt: at(`${11 + index}:00`),
+    })
+  )
+  const timeline: NonNullable<AttendanceData["timelineAssignments"]> =
+    data.otherAssignments.map((item, index) => ({
+      id: `a-${index}`,
+      activityId: "other",
+      slotId: `other-${item.name}`,
+      memberId: member.id,
+      startsAt: item.startsAt,
+      endsAt: item.endsAt,
+      attendance:
+        index === 3
+          ? null
+          : {
+              state: index === 0 ? "late" : index === 1 ? "absent" : "present",
+              checkInStatus: index === 2 ? "pending" : null,
+              checkedInAt: null,
+              expectedAt: null,
+              resolvedAt: index === 1 ? at("12:00") : null,
+            },
+    }))
+  timeline.push({
+    id: "current-morning",
+    activityId: data.activity.id,
+    slotId: "morning",
+    memberId: member.id,
+    startsAt: at("09:00"),
+    endsAt: at("10:00"),
+    attendance: {
+      state: "present",
+      checkInStatus: "confirmed",
+      checkedInAt: null,
+      expectedAt: null,
+      resolvedAt: null,
+    },
+  })
+  const styles = (rows = timeline, enabled = true) =>
+    barStyles(render(undefined, undefined, false, enabled, rows)).slice(-4)
+  expect(styles()).toEqual(
+    ["#D97706", "#DC2626", "#16A34A", "#64748B"].map((color) =>
+      expect.stringContaining(`${color} 30%`)
+    )
+  )
+  const host = render(undefined, undefined, false, true, timeline)
+  expect(barStyles(host)[0]).toContain("#16A34A")
+  expect(
+    host.querySelector('[title="absent / 欠勤（対応済み）"]')
+  ).not.toBeNull()
+  expect(host.querySelector('[title="present / 出勤確認待ち"]')).not.toBeNull()
+  expect(host.textContent).not.toMatch(/欠勤|出勤確認/)
+  expect(styles([], true).every((style) => style?.includes("#64748B"))).toBe(
+    true
+  )
+  expect(
+    styles(timeline, false).every(
+      (style) => !style?.includes("background-color")
+    )
+  ).toBe(true)
+  expect(
+    styles(timeline.map((row) => ({ ...row, memberId: "someone-else" })))[0]
+  ).toContain("#64748B")
+  const other = data.otherAssignments[0]
+  if (!other) throw new Error("Missing other shift")
+  other.slotId = "new-draft-slot"
+  expect(styles()[0]).toContain("#64748B")
 })

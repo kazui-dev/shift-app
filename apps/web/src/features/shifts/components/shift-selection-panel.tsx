@@ -297,6 +297,7 @@ function ShiftTimeRow({
             キャンセル
           </Button>
           <Button
+            data-save-shortcut
             type="submit"
             variant="outline"
             size="sm"

@@ -772,7 +772,31 @@ export function localApi(): Plugin {
               return
             }
             if (editor && path.endsWith("/attendance")) {
-              send({ canManage: true, assignments: [] })
+              send({
+                canManage: true,
+                assignments: [],
+                timelineAssignments: editors.flatMap((source) =>
+                  source.slots.flatMap((slot) =>
+                    slot.memberIds.map((memberId) => ({
+                      id: `${slot.id}:${memberId}`,
+                      slotId: slot.id,
+                      activityId: source.activity.id,
+                      memberId,
+                      startsAt: slot.startsAt,
+                      endsAt: slot.endsAt,
+                      attendance: {
+                        state: ["late", "absent", "present"][
+                          Number(memberId.slice(-3)) % 3
+                        ],
+                        checkInStatus: "confirmed",
+                        checkedInAt: null,
+                        expectedAt: null,
+                        resolvedAt: null,
+                      },
+                    }))
+                  )
+                ),
+              })
               return
             }
             fail()

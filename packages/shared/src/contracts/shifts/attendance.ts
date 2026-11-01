@@ -55,7 +55,26 @@ export const attendanceEnvelopeSchema = v.object({
   attendance: v.nullable(attendanceSchema),
 })
 
+export const planningAssignmentAttendanceSchema = v.object({
+  id: v.string(),
+  slotId: v.string(),
+  activityId: v.string(),
+  memberId: v.string(),
+  startsAt: instantSchema,
+  endsAt: instantSchema,
+  attendance: v.nullable(
+    v.pick(attendanceSchema, [
+      "state",
+      "checkInStatus",
+      "checkedInAt",
+      "expectedAt",
+      "resolvedAt",
+    ])
+  ),
+})
+
 export const shiftAttendanceResponseSchema = v.object({
+  timelineAssignments: v.optional(v.array(planningAssignmentAttendanceSchema)),
   canManage: v.boolean(),
   assignments: v.array(
     v.object({

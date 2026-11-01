@@ -1,3 +1,4 @@
+import { SaveShortcuts } from "@/app/save-shortcuts"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 
@@ -9,7 +10,12 @@ type RouterContext = {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  component: Outlet,
+  component: () => (
+    <>
+      <SaveShortcuts />
+      <Outlet />
+    </>
+  ),
   errorComponent: RouteErrorPage,
   notFoundComponent: NotFoundPage,
 })

@@ -380,6 +380,7 @@ function ShiftOverviewContent({
                 <Redo2 />
               </Button>
               <Button
+                data-save-shortcut
                 variant={draft.dirty ? "default" : "outline"}
                 size="sm"
                 className="min-w-24"

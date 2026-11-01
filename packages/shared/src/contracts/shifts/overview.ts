@@ -1,6 +1,6 @@
 import * as v from "valibot"
 import { activityEditorResponseSchema } from "./activities"
-import { attendanceSchema } from "./attendance"
+import { planningAssignmentAttendanceSchema } from "./attendance"
 import { instantSchema } from "./common"
 
 export const shiftOverviewResponseSchema = v.object({
@@ -19,24 +19,6 @@ export const shiftOverviewResponseSchema = v.object({
       endsAt: instantSchema,
     })
   ),
-  assignments: v.array(
-    v.object({
-      id: v.string(),
-      slotId: v.string(),
-      activityId: v.string(),
-      memberId: v.string(),
-      startsAt: instantSchema,
-      endsAt: instantSchema,
-      attendance: v.nullable(
-        v.pick(attendanceSchema, [
-          "state",
-          "checkInStatus",
-          "checkedInAt",
-          "expectedAt",
-          "resolvedAt",
-        ])
-      ),
-    })
-  ),
+  assignments: v.array(planningAssignmentAttendanceSchema),
 })
 export type ShiftOverview = v.InferOutput<typeof shiftOverviewResponseSchema>
