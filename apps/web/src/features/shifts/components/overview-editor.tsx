@@ -5,7 +5,7 @@ import { Input } from "@workspace/ui/components/input"
 import { ShiftPopover } from "./shift-popover"
 import type { ShiftAnchor } from "./shift-anchor"
 import { X } from "lucide-react"
-import { overviewAttendance } from "./overview-model"
+import { attendanceLabel } from "./assignment-attendance"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { SelectField } from "@/components/select-field"
 import {
@@ -223,7 +223,7 @@ function OverviewEditorForm({
           </p>
           {assignment && (
             <p className="mt-1 text-xs text-muted-foreground">
-              {overviewAttendance(assignment)}
+              {attendanceLabel(assignment.attendance)}
             </p>
           )}
         </div>

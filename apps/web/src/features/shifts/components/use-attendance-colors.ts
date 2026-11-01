@@ -2,7 +2,7 @@ import { useState } from "react"
 
 const storageKey = "shift-app:overview-attendance-colors"
 
-export function useOverviewAttendanceColors() {
+export function useAttendanceColors() {
   const [enabled, setEnabled] = useState(() => {
     try {
       return localStorage.getItem(storageKey) === "true"

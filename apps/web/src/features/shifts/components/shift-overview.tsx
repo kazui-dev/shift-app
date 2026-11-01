@@ -32,7 +32,7 @@ import { Button } from "@workspace/ui/components/button"
 import { TextFilter } from "@workspace/ui/components/filter-menu"
 import { ShiftWorkspaceToolbar } from "./shift-workspace-toolbar"
 import { ManagementViewport } from "@/features/management/components/viewport"
-import { Switch } from "@workspace/ui/components/switch"
+import { AttendanceColorsControl } from "./attendance-colors-control"
 import { japanDateTime, japanTime } from "@workspace/shared/japan-time"
 import { activitiesQuery } from "../data/activities"
 import { rolesQuery } from "@/features/years/data/years"
@@ -54,7 +54,7 @@ import "./overview.css"
 import { useManagement } from "@/features/management/management-context"
 import { useOverviewDraft } from "./use-overview-draft"
 import { projectOverview } from "./overview-draft"
-import { useOverviewAttendanceColors } from "./use-overview-attendance-colors"
+import { useAttendanceColors } from "./use-attendance-colors"
 import type { ShiftAnchor } from "./shift-anchor"
 
 type OverviewStatus = { dirty: boolean; pending: boolean }
@@ -119,7 +119,7 @@ function ShiftOverviewContent({
   initialDate: string
 }) {
   const draft = useOverviewDraft()
-  const attendanceColors = useOverviewAttendanceColors()
+  const attendanceColors = useAttendanceColors()
   const client = useQueryClient()
   const [bulkMembers, setBulkMembers] = useState<string[] | null>(null)
   const [removing, setRemoving] = useState(false)
@@ -345,19 +345,10 @@ function ShiftOverviewContent({
             }
             actions={
               <>
-                <label
-                  htmlFor="overview-attendance-colors"
-                  className="flex min-h-8 items-center gap-2 text-xs font-medium sm:text-sm"
-                  title="遅刻：黄、欠勤：赤、出勤：緑、未記録：グレー"
-                >
-                  出勤状況
-                  <Switch
-                    id="overview-attendance-colors"
-                    size="sm"
-                    checked={attendanceColors.enabled}
-                    onCheckedChange={attendanceColors.toggle}
-                  />
-                </label>
+                <AttendanceColorsControl
+                  checked={attendanceColors.enabled}
+                  onCheckedChange={attendanceColors.toggle}
+                />
                 <Button
                   variant="ghost"
                   size="icon-sm"

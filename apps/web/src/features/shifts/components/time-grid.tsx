@@ -17,10 +17,13 @@ import type { EditorData } from "../editor-data"
 import { TimeGridRow } from "./time-grid-row"
 import { gridMembers, timeScale } from "./time-scale"
 
+const emptyAttendance = new Map<string, Attendance>()
+
 export const TimeGrid = memo(function TimeGrid({
   assignmentSelection,
   data,
   attendance,
+  attendanceColors = false,
   plan,
   roles,
   search,
@@ -34,6 +37,7 @@ export const TimeGrid = memo(function TimeGrid({
   assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
   attendance?: AttendanceData["assignments"] | undefined
+  attendanceColors?: boolean
   plan: ActivityEditorInput
   roles: FilterValue
   search: string
@@ -121,6 +125,30 @@ export const TimeGrid = memo(function TimeGrid({
       }),
     [data, plan, search, roles, availability, showingCandidates, periodDetail]
   )
+  const attendanceByMember = useMemo(() => {
+    const records = new Map<string, Attendance>()
+    for (const assignment of attendance ?? []) {
+      if (assignment.active && assignment.attendance)
+        records.set(
+          `${assignment.memberId}:${Date.parse(assignment.startsAt)}:${Date.parse(assignment.endsAt)}`,
+          assignment.attendance
+        )
+    }
+    const result = new Map<string, Map<string, Attendance>>()
+    for (const slot of data.slots) {
+      for (const memberId of slot.memberIds) {
+        const record = records.get(
+          `${memberId}:${Date.parse(slot.startsAt)}:${Date.parse(slot.endsAt)}`
+        )
+        if (!record) continue
+        const memberRecords =
+          result.get(memberId) ?? new Map<string, Attendance>()
+        memberRecords.set(slot.id, record)
+        result.set(memberId, memberRecords)
+      }
+    }
+    return result
+  }, [data.slots, attendance])
   const visible = useMemo(() => {
     const duties = new Set(
       data.roles.filter((item) => item.duty).map((item) => item.id)
@@ -129,31 +157,9 @@ export const TimeGrid = memo(function TimeGrid({
       const slots = plan.slots.filter((slot) =>
         slot.memberIds.includes(member.id)
       )
-      let latest: Attendance | undefined
-      for (const slot of data.slots) {
-        if (
-          !slot.memberIds.includes(member.id) ||
-          !slots.some((item) => item.id === slot.id)
-        )
-          continue
-        const assignment = attendance?.find(
-          (item) =>
-            item.active &&
-            item.memberId === member.id &&
-            Date.parse(item.startsAt) === Date.parse(slot.startsAt) &&
-            Date.parse(item.endsAt) === Date.parse(slot.endsAt)
-        )
-        const record = assignment?.attendance
-        if (
-          record &&
-          (!latest ||
-            Date.parse(record.updatedAt) > Date.parse(latest.updatedAt))
-        )
-          latest = record
-      }
       return {
         member,
-        attendance: latest,
+        attendance: attendanceByMember.get(member.id) ?? emptyAttendance,
         duties: member.roles
           .filter((item) => duties.has(item.id))
           .map((item) => item.name),
@@ -167,7 +173,7 @@ export const TimeGrid = memo(function TimeGrid({
         slots,
       }
     })
-  }, [members, data, plan, attendance])
+  }, [members, data, plan, attendanceByMember])
   const selectMember = useCallback(
     (memberId: string, anchor: ShiftAnchor) => {
       if (showingCandidates && periodDetail)
@@ -326,6 +332,7 @@ export const TimeGrid = memo(function TimeGrid({
           assignmentSelection={assignmentSelection}
           {...row}
           color={plan.color}
+          attendanceColors={attendanceColors}
           scale={scale}
           selected={selection?.memberId === row.member.id}
           onSelect={onSelect}

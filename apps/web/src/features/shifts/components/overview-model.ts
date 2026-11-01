@@ -36,13 +36,6 @@ export function overviewRows(data: ShiftOverview, filters: OverviewFilters) {
       assignments: data.assignments.filter((a) => a.memberId === member.id),
     }))
 }
-export function overviewAttendance(a: ShiftOverview["assignments"][number]) {
-  const attendance = a.attendance
-  if (!attendance) return "出勤記録なし"
-  if (attendance.state === "present")
-    return attendance.checkInStatus === "pending" ? "出勤確認待ち" : "出勤済み"
-  return `${attendance.state === "late" ? "遅刻" : "欠勤"}${attendance.resolvedAt ? "（対応済み）" : ""}`
-}
 export function overviewRange(data: ShiftOverview, date: string) {
   const day = Date.parse(`${date}T00:00:00+09:00`),
     next = day + 86_400_000
