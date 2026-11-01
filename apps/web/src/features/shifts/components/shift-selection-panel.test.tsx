@@ -105,7 +105,14 @@ it.each([false, true])(
             ]}
             startsAt={slot.startsAt}
             endsAt={slot.endsAt}
-            data={data}
+            data={{
+              ...data,
+              assignmentStates: [{ slotId: slot.id, memberId, recorded: true }],
+            }}
+            activities={[
+              { value: data.activity.id, label: data.activity.name },
+              { value: "other", label: "別シフト" },
+            ]}
             pending={false}
             onApply={apply}
             onClose={close}
@@ -123,6 +130,13 @@ it.each([false, true])(
       expect(host.querySelectorAll("form")).toHaveLength(1)
       expect(host.querySelector("form")?.getAttribute("data-slot-editor")).toBe(
         editing ? slot.id : null
+      )
+      expect(
+        host.querySelector('[aria-label="シフト"]')?.hasAttribute("disabled")
+      ).toBe(false)
+      const recordedWarning = expect.stringContaining("勤怠記録")
+      expect(host.querySelector('[role="note"]')?.textContent).toEqual(
+        editing ? recordedWarning : undefined
       )
       expect(action("反映").disabled).toBe(editing)
       expect(action("キャンセル").disabled).toBe(editing)

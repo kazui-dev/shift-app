@@ -1,3 +1,4 @@
+import { AssignmentEditWarning } from "./assignment-edit-warning"
 import { ShiftPopover } from "./shift-popover"
 import type { ShiftAnchor } from "./shift-anchor"
 import { memberAvailability } from "./member-availability"
@@ -15,7 +16,7 @@ import type { ActivityEditorInput } from "@workspace/shared/shifts"
 import type { EditorData } from "../editor-data"
 import type { Assignment } from "./assign-member"
 import { SelectField } from "@/components/select-field"
-import { transferBlocked } from "./transfer-assignment"
+import { assignmentEditWarning } from "./transfer-assignment"
 
 export type ShiftSelection = Assignment
 export function ShiftSelectionPanel({
@@ -126,7 +127,7 @@ function ShiftSelectionForm({
             onRemove={() => onRemove(selectedSlot.id)}
             activityId={data.activity.id}
             activities={activities}
-            transferDisabled={transferBlocked(data, {
+            warning={assignmentEditWarning(data, {
               ...selectedSlot,
               slotId: selectedSlot.id,
               memberId: selection.memberId,
@@ -160,7 +161,7 @@ function ShiftTimeRow({
   onClose,
   activityId,
   activities,
-  transferDisabled = false,
+  warning = null,
 }: {
   value: ShiftSelection
   pending: boolean
@@ -172,7 +173,7 @@ function ShiftTimeRow({
   onClose: () => void
   activityId: string
   activities?: { value: string; label: string }[] | undefined
-  transferDisabled?: boolean
+  warning?: string | null
 }) {
   const id = useId()
   const [from, setFrom] = useState(japanInputValue(value.startsAt).slice(11))
@@ -220,13 +221,14 @@ function ShiftTimeRow({
       }}
       className="space-y-3 border-t pt-3"
     >
+      <AssignmentEditWarning message={warning} />
       {activities && (
         <SelectField
           aria-label="シフト"
           searchable
           value={destination}
           options={activities}
-          disabled={pending || applying || transferDisabled}
+          disabled={pending || applying}
           onValueChange={setDestination}
         />
       )}
