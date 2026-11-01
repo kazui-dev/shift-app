@@ -4,7 +4,7 @@ import { assignMember } from "./assign-member"
 import type { OverviewDrafts } from "./overview-draft"
 import { planOf } from "./use-shift-plan"
 
-export function transferBlocked(
+export function assignmentEditWarning(
   source: EditorData,
   value: Assignment,
   now = Date.now()
@@ -13,11 +13,14 @@ export function transferBlocked(
     (slot) =>
       slot.id === value.slotId && slot.memberIds.includes(value.memberId)
   )
-  if (!saved) return false
+  if (!saved) return null
   const state = source.assignmentStates?.find(
     (item) => item.slotId === value.slotId && item.memberId === value.memberId
   )
-  return Date.parse(saved.endsAt) <= now || !state || state.recorded
+  const ended = Date.parse(saved.endsAt) <= now
+  if (state?.recorded)
+    return `${ended ? "終了済み・" : ""}勤怠記録のある勤務です。シフトを変更しても、勤怠記録は元の勤務に残ります。`
+  return ended ? "終了済みの勤務です。" : null
 }
 
 /** Both plans form one undo step and one atomic save. Never reuse another activity's slot ID. */
@@ -27,8 +30,6 @@ export function transferAssignment(
   drafts: OverviewDrafts,
   value: Assignment
 ): { updates: OverviewDrafts } | { error: string } {
-  if (transferBlocked(source, value))
-    return { error: "終了済み、または勤怠記録のある勤務は移動できません。" }
   const from = drafts[source.activity.id]?.plan ?? planOf(source)
   const to = drafts[destination.activity.id]?.plan ?? planOf(destination)
   if (

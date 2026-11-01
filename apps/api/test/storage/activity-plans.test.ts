@@ -230,17 +230,11 @@ it("rolls back the source removal when the destination conflicts with a third sh
     db.close()
   }
 })
-it.each(["ended", "recorded", "history", "permission", "stale"])(
+it.each(["permission", "stale"])(
   "rejects %s without changing either plan",
   async (reason) => {
     const { db, plans, request, assignments } = fixture()
     try {
-      if (reason === "ended")
-        db.prepare(
-          "UPDATE shift_slots SET starts_at=0,ends_at=1 WHERE id=?"
-        ).run(slot)
-      if (reason === "recorded" || reason === "history")
-        record(db, reason === "history")
       if (reason === "stale")
         db.prepare("UPDATE activities SET version=2 WHERE id=?").run(target)
       const before = assignments()
@@ -255,11 +249,10 @@ it.each(["ended", "recorded", "history", "permission", "stale"])(
     }
   }
 )
-it.each(["attendance", "version"])(
+it.each(["version"])(
   "rolls back both plans when %s changes after validation",
   async (reason) => {
     const { db, request, assignments } = fixture((database) => {
-      if (reason === "attendance") record(database, true)
       if (reason === "version")
         database
           .prepare("UPDATE activities SET version=2 WHERE id=?")
@@ -286,9 +279,13 @@ it.each(["attendance", "version"])(
   }
 )
 
-it.each(["ended", "recorded", "history", "concurrent-record"])(
-  "allows explicit removal then replacement of %s work while keeping its original records",
-  async (reason) => {
+it.each(
+  ["ended", "recorded", "history", "concurrent-record"].flatMap((reason) =>
+    [false, true].map((released) => ({ reason, released }))
+  )
+)(
+  "allows transferring $reason work with released=$released while keeping original records",
+  async ({ reason, released }) => {
     const { db, plans, request } = fixture(
       reason === "concurrent-record"
         ? (database) => record(database, true)
@@ -303,7 +300,7 @@ it.each(["ended", "recorded", "history", "concurrent-record"])(
         record(db, reason === "history")
       const response = await request(
         plans.map((item) =>
-          item.id === source
+          item.id === source && released
             ? {
                 ...item,
                 plan: {

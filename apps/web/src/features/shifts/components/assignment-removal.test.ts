@@ -11,7 +11,7 @@ import type { EditorData } from "../editor-data"
 import { planOf } from "./use-shift-plan"
 import { change, undo, redo } from "./editor-history"
 import { assignMember } from "./assign-member"
-import { transferBlocked } from "./transfer-assignment"
+import { assignmentEditWarning } from "./transfer-assignment"
 import { staffing } from "./staffing"
 import type { OverviewDrafts } from "./overview-draft"
 
@@ -184,7 +184,7 @@ it("keeps explicit removals in undo history and gives a replacement a new identi
   expect(replacement.slotId).not.toBe("one")
   expect(replacement.slotId).not.toBe("two")
   expect(
-    transferBlocked(
+    assignmentEditWarning(
       { ...source, slots: plan.slots },
       {
         ...target,
@@ -194,7 +194,7 @@ it("keeps explicit removals in undo history and gives a replacement a new identi
       },
       Infinity
     )
-  ).toBe(false)
+  ).toBeNull()
   const history = change({ past: [], present: plan, future: [] }, empty)
   expect(undo(history).present).toBe(plan)
   expect(redo(undo(history)).present.releasedAssignments).toEqual(
