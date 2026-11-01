@@ -8,34 +8,15 @@ import type { EditorData } from "../editor-data"
 
 const STEP = 60_000
 
-/** Maps the shift's window onto the grid: minutes, hour marks and widths. */
+/** Maps the shift's window onto the grid: minutes and interval positions. */
 export function timeScale(startsAt: string, endsAt: string) {
   const start = Date.parse(startsAt),
     end = Date.parse(endsAt),
     duration = end - start
-  const firstHour = Math.ceil(start / 3_600_000) * 3_600_000
-  const hours = [
-    ...new Set([
-      start,
-      ...Array.from(
-        { length: Math.max(0, Math.ceil((end - firstHour) / 3_600_000)) },
-        (_, index) => firstHour + index * 3_600_000
-      ),
-      end,
-    ]),
-  ]
   return {
     start,
     end,
     duration,
-    hours,
-    /** Hour marks far enough from the edges to be readable. */
-    labels: hours.filter(
-      (hour) =>
-        hour === start ||
-        hour === end ||
-        (hour - start >= 1_800_000 && end - hour >= 1_800_000)
-    ),
     /** The minute of the shift under a pointer, snapped to one minute. */
     minuteAt: (x: number, left: number, width: number) =>
       Math.max(
