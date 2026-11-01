@@ -256,196 +256,194 @@ function ShiftOverviewContent({
     view.save({ overview: next })
   }
   const toolbar = (
-    <div className="pt-2 pb-3">
-      <ShiftWorkspaceToolbar
-        label="全体シフトの操作"
-        leading={
-          <div className="relative flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="前日"
-              onClick={() =>
-                change({
-                  date: new Date(
-                    Date.parse(`${filters.date}T00:00:00Z`) - 86_400_000
-                  )
-                    .toISOString()
-                    .slice(0, 10),
-                })
+    <ShiftWorkspaceToolbar
+      label="全体シフトの操作"
+      leading={
+        <div className="relative flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="前日"
+            onClick={() =>
+              change({
+                date: new Date(
+                  Date.parse(`${filters.date}T00:00:00Z`) - 86_400_000
+                )
+                  .toISOString()
+                  .slice(0, 10),
+              })
+            }
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="font-semibold"
+            aria-label={`${filters.date}、日付を選択`}
+            onClick={() => {
+              const picker = pickerRef.current
+              if (!picker) return
+              if (typeof picker.showPicker === "function") picker.showPicker()
+              else picker.click()
+            }}
+          >
+            {new Date(`${filters.date}T00:00:00+09:00`).toLocaleDateString(
+              "ja-JP",
+              {
+                month: "long",
+                day: "numeric",
+                weekday: "short",
+                timeZone: "Asia/Tokyo",
               }
-            >
-              <ChevronLeft />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="font-semibold"
-              aria-label={`${filters.date}、日付を選択`}
-              onClick={() => {
-                const picker = pickerRef.current
-                if (!picker) return
-                if (typeof picker.showPicker === "function") picker.showPicker()
-                else picker.click()
-              }}
-            >
-              {new Date(`${filters.date}T00:00:00+09:00`).toLocaleDateString(
-                "ja-JP",
-                {
-                  month: "long",
-                  day: "numeric",
-                  weekday: "short",
-                  timeZone: "Asia/Tokyo",
-                }
-              )}
-            </Button>
-            <input
-              ref={pickerRef}
-              aria-label="表示日"
-              type="date"
-              value={filters.date}
-              className="pointer-events-none absolute size-px opacity-0"
-              tabIndex={-1}
-              onChange={(event) => {
-                if (event.target.value) change({ date: event.target.value })
-              }}
-            />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="翌日"
-              onClick={() =>
-                change({
-                  date: new Date(
-                    Date.parse(`${filters.date}T00:00:00Z`) + 86_400_000
-                  )
-                    .toISOString()
-                    .slice(0, 10),
-                })
-              }
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        }
-        actions={
-          <>
-            <AttendanceColorsControl
-              checked={attendanceColors.enabled}
-              onCheckedChange={attendanceColors.toggle}
-            />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="全体シフトを更新"
-              disabled={query.isFetching || pending}
-              onClick={() => void query.refetch()}
-            >
-              <RefreshCw />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="印刷・PDF"
-              className="max-sm:size-8 max-sm:p-0"
-              disabled={
-                !data || !rows.length || query.isFetching || query.isError
-              }
-              onClick={() => {
-                flushSync(() => setPrinting(true))
-                document.body.classList.add("printing-shift-overview")
-                window.print()
-              }}
-            >
-              <Printer />
-              <span className="hidden sm:inline">印刷・PDF</span>
-            </Button>
-            {data?.canEdit && (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="元に戻す"
-                  disabled={!draft.canUndo || pending}
-                  onClick={draft.undo}
-                >
-                  <Undo2 />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="やり直す"
-                  disabled={!draft.canRedo || pending}
-                  onClick={draft.redo}
-                >
-                  <Redo2 />
-                </Button>
-                <Button
-                  variant={draft.dirty ? "default" : "outline"}
-                  size="sm"
-                  className="min-w-24"
-                  disabled={!draft.dirty || pending}
-                  onClick={() => void draft.save()}
-                >
-                  <Save />
-                  {pending ? "保存中" : draft.dirty ? "保存" : "保存済み"}
-                </Button>
-              </>
             )}
-          </>
-        }
-        selection={
-          data?.canEdit && (
-            <AssignmentSelectionToolbar
-              selection={removal}
-              details={removable.map((target) => ({
-                key: assignmentKey(target),
-                name:
-                  data?.members.find((item) => item.id === target.memberId)
-                    ?.displayName ?? "",
-                activity:
-                  data?.activities.find((item) => item.id === target.activityId)
-                    ?.name ?? "",
-                time: `${japanTime(target.startsAt)}〜${japanTime(target.endsAt)}`,
-              }))}
-              pending={pending}
-              summary={`${selectedMemberIds.length}人選択中`}
-              onAssign={() => setBulkMembers(selectedMemberIds)}
-              onRemove={() => void removeSelected()}
-            />
+          </Button>
+          <input
+            ref={pickerRef}
+            aria-label="表示日"
+            type="date"
+            value={filters.date}
+            className="pointer-events-none absolute size-px opacity-0"
+            tabIndex={-1}
+            onChange={(event) => {
+              if (event.target.value) change({ date: event.target.value })
+            }}
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="翌日"
+            onClick={() =>
+              change({
+                date: new Date(
+                  Date.parse(`${filters.date}T00:00:00Z`) + 86_400_000
+                )
+                  .toISOString()
+                  .slice(0, 10),
+              })
+            }
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+      }
+      actions={
+        <>
+          <AttendanceColorsControl
+            checked={attendanceColors.enabled}
+            onCheckedChange={attendanceColors.toggle}
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="全体シフトを更新"
+            disabled={query.isFetching || pending}
+            onClick={() => void query.refetch()}
+          >
+            <RefreshCw />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="印刷・PDF"
+            className="max-sm:size-8 max-sm:p-0"
+            disabled={
+              !data || !rows.length || query.isFetching || query.isError
+            }
+            onClick={() => {
+              flushSync(() => setPrinting(true))
+              document.body.classList.add("printing-shift-overview")
+              window.print()
+            }}
+          >
+            <Printer />
+            <span className="hidden sm:inline">印刷・PDF</span>
+          </Button>
+          {data?.canEdit && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="元に戻す"
+                disabled={!draft.canUndo || pending}
+                onClick={draft.undo}
+              >
+                <Undo2 />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="やり直す"
+                disabled={!draft.canRedo || pending}
+                onClick={draft.redo}
+              >
+                <Redo2 />
+              </Button>
+              <Button
+                variant={draft.dirty ? "default" : "outline"}
+                size="sm"
+                className="min-w-24"
+                disabled={!draft.dirty || pending}
+                onClick={() => void draft.save()}
+              >
+                <Save />
+                {pending ? "保存中" : draft.dirty ? "保存" : "保存済み"}
+              </Button>
+            </>
+          )}
+        </>
+      }
+      selection={
+        data?.canEdit && (
+          <AssignmentSelectionToolbar
+            selection={removal}
+            details={removable.map((target) => ({
+              key: assignmentKey(target),
+              name:
+                data?.members.find((item) => item.id === target.memberId)
+                  ?.displayName ?? "",
+              activity:
+                data?.activities.find((item) => item.id === target.activityId)
+                  ?.name ?? "",
+              time: `${japanTime(target.startsAt)}〜${japanTime(target.endsAt)}`,
+            }))}
+            pending={pending}
+            summary={`${selectedMemberIds.length}人選択中`}
+            onAssign={() => setBulkMembers(selectedMemberIds)}
+            onRemove={() => void removeSelected()}
+          />
+        )
+      }
+    >
+      <ShiftMemberSearch
+        value={filters.search}
+        onChange={(search) => change({ search })}
+      />
+      <FilterMenu
+        label="ロール"
+        options={(roleOptions.data?.roles ?? data?.roles ?? [])
+          .filter(
+            (role) =>
+              filterValues(filters.roles).includes(role.id) ||
+              data?.roles.some((item) => item.id === role.id)
           )
-        }
-      >
-        <ShiftMemberSearch
-          value={filters.search}
-          onChange={(search) => change({ search })}
-        />
-        <FilterMenu
-          label="ロール"
-          options={(roleOptions.data?.roles ?? data?.roles ?? [])
-            .filter(
-              (role) =>
-                filterValues(filters.roles).includes(role.id) ||
-                data?.roles.some((item) => item.id === role.id)
-            )
-            .map((r) => ({ value: r.id, label: r.name }))}
-          value={filters.roles}
-          onChange={(roles) => change({ roles })}
-        />
-        <FilterMenu
-          label="シフト"
-          options={(activityOptions.data?.activities ?? data?.activities ?? [])
-            .filter(
-              (activity) =>
-                filterValues(filters.activities).includes(activity.id) ||
-                data?.activities.some((item) => item.id === activity.id)
-            )
-            .map((a) => ({ value: a.id, label: a.name }))}
-          value={filters.activities}
-          onChange={(activities) => change({ activities })}
-        />
-      </ShiftWorkspaceToolbar>
-    </div>
+          .map((r) => ({ value: r.id, label: r.name }))}
+        value={filters.roles}
+        onChange={(roles) => change({ roles })}
+      />
+      <FilterMenu
+        label="シフト"
+        options={(activityOptions.data?.activities ?? data?.activities ?? [])
+          .filter(
+            (activity) =>
+              filterValues(filters.activities).includes(activity.id) ||
+              data?.activities.some((item) => item.id === activity.id)
+          )
+          .map((a) => ({ value: a.id, label: a.name }))}
+        value={filters.activities}
+        onChange={(activities) => change({ activities })}
+      />
+    </ShiftWorkspaceToolbar>
   )
   return (
     <fieldset

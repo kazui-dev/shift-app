@@ -87,7 +87,7 @@ it.each([false, true])(
       }
       const value = { ...slot, slotId: slot.id, memberId }
       expect(assignmentEditWarning(recorded, value)).toContain(
-        ended ? "終了済み・勤怠記録" : "勤怠記録"
+        ended ? "終了済みで、勤怠記録" : "勤怠記録"
       )
       expect(transferAssignment(recorded, target, {}, value)).toHaveProperty(
         "updates"

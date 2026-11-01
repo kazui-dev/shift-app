@@ -19,8 +19,8 @@ export function assignmentEditWarning(
   )
   const ended = Date.parse(saved.endsAt) <= now
   if (state?.recorded)
-    return `${ended ? "終了済み・" : ""}勤怠記録のある勤務です。シフトを変更しても、勤怠記録は元の勤務に残ります。`
-  return ended ? "終了済みの勤務です。" : null
+    return `${ended ? "終了済みで、" : ""}勤怠記録のある勤務です。変更しますか？`
+  return ended ? "終了済みの勤務です。変更しますか？" : null
 }
 
 /** Both plans form one undo step and one atomic save. Never reuse another activity's slot ID. */
