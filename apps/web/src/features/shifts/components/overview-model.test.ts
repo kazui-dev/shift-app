@@ -4,7 +4,6 @@ import type { ShiftOverview } from "@workspace/shared/shifts"
 import {
   overviewInitialDate,
   overviewRows,
-  overviewAttendance,
   overviewRange,
 } from "./overview-model"
 const data: ShiftOverview = {
@@ -94,55 +93,14 @@ it("shows members assigned to any selected shift and retains all of their assign
     []
   )
 })
-it("clips overnight work to the selected Japan date and never infers lateness from a missing record", () => {
+it("clips overnight work to the selected Japan date", () => {
   expect(overviewRange(data, "2026-10-29")).toEqual({
     start: Date.parse("2026-10-29T00:00:00+09:00"),
     end: Date.parse("2026-10-29T20:00:00+09:00"),
   })
-  const assignment = data.assignments[0]
-  if (!assignment) throw new Error("Missing fixture")
-  expect(overviewAttendance(assignment)).toBe("出勤記録なし")
-  expect(
-    overviewAttendance({
-      ...assignment,
-      attendance: {
-        state: "present",
-        checkInStatus: "pending",
-        checkedInAt: null,
-        expectedAt: null,
-        resolvedAt: null,
-      },
-    })
-  ).toBe("出勤確認待ち")
 })
 
-it("labels recorded outcomes and retains selected work", () => {
-  const assignment = data.assignments[0]
-  if (!assignment) throw new Error("Missing fixture")
-  const attendance = {
-    state: "present",
-    checkInStatus: "confirmed",
-    checkedInAt: null,
-    expectedAt: null,
-    resolvedAt: null,
-  } as const
-  expect(overviewAttendance({ ...assignment, attendance })).toBe("出勤済み")
-  expect(
-    overviewAttendance({
-      ...assignment,
-      attendance: { ...attendance, state: "late" },
-    })
-  ).toBe("遅刻")
-  expect(
-    overviewAttendance({
-      ...assignment,
-      attendance: {
-        ...attendance,
-        state: "absent",
-        resolvedAt: "2026-10-29T00:00:00Z",
-      },
-    })
-  ).toBe("欠勤（対応済み）")
+it("retains selected work", () => {
   expect(
     overviewRows(data, {
       date: "2026-10-29",

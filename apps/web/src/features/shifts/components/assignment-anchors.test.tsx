@@ -44,7 +44,8 @@ it("edits duties from their vertical padding, anchors to the visible bar and onl
           availability={[]}
           slots={[slot]}
           otherAssignments={[foreign]}
-          attendance={undefined}
+          attendance={new Map()}
+          attendanceColors={false}
           color="#64748B"
           scale={timeScale(source.activity.startsAt, source.activity.endsAt)}
           selected={false}

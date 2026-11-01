@@ -62,7 +62,8 @@ function fixture() {
   function render(
     plan = planOf(data),
     attendance = records,
-    selecting = false
+    selecting = false,
+    attendanceColors = true
   ) {
     const key = assignmentKey({
       activityId: data.activity.id,
@@ -74,6 +75,7 @@ function fixture() {
       <TimeGrid
         data={data}
         attendance={attendance}
+        attendanceColors={attendanceColors}
         plan={plan}
         search=""
         roles={emptyFilter()}
@@ -100,72 +102,88 @@ function fixture() {
   return { data, records, render }
 }
 
-it("colors the entire member row without adding attendance text or changing the work bars", () => {
-  const { records, render } = fixture()
-  for (const [state, color] of [
-    ["late", "bg-amber-50"],
-    ["absent", "bg-red-50"],
-  ] as const) {
-    const record = records[0]
-    if (!record?.attendance) throw new Error("Missing attendance")
-    const host = render(undefined, [
-      { ...record, attendance: { ...record.attendance, state } },
-    ])
-    const row = host
-      .querySelector("[data-shift-member]")
-      ?.closest(".shift-name")?.parentElement
-    expect(row?.className).toContain(color)
-    expect(row?.className).toContain("h-14")
-    expect(row?.textContent).not.toMatch(/遅刻|欠勤|対応済み/)
-    expect(
-      host
-        .querySelector('[data-slot-id="morning"] [data-shift-bar]')
-        ?.getAttribute("style")
-    ).toContain("color-mix")
-    expect(
-      host.querySelector("[data-shift-member]")?.getAttribute("aria-label")
-    ).toContain(state === "late" ? "遅刻" : "欠勤")
-    const selected = render(
-      undefined,
-      [{ ...record, attendance: { ...record.attendance, state } }],
-      true
+function barStyles(host: HTMLElement) {
+  return [...host.querySelectorAll("[data-shift-bar]")].map((bar) =>
+    bar.getAttribute("style")
+  )
+}
+
+it("colors each duty independently without tinting the row or adding visible status text", () => {
+  const { render } = fixture()
+  const host = render()
+  const row = host.querySelector(".shift-timeline-row")
+  expect(row?.className).not.toMatch(/bg-amber|bg-red/)
+  expect(row?.textContent).not.toMatch(/遅刻|欠勤|出勤済み|出勤記録なし/)
+  expect(barStyles(host)).toEqual([
+    expect.stringContaining("#D97706 30%"),
+    expect.stringContaining("#DC2626 30%"),
+    expect.stringContaining("#16A34A 30%"),
+    expect.stringContaining("#64748B 30%"),
+  ])
+  expect(
+    host.querySelector('[data-slot-id="morning"]')?.getAttribute("title")
+  ).toContain("遅刻")
+  expect(
+    host
+      .querySelector('[data-slot-id="short"] [data-shift-bar]')
+      ?.getAttribute("title")
+  ).toContain("欠勤（対応済み）")
+  expect(
+    host
+      .querySelector('[data-slot-id="unrecorded"] [data-shift-bar]')
+      ?.getAttribute("title")
+  ).toContain("出勤記録なし")
+  const selected = render(undefined, undefined, true)
+  expect(
+    selected.querySelector('[aria-pressed="true"]')?.getAttribute("aria-label")
+  ).toContain("遅刻")
+  expect(barStyles(selected)[0]).toContain("#D97706 60%")
+  expect(
+    barStyles(render(undefined, undefined, false, false)).every((style) =>
+      style?.includes("22%")
     )
-    expect(selected.querySelector("[aria-pressed=true]")).not.toBeNull()
-  }
+  ).toBe(true)
 })
 
-it("always uses the latest status for this shift and clears the row color after check-in or withdrawal", () => {
+it("uses only the matching saved duty and member; updates and withdrawals affect just that bar", () => {
   const { data, records, render } = fixture()
-  const updated = records.map((record, i) => ({
-    ...record,
-    attendance: record.attendance
-      ? { ...record.attendance, updatedAt: at(`08:0${i}`) }
-      : null,
-  }))
-  function rowClass(
-    attendance: AttendanceData["assignments"],
-    plan = planOf(data)
-  ) {
-    return render(plan, attendance)
-      .querySelector("[data-shift-member]")
-      ?.closest(".shift-name")?.parentElement?.className
+  const first = records[0]
+  if (!first?.attendance) throw new Error("Missing attendance")
+  const updated = [
+    {
+      ...first,
+      attendance: { ...first.attendance, state: "present" as const },
+    },
+    ...records.slice(1),
+  ]
+  expect(barStyles(render(undefined, updated))[0]).toContain("#16A34A")
+  for (const invalid of [
+    { ...first, attendance: null },
+    { ...first, active: false },
+    { ...first, memberId: "other" },
+    { ...first, startsAt: at("08:59") },
+    { ...first, endsAt: at("10:02") },
+  ]) {
+    const styles = barStyles(render(undefined, [invalid, ...records.slice(1)]))
+    expect(styles[0]).toContain("#64748B")
+    expect(styles[1]).toContain("#DC2626")
   }
-  expect(rowClass(updated.slice(0, 1))).toContain("bg-amber-50")
-  expect(rowClass(updated.slice(0, 2).reverse())).toContain("bg-red-50")
-  expect(rowClass(updated.slice().reverse())).not.toMatch(/bg-amber|bg-red/)
-  expect(
-    rowClass(updated.map((record) => ({ ...record, attendance: null })))
-  ).not.toMatch(/bg-amber|bg-red/)
-  expect(
-    rowClass(updated.map((record) => ({ ...record, active: false })))
-  ).not.toMatch(/bg-amber|bg-red/)
-  expect(
-    rowClass(updated.map((record) => ({ ...record, memberId: "other" })))
-  ).not.toMatch(/bg-amber|bg-red/)
   const original = planOf(data)
   const changed: ActivityEditorInput = {
     ...original,
     slots: original.slots.map((slot) => ({ ...slot, id: `new-${slot.id}` })),
   }
-  expect(rowClass(updated, changed)).not.toMatch(/bg-amber|bg-red/)
+  expect(
+    barStyles(render(changed)).every((style) => style?.includes("#64748B"))
+  ).toBe(true)
+  const moved = {
+    ...original,
+    slots: original.slots.map((slot) => ({ ...slot, startsAt: at("09:01") })),
+  }
+  expect(barStyles(render(moved))[0]).toContain("#D97706")
+  expect(
+    barStyles(render(undefined, [])).every((style) =>
+      style?.includes("#64748B")
+    )
+  ).toBe(true)
 })

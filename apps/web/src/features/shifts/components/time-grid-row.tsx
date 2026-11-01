@@ -1,3 +1,4 @@
+import { attendanceLabel, assignmentBackground } from "./assignment-attendance"
 import { AssignmentRowCheckbox } from "./assignment-selection"
 import { assignmentKey, memberSelectionKeys } from "./assignment-removal"
 import type { AssignmentSelection } from "./use-assignment-selection"
@@ -28,6 +29,7 @@ export const TimeGridRow = memo(function TimeGridRow({
   otherAssignments,
   slots,
   attendance,
+  attendanceColors,
   color,
   scale,
   selected,
@@ -44,7 +46,8 @@ export const TimeGridRow = memo(function TimeGridRow({
   availability: EditorData["availability"]
   otherAssignments: EditorData["otherAssignments"]
   slots: ActivityEditorInput["slots"]
-  attendance: Attendance | undefined
+  attendance: ReadonlyMap<string, Attendance>
+  attendanceColors: boolean
   color: string
   scale: ReturnType<typeof timeScale>
   selected: boolean
@@ -59,12 +62,6 @@ export const TimeGridRow = memo(function TimeGridRow({
     | undefined
 }) {
   const { start, end, minuteAt, range, position, resize } = scale
-  const attendanceLabel =
-    attendance?.state === "late"
-      ? "遅刻"
-      : attendance?.state === "absent"
-        ? "欠勤"
-        : ""
   const drag = useRef<{
     memberId: string
     minute: number
@@ -141,11 +138,20 @@ export const TimeGridRow = memo(function TimeGridRow({
           slotId: slot.id,
           memberId: member.id,
         })
+        const record = attendance.get(slot.id)
+        const label = attendanceLabel(record)
+        const title = `${japanTime(shown.startsAt)}〜${japanTime(shown.endsAt)} / ${label}`
         const attributes = {
+          title,
           className: `absolute inset-x-0 truncate rounded pr-[14px] pl-[14px] text-left text-xs leading-[17px] text-foreground tabular-nums`,
           style: {
             ...shiftBarStyle,
-            backgroundColor: `color-mix(in oklab, ${color} ${assignmentSelection?.keys.includes(key) ? 60 : 22}%, var(--background))`,
+            backgroundColor: assignmentBackground(
+              color,
+              record,
+              attendanceColors,
+              assignmentSelection?.keys.includes(key) ?? false
+            ),
           },
         }
         if (assignmentSelection?.active)
@@ -157,10 +163,10 @@ export const TimeGridRow = memo(function TimeGridRow({
               style={position(shown.startsAt, shown.endsAt)}
               data-assignment-key={key}
               aria-pressed={assignmentSelection.keys.includes(key)}
-              aria-label={`${member.displayName} ${japanTime(slot.startsAt)}〜${japanTime(slot.endsAt)}の勤務を選択`}
+              aria-label={`${member.displayName} ${title}の勤務を選択`}
               onClick={() => assignmentSelection.toggle(key)}
             >
-              <span {...attributes}>
+              <span data-shift-bar {...attributes}>
                 {japanTime(slot.startsAt)}〜{japanTime(slot.endsAt)}
               </span>
             </button>
@@ -169,6 +175,7 @@ export const TimeGridRow = memo(function TimeGridRow({
           <span
             key={slot.id}
             data-slot-id={slot.id}
+            title={title}
             className="absolute inset-y-0 z-[2]"
             style={position(shown.startsAt, shown.endsAt)}
           >
@@ -208,11 +215,7 @@ export const TimeGridRow = memo(function TimeGridRow({
       className={cn(
         "shift-timeline-row flex h-14 border-t border-border/70 bg-background",
         selected &&
-          "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]",
-        attendance?.state === "late" && "bg-amber-50 dark:bg-amber-950",
-        attendance?.state === "absent" && "bg-red-50 dark:bg-red-950",
-        attendanceLabel && "[--muted-foreground:var(--foreground)]",
-        selected && attendanceLabel && "ring-2 ring-ring ring-inset"
+          "bg-[color-mix(in_oklab,var(--muted)_55%,var(--background))]"
       )}
     >
       <div className="shift-name sticky left-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-2 text-sm sm:px-3">
@@ -229,7 +232,7 @@ export const TimeGridRow = memo(function TimeGridRow({
             onMember(member.id, elementAnchor(event.currentTarget))
           }
           disabled={assignmentSelection?.active}
-          aria-label={`${member.displayName}のシフトを編集${attendanceLabel ? `。${attendanceLabel}` : ""}`}
+          aria-label={`${member.displayName}のシフトを編集`}
           data-shift-member={member.id}
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
         >

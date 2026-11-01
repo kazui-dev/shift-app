@@ -2,7 +2,8 @@
 import { act } from "react"
 import { createRoot } from "react-dom/client"
 import { afterEach, expect, it, vi } from "vite-plus/test"
-import { useOverviewAttendanceColors } from "./use-overview-attendance-colors"
+import { AttendanceColorsControl } from "./attendance-colors-control"
+import { useAttendanceColors } from "./use-attendance-colors"
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -11,11 +12,12 @@ afterEach(() => {
 })
 
 function Control() {
-  const colors = useOverviewAttendanceColors()
+  const colors = useAttendanceColors()
   return (
-    <button aria-pressed={colors.enabled} onClick={colors.toggle}>
-      色分け
-    </button>
+    <AttendanceColorsControl
+      checked={colors.enabled}
+      onCheckedChange={colors.toggle}
+    />
   )
 }
 
@@ -24,7 +26,7 @@ async function mount() {
   const host = document.createElement("div")
   const root = createRoot(host)
   await act(async () => root.render(<Control />))
-  const button = host.querySelector("button")
+  const button = host.querySelector<HTMLButtonElement>('[role="switch"]')
   if (!button) throw new Error("Missing toggle")
   return {
     button,
@@ -35,18 +37,19 @@ async function mount() {
 
 it("restores both toggle states after remounting from browser storage", async () => {
   const first = await mount()
-  expect(first.button.getAttribute("aria-pressed")).toBe("false")
+  expect(first.button.closest("label")?.textContent).toContain("勤怠状況")
+  expect(first.button.getAttribute("aria-checked")).toBe("false")
   await first.toggle()
-  expect(first.button.getAttribute("aria-pressed")).toBe("true")
+  expect(first.button.getAttribute("aria-checked")).toBe("true")
   await first.unmount()
 
   const second = await mount()
-  expect(second.button.getAttribute("aria-pressed")).toBe("true")
+  expect(second.button.getAttribute("aria-checked")).toBe("true")
   await second.toggle()
   await second.unmount()
 
   const third = await mount()
-  expect(third.button.getAttribute("aria-pressed")).toBe("false")
+  expect(third.button.getAttribute("aria-checked")).toBe("false")
   await third.unmount()
 })
 
@@ -58,8 +61,8 @@ it("still toggles when storage is unavailable", async () => {
     throw new Error("Storage unavailable")
   })
   const control = await mount()
-  expect(control.button.getAttribute("aria-pressed")).toBe("false")
+  expect(control.button.getAttribute("aria-checked")).toBe("false")
   await control.toggle()
-  expect(control.button.getAttribute("aria-pressed")).toBe("true")
+  expect(control.button.getAttribute("aria-checked")).toBe("true")
   await control.unmount()
 })

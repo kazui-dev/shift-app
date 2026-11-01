@@ -1,3 +1,4 @@
+import { AttendanceColorsControl } from "./attendance-colors-control"
 import type { ReactNode } from "react"
 import { ShiftWorkspaceToolbar } from "./shift-workspace-toolbar"
 import {
@@ -11,6 +12,8 @@ import { Button } from "@workspace/ui/components/button"
 import { ManagementHeaderActions } from "@/features/management/components/header-actions"
 
 export function ShiftEditorToolbar({
+  attendanceColors,
+  onAttendanceColorsChange,
   filters,
   selection,
   dirty,
@@ -24,6 +27,8 @@ export function ShiftEditorToolbar({
   onSave,
   onActions,
 }: {
+  attendanceColors: boolean
+  onAttendanceColorsChange: () => void
   filters: ReactNode
   selection: ReactNode
   dirty: boolean
@@ -43,6 +48,10 @@ export function ShiftEditorToolbar({
       selection={selection}
       actions={
         <>
+          <AttendanceColorsControl
+            checked={attendanceColors}
+            onCheckedChange={onAttendanceColorsChange}
+          />
           <Button
             variant="outline"
             size="icon-sm"

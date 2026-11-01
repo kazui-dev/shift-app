@@ -1,3 +1,4 @@
+import { useAttendanceColors } from "./use-attendance-colors"
 import { ScrollViewport } from "@workspace/ui/components/scroll-viewport"
 import type {
   ActivityEditorInput,
@@ -74,6 +75,7 @@ export function ShiftEditor({
   onStatusChange: (status: { dirty: boolean; pending: boolean }) => void
 }) {
   const client = useQueryClient()
+  const attendanceColors = useAttendanceColors()
   const attendance = useQuery(attendanceQuery(source.activity.id))
   const navigate = useNavigate()
   const [acknowledged, setAcknowledged] = useState<EditorData["availability"]>(
@@ -433,6 +435,8 @@ export function ShiftEditor({
         />
       )}
       <ShiftEditorToolbar
+        attendanceColors={attendanceColors.enabled}
+        onAttendanceColorsChange={attendanceColors.toggle}
         dirty={dirty}
         pending={pending}
         conflicted={conflicted}
@@ -512,6 +516,7 @@ export function ShiftEditor({
               assignmentSelection={removal}
               data={data}
               attendance={attendance.data?.assignments}
+              attendanceColors={attendanceColors.enabled}
               plan={plan}
               roles={filters.roles}
               search={filters.search}
