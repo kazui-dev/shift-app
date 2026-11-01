@@ -157,3 +157,14 @@ it("coalesces identical concurrent additions without duplicating an assignment",
     latest.slots[1],
   ])
 })
+
+it("accepts an explicit removal already saved by someone else and retains the new addition", () => {
+  const replacement = { ...slot, id: "replacement" }
+  const local = { ...removed, slots: [...removed.slots, replacement] }
+  const latest = { ...base, version: 2, slots: [] }
+  const merged = mergeActivityDraft({ base, plan: local }, latest)
+  expect(merged.slots.filter((item) => item.memberIds.includes("a"))).toEqual([
+    replacement,
+  ])
+  expect(merged.releasedAssignments).toEqual(removed.releasedAssignments)
+})

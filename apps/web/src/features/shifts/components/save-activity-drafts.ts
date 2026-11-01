@@ -56,6 +56,9 @@ export function mergeActivityDraft(
       if (
         !ours &&
         !theirs &&
+        !local.releasedAssignments?.some(
+          (item) => item.slotId === slot.id && item.memberId === memberId
+        ) &&
         !same(additions(local, memberId), additions(latest, memberId))
       )
         throw conflict()
