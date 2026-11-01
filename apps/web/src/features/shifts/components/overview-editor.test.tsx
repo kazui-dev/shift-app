@@ -258,3 +258,84 @@ it("switches the member, activity and times together and lets outside controls w
     vi.unstubAllGlobals()
   }
 })
+
+it("applies an additional assignment with its initial values", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true)
+  const source = makeEditors()[0]
+  const member = source?.members[0]
+  const slot = source?.slots[0]
+  if (!source || !member || !slot) throw new Error("fixture")
+  const selection = {
+    activityId: source.activity.id,
+    memberId: member.id,
+    slotId: null,
+    startsAt: slot.startsAt,
+    endsAt: slot.endsAt,
+  }
+  vi.mocked(getActivity).mockResolvedValue({
+    ...source,
+    slots: [],
+    availability: [
+      { memberId: member.id, startsAt: slot.startsAt, endsAt: slot.endsAt },
+    ],
+  })
+  const apply = vi.fn<Parameters<typeof OverviewEditor>[0]["onApply"]>()
+  const close = vi.fn<() => void>()
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const host = document.createElement("div")
+  document.body.append(host)
+  const root = createRoot(host)
+  try {
+    await act(async () =>
+      root.render(
+        <QueryClientProvider client={client}>
+          <OverviewEditor
+            anchor={{ position: null, focus: () => null }}
+            selection={selection}
+            drafts={{}}
+            data={{
+              canEdit: true,
+              members: [member],
+              roles: [],
+              activities: [source.activity],
+              availability: [],
+              availabilityAnswers: [],
+              assignments: [],
+            }}
+            onApply={apply}
+            onClose={close}
+          />
+        </QueryClientProvider>
+      )
+    )
+    const action = (label: string) => {
+      const button = [...document.querySelectorAll("button")].find(
+        (item) => item.textContent === label
+      )
+      if (!button) throw new Error(`Missing ${label}`)
+      return button
+    }
+    expect(action("キャンセル").disabled).toBe(false)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    })
+    await vi.waitFor(() => expect(action("反映").disabled).toBe(false))
+    await act(async () => action("反映").click())
+    expect(apply).toHaveBeenCalledOnce()
+    expect(apply.mock.calls[0]?.[0][source.activity.id]?.plan.slots).toEqual([
+      expect.objectContaining({
+        startsAt: slot.startsAt,
+        endsAt: slot.endsAt,
+        memberIds: [member.id],
+      }),
+    ])
+    expect(close).toHaveBeenCalledOnce()
+  } finally {
+    await act(async () => root.unmount())
+    host.remove()
+    client.clear()
+    vi.unstubAllGlobals()
+  }
+})

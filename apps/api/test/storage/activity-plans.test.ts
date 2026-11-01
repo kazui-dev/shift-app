@@ -285,3 +285,132 @@ it.each(["attendance", "version"])(
     }
   }
 )
+
+it.each(["ended", "recorded", "history", "concurrent-record"])(
+  "allows explicit removal then replacement of %s work while keeping its original records",
+  async (reason) => {
+    const { db, plans, request } = fixture(
+      reason === "concurrent-record"
+        ? (database) => record(database, true)
+        : undefined
+    )
+    try {
+      if (reason === "ended")
+        db.prepare(
+          "UPDATE shift_slots SET starts_at=0,ends_at=1 WHERE id=?"
+        ).run(slot)
+      if (reason === "recorded" || reason === "history")
+        record(db, reason === "history")
+      const response = await request(
+        plans.map((item) =>
+          item.id === source
+            ? {
+                ...item,
+                plan: {
+                  ...item.plan,
+                  releasedAssignments: [
+                    { slotId: slot, memberId: owner },
+                    { slotId: slot, memberId: submission },
+                  ],
+                },
+              }
+            : item
+        )
+      )
+      expect(response.status).toBe(200)
+      expect(
+        db
+          .prepare("SELECT slot_id,status FROM shift_assignments WHERE id=?")
+          .get(assignment)
+      ).toEqual({ slot_id: slot, status: "cancelled" })
+      const active = db
+        .prepare(
+          "SELECT id,slot_id FROM shift_assignments WHERE status='active'"
+        )
+        .all()
+      expect(active).toHaveLength(1)
+      expect(active[0]).toMatchObject({ slot_id: targetSlot })
+      expect(active[0]?.id).not.toBe(assignment)
+      expect(
+        db.prepare("SELECT assignment_id FROM assignment_attendance").all()
+      ).toEqual(reason === "recorded" ? [{ assignment_id: assignment }] : [])
+      expect(
+        db
+          .prepare("SELECT assignment_id FROM assignment_attendance_events")
+          .all()
+      ).toEqual(
+        ["history", "concurrent-record"].includes(reason)
+          ? [{ assignment_id: assignment }]
+          : []
+      )
+      expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([])
+    } finally {
+      db.close()
+    }
+  }
+)
+it("rejects a stale release and replacement without saving either shift", async () => {
+  const { db, plans, request, assignments } = fixture((database) => {
+    database
+      .prepare("UPDATE activities SET version=version+1 WHERE id=?")
+      .run(source)
+  })
+  try {
+    record(db)
+    const before = assignments()
+    const response = await request(
+      plans.map((item) =>
+        item.id === source
+          ? {
+              ...item,
+              plan: {
+                ...item.plan,
+                releasedAssignments: [{ slotId: slot, memberId: owner }],
+              },
+            }
+          : item
+      )
+    )
+    expect(response.status).toBe(409)
+    expect(
+      db
+        .prepare("SELECT id,slot_id,status FROM shift_assignments ORDER BY id")
+        .all()
+    ).toEqual(before.registered)
+    expect(db.prepare("SELECT * FROM activity_history").all()).toEqual([])
+  } finally {
+    db.close()
+  }
+})
+it("rejects marking a retained assignment as released", async () => {
+  const { db, plans, request, assignments } = fixture()
+  try {
+    const before = assignments()
+    const response = await request(
+      plans.map((item) =>
+        item.id === source
+          ? {
+              ...item,
+              plan: {
+                ...item.plan,
+                releasedAssignments: [{ slotId: slot, memberId: owner }],
+                slots: [
+                  {
+                    id: slot,
+                    startsAt: item.plan.startsAt,
+                    endsAt: item.plan.endsAt,
+                    capacity: null,
+                    memberIds: [owner],
+                  },
+                ],
+              },
+            }
+          : item
+      )
+    )
+    expect(response.status).toBe(409)
+    expect(assignments()).toEqual(before)
+  } finally {
+    db.close()
+  }
+})

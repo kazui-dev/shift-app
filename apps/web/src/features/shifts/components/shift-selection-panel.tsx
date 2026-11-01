@@ -2,7 +2,7 @@ import { ShiftPopover } from "./shift-popover"
 import type { ShiftAnchor } from "./shift-anchor"
 import { memberAvailability } from "./member-availability"
 import { useId, useState } from "react"
-import { Plus, X } from "lucide-react"
+import { X } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import {
@@ -65,10 +65,11 @@ function ShiftSelectionForm({
   error?: string | undefined
 }) {
   const member = data.members.find((item) => item.id === selection.memberId)
-  const shifts = slots.filter((slot) =>
-    slot.memberIds.includes(selection.memberId)
+  const selectedSlot = slots.find(
+    (slot) =>
+      slot.id === selection.slotId &&
+      slot.memberIds.includes(selection.memberId)
   )
-  const [adding, setAdding] = useState(selection.slotId === null)
   const available = data.availability.filter(
     (item) => item.memberId === selection.memberId
   )
@@ -111,49 +112,41 @@ function ShiftSelectionForm({
             {error}
           </p>
         )}
-        {shifts.map((slot) => (
+        {selectedSlot && (
           <ShiftTimeRow
-            key={`${slot.id}-${slot.startsAt}-${slot.endsAt}`}
-            value={{ ...slot, memberId: selection.memberId, slotId: slot.id }}
+            key={`${selectedSlot.id}-${selectedSlot.startsAt}-${selectedSlot.endsAt}`}
+            value={{
+              ...selectedSlot,
+              memberId: selection.memberId,
+              slotId: selectedSlot.id,
+            }}
             pending={pending}
             onApply={onApply}
             onClose={onClose}
-            onRemove={() => onRemove(slot.id)}
+            onRemove={() => onRemove(selectedSlot.id)}
             activityId={data.activity.id}
             activities={activities}
             transferDisabled={transferBlocked(data, {
-              ...slot,
-              slotId: slot.id,
+              ...selectedSlot,
+              slotId: selectedSlot.id,
               memberId: selection.memberId,
             })}
           />
-        ))}
-        {adding && (
+        )}
+        {selection.slotId === null && (
           <ShiftTimeRow
             value={{
               ...selection,
-              slotId: null,
               startsAt: selection.startsAt || startsAt,
               endsAt: selection.endsAt || endsAt,
             }}
             pending={pending}
             onApply={onApply}
             onClose={onClose}
-            onRemove={() => setAdding(false)}
+            onRemove={onClose}
             activityId={data.activity.id}
             activities={activities}
           />
-        )}
-        {!adding && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pending}
-            onClick={() => setAdding(true)}
-          >
-            <Plus />
-            勤務を追加
-          </Button>
         )}
       </div>
     </>
@@ -191,8 +184,9 @@ function ShiftTimeRow({
     destination !== activityId ||
     from !== japanInputValue(value.startsAt).slice(11) ||
     to !== japanInputValue(value.endsAt).slice(11)
+  const unchangedEdit = value.slotId !== null && !changed
   async function commit() {
-    if (!changed || pending || applying) return
+    if (unchangedEdit || pending || applying) return
     const start = japanLocalDateTime(
       `${japanDateTime(value.startsAt).date}T${from}`
     )
@@ -279,21 +273,23 @@ function ShiftTimeRow({
         </p>
       )}
       <div className="flex justify-between gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={pending || applying}
-          onClick={onRemove}
-        >
-          {value.slotId ? "割当を外す" : "追加をキャンセル"}
-        </Button>
-        <div className="flex gap-2">
+        {value.slotId !== null && (
           <Button
             type="button"
             variant="outline"
             size="sm"
-            disabled={!changed || pending || applying}
+            disabled={pending || applying}
+            onClick={onRemove}
+          >
+            割当を外す
+          </Button>
+        )}
+        <div className="ml-auto flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={unchangedEdit || pending || applying}
             onClick={onClose}
           >
             キャンセル
@@ -302,7 +298,7 @@ function ShiftTimeRow({
             type="submit"
             variant="outline"
             size="sm"
-            disabled={!changed || pending || applying}
+            disabled={unchangedEdit || pending || applying}
           >
             反映
           </Button>

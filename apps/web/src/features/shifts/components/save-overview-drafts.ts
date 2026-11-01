@@ -1,13 +1,10 @@
 import { ApiError, errorMessage } from "@/lib/http/client"
 import {
-  getActivity,
   saveActivity,
   reviewActivityOverlaps,
   overwriteActivity,
-  saveActivityPlans,
 } from "../api/activities"
-import { mergeOverviewDraft } from "./overview-draft"
-import { planOf } from "./use-shift-plan"
+import { saveActivityDraft, saveActivityDrafts } from "./save-activity-drafts"
 import type {
   ActivityEditorInput,
   AssignmentOverwriteReview,
@@ -24,39 +21,41 @@ type ConfirmOverwrite = (request: OverviewOverwrite) => Promise<boolean>
 async function saveOne(
   id: string,
   draft: OverviewDraft,
-  confirmOverwrite: ConfirmOverwrite | undefined,
-  attempt = 0
+  confirmOverwrite: ConfirmOverwrite | undefined
 ): Promise<{ saved: EditorData } | { cancelled: true }> {
-  const latest = await getActivity(id)
-  const merged = mergeOverviewDraft(draft, planOf(latest))
+  let cancelled = false
   try {
-    try {
-      return { saved: await saveActivity(id, merged) }
-    } catch (failure) {
-      if (
-        !(
-          failure instanceof ApiError &&
-          failure.code === "SHIFT_OVERLAP" &&
-          confirmOverwrite
-        )
-      )
-        throw failure
-      const review = await reviewActivityOverlaps(id, merged)
-      if (
-        review.changes.length &&
-        !(await confirmOverwrite({ id, plan: merged, review }))
-      )
-        return { cancelled: true }
-      return { saved: await overwriteActivity(id, merged, review.token) }
-    }
-  } catch (failure) {
-    if (
-      attempt < 2 &&
-      failure instanceof ApiError &&
-      ["SHIFT_CHANGED", "ASSIGNMENT_OVERWRITE_CHANGED"].includes(failure.code)
+    const saved = await saveActivityDraft(
+      id,
+      draft,
+      async (activityId, plan) => {
+        try {
+          return await saveActivity(activityId, plan)
+        } catch (failure) {
+          if (
+            !(
+              failure instanceof ApiError &&
+              failure.code === "SHIFT_OVERLAP" &&
+              confirmOverwrite
+            )
+          )
+            throw failure
+          const review = await reviewActivityOverlaps(activityId, plan)
+          if (
+            review.changes.length &&
+            !(await confirmOverwrite({ id: activityId, plan, review }))
+          ) {
+            cancelled = true
+            throw failure
+          }
+          return overwriteActivity(activityId, plan, review.token)
+        }
+      }
     )
-      return saveOne(id, draft, confirmOverwrite, attempt + 1)
-    throw failure
+    return { saved }
+  } catch (error) {
+    if (cancelled) return { cancelled: true }
+    throw error
   }
 }
 export async function saveOverviewDrafts(
@@ -67,11 +66,13 @@ export async function saveOverviewDrafts(
     remaining = { ...drafts },
     failures: string[] = []
   let cancelled = false
-  if (Object.values(drafts).some((draft) => draft.atomic)) {
+  if (
+    Object.values(drafts).some(
+      (draft) => draft.atomic || draft.plan.releasedAssignments?.length
+    )
+  ) {
     try {
-      const result = await saveActivityPlans(
-        Object.entries(drafts).map(([id, draft]) => ({ id, plan: draft.plan }))
-      )
+      const result = await saveActivityDrafts(drafts)
       return {
         remaining: {},
         failures,

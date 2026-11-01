@@ -1,3 +1,4 @@
+import { removeAssignments } from "./assignment-removal"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { activitiesQuery, activityQuery } from "../data/activities"
 import type { EditorData } from "../editor-data"
@@ -168,19 +169,9 @@ export function AssignmentPanel({
           [activityId]: {
             base: drafts[activityId]?.base ?? planOf(loaded),
             atomic: activityId !== source.activity.id,
-            plan: {
-              ...plan,
-              slots: plan.slots.map((slot) =>
-                slot.id === slotId
-                  ? {
-                      ...slot,
-                      memberIds: slot.memberIds.filter(
-                        (id) => id !== selection.memberId
-                      ),
-                    }
-                  : slot
-              ),
-            },
+            plan: removeAssignments(plan, [
+              { activityId, slotId, memberId: selection.memberId },
+            ]),
           },
         })
       }}
