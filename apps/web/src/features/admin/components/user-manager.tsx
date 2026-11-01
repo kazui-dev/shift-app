@@ -1,7 +1,11 @@
+import { MemberSearch } from "@/features/members/components/member-search"
 import { QueryError } from "@/components/query-error"
 import { functionalUpdate, useTable } from "@tanstack/react-table"
 import { DataTable } from "@workspace/ui/components/data-table"
-import { dataTableFeatures } from "@workspace/ui/lib/data-table"
+import {
+  dataTableFeatures,
+  matchesTableSearch,
+} from "@workspace/ui/lib/data-table"
 import { emptyFilter } from "@workspace/ui/lib/filters"
 import type { ManagementTableView } from "@/features/management/management-context"
 import { userTableColumns } from "./user-table-columns"
@@ -31,7 +35,6 @@ export function UserManager({
     ...usersQuery,
   })
   const years = useQuery({ ...yearsQuery })
-  const search = view.search
   const data = users.data?.users ?? emptyUsers
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const selected = data.filter((user) => rowSelection[user.id])
@@ -44,7 +47,6 @@ export function UserManager({
     onDirtyChange(editorDirty)
     return () => onDirtyChange(false)
   }, [editorDirty, onDirtyChange])
-  const studentId = view.textFilters?.studentId ?? ""
   const yearFilter = view.filters?.years ?? emptyFilter()
   const accessFilter = view.filters?.accessLevel ?? emptyFilter()
   const columns = useMemo(() => userTableColumns(), [])
@@ -52,6 +54,10 @@ export function UserManager({
   const sorting = [{ id: sort.column, desc: sort.descending }]
   const table = useTable({
     features: dataTableFeatures,
+    globalFilterFn: (row, columnId, value: unknown) =>
+      matchesTableSearch(row.getValue<string>(columnId), value),
+    getColumnCanGlobalFilter: (column) =>
+      column.id === "displayName" || column.id === "studentId",
     columns,
     data,
     getRowId: (user) => user.id,
@@ -72,11 +78,10 @@ export function UserManager({
     },
     onRowSelectionChange: setRowSelection,
     state: {
+      globalFilter: view.search.trim(),
       rowSelection,
       sorting,
       columnFilters: [
-        { id: "displayName", value: search },
-        { id: "studentId", value: studentId },
         { id: "years", value: yearFilter },
         { id: "accessLevel", value: accessFilter },
       ],
@@ -126,24 +131,19 @@ export function UserManager({
         />
       )}
       <DataTable
+        columnControls={{
+          displayName: (
+            <MemberSearch
+              value={view.search}
+              onChange={(search) => view.save({ search })}
+            />
+          ),
+        }}
         sortControls
         selectOnRowClick
         table={table}
         label="ユーザー一覧"
         columnFilters={{
-          displayName: {
-            kind: "text",
-            label: "名前",
-            value: search,
-            onChange: (value) => view.save({ search: value }),
-          },
-          studentId: {
-            kind: "text",
-            label: "学籍番号",
-            value: studentId,
-            onChange: (value) =>
-              view.save({ textFilters: { studentId: value } }),
-          },
           years: {
             kind: "choices",
             label: "参加年度",

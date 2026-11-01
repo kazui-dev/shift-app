@@ -10,7 +10,6 @@ import type { useManagementYearState } from "@/features/management/use-managemen
 export type ManagementScreenView = {
   scrollTop: number
   search: string
-  textFilters?: Record<string, string> | undefined
   filters?: Record<string, FilterValue> | undefined
   sort?:
     | {
@@ -22,14 +21,13 @@ export type ManagementScreenView = {
 
 export type ManagementTableView = Pick<
   ManagementScreenView,
-  "search" | "textFilters" | "filters" | "sort"
+  "search" | "filters" | "sort"
 > & {
   save: (patch: Partial<ManagementScreenView>) => void
 }
 
 const screenSchema = v.object({
   search: v.string(),
-  textFilters: v.optional(v.record(v.string(), v.string())),
   filters: v.optional(v.record(v.string(), filterPreferenceSchema)),
   sort: v.optional(
     v.object({

@@ -1,20 +1,17 @@
+import * as v from "valibot"
+import { ViewSwitch } from "@workspace/ui/components/view-switch"
+import { useViewPreference } from "@/lib/view-preferences"
 import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { RowSelectionState } from "@tanstack/react-table"
-import { Plus } from "lucide-react"
 import { Button } from "@workspace/ui/components/button"
-import { ScrollViewport } from "@workspace/ui/components/scroll-viewport"
 import { TableSelectionActions } from "@workspace/ui/components/table-selection-actions"
 import { matchesTableSearch } from "@workspace/ui/lib/data-table"
 import { toast } from "@workspace/ui/lib/toast"
 import { QueryError } from "@/components/query-error"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { ResponsiveDialog } from "@/components/responsive-overlay"
 import { ManagementHeaderActions } from "@/features/management/components/header-actions"
-import type {
-  ManagementScreenView,
-  ManagementTableView,
-} from "@/features/management/management-context"
+import type { ManagementTableView } from "@/features/management/management-context"
 import { tagsQuery } from "../data/tags"
 import { emptyFilter, matchesFilter } from "@workspace/ui/lib/filters"
 import { rosterQuery } from "@/features/years/data/years"
@@ -23,6 +20,8 @@ import { keys } from "@/app/data/keys"
 import { errorMessage } from "@/lib/http/client"
 import { changeMemberTags } from "../api/tags"
 import { MemberSelectionTable } from "./member-selection-table"
+
+const membershipSchema = v.picklist(["assigned", "unassigned"])
 
 type Member = Awaited<ReturnType<typeof getRoster>>["members"][number]
 export function LabelMembersManager({
@@ -52,14 +51,12 @@ export function LabelMembersManager({
   const tags = useQuery({ ...tagsQuery(year), enabled: canReadTags })
   const client = useQueryClient()
   const [selection, setSelection] = useState<RowSelectionState>({})
-  const [adding, setAdding] = useState(false)
-  const [addSelection, setAddSelection] = useState<RowSelectionState>({})
-  const [addView, setAddView] = useState<ManagementScreenView>({
-    search: "",
-    scrollTop: 0,
-  })
+  const [mode, setMode] = useViewPreference(
+    `label-members:${kind}:${year}:${id}:mode`,
+    membershipSchema,
+    "assigned"
+  )
   const [removing, setRemoving] = useState(false)
-  const [discarding, setDiscarding] = useState(false)
   const [pending, setPending] = useState(false)
   const members = (query.data?.members ?? []).map((member) => ({
     ...member,
@@ -83,15 +80,12 @@ export function LabelMembersManager({
   }
   const hidden = (
     items: typeof members,
-    conditions: Pick<ManagementTableView, "search" | "textFilters" | "filters">
+    conditions: Pick<ManagementTableView, "search" | "filters">
   ) =>
     items.filter(
       (member) =>
-        !matchesTableSearch(member.displayName, conditions.search) ||
-        !matchesTableSearch(
-          member.studentId,
-          conditions.textFilters?.studentId ?? ""
-        ) ||
+        (!matchesTableSearch(member.displayName, conditions.search) &&
+          !matchesTableSearch(member.studentId, conditions.search)) ||
         !matchesFilter(
           member.roles.map((role) => role.id),
           conditions.filters?.roles ?? emptyFilter()
@@ -103,26 +97,20 @@ export function LabelMembersManager({
             conditions.filters?.tags ?? emptyFilter()
           ))
     ).length
-  const assigned = members.filter((member) => memberIds.includes(member.id))
-  const candidates = members.filter((member) => !memberIds.includes(member.id))
-  const selected = assigned.filter(
+  const visibleMembers = members.filter((member) =>
+    mode === "assigned"
+      ? memberIds.includes(member.id)
+      : !memberIds.includes(member.id)
+  )
+  const selected = visibleMembers.filter(
     (member) => selection[member.id] && canEditMember(member)
   )
-  const additions = candidates.filter(
-    (member) => addSelection[member.id] && canEditMember(member)
-  )
-  const dirty = adding && additions.length > 0
   useEffect(() => {
-    onStatusChange({ dirty, pending })
+    onStatusChange({ dirty: false, pending })
     return () => onStatusChange({ dirty: false, pending: false })
-  }, [dirty, pending, onStatusChange])
-  function closeAdd() {
-    if (pending) return
-    if (dirty) setDiscarding(true)
-    else setAdding(false)
-  }
+  }, [pending, onStatusChange])
   async function apply(add: boolean) {
-    const ids = (add ? additions : selected).map((member) => member.id)
+    const ids = selected.map((member) => member.id)
     if (!canEdit || pending || !ids.length) return
     setPending(true)
     setRemoving(false)
@@ -145,11 +133,8 @@ export function LabelMembersManager({
         client.invalidateQueries({ queryKey: keys.yearTags(year) }),
         client.invalidateQueries({ queryKey: keys.years() }),
       ])
-      if (add) {
-        setAdding(false)
-        setAddSelection({})
-      } else setSelection({})
-      toast.success(add ? "メンバーを追加しました。" : "メンバーを外しました。")
+      setSelection({})
+      toast.success(add ? "付与しました。" : "解除しました。")
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {
@@ -158,21 +143,21 @@ export function LabelMembersManager({
   }
   return (
     <>
-      <ManagementHeaderActions>
-        <Button
-          size="sm"
-          disabled={!canEdit || pending || !query.isSuccess}
-          onClick={() => {
-            setAddSelection({})
-            setAddView({ search: "", scrollTop: 0 })
-            setAdding(true)
-          }}
-        >
-          <Plus />
-          メンバーを追加
-        </Button>
-      </ManagementHeaderActions>
       <ManagementHeaderActions placement="start">
+        <ViewSwitch
+          label="付与状態"
+          options={[
+            { id: "assigned", label: "付与済み" },
+            { id: "unassigned", label: "未付与" },
+          ]}
+          value={mode}
+          disabled={pending}
+          onChange={(next) => {
+            setSelection({})
+            setRemoving(false)
+            setMode(next)
+          }}
+        />
         <TableSelectionActions
           count={selected.length}
           hiddenCount={hidden(selected, view)}
@@ -183,9 +168,13 @@ export function LabelMembersManager({
             size="sm"
             variant="outline"
             disabled={!canEdit || pending}
-            onClick={() => setRemoving(true)}
+            onClick={() => {
+              if (mode === "assigned") setRemoving(true)
+              else void apply(true)
+            }}
           >
-            {kind === "role" ? "ロール" : "タグ"}から外す
+            {kind === "role" ? "ロール" : "タグ"}を
+            {mode === "assigned" ? "解除" : "付与"}
           </Button>
         </TableSelectionActions>
       </ManagementHeaderActions>
@@ -197,88 +186,27 @@ export function LabelMembersManager({
       )}
       <MemberSelectionTable
         {...tableOptions}
-        members={assigned}
+        members={visibleMembers}
         selection={selection}
         onSelectionChange={setSelection}
         canSelect={(member) => canEdit && !pending && canEditMember(member)}
         view={view}
-        label={`${name}のメンバー`}
+        label={`${name}の${mode === "assigned" ? "付与済み" : "未付与"}メンバー`}
         empty={
           query.isSuccess
-            ? assigned.length
+            ? visibleMembers.length
               ? "条件に一致するメンバーはいません。"
               : "メンバーがいません。"
             : ""
         }
       />
-      {adding && (
-        <ResponsiveDialog
-          open
-          title={`${name}にメンバーを追加`}
-          onOpenChange={(open) => {
-            if (!open) closeAdd()
-          }}
-          className="sm:max-w-3xl"
-          bodyClassName="overflow-hidden p-0"
-        >
-          <div className="flex h-[60dvh] min-h-0 flex-col">
-            <ScrollViewport>
-              <MemberSelectionTable
-                {...tableOptions}
-                members={candidates}
-                selection={addSelection}
-                onSelectionChange={setAddSelection}
-                canSelect={(member) => !pending && canEditMember(member)}
-                view={{
-                  ...addView,
-                  save: (patch) =>
-                    setAddView((current) => ({ ...current, ...patch })),
-                }}
-                label="追加するメンバー"
-                empty="追加できるメンバーがいません。"
-              />
-            </ScrollViewport>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t p-4">
-              <TableSelectionActions
-                count={additions.length}
-                hiddenCount={hidden(additions, addView)}
-                disabled={pending}
-                onClear={() => setAddSelection({})}
-              />
-              <div className="ml-auto flex gap-2">
-                <Button variant="outline" disabled={pending} onClick={closeAdd}>
-                  キャンセル
-                </Button>
-                <Button
-                  disabled={pending || additions.length === 0}
-                  onClick={() => void apply(true)}
-                >
-                  {pending ? "追加中…" : "追加"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </ResponsiveDialog>
-      )}
       {removing && (
         <ConfirmDialog
-          title={`${selected.length}人を「${name}」から外しますか`}
+          title={`${selected.length}人の「${name}」を解除しますか`}
           description={selected.map((member) => member.displayName).join("、")}
-          confirmLabel="外す"
+          confirmLabel="解除"
           onCancel={() => setRemoving(false)}
           onConfirm={() => void apply(false)}
-        />
-      )}
-      {discarding && (
-        <ConfirmDialog
-          title="選択を破棄しますか"
-          confirmLabel="破棄する"
-          onCancel={() => setDiscarding(false)}
-          onConfirm={() => {
-            setDiscarding(false)
-            setAdding(false)
-            setAddSelection({})
-          }}
         />
       )}
     </>

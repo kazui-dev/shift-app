@@ -1,4 +1,8 @@
 // @vitest-environment jsdom
+import {
+  ViewPreferencesContext,
+  createViewPreferences,
+} from "@/lib/view-preferences"
 import { act, useState, type ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -93,7 +97,9 @@ async function fixture(content: ReactNode) {
   vi.spyOn(client, "invalidateQueries").mockResolvedValue(undefined)
   await act(async () =>
     root.render(
-      <QueryClientProvider client={client}>{content}</QueryClientProvider>
+      <ViewPreferencesContext value={createViewPreferences("label-test")}>
+        <QueryClientProvider client={client}>{content}</QueryClientProvider>
+      </ViewPreferencesContext>
     )
   )
   const button = (label: string) => {
@@ -170,29 +176,32 @@ it.each(["tag", "role"] as const)(
       expect(
         [...f.host.querySelectorAll("thead th")].map((cell) => cell.textContent)
       ).toEqual(["", "名前", "学籍番号", "ロール", "タグ"])
-      await f.click("メンバーを追加")
-      const dialog = f.host.querySelector("dialog")
-      expect(dialog?.textContent).toContain("鈴木")
-      expect(dialog?.textContent).not.toContain("佐藤")
-      expect(f.button("追加").disabled).toBe(true)
-      await f.select("鈴木")
-      await f.click("閉じる")
-      expect(f.host.querySelector("aside")?.textContent).toContain("選択を破棄")
-      await f.click("戻る")
-      await f.click("追加")
-      expect(f.host.querySelector("dialog")).not.toBeNull()
-      expect(f.button("追加").disabled).toBe(false)
-      await f.click("追加")
+      await f.select("佐藤")
+      await f.click("未付与")
       expect(f.host.querySelector("dialog")).toBeNull()
+      expect(f.host.querySelector("tbody")?.textContent).toContain("鈴木")
+      expect(f.host.querySelector("tbody")?.textContent).not.toContain("佐藤")
+      expect(f.host.textContent).not.toContain("人選択中")
+      await f.select("鈴木")
+      const addLabel = kind === "tag" ? "タグを付与" : "ロールを付与"
+      await f.click(addLabel)
+      expect(f.button(addLabel).disabled).toBe(false)
+      expect(
+        f.host.querySelector<HTMLInputElement>('input[aria-label="鈴木を選択"]')
+          ?.checked
+      ).toBe(true)
+      await f.click(addLabel)
+      expect(f.host.textContent).not.toContain("人選択中")
       const added =
         kind === "tag"
           ? { memberIds: ["b"], addTagIds: ["tag"], removeTagIds: [] }
           : { memberIds: ["b"], addRoleIds: ["role"], removeRoleIds: [] }
       expect(save).toHaveBeenLastCalledWith(2026, added)
+      await f.click("付与済み")
       await f.select("佐藤")
-      await f.click(kind === "tag" ? "タグから外す" : "ロールから外す")
+      await f.click(kind === "tag" ? "タグを解除" : "ロールを解除")
       expect(save).toHaveBeenCalledTimes(2)
-      await f.click("外す")
+      await f.click("解除")
       expect(save).toHaveBeenLastCalledWith(
         2026,
         kind === "tag"
@@ -207,15 +216,44 @@ it.each(["tag", "role"] as const)(
 it("keeps unauthorized membership controls disabled", async () => {
   const f = await fixture(<Members kind="role" editable={false} />)
   try {
-    expect(f.button("メンバーを追加").disabled).toBe(true)
+    expect(f.button("未付与").disabled).toBe(false)
     expect(
       f.host.querySelector<HTMLInputElement>('input[aria-label="佐藤を選択"]')
         ?.disabled
     ).toBe(true)
+    await f.click("未付与")
+    expect(
+      f.host.querySelector<HTMLInputElement>('input[aria-label="鈴木を選択"]')
+        ?.disabled
+    ).toBe(true)
   } finally {
     await f.cleanup()
+    localStorage.clear()
   }
 })
+it.each(["role", "tag"] as const)(
+  "restores the %s membership view without restoring row selection",
+  async (kind) => {
+    localStorage.clear()
+    const f = await fixture(<Members kind={kind} />)
+    await f.click("未付与")
+    await f.select("鈴木")
+    await f.cleanup()
+    const restored = await fixture(<Members kind={kind} />)
+    try {
+      expect(restored.button("未付与").getAttribute("aria-pressed")).toBe(
+        "true"
+      )
+      expect(restored.host.querySelector("tbody")?.textContent).toContain(
+        "鈴木"
+      )
+      expect(restored.host.textContent).not.toContain("人選択中")
+    } finally {
+      await restored.cleanup()
+      localStorage.clear()
+    }
+  }
+)
 it("validates tag names, keeps a failed edit and confirms deletion", async () => {
   const close = vi.fn<() => void>()
   const deleted = vi.fn<() => void>()
