@@ -52,6 +52,7 @@ export function DataTable<TData extends RowData>({
   sortControls = false,
   selectOnRowClick = false,
   columnFilters,
+  columnControls,
   rowComponent: RowComponent = DefaultDataTableRow,
 }: {
   table: ReactTable<typeof dataTableFeatures, TData>
@@ -61,6 +62,7 @@ export function DataTable<TData extends RowData>({
   sortControls?: boolean
   selectOnRowClick?: boolean
   columnFilters?: Partial<Record<string, ColumnFilter>>
+  columnControls?: Partial<Record<string, ReactNode>>
   rowComponent?: ComponentType<DataTableRowProps>
 }) {
   return (
@@ -109,6 +111,7 @@ export function DataTable<TData extends RowData>({
                           header.column.columnDef.header,
                           columnFilters?.[header.column.id]
                         )}
+                        control={columnControls?.[header.column.id]}
                         sorted={header.column.getIsSorted()}
                         onSort={
                           sortControls && header.column.getCanSort()
@@ -201,11 +204,13 @@ export function DataTableColumnHeader({
   sorted,
   onSort,
   children,
+  control,
 }: {
   label: string
   sorted?: false | "asc" | "desc"
   onSort?: (() => void) | undefined
   children?: ReactNode
+  control?: ReactNode
 }) {
   return (
     <div className="flex min-h-10 min-w-0 items-center gap-1.5 py-1">
@@ -213,7 +218,10 @@ export function DataTableColumnHeader({
         <button
           type="button"
           onClick={onSort}
-          className="flex min-h-8 min-w-0 items-center gap-1 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring"
+          className={cn(
+            "flex min-h-8 min-w-0 items-center gap-1 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-ring",
+            control && "shrink-0"
+          )}
         >
           <span className="truncate" title={label}>
             {label}
@@ -234,6 +242,7 @@ export function DataTableColumnHeader({
       {children && (
         <span className="flex shrink-0 items-center">{children}</span>
       )}
+      {control && <div className="min-w-0 flex-1">{control}</div>}
     </div>
   )
 }

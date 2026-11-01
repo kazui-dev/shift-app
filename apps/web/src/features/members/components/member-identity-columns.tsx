@@ -1,5 +1,4 @@
 import type { DataColumn } from "@workspace/ui/lib/data-table"
-import { matchesTableSearch } from "@workspace/ui/lib/data-table"
 import { MemberAvatar } from "./member-avatar"
 
 export type MemberIdentity = {
@@ -22,8 +21,7 @@ export function memberIdentityColumns<T extends MemberIdentity>(
         a.original.displayName.localeCompare(b.original.displayName, "ja", {
           numeric: true,
         }),
-      filterFn: (row, _id, value: unknown) =>
-        matchesTableSearch(row.original.displayName, value),
+      enableColumnFilter: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-3">
           <MemberAvatar
@@ -49,8 +47,7 @@ export function memberIdentityColumns<T extends MemberIdentity>(
         a.original.studentId.localeCompare(b.original.studentId, "ja", {
           numeric: true,
         }),
-      filterFn: (row, _id, value: unknown) =>
-        matchesTableSearch(row.original.studentId, value),
+      enableColumnFilter: false,
     },
   ]
 }

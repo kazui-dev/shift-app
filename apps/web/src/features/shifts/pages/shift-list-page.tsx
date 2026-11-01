@@ -1,3 +1,4 @@
+import { ViewSwitch } from "@workspace/ui/components/view-switch"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { Link } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
@@ -33,32 +34,19 @@ function ShiftViews({ year }: { year: number }) {
   const saved = useShiftView(year)
   const mode = saved.mode ?? "list"
   const navigation = (
-    <div className="flex shrink-0 gap-2" aria-label="シフトの表示">
-      {(
-        [
-          { id: "list", label: "シフト別" },
-          { id: "overview", label: "全体" },
-        ] as const
-      ).map((item) => (
-        <Button
-          key={item.id}
-          variant={mode === item.id ? "secondary" : "ghost"}
-          size="sm"
-          aria-pressed={mode === item.id}
-          disabled={status.pending}
-          onClick={() => {
-            if (mode === item.id) return
-            if (status.dirty) {
-              setSwitchTo(item.id)
-              return
-            }
-            saved.save({ mode: item.id })
-          }}
-        >
-          {item.label}
-        </Button>
-      ))}
-    </div>
+    <ViewSwitch
+      label="シフトの表示"
+      options={[
+        { id: "list", label: "シフト別" },
+        { id: "overview", label: "全体" },
+      ]}
+      value={mode}
+      disabled={status.pending}
+      onChange={(next) => {
+        if (status.dirty) setSwitchTo(next)
+        else saved.save({ mode: next })
+      }}
+    />
   )
   return (
     <ManagementPageFrame

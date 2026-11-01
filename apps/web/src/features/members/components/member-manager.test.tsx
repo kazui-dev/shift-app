@@ -185,15 +185,7 @@ async function fixture() {
     tags: [tag, { id: "other-tag", name: "確認済み", memberIds: ["b"] }],
   })
   vi.spyOn(client, "invalidateQueries").mockResolvedValue(undefined)
-  const save = vi.fn<
-    (
-      patch: Partial<{
-        search: string
-        filter: string
-        filters: Record<string, FilterValue>
-      }>
-    ) => void
-  >()
+  const save = vi.fn<ComponentProps<typeof MemberManager>["view"]["save"]>()
   function List() {
     const [actions, setActions] = useState<HTMLDivElement | null>(null)
     const [view, setView] = useState<
@@ -393,7 +385,7 @@ it("selects only visible rows without dropping hidden selections and persists so
   }
 })
 
-it("filters name and student ID independently and clears both through the common reset", async () => {
+it("searches people by name or student ID in the table header and clears the search", async () => {
   const { host, names, button, save, cleanup } = await fixture()
   vi.stubGlobal(
     "ResizeObserver",
@@ -403,16 +395,11 @@ it("filters name and student ID independently and clears both through the common
       disconnect() {}
     }
   )
-  async function input(label: string, value: string) {
-    const trigger = host.querySelector<HTMLButtonElement>(
-      `button[aria-label="${label}で絞り込み"]`
+  async function input(value: string) {
+    const field = host.querySelector<HTMLInputElement>(
+      'thead input[aria-label="名前・学籍番号で検索"]'
     )
-    if (!trigger) throw new Error("Missing text filter")
-    await act(async () => trigger.click())
-    const field = document.querySelector<HTMLInputElement>(
-      `input[aria-label="${label}を検索"]`
-    )
-    if (!field) throw new Error("Missing text input")
+    if (!field) throw new Error("Missing member search")
     await act(async () => {
       Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -420,23 +407,28 @@ it("filters name and student ID independently and clears both through the common
       )?.set?.call(field, value)
       field.dispatchEvent(new Event("input", { bubbles: true }))
     })
-    await act(async () => trigger.click())
+    expect(
+      host.querySelector('thead input[aria-label="名前・学籍番号で検索"]')
+    ).toBe(field)
   }
   try {
-    await input("名前", "26EC")
-    expect(names()).toEqual([])
-    await input("名前", "佐藤")
+    await input("26ec")
+    expect(names()).toEqual(["佐藤", "鈴木", "田中"])
+    await input("佐藤")
     expect(names()).toEqual(["佐藤"])
-    await input("学籍番号", "002")
-    expect(names()).toEqual([])
-    await input("学籍番号", "001")
+    await input("002")
+    expect(names()).toEqual(["鈴木"])
+    await input("001")
     expect(names()).toEqual(["佐藤"])
-    expect(save).toHaveBeenCalledWith({ textFilters: { studentId: "001" } })
+    expect(save).toHaveBeenCalledWith({ search: "001" })
+    expect(host.querySelector('button[aria-label="名前で絞り込み"]')).toBeNull()
+    expect(
+      host.querySelector('button[aria-label="学籍番号で絞り込み"]')
+    ).toBeNull()
     await act(async () => button("絞り込みを解除").click())
     expect(names()).toEqual(["佐藤", "鈴木", "田中"])
     expect(save).toHaveBeenCalledWith({
       search: "",
-      textFilters: {},
       filters: {
         roles: { include: [], exclude: [] },
         tags: { include: [], exclude: [] },
