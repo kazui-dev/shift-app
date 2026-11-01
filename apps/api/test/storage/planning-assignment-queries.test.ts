@@ -12,7 +12,7 @@ import { yearActivitiesApp } from "../../src/features/activities/routes/years/ac
 import { shiftOverviewApp } from "../../src/features/shifts/routes/overview"
 import { otherActivityAssignments } from "../../src/features/activities/services/activity-editor"
 import { activityListSelection } from "../../src/features/activities/services/activity-list-query"
-import { overviewAssignments } from "../../src/features/shifts/services/shift-overview"
+import { overviewAssignments } from "../../src/features/attendance/services/planning-attendance"
 
 // Freeze the old projection too: changes to production helpers must not change the oracle.
 const previousAssignments = `(SELECT id,slot_id,member_id,status FROM shift_assignments

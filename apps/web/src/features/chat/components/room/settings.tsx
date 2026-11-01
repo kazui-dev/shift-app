@@ -165,6 +165,7 @@ function SettingsEditor({
             backDisabled={pending}
             action={
               <Button
+                data-save-shortcut
                 type="submit"
                 size="sm"
                 disabled={pending || !value.name.trim()}

@@ -1,3 +1,4 @@
+import { readPlanningAttendance } from "../../attendance/services/planning-attendance"
 import { Hono } from "hono"
 import { apiError, errors } from "../../../lib/errors"
 import { type ApiEnv, toIso } from "../../../lib/http"
@@ -12,9 +13,11 @@ export const activityAttendanceApp = new Hono<ApiEnv>()
 activityAttendanceApp.get("/:activityId/attendance", async (c) => {
   const id = c.req.param("activityId")
   const activity = await c.env.shift_app
-    .prepare("SELECT year FROM activities WHERE id=?")
+    .prepare(
+      "SELECT year, starts_at AS startsAt, ends_at AS endsAt FROM activities WHERE id=?"
+    )
     .bind(id)
-    .first<{ year: number }>()
+    .first<{ year: number; startsAt: number; endsAt: number }>()
   if (!activity) return apiError(c, errors.activityNotFound)
   const actor = c.get("member")
   const canManage = await canManageActivity(c.env, actor, id, activity.year)
@@ -62,8 +65,19 @@ activityAttendanceApp.get("/:activityId/attendance", async (c) => {
     names.push(duty.name)
     memberDuties.set(duty.memberId, names)
   }
+  const timelineAssignments = canManage
+    ? await readPlanningAttendance(
+        c.env.shift_app,
+        activity.year,
+        activity.startsAt,
+        activity.endsAt,
+        actor.id,
+        true
+      )
+    : []
   return c.json({
     canManage,
+    timelineAssignments,
     assignments: assignments.results.map((row) => {
       const assignment = withAttendance(row)
       return {

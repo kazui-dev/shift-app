@@ -59,7 +59,7 @@ export function MemberAvailabilityEditor({
             {name}さんのシフト希望
           </DialogTitle>
           {!query.data && (
-            <Button size="sm" variant="outline" disabled>
+            <Button data-save-shortcut size="sm" variant="outline" disabled>
               保存
             </Button>
           )}
@@ -194,6 +194,7 @@ function MemberAnswers({
       {actions &&
         createPortal(
           <Button
+            data-save-shortcut
             size="sm"
             variant="outline"
             type="submit"

@@ -36,6 +36,7 @@ export function ManagementEditorForm({
     >
       <ManagementHeaderActions>
         <Button
+          data-save-shortcut
           size="sm"
           variant="outline"
           type="submit"

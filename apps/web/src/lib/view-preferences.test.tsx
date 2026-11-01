@@ -53,13 +53,13 @@ it("validates stored values, keeps empty selections, follows storage events and 
       })
     )
   await act(async () => {
-    event(JSON.stringify({ values: ["remote"], mode: "include" }))
+    event(JSON.stringify({ include: ["remote"], exclude: [] }))
   })
   expect(host.textContent).toBe("remote:clear")
   await act(async () =>
     event(JSON.stringify({ values: ["legacy-excluded"], mode: "exclude" }))
   )
-  expect(host.textContent).toBe(":legacy-excludedclear")
+  expect(host.textContent).toBe("default:clear")
   await act(async () =>
     event(JSON.stringify({ include: ["yes"], exclude: ["no"] }))
   )

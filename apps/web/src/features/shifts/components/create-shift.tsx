@@ -203,6 +203,7 @@ export function CreateShift({ year }: { year: number }) {
             </details>
             <div className="flex justify-end border-t pt-4">
               <Button
+                data-save-shortcut
                 size="sm"
                 variant="outline"
                 type="submit"

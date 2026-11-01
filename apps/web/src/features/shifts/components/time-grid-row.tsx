@@ -46,7 +46,10 @@ export const TimeGridRow = memo(function TimeGridRow({
   availability: EditorData["availability"]
   otherAssignments: EditorData["otherAssignments"]
   slots: ActivityEditorInput["slots"]
-  attendance: ReadonlyMap<string, Attendance>
+  attendance: ReadonlyMap<
+    string,
+    Pick<Attendance, "state" | "checkInStatus" | "resolvedAt">
+  >
   attendanceColors: boolean
   color: string
   scale: ReturnType<typeof timeScale>
@@ -335,7 +338,11 @@ export const TimeGridRow = memo(function TimeGridRow({
               type="button"
               className="absolute inset-y-0 z-[2] text-left"
               style={position(item.startsAt, item.endsAt)}
-              title={item.name}
+              title={
+                attendanceColors
+                  ? `${item.name} / ${attendanceLabel(item.slotId ? attendance.get(item.slotId) : null)}`
+                  : item.name
+              }
               disabled={
                 assignmentSelection?.active ||
                 !onOther ||
@@ -349,7 +356,19 @@ export const TimeGridRow = memo(function TimeGridRow({
               <span
                 data-shift-bar
                 className="absolute inset-x-0 truncate rounded border border-border bg-background px-[9px] text-center text-xs leading-[17px] text-muted-foreground"
-                style={shiftBarStyle}
+                style={{
+                  ...shiftBarStyle,
+                  ...(attendanceColors
+                    ? {
+                        backgroundColor: assignmentBackground(
+                          color,
+                          item.slotId ? attendance.get(item.slotId) : null,
+                          true,
+                          false
+                        ),
+                      }
+                    : {}),
+                }}
               >
                 {item.name}
               </span>

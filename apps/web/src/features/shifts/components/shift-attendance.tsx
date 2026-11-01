@@ -62,9 +62,10 @@ export function ShiftAttendance({
       await work()
       await Promise.all([
         client.invalidateQueries({
-          queryKey: keys.shiftAttendance(activityId),
+          queryKey: keys.shiftAttendance(),
         }),
         client.invalidateQueries({ queryKey: keys.assignments() }),
+        client.invalidateQueries({ queryKey: keys.shiftOverview() }),
         client.invalidateQueries({ queryKey: keys.attendanceEvents() }),
       ])
       setCorrecting(null)

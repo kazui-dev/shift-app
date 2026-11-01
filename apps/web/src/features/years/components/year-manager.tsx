@@ -182,6 +182,7 @@ export function YearManager({
           )}
           <div className="flex justify-end">
             <Button
+              data-save-shortcut
               size="sm"
               type="submit"
               disabled={pending || !years.isSuccess || exists}

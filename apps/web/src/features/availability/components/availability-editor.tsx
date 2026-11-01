@@ -99,6 +99,7 @@ export function AvailabilityEditor({
         )}
         {!editor.conflicted && editor.status === "保存できませんでした" && (
           <Button
+            data-save-shortcut
             type="button"
             size="sm"
             variant="outline"

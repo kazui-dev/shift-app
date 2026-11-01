@@ -127,7 +127,11 @@ export function MemberLabelEditor({
             >
               キャンセル
             </Button>
-            <Button disabled={pending || !dirty} onClick={() => void apply()}>
+            <Button
+              data-save-shortcut
+              disabled={pending || !dirty}
+              onClick={() => void apply()}
+            >
               適用
             </Button>
           </div>

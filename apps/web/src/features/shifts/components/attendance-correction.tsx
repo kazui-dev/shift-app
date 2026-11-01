@@ -62,6 +62,7 @@ export function AttendanceCorrection({
           />
         </label>
         <Button
+          data-save-shortcut
           type="submit"
           size="sm"
           variant="outline"

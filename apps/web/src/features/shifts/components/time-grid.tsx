@@ -25,13 +25,15 @@ import type { EditorData } from "../editor-data"
 import { TimeGridRow } from "./time-grid-row"
 import { gridMembers, timeScale } from "./time-scale"
 
-const emptyAttendance = new Map<string, Attendance>()
+type BarAttendance = Pick<Attendance, "state" | "checkInStatus" | "resolvedAt">
+const emptyAttendance = new Map<string, BarAttendance>()
 
 export const TimeGrid = memo(function TimeGrid({
   toolbar,
   assignmentSelection,
   data,
   attendance,
+  timelineAttendance,
   attendanceColors = false,
   plan,
   roles,
@@ -47,6 +49,7 @@ export const TimeGrid = memo(function TimeGrid({
   assignmentSelection?: AssignmentSelection | undefined
   data: EditorData
   attendance?: AttendanceData["assignments"] | undefined
+  timelineAttendance?: AttendanceData["timelineAssignments"]
   attendanceColors?: boolean
   plan: ActivityEditorInput
   roles: FilterValue
@@ -136,6 +139,17 @@ export const TimeGrid = memo(function TimeGrid({
     [data, plan, search, roles, availability, showingCandidates, periodDetail]
   )
   const attendanceByMember = useMemo(() => {
+    const result = new Map<string, Map<string, BarAttendance>>()
+    if (timelineAttendance) {
+      for (const assignment of timelineAttendance) {
+        if (!assignment.attendance) continue
+        const memberRecords =
+          result.get(assignment.memberId) ?? new Map<string, BarAttendance>()
+        memberRecords.set(assignment.slotId, assignment.attendance)
+        result.set(assignment.memberId, memberRecords)
+      }
+      return result
+    }
     const records = new Map<string, Attendance>()
     for (const assignment of attendance ?? []) {
       if (assignment.active && assignment.attendance)
@@ -144,7 +158,6 @@ export const TimeGrid = memo(function TimeGrid({
           assignment.attendance
         )
     }
-    const result = new Map<string, Map<string, Attendance>>()
     for (const slot of data.slots) {
       for (const memberId of slot.memberIds) {
         const record = records.get(
@@ -152,13 +165,13 @@ export const TimeGrid = memo(function TimeGrid({
         )
         if (!record) continue
         const memberRecords =
-          result.get(memberId) ?? new Map<string, Attendance>()
+          result.get(memberId) ?? new Map<string, BarAttendance>()
         memberRecords.set(slot.id, record)
         result.set(memberId, memberRecords)
       }
     }
     return result
-  }, [data.slots, attendance])
+  }, [data.slots, attendance, timelineAttendance])
   const visible = useMemo(() => {
     const duties = new Set(
       data.roles.filter((item) => item.duty).map((item) => item.id)

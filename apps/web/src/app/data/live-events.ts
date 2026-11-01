@@ -50,7 +50,7 @@ function applyDataEvent(client: QueryClient, event: DataEvent) {
       return
     case "attendance_changed":
       invalidate(client, [
-        keys.shiftAttendance(event.activityId),
+        keys.shiftAttendance(),
         keys.shiftCoworkers(event.activityId),
         keys.shiftOverview(),
         keys.attendanceEvents(),
