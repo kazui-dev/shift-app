@@ -516,6 +516,7 @@ export function ShiftEditor({
               assignmentSelection={removal}
               data={data}
               attendance={attendance.data?.assignments}
+              timelineAttendance={attendance.data?.timelineAssignments}
               attendanceColors={attendanceColors.enabled}
               plan={plan}
               roles={filters.roles}
