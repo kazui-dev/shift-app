@@ -1,6 +1,5 @@
 import type { ReactNode } from "react"
 
-/** Work controls precede the shared sticky time axis inside the viewport. */
 export function ShiftWorkspaceToolbar({
   label,
   children,
@@ -15,7 +14,7 @@ export function ShiftWorkspaceToolbar({
   selection?: ReactNode
 }) {
   return (
-    <section aria-label={label} className="bg-background">
+    <section aria-label={label} className="bg-background pt-2 pb-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         {leading}
         {children && (

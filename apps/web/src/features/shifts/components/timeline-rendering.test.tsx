@@ -7,6 +7,7 @@ import type { ShiftOverview } from "@workspace/shared/shifts"
 import { makeEditors } from "../../../../dev/fixtures"
 import { OverviewGrid } from "./overview-grid"
 import { TimeGrid } from "./time-grid"
+import { ShiftWorkspaceToolbar } from "./shift-workspace-toolbar"
 import { ShiftMemberLabel } from "./shift-member-label"
 import type { ShiftSelection } from "./shift-selection-panel"
 import { useAssignmentSelection } from "./use-assignment-selection"
@@ -33,6 +34,11 @@ it("only redraws changed member highlights when opening, switching and closing a
     const removal = useAssignmentSelection("shift", available)
     return (
       <TimeGrid
+        toolbar={
+          <ShiftWorkspaceToolbar label="シフトの操作">
+            <input aria-label="メンバー検索" />
+          </ShiftWorkspaceToolbar>
+        }
         data={data}
         plan={plan}
         search=""
@@ -64,6 +70,11 @@ it("only redraws changed member highlights when opening, switching and closing a
   try {
     await act(async () => root.render(<Demo selection={null} />))
     expect(label).toHaveBeenCalledTimes(3)
+    const search = host.querySelector("input")
+    expect(search?.closest(".sticky-header")).not.toBeNull()
+    expect(search?.closest(".shift-timeline-scroll")).toBeNull()
+    const toolbar = search?.closest("section")
+    expect(toolbar?.classList.contains("pt-2")).toBe(true)
     await act(async () => root.render(<Demo selection={select(0)} />))
     expect(label).toHaveBeenCalledTimes(4)
     await act(async () => root.render(<Demo selection={select(1)} />))
