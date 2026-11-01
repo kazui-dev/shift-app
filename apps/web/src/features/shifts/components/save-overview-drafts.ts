@@ -67,7 +67,11 @@ export async function saveOverviewDrafts(
     remaining = { ...drafts },
     failures: string[] = []
   let cancelled = false
-  if (Object.values(drafts).some((draft) => draft.atomic)) {
+  if (
+    Object.values(drafts).some(
+      (draft) => draft.atomic || draft.plan.releasedAssignments?.length
+    )
+  ) {
     try {
       const result = await saveActivityPlans(
         Object.entries(drafts).map(([id, draft]) => ({ id, plan: draft.plan }))

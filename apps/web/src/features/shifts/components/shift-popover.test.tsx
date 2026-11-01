@@ -141,8 +141,8 @@ it("anchors additions at the clicked minute, switches members without blocking, 
     )
     if (!startInput || !valueDescriptor?.set)
       throw new Error("Missing time input")
-    expect(action("キャンセル").disabled).toBe(true)
-    expect(action("反映").disabled).toBe(true)
+    expect(action("キャンセル").disabled).toBe(false)
+    expect(action("反映").disabled).toBe(false)
     await act(async () => {
       valueDescriptor.set?.call(startInput, "11:30")
       startInput.dispatchEvent(new Event("input", { bubbles: true }))
@@ -153,8 +153,8 @@ it("anchors additions at the clicked minute, switches members without blocking, 
       valueDescriptor.set?.call(startInput, "11:15")
       startInput.dispatchEvent(new Event("input", { bubbles: true }))
     })
-    expect(action("キャンセル").disabled).toBe(true)
-    expect(action("反映").disabled).toBe(true)
+    expect(action("キャンセル").disabled).toBe(false)
+    expect(action("反映").disabled).toBe(false)
     expect(document.querySelector("#shift-time-title")?.textContent).toBe(
       "シフトを追加"
     )

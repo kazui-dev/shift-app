@@ -19,6 +19,24 @@ export function removeAssignments(
 ): ActivityEditorInput {
   return {
     ...plan,
+    releasedAssignments: [
+      ...(plan.releasedAssignments ?? []),
+      ...targets
+        .filter(
+          (target) =>
+            plan.slots.some(
+              (slot) =>
+                slot.id === target.slotId &&
+                slot.memberIds.includes(target.memberId)
+            ) &&
+            !plan.releasedAssignments?.some(
+              (item) =>
+                item.slotId === target.slotId &&
+                item.memberId === target.memberId
+            )
+        )
+        .map(({ slotId, memberId }) => ({ slotId, memberId })),
+    ],
     slots: plan.slots.map((slot) => ({
       ...slot,
       memberIds: slot.memberIds.filter(

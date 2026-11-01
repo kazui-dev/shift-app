@@ -11,11 +11,13 @@ import {
   saveActivity,
   reviewActivityOverlaps,
   overwriteActivity,
+  saveActivityPlans,
 } from "../api/activities"
 import { ApiError } from "@/lib/http/client"
 import { change, undo, redo } from "./editor-history"
 vi.mock("../api/activities", () => ({
   getActivity: vi.fn<typeof getActivity>(),
+  saveActivityPlans: vi.fn<typeof saveActivityPlans>(),
   saveActivity: vi.fn<typeof saveActivity>(),
   reviewActivityOverlaps: vi.fn<typeof reviewActivityOverlaps>(),
   overwriteActivity: vi.fn<typeof overwriteActivity>(),
@@ -372,4 +374,28 @@ it("retains only unsaved work after cancellation and never resubmits earlier suc
   expect(Object.keys(result.remaining)).toEqual(["second", "third"])
   expect(getActivity).toHaveBeenCalledTimes(2)
   expect(overwriteActivity).not.toHaveBeenCalled()
+})
+
+it("saves explicit removals atomically without merging a newer person's assignment", async () => {
+  const removed = {
+    ...plan,
+    releasedAssignments: [{ slotId: "s", memberId: "a" }],
+  }
+  const drafts = { work: { base, plan: removed } }
+  vi.mocked(saveActivityPlans).mockRejectedValueOnce(
+    new ApiError("更新されています", 409, "SHIFT_CHANGED")
+  )
+  const failed = await saveOverviewDrafts(drafts)
+  expect(failed.remaining).toEqual(drafts)
+  expect(failed.confirmed).toEqual([])
+  expect(failed.failures).toEqual(["更新されています"])
+  expect(getActivity).not.toHaveBeenCalled()
+  expect(saveActivity).not.toHaveBeenCalled()
+  expect(saveActivityPlans).toHaveBeenCalledExactlyOnceWith([
+    { id: "work", plan: removed },
+  ])
+  vi.mocked(saveActivityPlans).mockResolvedValueOnce({ activities: [source] })
+  const saved = await saveOverviewDrafts(drafts)
+  expect(saved.remaining).toEqual({})
+  expect(saved.confirmed).toEqual([{ id: "work", saved: source }])
 })

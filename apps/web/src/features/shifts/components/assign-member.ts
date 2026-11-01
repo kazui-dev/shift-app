@@ -22,7 +22,12 @@ export function assignMember(
   if (error) return { error }
   const original = plan.slots.find((slot) => slot.id === value.slotId)
   const destination = plan.slots.find(
-    (slot) => slot.startsAt === value.startsAt && slot.endsAt === value.endsAt
+    (slot) =>
+      slot.startsAt === value.startsAt &&
+      slot.endsAt === value.endsAt &&
+      !plan.releasedAssignments?.some(
+        (item) => item.slotId === slot.id && item.memberId === value.memberId
+      )
   )
   const slotId =
     destination?.id ??

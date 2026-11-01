@@ -295,7 +295,7 @@ export function ShiftEditor({
       }
       const result = await saveActivity(data.activity.id, { ...plan, version })
       client.setQueryData(keys.activityEditor(data.activity.id), result)
-      confirm(plan, result.activity.version)
+      confirm(planOf(result), result.activity.version)
       setConflicted(false)
       void Promise.all([
         client.invalidateQueries({
@@ -319,7 +319,6 @@ export function ShiftEditor({
           if (review.changes.length) setOverwrite({ plan: input, review })
           else {
             await acceptOverwrite(
-              input,
               await overwriteActivity(data.activity.id, input, review.token)
             )
             toast.success("保存しました。")
@@ -347,12 +346,9 @@ export function ShiftEditor({
       setPending(false)
     }
   }
-  async function acceptOverwrite(
-    input: ActivityEditorInput,
-    result: EditorData
-  ) {
+  async function acceptOverwrite(result: EditorData) {
     client.setQueryData(keys.activityEditor(data.activity.id), result)
-    confirm(input, result.activity.version)
+    confirm(planOf(result), result.activity.version)
     setConflicted(false)
     setOverwrite(null)
     await Promise.allSettled(
@@ -375,7 +371,7 @@ export function ShiftEditor({
         overwrite.plan,
         overwrite.review.token
       )
-      await acceptOverwrite(overwrite.plan, result)
+      await acceptOverwrite(result)
       toast.success("上書き保存しました。")
     } catch (error) {
       toast.error(errorMessage(error))

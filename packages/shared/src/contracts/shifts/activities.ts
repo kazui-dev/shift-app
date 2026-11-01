@@ -108,6 +108,17 @@ const requirementSchema = v.object({
 })
 
 export const activityEditorInputSchema = v.object({
+  releasedAssignments: v.optional(
+    v.pipe(
+      v.array(
+        v.object({
+          slotId: v.pipe(v.string(), v.uuid()),
+          memberId: v.pipe(v.string(), v.uuid()),
+        })
+      ),
+      v.maxLength(100_000)
+    )
+  ),
   notices: v.optional(shiftNoticesSchema),
   ...activityFields,
   version: v.pipe(v.number(), v.integer(), v.minValue(1)),
