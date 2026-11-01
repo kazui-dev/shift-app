@@ -32,6 +32,15 @@ export async function prepareActivitySave(
   }
   if (current.activity.version !== input.version)
     return failed(errors.shiftStale)
+  if (
+    input.releasedAssignments?.some((entry) =>
+      input.slots.some(
+        (slot) =>
+          slot.id === entry.slotId && slot.memberIds.includes(entry.memberId)
+      )
+    )
+  )
+    return failed(errors.shiftConflict)
   const checked = validateShiftPlan(
     input,
     current.members.map((member) => member.id),

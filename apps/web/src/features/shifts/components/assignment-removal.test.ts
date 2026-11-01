@@ -10,6 +10,8 @@ import {
 import type { EditorData } from "../editor-data"
 import { planOf } from "./use-shift-plan"
 import { change, undo, redo } from "./editor-history"
+import { assignMember } from "./assign-member"
+import { transferBlocked } from "./transfer-assignment"
 import { staffing } from "./staffing"
 import type { OverviewDrafts } from "./overview-draft"
 
@@ -136,4 +138,66 @@ it("selects unassigned overview members without creating a removable assignment"
   expect(
     [target].filter((item) => empty.includes(assignmentKey(item)))
   ).toEqual([])
+})
+
+it("keeps explicit removals in undo history and gives a replacement a new identity", () => {
+  const removed = removeAssignments(plan, [target])
+  expect(
+    removeAssignments(
+      { ...plan, releasedAssignments: [{ slotId: "one", memberId: first.id }] },
+      [target]
+    ).releasedAssignments
+  ).toEqual(removed.releasedAssignments)
+  expect(
+    removeAssignments(plan, [{ ...target, slotId: "missing" }]).slots
+  ).toEqual(plan.slots)
+  expect(removed.releasedAssignments).toEqual([
+    { slotId: "one", memberId: first.id },
+  ])
+  expect(removeAssignments(removed, [target]).releasedAssignments).toEqual(
+    removed.releasedAssignments
+  )
+  const result = assignMember(
+    removed,
+    {
+      memberId: first.id,
+      slotId: null,
+      startsAt: plan.startsAt,
+      endsAt: plan.endsAt,
+    },
+    []
+  )
+  // The second active assignment overlaps this time; remove that too before adding.
+  expect("error" in result).toBe(true)
+  const empty = removeAssignments(removed, [{ ...target, slotId: "two" }])
+  const replacement = assignMember(
+    empty,
+    {
+      memberId: first.id,
+      slotId: null,
+      startsAt: plan.startsAt,
+      endsAt: plan.endsAt,
+    },
+    []
+  )
+  if ("error" in replacement) throw new Error(replacement.error)
+  expect(replacement.slotId).not.toBe("one")
+  expect(replacement.slotId).not.toBe("two")
+  expect(
+    transferBlocked(
+      { ...source, slots: plan.slots },
+      {
+        ...target,
+        slotId: replacement.slotId,
+        startsAt: plan.startsAt,
+        endsAt: plan.endsAt,
+      },
+      Infinity
+    )
+  ).toBe(false)
+  const history = change({ past: [], present: plan, future: [] }, empty)
+  expect(undo(history).present).toBe(plan)
+  expect(redo(undo(history)).present.releasedAssignments).toEqual(
+    empty.releasedAssignments
+  )
 })

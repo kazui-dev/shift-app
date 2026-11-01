@@ -1,3 +1,4 @@
+import { saveActivityDraft, saveActivityDrafts } from "./save-activity-drafts"
 import { useAttendanceColors } from "./use-attendance-colors"
 import { ScrollViewport } from "@workspace/ui/components/scroll-viewport"
 import type {
@@ -39,7 +40,6 @@ import { toast } from "@workspace/ui/lib/toast"
 import {
   getActivity,
   saveActivity,
-  saveActivityPlans,
   reviewActivityOverlaps,
   overwriteActivity,
   copyActivity,
@@ -267,13 +267,10 @@ export function ShiftEditor({
     setPending(true)
     try {
       if (Object.keys(related).length) {
-        const result = await saveActivityPlans([
-          { id: data.activity.id, plan: { ...plan, version } },
-          ...Object.entries(related).map(([id, draft]) => ({
-            id,
-            plan: draft.plan,
-          })),
-        ])
+        const result = await saveActivityDrafts({
+          ...related,
+          [data.activity.id]: { base, plan: { ...plan, version } },
+        })
         for (const saved of result.activities)
           client.setQueryData(keys.activityEditor(saved.activity.id), saved)
         const own = result.activities.find(
@@ -293,9 +290,27 @@ export function ShiftEditor({
         toast.success("保存しました。")
         return
       }
-      const result = await saveActivity(data.activity.id, { ...plan, version })
+      const result = await saveActivityDraft(
+        data.activity.id,
+        { base, plan: { ...plan, version } },
+        async (id, merged) => {
+          try {
+            return await saveActivity(id, merged)
+          } catch (error) {
+            if (error instanceof ApiError && error.code === "SHIFT_OVERLAP") {
+              const review = await reviewActivityOverlaps(id, merged)
+              if (review.changes.length) {
+                setOverwrite({ plan: merged, review })
+              } else {
+                return overwriteActivity(id, merged, review.token)
+              }
+            }
+            throw error
+          }
+        }
+      )
       client.setQueryData(keys.activityEditor(data.activity.id), result)
-      confirm(plan, result.activity.version)
+      confirm(planOf(result), result.activity.version)
       setConflicted(false)
       void Promise.all([
         client.invalidateQueries({
@@ -312,23 +327,7 @@ export function ShiftEditor({
         toast.error(`${errorMessage(error)} 編集内容は保持しています。`)
         return
       }
-      if (error instanceof ApiError && error.code === "SHIFT_OVERLAP") {
-        const input = { ...plan, version }
-        try {
-          const review = await reviewActivityOverlaps(data.activity.id, input)
-          if (review.changes.length) setOverwrite({ plan: input, review })
-          else {
-            await acceptOverwrite(
-              input,
-              await overwriteActivity(data.activity.id, input, review.token)
-            )
-            toast.success("保存しました。")
-          }
-        } catch (failure) {
-          toast.error(errorMessage(failure))
-        }
-        return
-      }
+      if (error instanceof ApiError && error.code === "SHIFT_OVERLAP") return
       const conflict =
         error instanceof ApiError && error.code === "SHIFT_CHANGED"
       setConflicted(conflict)
@@ -347,12 +346,9 @@ export function ShiftEditor({
       setPending(false)
     }
   }
-  async function acceptOverwrite(
-    input: ActivityEditorInput,
-    result: EditorData
-  ) {
+  async function acceptOverwrite(result: EditorData) {
     client.setQueryData(keys.activityEditor(data.activity.id), result)
-    confirm(input, result.activity.version)
+    confirm(planOf(result), result.activity.version)
     setConflicted(false)
     setOverwrite(null)
     await Promise.allSettled(
@@ -375,7 +371,7 @@ export function ShiftEditor({
         overwrite.plan,
         overwrite.review.token
       )
-      await acceptOverwrite(overwrite.plan, result)
+      await acceptOverwrite(result)
       toast.success("上書き保存しました。")
     } catch (error) {
       toast.error(errorMessage(error))

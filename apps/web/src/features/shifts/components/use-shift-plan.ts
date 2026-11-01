@@ -94,7 +94,11 @@ export function useShiftPlan(source: EditorData, pending: boolean) {
       setSaved(signature(next))
       setBase({ ...next, version: nextVersion })
       setVersion(nextVersion)
-      if (Object.keys(related).length)
+      if (
+        Object.keys(related).length ||
+        plan.releasedAssignments?.length ||
+        signature(next) !== signature(plan)
+      )
         setHistory({
           past: [],
           present: { plan: { ...next, version: nextVersion }, related: {} },

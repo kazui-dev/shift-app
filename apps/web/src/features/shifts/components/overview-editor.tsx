@@ -1,3 +1,4 @@
+import { removeAssignments } from "./assignment-removal"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Button } from "@workspace/ui/components/button"
@@ -65,6 +66,8 @@ function OverviewEditorForm({
     from !== japanInputValue(selection.startsAt) ||
     to !== japanInputValue(selection.endsAt)
 
+  const unchangedEdit = selection.slotId !== null && !changed
+
   const [confirm, setConfirm] = useState<"save" | "remove" | null>(null)
   const origin = useQuery({
     ...activityQuery(selection.activityId),
@@ -84,7 +87,7 @@ function OverviewEditorForm({
   )
   const member = data.members.find((m) => m.id === selection.memberId)
   function apply(remove = false, confirmed = false) {
-    if (!remove && !changed) return
+    if (!remove && unchangedEdit) return
     const moving =
       !!selection.slotId && activityId !== selection.activityId && !remove
     const source = selection.slotId ? origin.data : query.data
@@ -124,19 +127,14 @@ function OverviewEditorForm({
         setConfirm("remove")
         return
       }
-      plan = {
-        ...plan,
-        slots: plan.slots.map((s) =>
-          s.id === selection.slotId
-            ? {
-                ...s,
-                memberIds: s.memberIds.filter(
-                  (id) => id !== selection.memberId
-                ),
-              }
-            : s
-        ),
-      }
+      if (selection.slotId)
+        plan = removeAssignments(plan, [
+          {
+            activityId: source.activity.id,
+            slotId: selection.slotId,
+            memberId: selection.memberId,
+          },
+        ])
     } else {
       const value = {
         ...selection,
@@ -320,7 +318,7 @@ function OverviewEditorForm({
             <Button
               variant="outline"
               size="sm"
-              disabled={!changed}
+              disabled={unchangedEdit}
               onClick={onClose}
             >
               キャンセル
@@ -329,7 +327,10 @@ function OverviewEditorForm({
               variant="outline"
               size="sm"
               disabled={
-                !changed || query.isFetching || query.isError || !query.data
+                unchangedEdit ||
+                query.isFetching ||
+                query.isError ||
+                !query.data
               }
               onClick={() => apply()}
             >
