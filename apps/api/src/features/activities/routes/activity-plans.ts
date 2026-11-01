@@ -75,29 +75,12 @@ activityPlansApp.put(
             item.input.releasedAssignments?.some(
               (entry) => entry.slotId === slot.id && entry.memberId === memberId
             ) ?? false
-          if (
-            !released &&
-            (Date.parse(slot.endsAt) <= Date.now() ||
-              item.current.assignmentStates.some(
-                (state) =>
-                  state.slotId === slot.id &&
-                  state.memberId === memberId &&
-                  state.recorded
-              ))
-          )
-            return apiError(c, errors.assignmentTransferBlocked)
-          // Recheck in the same transaction, before cancellation, including attendance written after the read.
           guards.push(
             db
               .prepare(`INSERT INTO activity_history(id,activity_id,actor_id,"before","after",created_at)
         VALUES (?,?,?,CASE WHEN EXISTS(
           SELECT 1 FROM (${activityPlanningAssignments}) a JOIN shift_slots s ON s.id=a.slotId
           WHERE a.slotId=? AND a.memberId=? AND s.deleted=0
-          AND (?=1 OR (
-            s.ends_at>CAST((julianday('now')-2440587.5)*86400000 AS INTEGER)
-            AND NOT EXISTS(SELECT 1 FROM assignment_attendance WHERE assignment_id=a.id)
-            AND NOT EXISTS(SELECT 1 FROM assignment_attendance_events WHERE assignment_id=a.id)
-          ))
         ) THEN ? ELSE NULL END,?,?)`)
               .bind(
                 crypto.randomUUID(),
@@ -107,7 +90,6 @@ activityPlansApp.put(
                 item.id,
                 slot.id,
                 memberId,
-                released ? 1 : 0,
                 JSON.stringify({ slotId: slot.id, memberId, released }),
                 JSON.stringify({ transferTo: destination.id }),
                 Date.now()

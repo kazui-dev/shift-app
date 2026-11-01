@@ -1,7 +1,10 @@
 import { expect, it, vi } from "vite-plus/test"
 import { makeEditors } from "../../../../dev/fixtures"
 import { planOf } from "./use-shift-plan"
-import { transferAssignment, transferBlocked } from "./transfer-assignment"
+import {
+  transferAssignment,
+  assignmentEditWarning,
+} from "./transfer-assignment"
 
 it("moves only the selected member, keeps the time, and preserves existing drafts", () => {
   vi.spyOn(Date, "now").mockReturnValue(0)
@@ -37,7 +40,7 @@ it("moves only the selected member, keeps the time, and preserves existing draft
   }
 })
 
-it("uses the saved end time and refuses missing or recorded attendance state", () => {
+it("warns using saved end time and recorded attendance without blocking changes", () => {
   const source = makeEditors()[0],
     slot = source?.slots[0],
     memberId = slot?.memberIds[0]
@@ -48,13 +51,15 @@ it("uses the saved end time and refuses missing or recorded attendance state", (
     memberId,
     endsAt: "2099-01-01T00:00:00.000Z",
   }
-  expect(transferBlocked(source, value, 0)).toBe(false)
-  expect(transferBlocked(source, value, Date.parse(slot.endsAt))).toBe(true)
-  expect(transferBlocked({ ...source, assignmentStates: [] }, value, 0)).toBe(
-    true
-  )
+  expect(assignmentEditWarning(source, value, 0)).toBeNull()
   expect(
-    transferBlocked(
+    assignmentEditWarning(source, value, Date.parse(slot.endsAt))
+  ).toContain("終了済み")
+  expect(
+    assignmentEditWarning({ ...source, assignmentStates: [] }, value, 0)
+  ).toBeNull()
+  expect(
+    assignmentEditWarning(
       {
         ...source,
         assignmentStates: [{ slotId: slot.id, memberId, recorded: true }],
@@ -62,5 +67,33 @@ it("uses the saved end time and refuses missing or recorded attendance state", (
       value,
       0
     )
-  ).toBe(true)
+  ).toContain("勤怠記録")
 })
+
+it.each([false, true])(
+  "allows moving recorded work even when ended=%s",
+  (ended) => {
+    vi.spyOn(Date, "now").mockReturnValue(
+      ended ? Date.parse("2099-01-01T00:00:00Z") : 0
+    )
+    try {
+      const [source, target] = makeEditors()
+      const slot = source?.slots[0],
+        memberId = slot?.memberIds[0]
+      if (!source || !target || !slot || !memberId) throw new Error("fixture")
+      const recorded = {
+        ...source,
+        assignmentStates: [{ slotId: slot.id, memberId, recorded: true }],
+      }
+      const value = { ...slot, slotId: slot.id, memberId }
+      expect(assignmentEditWarning(recorded, value)).toContain(
+        ended ? "終了済み・勤怠記録" : "勤怠記録"
+      )
+      expect(transferAssignment(recorded, target, {}, value)).toHaveProperty(
+        "updates"
+      )
+    } finally {
+      vi.restoreAllMocks()
+    }
+  }
+)

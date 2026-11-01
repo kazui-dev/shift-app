@@ -1,3 +1,4 @@
+import { AssignmentEditWarning } from "./assignment-edit-warning"
 import { removeAssignments } from "./assignment-removal"
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
@@ -19,7 +20,10 @@ import { activityQuery } from "../data/activities"
 import { planOf } from "./use-shift-plan"
 import { assignMember } from "./assign-member"
 import type { OverviewDrafts } from "./overview-draft"
-import { transferAssignment, transferBlocked } from "./transfer-assignment"
+import {
+  transferAssignment,
+  assignmentEditWarning,
+} from "./transfer-assignment"
 import type { OverviewSelection } from "./overview-model"
 
 export function OverviewEditor({
@@ -235,16 +239,18 @@ function OverviewEditorForm({
         </Button>
       </div>
       <div className="space-y-4">
+        <AssignmentEditWarning
+          message={
+            origin.data ? assignmentEditWarning(origin.data, selection) : null
+          }
+        />
         <div className="block space-y-2 text-sm">
           シフト
           <SelectField
             searchable
             aria-label="追加するシフト"
             value={activityId}
-            disabled={
-              !!selection.slotId &&
-              (!origin.data || transferBlocked(origin.data, selection))
-            }
+            disabled={!!selection.slotId && !origin.data}
             options={[
               { value: "", label: "シフトを選択" },
               ...data.activities.map((a) => ({
